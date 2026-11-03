@@ -18,6 +18,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final loaded = await load();
   final last = loaded.sessions.sessions.firstOrNull;
+  // The splash window shows until the first frame is drawn.
+  WidgetsBinding.instance.addPostFrameCallback((_) => NotifyService.ready());
   runApp(
     MultiProvider(
       providers: providers(loaded),

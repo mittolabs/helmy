@@ -33,6 +33,17 @@ class NotifyService {
 
   Future<void> badge(int count) => _call('badge', {'count': count});
 
+  /// Tells macOS the app has drawn its first frame, so the splash window
+  /// hands over to the main one.
+  /// Static, so calling it never takes over the channel's handler.
+  static Future<void> ready() async {
+    try {
+      await _channel.invokeMethod<void>('ready');
+    } on Object {
+      // Not on macOS, or in a test: there is no splash to dismiss.
+    }
+  }
+
   Future<void> _call(String method, Map<String, Object?> args) async {
     try {
       await _channel.invokeMethod<void>(method, args);

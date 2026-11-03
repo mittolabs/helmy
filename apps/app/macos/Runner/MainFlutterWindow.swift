@@ -20,6 +20,15 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
     Notifier.shared.attach(to: flutterViewController.engine.binaryMessenger)
 
+    // Hidden behind the splash until Flutter has drawn its first frame.
+    self.alphaValue = 0
+    Splash.shared.show(then: { [weak self] in
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0.25
+        self?.animator().alphaValue = 1
+      }
+    })
+
     super.awakeFromNib()
   }
 
@@ -35,6 +44,116 @@ class MainFlutterWindow: NSWindow {
 }
 
 
+/// The window Helmy shows while it starts, before Flutter has drawn anything:
+/// Helmy dreaming on a card, breathing, with its name. It follows the theme
+/// set in Helmy (read from its settings, since Dart is not running yet), stays
+/// at least a second so it never just flickers, and fades out when Dart says
+/// it is ready, or after a while regardless.
+final class Splash {
+  static let shared = Splash()
+  private var window: NSWindow?
+  private var shownAt = Date()
+  private var done: (() -> Void)?
+
+  func show(then: @escaping () -> Void) {
+    done = then
+    let dark = Splash.isDark()
+    let size = NSSize(width: 320, height: 380)
+    let w = NSWindow(
+      contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
+      backing: .buffered, defer: false)
+    w.isOpaque = false
+    w.backgroundColor = .clear
+    w.hasShadow = true
+    w.level = .floating
+    w.isReleasedWhenClosed = false
+
+    let card = NSView(frame: NSRect(origin: .zero, size: size))
+    card.wantsLayer = true
+    card.layer?.cornerRadius = 28
+    card.layer?.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
+    card.layer?.borderWidth = 0.5
+    card.layer?.borderColor = NSColor(white: dark ? 1 : 0, alpha: 0.12).cgColor
+
+    let side: CGFloat = 220
+    let picture = NSImageView(
+      frame: NSRect(x: (size.width - side) / 2, y: 120, width: side, height: side))
+    picture.image = NSImage(named: "SplashHelmy")
+    picture.imageScaling = .scaleProportionallyUpOrDown
+    picture.wantsLayer = true
+    card.addSubview(picture)
+
+    let ink = dark ? NSColor.white : NSColor.black
+    let name = NSTextField(labelWithString: "Helmy")
+    name.font = .systemFont(ofSize: 22, weight: .semibold)
+    name.textColor = ink
+    name.alignment = .center
+    name.frame = NSRect(x: 0, y: 70, width: size.width, height: 30)
+    card.addSubview(name)
+
+    let tagline = NSTextField(labelWithString: "Dream it, do it.")
+    tagline.font = .systemFont(ofSize: 13)
+    tagline.textColor = ink.withAlphaComponent(0.55)
+    tagline.alignment = .center
+    tagline.frame = NSRect(x: 0, y: 46, width: size.width, height: 20)
+    card.addSubview(tagline)
+
+    w.contentView = card
+    w.center()
+    w.orderFrontRegardless()
+    window = w
+    shownAt = Date()
+
+    // Breathing: a slow rise and fall, scaled from the picture's middle.
+    if let layer = picture.layer {
+      let frame = layer.frame
+      layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+      layer.frame = frame
+      let breathe = CABasicAnimation(keyPath: "transform.scale")
+      breathe.fromValue = 1.0
+      breathe.toValue = 1.035
+      breathe.duration = 1.6
+      breathe.autoreverses = true
+      breathe.repeatCount = .infinity
+      breathe.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      layer.add(breathe, forKey: "breathe")
+    }
+
+    // If Dart never says it is ready, the app still shows.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.finish() }
+  }
+
+  /// Dart is ready: fade out, at least a second after showing.
+  func finish() {
+    guard let w = window else { return }
+    window = nil
+    let wait = max(0, 1.0 - Date().timeIntervalSince(shownAt))
+    DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+      self?.done?()
+      self?.done = nil
+      NSAnimationContext.runAnimationGroup({ context in
+        context.duration = 0.3
+        w.animator().alphaValue = 0
+      }, completionHandler: { w.close() })
+    }
+  }
+
+  /// The theme set in Helmy: light, dark, or the system's.
+  private static func isDark() -> Bool {
+    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+      .first?.appendingPathComponent(Bundle.main.bundleIdentifier ?? "")
+      .appendingPathComponent("settings.json")
+    if let url = support, let data = try? Data(contentsOf: url),
+      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let theme = json["theme"] as? String
+    {
+      if theme == "light" { return false }
+      if theme == "dark" { return true }
+    }
+    return NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+  }
+}
+
 /// Notifications and the dock badge for the Dart side, over "helmy/notify".
 /// A click on a notification brings the app forward and tells Dart which
 /// session it was about.
@@ -49,6 +168,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     channel.setMethodCallHandler { [weak self] call, result in
       let args = call.arguments as? [String: Any] ?? [:]
       switch call.method {
+      case "ready":
+        Splash.shared.finish()
+        result(nil)
       case "notify":
         self?.post(
           title: args["title"] as? String ?? "",
