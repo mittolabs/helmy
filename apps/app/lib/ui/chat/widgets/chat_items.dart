@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import '../../../domain/helmy_voice.dart';
+
 import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
@@ -113,7 +116,7 @@ List<ChatRow> buildRows(ChatViewModel vm) {
         rows.add((id: i, anchor: false, child: _Tasks(list)));
       case TurnSummary s:
         if (!s.ok) {
-          rows.add((id: i, anchor: false, child: _Notice(s.error ?? 'Something went wrong')));
+          rows.add((id: i, anchor: false, child: _Notice(inHelmysWords(s.error))));
         }
         if (ask != null) {
           rows.add((
@@ -432,7 +435,7 @@ String stepTitle(ToolCall call, {required bool done}) {
     'Task' || 'Agent' => pick('Asked a helper', 'Asking a helper'),
     'TodoWrite' => pick('Updated the plan', 'Updating the plan'),
     'ImageGeneration' => pick('Made an image', 'Making an image'),
-    _ => pick('Used ${call.name}', 'Using ${call.name}'),
+    _ => pick('Used ${toolLabel(call.name)}', 'Using ${toolLabel(call.name)}'),
   };
 }
 
@@ -1024,7 +1027,7 @@ class BackgroundOutputState extends State<BackgroundOutput> {
             task.status == .running
                 ? 'Nothing printed yet.'
                 : widget.file == null
-                ? 'The agent did not say where its output went.'
+                ? 'Where its output went is not known.'
                 : 'No output to show. It may have been cleared away.',
             style: t.text.xs.copyWith(color: t.colors.mutedForeground),
           ),
@@ -1142,7 +1145,7 @@ class _Step extends StatelessWidget {
             else if (_markdownOf(call) case final md?)
               _MarkdownResult(md)
             else if (call.result != null && call.result!.isNotEmpty && diffsOf(call).isEmpty)
-              _Code(call.result!, error: call.isError),
+              _Code(stepResult(call.result!), error: call.isError),
           ],
         ),
       ),

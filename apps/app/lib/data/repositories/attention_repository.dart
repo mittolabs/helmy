@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../../domain/helmy_voice.dart';
+
 import 'package:flutter/widgets.dart';
 
 import '../../domain/models/chat_item.dart';
@@ -103,7 +105,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
 
   static String _short(ChatItem? item) {
     final text = switch (item) {
-      TurnSummary(:final error) => error ?? 'something went wrong',
+      TurnSummary(:final error) => inHelmysWords(error),
       Notice(:final text) => text,
       _ => 'something went wrong',
     };

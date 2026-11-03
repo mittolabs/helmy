@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../../domain/helmy_voice.dart';
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
@@ -127,7 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final all = await vm.commands();
       next = [
         for (final c in all.where((c) => c.name.startsWith(typed)).take(8))
-          (label: '/${c.name}', detail: c.description, insert: '/${c.name} '),
+          (label: '/${c.name}', detail: withoutNames(c.description), insert: '/${c.name} '),
       ];
     } else if (mention != null) {
       final typed = mention.group(1)!;
@@ -381,7 +383,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             Tooltip(
                               message: vm.busy
                                   ? 'Wait for the turn to end to change this'
-                                  : 'What the agent may do without asking',
+                                  : 'What Helmy may do without asking',
                               child: _LevelChip(vm: vm, level: session.level),
                             ),
                           ],
@@ -449,7 +451,7 @@ class _Queue extends StatelessWidget {
                     style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                   ),
                   Tooltip(
-                    message: 'Send now: the agent stops and takes this up instead (⇧⌘Enter)',
+                    message: 'Send now: Helmy stops and takes this up instead (⇧⌘Enter)',
                     child: Button(
                       variant: .ghost,
                       size: .sm,
@@ -832,8 +834,8 @@ class _Header extends StatelessWidget {
           if (vm.context case final ctx?)
             Tooltip(
               message:
-                  '${(ctx.used / 1000).round()}k of ${(ctx.window / 1000).round()}k tokens, as the '
-                  'agent last reported. Compact from the menu to free some.',
+                  '${(ctx.used / 1000).round()}k of ${(ctx.window / 1000).round()}k tokens, as last measured. '
+                  'Compact from the menu to free some.',
               child: Text('Context ${(ctx.fraction * 100).round()}%', style: muted),
             ),
           for (final p in vm.panels)

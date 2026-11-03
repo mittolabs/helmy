@@ -344,7 +344,7 @@ class _TaskEditorState extends State<_TaskEditor> {
               controller: _prompt,
               minLines: 3,
               maxLines: 8,
-              placeholder: 'What the agent is asked each time',
+              placeholder: 'What Helmy is asked each time',
             ),
           ),
           Row(
@@ -462,7 +462,7 @@ class _TaskEditorState extends State<_TaskEditor> {
               ),
               Expanded(
                 child: field(
-                  'The agent may',
+                  'Helmy may',
                   Select<PermissionLevel>(
                     value: _level,
                     options: [for (final l in PermissionLevel.values) SelectOption(l, l.label)],

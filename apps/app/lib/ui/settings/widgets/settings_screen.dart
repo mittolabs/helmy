@@ -116,7 +116,7 @@ class _Nav extends StatelessWidget {
           crossAxisAlignment: .stretch,
           children: [
             item(.general, AshlarIconsRoundedStroke.settings, 'General'),
-            item(.agents, AshlarIconsRoundedStroke.bot, 'Agents and usage'),
+            item(.agents, AshlarIconsRoundedStroke.bot, 'Connections and usage'),
             item(.tools, AshlarIconsRoundedStroke.wrench, 'Skills and tools'),
             item(.memory, AshlarIconsRoundedStroke.brain, 'Memory'),
             item(.data, AshlarIconsRoundedStroke.database, 'Data and storage'),

@@ -133,13 +133,13 @@ class _ChangesPanelState extends State<ChangesPanel> {
             child: Text(
               vm.changesScope != null
                   ? git
-                        ? "What this one message's turn changed, by an agent's edit or a command."
-                        : "This folder is not a git repository, so these are only the agents' own "
+                        ? "What this one message's turn changed, by Helmy's edits or commands."
+                        : "This folder is not a git repository, so these are only Helmy's own "
                               "edits in this turn."
                   : git
                   ? 'Everything changed in this folder since the session started, by an '
                         "agent's edit or a command."
-                  : "This folder is not a git repository, so these are only the agents' own "
+                  : "This folder is not a git repository, so these are only Helmy's own "
                         'edits. Changes made by commands are not shown.',
               style: muted,
             ),
