@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# Agents
+.claude/
+.codex/
+.agents/
