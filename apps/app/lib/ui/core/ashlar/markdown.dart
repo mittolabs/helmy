@@ -49,7 +49,7 @@ class Markdown extends StatelessWidget {
   /// Called with a link's address when it is tapped; links are drawn as text without it.
   final ValueChanged<String>? onLink;
 
-  /// Draws a code block your way (to colour its words, say); null draws it plainly.
+  /// Draws a code block your way (to color its words, say); null draws it plainly.
   final Widget Function(BuildContext context, String code, String? language)? codeBuilder;
 
   @override
@@ -780,6 +780,16 @@ class _CodeBlock extends StatefulWidget {
 }
 
 class _CodeBlockState extends State<_CodeBlock> {
+  /// The code, colored by the highlighter given above, if any.
+  Widget _codeText(BuildContext context) {
+    final style = widget.style.copyWith(height: 1.55);
+    final span = MarkdownHighlight.of(context)?.call(widget.code, widget.language, style);
+    return Text.rich(
+      span ?? TextSpan(text: widget.code, style: style),
+      textDirection: TextDirection.ltr,
+    );
+  }
+
   bool _copied = false;
 
   Future<void> _copy() async {
@@ -837,24 +847,13 @@ class _CodeBlockState extends State<_CodeBlock> {
             ),
           ),
           if (MarkdownCodeWrap.of(context))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-              child: Text(
-                widget.code,
-                style: widget.style.copyWith(height: 1.55),
-                textDirection: TextDirection.ltr,
-              ),
-            )
+            Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 14), child: _codeText(context))
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: _PassVerticalScroll(
                 padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                child: Text(
-                  widget.code,
-                  style: widget.style.copyWith(height: 1.55),
-                  textDirection: TextDirection.ltr,
-                ),
+                child: _codeText(context),
               ),
             ),
         ],
@@ -951,6 +950,20 @@ class _PassVerticalScroll extends StatelessWidget {
     },
     child: Padding(padding: padding, child: child),
   );
+}
+
+/// Colors the code in code blocks below: given the code, its language (if
+/// the block names one) and the base style, the spans to draw; null leaves
+/// the code plain. The block's frame, header and copy button stay as they are.
+class MarkdownHighlight extends InheritedWidget {
+  const MarkdownHighlight({super.key, required this.highlight, required super.child});
+  final TextSpan? Function(String code, String? language, TextStyle base) highlight;
+
+  static TextSpan? Function(String, String?, TextStyle)? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MarkdownHighlight>()?.highlight;
+
+  @override
+  bool updateShouldNotify(MarkdownHighlight old) => old.highlight != highlight;
 }
 
 /// Whether code blocks below wrap long lines rather than scroll sideways.

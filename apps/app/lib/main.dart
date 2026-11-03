@@ -13,6 +13,8 @@ import 'routing/nav_history.dart';
 import 'ui/core/ashlar/app.dart';
 import 'ui/core/ashlar/app_theme.dart';
 import 'ui/core/ashlar/markdown.dart';
+import 'ui/core/code_highlight.dart';
+import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,7 +88,20 @@ class _HelmyAppState extends State<HelmyApp> {
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(settings.textSize.scale)),
-        child: MarkdownCodeWrap(wrap: settings.wrapCode, child: child!),
+        child: MarkdownCodeWrap(
+          wrap: settings.wrapCode,
+          // Code in answers, plans and notes in syntax colors, in the theme's palette.
+          child: Builder(
+            builder: (context) {
+              final colors = CodeColors.of(context);
+              return MarkdownHighlight(
+                highlight: (code, language, base) =>
+                    CodeHighlighter.spans(code, language, base, colors),
+                child: child!,
+              );
+            },
+          ),
+        ),
       ),
       routerConfig: _router,
     );
