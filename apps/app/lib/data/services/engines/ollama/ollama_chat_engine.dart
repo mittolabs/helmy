@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../../domain/models/chat_item.dart';
 import '../../../../domain/models/engine.dart';
+import '../../../../domain/identity.dart';
 import '../../../../domain/models/memory.dart';
 import '../agent_engine.dart';
 import '../codex/codex_engine.dart';
@@ -148,7 +149,7 @@ class OllamaChatRun implements EngineRun {
           'stream': true,
           'options': {'num_predict': OllamaChatEngine.maxTokens},
           'messages': [
-            {'role': 'system', 'content': OllamaChatEngine.instructions},
+            {'role': 'system', 'content': '$helmyIdentity\n\n${OllamaChatEngine.instructions}'},
             ..._history,
           ],
         }),

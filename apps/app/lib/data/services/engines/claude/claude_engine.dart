@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../../../domain/models/chat_item.dart';
 import '../../../../domain/models/engine.dart';
+import '../../../../domain/identity.dart';
 import '../../../../domain/models/memory.dart';
 import '../../cli_locator.dart';
 import '../agent_engine.dart';
@@ -282,6 +283,8 @@ class ClaudeEngine implements AgentEngine {
       cwd: launch.cwd,
       permissionMode: mode(launch.level),
       resume: launch.resumeId,
+      // Whichever account answers, it answers as Helmy.
+      appendSystemPrompt: helmyIdentity,
     );
     return _ClaudeRun(process, ClaudeReducer(items), launch.resumeId);
   }

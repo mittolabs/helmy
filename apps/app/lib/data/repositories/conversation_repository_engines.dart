@@ -8,6 +8,7 @@ import '../../domain/models/session.dart';
 import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
+import '../../domain/identity.dart';
 import '../services/engines/engine_registry.dart';
 import '../services/engines/ollama/ollama_chat_engine.dart';
 import '../services/engines/engine_router.dart';
@@ -272,8 +273,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
         c.items.add(
           Notice(
             _engines.engines.isEmpty || turn.tried.isEmpty
-                ? 'No agent is available. Install Claude Code or Codex and log in, then try again.'
-                : 'No agent could take this message right now. Try again in a little while.',
+                ? "I can't answer yet: nothing is set up for me to work with. Add a connection in Settings."
+                : "I can't take this message right now. Try again in a little while.",
           ),
         );
         _turns.remove(sessionId);
@@ -505,7 +506,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     if (c.busy) return .error(Exception('Still working'));
     if (engineId == null) return .error(Exception('Nothing to compact yet'));
     final run = await _runFor(session, engineId);
-    if (run == null) return .error(Exception('The agent could not start'));
+    if (run == null) return .error(Exception("I couldn't start on this"));
     c.items.add(Notice('Compacting the conversation to free up context'));
     c.busy = true;
     _turns[session.id] = _Turn('/compact', c.items.length)..engineId = engineId;
@@ -532,7 +533,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       unawaited(_dispatch(sessionId, turn));
     } else {
       // It had started working; running it again elsewhere could do things twice.
-      c.items.add(Notice('The agent stopped partway through. Send the message again to go on.'));
+      c.items.add(Notice('I stopped partway through. Send the message again to go on.'));
       c.busy = false;
       _turns.remove(sessionId);
       _persist(sessionId);
@@ -627,6 +628,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
   }
 
   static const _explainer =
+      '$helmyIdentity\n\n'
       'You explain shell commands to a developer in plain words: first what the whole '
       'command does, then each part in one short line as a Markdown list. Mention anything '
       'risky. No preamble. Under 150 words.';
@@ -662,7 +664,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
       return .ok(answer);
     }
     return .error(
-      Exception('No agent could answer. Check your connection, or set up a local model.'),
+      Exception(
+        "I couldn't explain this right now. Check your connection, or set up a model on this Mac in Settings.",
+      ),
     );
   }
 

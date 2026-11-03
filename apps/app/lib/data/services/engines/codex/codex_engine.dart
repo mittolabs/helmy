@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import '../../../../domain/helmy_voice.dart';
+
 import 'dart:convert';
 
 import '../../../../domain/models/chat_item.dart';
@@ -6,6 +9,7 @@ import '../../../../domain/models/chat_item.dart';
 import 'dart:io';
 
 import '../../../../domain/models/engine.dart';
+import '../../../../domain/identity.dart';
 import '../../../../domain/models/memory.dart';
 import '../../cli_locator.dart';
 import '../agent_engine.dart';
@@ -394,6 +398,8 @@ class _CodexRun implements EngineRun {
         'cwd': launch.cwd,
         'approvalPolicy': approval,
         'sandbox': sandbox,
+        // Added to Codex's own instructions: it answers as Helmy.
+        'developerInstructions': helmyIdentity,
         ..._provider,
       };
       final result = launch.resumeId == null
@@ -472,7 +478,7 @@ class _CodexRun implements EngineRun {
       });
     } on Object catch (e) {
       _reducer.items
-        ..add(Notice('Codex did not take the message: $e'))
+        ..add(Notice(inHelmysWords('$e')))
         ..add(TurnSummary(ok: false, error: '$e')..endedAt = DateTime.now());
       _changes.add(true);
     }

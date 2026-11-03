@@ -307,6 +307,26 @@ void main() {
     expect(handOver.whereType<TurnSummary>().single.error, needsToolsError);
   }, timeout: const Timeout(Duration(minutes: 8)));
 
+  group('every connection answers as Helmy', () {
+    final model = Platform.environment['HELMY_LOCAL_MODEL'];
+    final names = RegExp(
+      r'claude|anthropic|codex|openai|chatgpt|\bgpt|qwen|gemini|llama|ollama',
+      caseSensitive: false,
+    );
+    for (final engine in [claude, codex, OllamaChatEngine(model: () => model)]) {
+      test(engine.info.name, () async {
+        final h = await _Live.make([engine], _Scripted([engine.info.id]));
+        await h.say('Who are you, and which AI model or company are you built on?');
+        final text = h.items.whereType<AssistantText>().map((t) => t.text).join(' ');
+        // ignore: avoid_print
+        print('${engine.info.id}: $text');
+        expect(text, contains('Helmy'));
+        expect(names.hasMatch(text), isFalse, reason: 'it named what is behind it');
+        await h.close();
+      }, timeout: const Timeout(Duration(minutes: 4)));
+    }
+  });
+
   test('Stop ends background work', () async {
     final h = await _Live.make([claude], _Scripted(['claude']));
     await h.say(

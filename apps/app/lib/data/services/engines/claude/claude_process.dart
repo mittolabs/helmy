@@ -29,6 +29,7 @@ class ClaudeProcess {
     required String permissionMode,
     String? resume,
     String? model,
+    String? appendSystemPrompt,
   }) async {
     final process = await Process.start(
       binary,
@@ -44,6 +45,7 @@ class ClaudeProcess {
         '--allow-dangerously-skip-permissions',
         if (resume != null) ...['--resume', resume],
         if (model != null) ...['--model', model],
+        if (appendSystemPrompt != null) ...['--append-system-prompt', appendSystemPrompt],
       ],
       workingDirectory: cwd,
       environment: environment,
