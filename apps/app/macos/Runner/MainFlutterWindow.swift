@@ -47,10 +47,13 @@ class MainFlutterWindow: NSWindow {
 /// The window Helmy shows while it starts, before Flutter has drawn anything:
 /// Helmy dreaming on a card, breathing, with its name. It follows the theme
 /// set in Helmy (read from its settings, since Dart is not running yet), stays
-/// at least a second so it never just flickers, and fades out when Dart says
+/// at least two seconds so it never just flickers, and fades out when Dart says
 /// it is ready, or after a while regardless.
 final class Splash {
   static let shared = Splash()
+
+  /// Long enough to see Helmy and one slow breath, so it never just flickers.
+  static let minimum: TimeInterval = 2.0
   private var window: NSWindow?
   private var shownAt = Date()
   private var done: (() -> Void)?
@@ -123,16 +126,16 @@ final class Splash {
     DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.finish() }
   }
 
-  /// Dart is ready: fade out, at least a second after showing.
+  /// Dart is ready: fade out, no sooner than [minimum] after showing.
   func finish() {
     guard let w = window else { return }
     window = nil
-    let wait = max(0, 1.0 - Date().timeIntervalSince(shownAt))
+    let wait = max(0, Splash.minimum - Date().timeIntervalSince(shownAt))
     DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
       self?.done?()
       self?.done = nil
       NSAnimationContext.runAnimationGroup({ context in
-        context.duration = 0.3
+        context.duration = 0.4
         w.animator().alphaValue = 0
       }, completionHandler: { w.close() })
     }
