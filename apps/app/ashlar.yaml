@@ -1,0 +1,5 @@
+# Ashlar UI: where components go and how they look. ashlar init and apply
+# change these, and so can you.
+path: lib/ui/core/ashlar
+base: neutral
+style: standard

@@ -1,0 +1,20 @@
+# fvm's cache of the SDK
+.fvm/
+
+# Dart and Flutter
+.dart_tool/
+.flutter-plugins-dependencies
+build/
+*.iml
+.idea/
+
+# macOS build products Flutter writes
+macos/Flutter/ephemeral/
+macos/Pods/
+macos/**/xcuserdata/
+
+# Ashlar's screenshot cache
+.ashlar/shot/
+.ashlar/shots/
+
+.DS_Store
