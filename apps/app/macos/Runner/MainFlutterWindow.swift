@@ -47,13 +47,13 @@ class MainFlutterWindow: NSWindow {
 /// The window Helmy shows while it starts, before Flutter has drawn anything:
 /// Helmy dreaming on a card, breathing, with its name. It follows the theme
 /// set in Helmy (read from its settings, since Dart is not running yet), stays
-/// at least two seconds so it never just flickers, and fades out when Dart says
+/// at least four seconds, and fades out when Dart says
 /// it is ready, or after a while regardless.
 final class Splash {
   static let shared = Splash()
 
-  /// Long enough to see Helmy and one slow breath, so it never just flickers.
-  static let minimum: TimeInterval = 2.0
+  /// Long enough to see Helmy breathe a little: the owner's choice.
+  static let minimum: TimeInterval = 4.0
   private var window: NSWindow?
   private var shownAt = Date()
   private var done: (() -> Void)?
