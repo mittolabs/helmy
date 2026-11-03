@@ -75,11 +75,8 @@ class ClaudeProcess {
     'session_id': '',
   });
 
-  void sendControl(Map<String, Object?> request) => _write({
-    'type': 'control_request',
-    'request_id': 'helmy-${++_requests}',
-    'request': request,
-  });
+  void sendControl(Map<String, Object?> request) =>
+      _write({'type': 'control_request', 'request_id': 'helmy-${++_requests}', 'request': request});
 
   void respond(String requestId, Map<String, Object?> response) => _write({
     'type': 'control_response',

@@ -106,8 +106,7 @@ class ChatViewModel extends ChangeNotifier {
 
   /// A picture on the clipboard, attached; false when there is none.
   Future<bool> pasteImage(Future<String?> Function(String path) paste) async {
-    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')
-      ..createSync(recursive: true);
+    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
     final path = await paste('${dir.path}/pasted-${DateTime.now().millisecondsSinceEpoch}.png');
     if (path == null) return false;
     attach([path]);

@@ -85,7 +85,7 @@ class HelmyDialog extends StatelessWidget {
 }
 
 /// An answer at the foot of a [HelmyDialog]: the main one filled, the other
-/// plain, a destructive one in a soft tint of the danger colour rather than a
+/// plain, a destructive one in a soft tint of the danger color rather than a
 /// block of it.
 class DialogButton extends StatelessWidget {
   const new(
