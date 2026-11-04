@@ -62,8 +62,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Archived'));
     await tester.pumpAndSettle();
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     expect(settings.settings.show, ShowSessions.archived);
-    await tester.runAsync(() => root.delete(recursive: true));
+    // The save lands before the folder goes: deleting under it failed the
+    // test when the suite ran loaded (2026-11-04), a 50 ms wait not enough.
+    await tester.runAsync(() => deleteFolder(root));
   });
 }

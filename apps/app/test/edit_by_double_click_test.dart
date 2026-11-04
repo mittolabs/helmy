@@ -9,7 +9,6 @@ import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
@@ -19,12 +18,14 @@ import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/ui/core/ashlar/selection.dart';
 import 'package:helmy/utils/result.dart';
 
+import 'support/storage.dart';
+
 /// Double-clicking your own message opens it to edit, inside the selectable
 /// conversation, whose text selection also wants double-clicks.
 void main() {
   testWidgets('double-clicking a message of yours opens it to edit', (tester) async {
     final root = Directory.systemTemp.createTempSync('dblclick');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(
@@ -97,7 +98,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(EditableText), 'Hello again');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    for (var i = 0; i < 20 && (vm.items.isEmpty || vm.busy); i++) {
+    // Up to 5 s: a second was not enough with the suite running loaded.
+    for (var i = 0; i < 100 && (vm.items.isEmpty || vm.busy); i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
@@ -107,6 +109,6 @@ void main() {
 
     vm.dispose();
     repo.dispose();
-    await tester.runAsync(() => root.delete(recursive: true));
+    await tester.runAsync(() => deleteFolder(root));
   });
 }

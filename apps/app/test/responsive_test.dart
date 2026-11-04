@@ -243,7 +243,7 @@ void main() {
     chat.dispose();
     sidebar.dispose();
     repo.dispose();
-    await tester.runAsync(() => root.delete(recursive: true));
+    await tester.runAsync(() => deleteFolder(root));
     FlutterError.onError = previous;
     expect(overflows.toSet().toList(), isEmpty);
   });

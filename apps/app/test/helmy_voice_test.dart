@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/helmy_voice.dart';
 import 'package:helmy/domain/identity.dart';
 import 'package:helmy/domain/problem.dart';
@@ -19,6 +18,8 @@ import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/ui/chat/widgets/chat_items.dart';
 import 'package:helmy/ui/core/ashlar/app.dart';
 import 'package:helmy/utils/result.dart';
+
+import 'support/storage.dart';
 
 final _names = RegExp(
   r'claude|anthropic|codex|openai|chatgpt|ollama|qwen|mcp__',
@@ -81,7 +82,7 @@ void main() {
     tester,
   ) async {
     final root = Directory.systemTemp.createTempSync('voice');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(
@@ -145,6 +146,6 @@ void main() {
     expect(_names.hasMatch(shown), isFalse, reason: shown);
     vm.dispose();
     repo.dispose();
-    await tester.runAsync(() => root.delete(recursive: true));
+    await tester.runAsync(() => deleteFolder(root));
   });
 }

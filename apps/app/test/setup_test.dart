@@ -100,7 +100,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(settings.settings.setupDone, isTrue);
       expect(find.text('home'), findsOneWidget);
-      await tester.runAsync(() => root.delete(recursive: true));
+      await tester.runAsync(() => deleteFolder(root));
     },
   );
 
