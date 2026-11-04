@@ -97,9 +97,12 @@ class EditorService {
     }
   }();
 
-  /// Opens [folder] in [editor]: an IDE opens the project in it it knows.
+  /// Opens [folder] (or a file) in [editor]: an IDE opens the project in it
+  /// it knows.
   Future<bool> open(Editor editor, String folder) async {
-    final target = editor.kind == .ide ? ideProject(editor.id, folder) ?? folder : folder;
+    final target = editor.kind == .ide && Directory(folder).existsSync()
+        ? ideProject(editor.id, folder) ?? folder
+        : folder;
     try {
       final r = await Process.run('/usr/bin/open', ['-a', editor.path, target]);
       return r.exitCode == 0;

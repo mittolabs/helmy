@@ -52,6 +52,7 @@ class _SidePanelsState extends State<_SidePanels> {
 (String, IconData) _kindOf(SidePanel kind) => switch (kind) {
   .preview => ('Browser', AshlarIconsRoundedStroke.globe),
   .terminal => ('Terminal', AshlarIconsRoundedStroke.squareTerminal),
+  .files => ('Files', AshlarIconsRoundedStroke.files),
   .changes => ('Changes', AshlarIconsRoundedStroke.fileDiff),
   .ship => ('Pull request', AshlarIconsRoundedStroke.gitPullRequest),
   .device => ('Device', AshlarIconsRoundedStroke.smartphone),
@@ -198,6 +199,7 @@ class _Panel extends StatelessWidget {
                       onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
                     ),
                     .device => DevicePanel(vm: vm),
+                    .files => FilesPanel(vm: vm, active: tab == active && vm.panelOpen),
                   },
                 ),
             ],

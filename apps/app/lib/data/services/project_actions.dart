@@ -32,7 +32,18 @@ bool _has(String path) => FileSystemEntity.typeSync(path) != FileSystemEntityTyp
 
 /// The scripts people run most, first, in this order; then the rest as the
 /// file lists them.
-const _first = ['dev', 'start', 'run', 'serve', 'preview', 'test', 'build', 'lint', 'typecheck', 'check'];
+const _first = [
+  'dev',
+  'start',
+  'run',
+  'serve',
+  'preview',
+  'test',
+  'build',
+  'lint',
+  'typecheck',
+  'check',
+];
 
 /// Ordered with the usual names first.
 List<String> _ordered(Iterable<String> names) {

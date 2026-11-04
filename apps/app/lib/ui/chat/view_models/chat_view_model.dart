@@ -39,7 +39,7 @@ import '../../../domain/models/settings.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview, terminal, ship, device }
+enum SidePanel { changes, background, preview, terminal, files, ship, device }
 
 /// One tab in the panel beside the conversation: what it shows, and for a
 /// browser tab, where it is.
@@ -532,11 +532,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
-  /// Opens the project in [app] (else the usual one), which becomes the
-  /// usual one; false when it could not open.
-  Future<bool> openIn([Editor? app]) async {
+  /// Opens the project (or the file at [path] in it) in [app], else the
+  /// usual one; a chosen app becomes the usual one. False when it could not.
+  Future<bool> openIn([Editor? app, String? path]) async {
     final e = app ?? editor;
-    final folder = session?.cwd;
+    final folder = path ?? session?.cwd;
     if (e == null || folder == null || _editors == null) return false;
     if (app != null && app.id != _settings?.settings.editor) {
       final s = _settings;
@@ -620,6 +620,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     // (Only where there is a web view to show it in.)
     if (webViewHere) .preview,
     .terminal,
+    .files,
     .changes,
     if (inRepo) .ship,
     if (device != null) .device,
@@ -755,6 +756,14 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// Counts requests to put the cursor in the message box.
   final focusRequests = ValueNotifier(0);
+
+  /// Text to put in the message being written, at its cursor: a file to ask
+  /// about, "@lib/main.dart". Taken (set back to null) by the composer.
+  final draftInserts = ValueNotifier<String?>(null);
+
+  /// Puts [path] (relative to the session's folder) in the message as an @
+  /// mention, and the cursor after it.
+  void mention(String path) => draftInserts.value = '@$path ';
 
   /// Starts a message that changes the picture at [path]: it goes with the
   /// message, and the message goes to an agent that makes pictures.
@@ -997,6 +1006,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     browser?.deviceOpener(sessionId, null);
     device?.dispose();
     focusRequests.dispose();
+    draftInserts.dispose();
     _sessions.removeListener(notifyListeners);
     _sessions.removeListener(_findRepoLater);
     _conversations.removeListener(notifyListeners);

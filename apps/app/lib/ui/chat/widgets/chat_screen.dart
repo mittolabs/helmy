@@ -39,6 +39,7 @@ import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
+import 'files_panel.dart';
 import 'preview_panel.dart';
 import 'project_menu.dart';
 import 'ship_panel.dart';
@@ -128,6 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     vm.focusRequests.addListener(_focus);
+    vm.draftInserts.addListener(_insert);
     _text.addListener(_suggest);
   }
 
@@ -264,9 +266,28 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _focus() => _composer.requestFocus();
 
+  /// Text asked to go into the message (a file mentioned from the Files
+  /// tab): at the cursor, a space before it if it would join a word.
+  void _insert() {
+    final add = vm.draftInserts.value;
+    if (add == null) return;
+    vm.draftInserts.value = null;
+    final text = _text.text;
+    final at = _text.selection.isValid ? _text.selection.start : text.length;
+    final gap = at > 0 && !RegExp(r'\s').hasMatch(text[at - 1]) ? ' ' : '';
+    final next =
+        '${text.substring(0, at)}$gap$add${text.substring(_text.selection.isValid ? _text.selection.end : at)}';
+    _text.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: at + gap.length + add.length),
+    );
+    _composer.requestFocus();
+  }
+
   @override
   void dispose() {
     vm.focusRequests.removeListener(_focus);
+    vm.draftInserts.removeListener(_insert);
     _composer.dispose();
     _text.dispose();
     _find.dispose();
