@@ -67,7 +67,7 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
         ]),
       CommandGroup(heading: 'Actions', [
         CommandItem(
-          'New session',
+          'New chat',
           leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
           shortcut: Desktop.current.keys('⌘N'),
           onSelected: () => newSession(context, vm),
@@ -93,7 +93,7 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
           onSelected: () => openSettings(router, SettingsSection.agents),
         ),
       ]),
-      CommandGroup(heading: 'Sessions', [
+      CommandGroup(heading: 'Threads', [
         for (final (s, text) in index)
           CommandItem(
             s.archived ? '${s.title} (archived)' : s.title,

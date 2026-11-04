@@ -18,6 +18,11 @@ import '../../../utils/diffs.dart';
 
 import 'dart:async';
 
+import '../../../data/repositories/chat_repository.dart';
+import '../../../data/services/turn_log.dart';
+import '../../../domain/filing.dart';
+import '../../../domain/models/chat.dart';
+
 enum SessionActivity { idle, working, needsYou, unread }
 
 class SidebarViewModel extends ChangeNotifier {
@@ -27,6 +32,8 @@ class SidebarViewModel extends ChangeNotifier {
     required this._settings,
     this._attention,
     this._projects,
+    this._chats,
+    this._log,
     this._fixes,
   }) {
     _attention?.addListener(_onConversations);
@@ -247,6 +254,107 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   SessionActivity activityOf(String id) => _activity[id] ?? .idle;
+
+  // Chats in the list (decision 0014): a chat's threads in a section show as
+  // one row, its threads beneath.
+
+  final ChatRepository? _chats;
+  final TurnLog? _log;
+
+  /// The chats whose threads show beneath their row.
+  final expanded = <String>{};
+
+  void toggleChat(String chatId) {
+    if (!expanded.remove(chatId)) expanded.add(chatId);
+    notifyListeners();
+  }
+
+  /// [sessions] (a section of the list, in its order) with each chat's
+  /// threads together: a chat of one thread is that thread's row; of more,
+  /// a chat row with them beneath, where its first thread was.
+  List<({Chat? chat, List<Session> threads})> entriesOf(List<Session> sessions) {
+    final chats = _chats;
+    if (chats == null) {
+      return [
+        for (final s in sessions) (chat: null, threads: [s]),
+      ];
+    }
+    final byChat = <String, List<Session>>{};
+    for (final s in sessions) {
+      if (s.chatId != null) (byChat[s.chatId!] ??= []).add(s);
+    }
+    final seen = <String>{};
+    return [
+      for (final s in sessions)
+        if (s.chatId == null || (byChat[s.chatId!]?.length ?? 0) < 2)
+          (chat: null, threads: [s])
+        else if (seen.add(s.chatId!))
+          (chat: chats.byId(s.chatId!), threads: byChat[s.chatId!]!),
+    ];
+  }
+
+  /// The busiest of [threads]: one that needs you, else one working, else
+  /// one unread.
+  SessionActivity activityOfAll(List<Session> threads) {
+    final all = [for (final t in threads) activityOf(t.id)];
+    for (final a in [SessionActivity.needsYou, SessionActivity.working, SessionActivity.unread]) {
+      if (all.contains(a)) return a;
+    }
+    return .idle;
+  }
+
+  // The one-time review of earlier threads (decision 0014): those from before
+  // chats each got a chat of their own; ones that seem to belong together are
+  // suggested, never moved unasked.
+
+  /// Threads alone in a chat nobody named that seem to belong in another chat.
+  List<({Session thread, Chat into})> get suggestions {
+    final chats = _chats;
+    if (chats == null || settings.groupingReviewed) return const [];
+    // Worked out again only when threads or chats change: the list redraws often.
+    final key = Object.hashAll([
+      for (final s in _sessions.sessions) Object.hash(s.id, s.chatId, s.title, s.summary),
+      for (final c in chats.chats) Object.hash(c.id, c.title, c.named),
+    ]);
+    if (_suggestionsKey == key) return _suggestions;
+    _suggestionsKey = key;
+    return _suggestions = _suggest(chats);
+  }
+
+  int? _suggestionsKey;
+  List<({Session thread, Chat into})> _suggestions = const [];
+
+  List<({Session thread, Chat into})> _suggest(ChatRepository chats) {
+    final out = <({Session thread, Chat into})>[];
+    final moved = <String>{};
+    for (final c in chats.chats) {
+      final threads = chats.threadsOf(c.id);
+      if (c.named || threads.length != 1) continue;
+      final t = threads.single;
+      final f = file('${t.title}. ${t.summary ?? ''}', chats.cards(except: c.id));
+      if (f.kind != .file || f.best == null) continue;
+      // Two threads that point at each other: the newer goes to the older.
+      if (moved.contains(f.best)) continue;
+      final into = chats.byId(f.best!);
+      if (into == null) continue;
+      out.add((thread: t, into: into));
+      moved.add(c.id);
+    }
+    return out;
+  }
+
+  /// Moves the chosen suggestions; the review is done either way.
+  Future<void> applySuggestions(List<({Session thread, Chat into})> chosen) async {
+    final chats = _chats;
+    if (chats != null) {
+      for (final s in chosen) {
+        final from = s.thread.chatId;
+        await chats.move(s.thread, s.into.id);
+        await _log?.correction(what: 'review', thread: s.thread.id, from: from, to: s.into.id);
+      }
+    }
+    await _settings.save(settings.copyWith(groupingReviewed: true));
+  }
 
   /// What a session's row says under its title: what it waits on, what it
   /// is doing, or how its last answer began; and the lines its changes

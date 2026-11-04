@@ -18,6 +18,7 @@ import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/sidebar.dart';
 import '../../core/helmy_dialog.dart';
+import '../../core/ashlar/dialog.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/toast.dart';
@@ -165,7 +166,7 @@ class ShellScreen extends StatelessWidget {
                       children: [
                         _NavRow(
                           icon: AshlarIconsRoundedStroke.squarePen,
-                          label: 'New session',
+                          label: 'New chat',
                           shortcut: Desktop.current.keys('⌘N'),
                           onPressed: () => newSession(context, viewModel),
                         ),
@@ -202,9 +203,9 @@ class ShellScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   switch (viewModel.settings.show) {
-                                    .active => 'Sessions',
+                                    .active => 'Chats',
                                     .archived => 'Archived',
-                                    .all => 'All sessions',
+                                    .all => 'All chats',
                                   },
                                   style: t.text.xs.copyWith(
                                     color: t.colors.mutedForeground,
@@ -228,6 +229,12 @@ class ShellScreen extends StatelessWidget {
                                 spacing: 2,
                                 crossAxisAlignment: .stretch,
                                 children: [
+                                  // Earlier threads that seem to belong together: offered once.
+                                  if (viewModel.suggestions case final found when found.isNotEmpty)
+                                    _GroupingNotice(
+                                      count: found.length,
+                                      onReview: () => _review(context),
+                                    ),
                                   for (final g in viewModel.groups) ...[
                                     if (g.label case final label?)
                                       Padding(
@@ -252,113 +259,30 @@ class ShellScreen extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                    for (final s in g.sessions)
-                                      ContextMenu(
-                                        items: [
-                                          if (viewModel.isUnread(s.id))
-                                            MenuItem(
-                                              leading: const AshlarIcon(
-                                                AshlarIconsRoundedStroke.check,
-                                                size: 16,
-                                              ),
-                                              onPressed: () => viewModel.markRead(s.id),
-                                              child: const Text('Mark as read'),
-                                            ),
-                                          MenuItem(
-                                            leading: const AshlarIcon(
-                                              AshlarIconsRoundedStroke.pin,
-                                              size: 16,
-                                            ),
-                                            onPressed: () => viewModel.setPinned(s, !s.pinned),
-                                            child: Text(s.pinned ? 'Unpin' : 'Pin'),
-                                          ),
-                                          if (s.snoozed)
-                                            MenuItem(
-                                              leading: const AshlarIcon(
-                                                AshlarIconsRoundedStroke.clock,
-                                                size: 16,
-                                              ),
-                                              onPressed: () => viewModel.wake(s),
-                                              child: const Text('Wake now'),
-                                            )
-                                          else ...[
-                                            for (final (label, until) in [
-                                              (
-                                                'Snooze for an hour',
-                                                DateTime.now().add(const Duration(hours: 1)),
-                                              ),
-                                              (
-                                                'Snooze until tomorrow',
-                                                SidebarViewModel.tomorrowMorning(),
-                                              ),
-                                            ])
-                                              MenuItem(
-                                                leading: const AshlarIcon(
-                                                  AshlarIconsRoundedStroke.clock,
-                                                  size: 16,
-                                                ),
-                                                onPressed: () async {
-                                                  await viewModel.snooze(s, until);
-                                                  if (!context.mounted) return;
-                                                  showToast(
-                                                    context,
-                                                    title:
-                                                        'Snoozed "${s.title}" until ${_when(until)}',
-                                                    action: Button(
-                                                      size: .sm,
-                                                      variant: .outline,
-                                                      onPressed: viewModel.undoSnooze,
-                                                      child: const Text('Undo'),
-                                                    ),
-                                                  );
-                                                },
-                                                child: Text(label),
-                                              ),
-                                          ],
-                                          MenuItem(
-                                            leading: const AshlarIcon(
-                                              AshlarIconsRoundedStroke.archive,
-                                              size: 16,
-                                            ),
-                                            onPressed: () async {
-                                              final archiving = !s.archived;
-                                              await viewModel.setArchived(s, archiving);
-                                              if (!archiving || !context.mounted) return;
-                                              showToast(
-                                                context,
-                                                title: 'Archived "${s.title}"',
-                                                action: Button(
-                                                  size: .sm,
-                                                  variant: .outline,
-                                                  onPressed: viewModel.undoArchive,
-                                                  child: Text(
-                                                    'Undo (${Desktop.current.keys('⌘Z')})',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            child: Text(s.archived ? 'Unarchive' : 'Archive'),
-                                          ),
-                                          const MenuSeparator(),
-                                          MenuItem(
-                                            destructive: true,
-                                            leading: const AshlarIcon(
-                                              AshlarIconsRoundedStroke.trash,
-                                              size: 16,
-                                            ),
-                                            onPressed: () => _delete(context, s),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                        child: _SessionRow(
-                                          session: s,
-                                          activity: viewModel.activityOf(s.id),
-                                          line: viewModel.lineOf(s),
-                                          selected: s.id == selectedId,
-                                          onOpen: () => context.go('/s/${s.id}'),
-                                          onDelete: () => _delete(context, s),
+                                    for (final e in viewModel.entriesOf(g.sessions))
+                                      if (e.chat case final chat?) ...[
+                                        _ChatRow(
+                                          title: chat.title,
+                                          threads: e.threads,
+                                          activity: viewModel.activityOfAll(e.threads),
+                                          line: viewModel.lineOf(e.threads.first),
+                                          selected: e.threads.any((t) => t.id == selectedId),
+                                          open:
+                                              viewModel.expanded.contains(chat.id) ||
+                                              e.threads.any((t) => t.id == selectedId),
+                                          onOpen: () => context.go('/s/${e.threads.first.id}'),
+                                          onToggle: () => viewModel.toggleChat(chat.id),
+                                          onChatPage: () => context.go('/c/${chat.id}'),
                                         ),
-                                      ),
+                                        if (viewModel.expanded.contains(chat.id) ||
+                                            e.threads.any((t) => t.id == selectedId))
+                                          for (final t in e.threads)
+                                            Padding(
+                                              padding: const .only(left: 16),
+                                              child: _sessionEntry(context, t),
+                                            ),
+                                      ] else
+                                        _sessionEntry(context, e.threads.single),
                                   ],
                                 ],
                               ),
@@ -414,6 +338,181 @@ class ShellScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// The one-time review: each suggested move, ticked to start with.
+  Future<void> _review(BuildContext context) async {
+    final found = viewModel.suggestions;
+    final chosen = {for (final f in found) f.thread.id};
+    final apply = await showAshlarDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final t = AshlarTheme.of(context);
+          return HelmyDialog(
+            title: 'Put earlier threads together?',
+            body:
+                'Before chats, each conversation stood alone. These seem to belong with '
+                'another: together, a chat knows what its threads decided. Nothing moves '
+                'that you untick, and any thread can be moved back later.',
+            icon: AshlarIconsRoundedStroke.messagesSquare,
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: .stretch,
+                  children: [
+                    for (final f in found)
+                      Pressable(
+                        onPressed: () => setState(
+                          () => chosen.contains(f.thread.id)
+                              ? chosen.remove(f.thread.id)
+                              : chosen.add(f.thread.id),
+                        ),
+                        semanticLabel: '${f.thread.title} into ${f.into.title}',
+                        builder: (context, state) => Padding(
+                          padding: const .symmetric(vertical: 6),
+                          child: Row(
+                            spacing: 10,
+                            children: [
+                              AshlarIcon(
+                                chosen.contains(f.thread.id)
+                                    ? AshlarIconsRoundedStroke.squareCheck
+                                    : AshlarIconsRoundedStroke.square,
+                                size: 16,
+                                color: t.colors.foreground,
+                              ),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(text: f.thread.title),
+                                      TextSpan(
+                                        text: '  into  ',
+                                        style: TextStyle(color: t.colors.mutedForeground),
+                                      ),
+                                      TextSpan(
+                                        text: f.into.title,
+                                        style: const TextStyle(fontWeight: .w600),
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 2,
+                                  overflow: .ellipsis,
+                                  style: t.text.sm,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              DialogButton('Not now', onPressed: () => Navigator.pop(context, false)),
+              DialogButton(
+                chosen.isEmpty ? 'Leave them' : 'Put ${chosen.length} together',
+                main: true,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (apply == null) return;
+    // "Not now" or "Leave them": the review is done, nothing moved.
+    await viewModel.applySuggestions(
+      apply
+          ? [
+              for (final f in found)
+                if (chosen.contains(f.thread.id)) f,
+            ]
+          : const [],
+    );
+  }
+
+  /// One thread's row, with what can be done with it on a right click.
+  Widget _sessionEntry(BuildContext context, Session s) => ContextMenu(
+    items: [
+      if (viewModel.isUnread(s.id))
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16),
+          onPressed: () => viewModel.markRead(s.id),
+          child: const Text('Mark as read'),
+        ),
+      MenuItem(
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.pin, size: 16),
+        onPressed: () => viewModel.setPinned(s, !s.pinned),
+        child: Text(s.pinned ? 'Unpin' : 'Pin'),
+      ),
+      if (s.snoozed)
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
+          onPressed: () => viewModel.wake(s),
+          child: const Text('Wake now'),
+        )
+      else ...[
+        for (final (label, until) in [
+          ('Snooze for an hour', DateTime.now().add(const Duration(hours: 1))),
+          ('Snooze until tomorrow', SidebarViewModel.tomorrowMorning()),
+        ])
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
+            onPressed: () async {
+              await viewModel.snooze(s, until);
+              if (!context.mounted) return;
+              showToast(
+                context,
+                title: 'Snoozed "${s.title}" until ${_when(until)}',
+                action: Button(
+                  size: .sm,
+                  variant: .outline,
+                  onPressed: viewModel.undoSnooze,
+                  child: const Text('Undo'),
+                ),
+              );
+            },
+            child: Text(label),
+          ),
+      ],
+      MenuItem(
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.archive, size: 16),
+        onPressed: () async {
+          final archiving = !s.archived;
+          await viewModel.setArchived(s, archiving);
+          if (!archiving || !context.mounted) return;
+          showToast(
+            context,
+            title: 'Archived "${s.title}"',
+            action: Button(
+              size: .sm,
+              variant: .outline,
+              onPressed: viewModel.undoArchive,
+              child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+            ),
+          );
+        },
+        child: Text(s.archived ? 'Unarchive' : 'Archive'),
+      ),
+      const MenuSeparator(),
+      MenuItem(
+        destructive: true,
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),
+        onPressed: () => _delete(context, s),
+        child: const Text('Delete'),
+      ),
+    ],
+    child: _SessionRow(
+      session: s,
+      activity: viewModel.activityOf(s.id),
+      line: viewModel.lineOf(s),
+      selected: s.id == selectedId,
+      onOpen: () => context.go('/s/${s.id}'),
+      onDelete: () => _delete(context, s),
+    ),
+  );
 
   Future<void> _delete(BuildContext context, Session s) async {
     final ok =
@@ -989,6 +1088,168 @@ class _BackForward extends StatelessWidget {
             history.forward,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A chat of several threads in the list: its title, how many threads and
+/// where, the latest one's line, the busiest one's state. Opening it opens
+/// the latest thread; the arrow shows its threads beneath.
+class _ChatRow extends StatelessWidget {
+  const _ChatRow({
+    required this.title,
+    required this.threads,
+    required this.activity,
+    required this.line,
+    required this.selected,
+    required this.open,
+    required this.onOpen,
+    required this.onToggle,
+    required this.onChatPage,
+  });
+
+  final String title;
+  final List<Session> threads;
+  final SessionActivity activity;
+  final ({String text, int added, int removed}) line;
+  final bool selected, open;
+  final VoidCallback onOpen, onToggle, onChatPage;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final muted = t.text.xs.copyWith(color: c.mutedForeground);
+    final latest = threads.first;
+    final places = {for (final s in threads) projectName(s.ownCopy ? s.repo! : s.cwd)};
+    return ContextMenu(
+      items: [
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
+          onPressed: onChatPage,
+          child: const Text('Open the chat'),
+        ),
+        MenuItem(
+          leading: AshlarIcon(
+            open ? AshlarIconsRoundedStroke.chevronUp : AshlarIconsRoundedStroke.chevronDown,
+            size: 16,
+          ),
+          onPressed: onToggle,
+          child: Text(open ? 'Hide its threads' : 'Show its threads'),
+        ),
+      ],
+      child: Pressable(
+        onPressed: onOpen,
+        semanticLabel: '$title, a chat of ${threads.length} threads',
+        selected: selected && !open,
+        builder: (context, state) => AnimatedContainer(
+          duration: t.duration,
+          padding: const .fromLTRB(10, 8, 6, 9),
+          decoration: BoxDecoration(
+            color: selected && !open
+                ? c.sidebarAccent
+                : state.hovered
+                ? c.sidebarAccent.withValues(alpha: .5)
+                : c.sidebarAccent.withValues(alpha: 0),
+            borderRadius: .circular(t.radiusMd),
+          ),
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 3,
+            children: [
+              Row(
+                spacing: 8,
+                children: [
+                  _ProjectBadge(name: places.first, activity: activity),
+                  Expanded(
+                    child: Text(
+                      '${threads.length} threads · ${places.join(', ')}',
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: muted,
+                    ),
+                  ),
+                  Text(ago(latest.updatedAt), style: muted),
+                  SizedBox(
+                    height: 16,
+                    child: Button(
+                      variant: .ghost,
+                      size: .iconXs,
+                      semanticLabel: open ? 'Hide its threads' : 'Show its threads',
+                      onPressed: onToggle,
+                      child: AshlarIcon(
+                        open
+                            ? AshlarIconsRoundedStroke.chevronUp
+                            : AshlarIconsRoundedStroke.chevronDown,
+                        size: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: t.text.sm.copyWith(
+                  color: c.sidebarForeground,
+                  fontWeight: selected || activity == .unread ? .w600 : .w500,
+                ),
+              ),
+              if (line.text.isNotEmpty)
+                Text(
+                  line.text,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: muted.copyWith(
+                    color: activity == .needsYou ? c.foreground : c.mutedForeground,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The one-time review, offered quietly at the top of the list.
+class _GroupingNotice extends StatelessWidget {
+  const _GroupingNotice({required this.count, required this.onReview});
+  final int count;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Pressable(
+      onPressed: onReview,
+      semanticLabel: 'Review $count earlier threads that seem to belong together',
+      builder: (context, state) => Container(
+        margin: const .only(bottom: 6),
+        padding: const .fromLTRB(10, 8, 10, 8),
+        decoration: BoxDecoration(
+          color: state.hovered ? c.sidebarAccent : c.sidebarAccent.withValues(alpha: .5),
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: Row(
+          spacing: 8,
+          children: [
+            AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 14, color: c.mutedForeground),
+            Expanded(
+              child: Text(
+                '$count earlier thread${count == 1 ? '' : 's'} seem${count == 1 ? 's' : ''} to belong together',
+                style: t.text.xs.copyWith(color: c.sidebarForeground),
+              ),
+            ),
+            Text(
+              'Review',
+              style: t.text.xs.copyWith(fontWeight: .w600, color: c.sidebarForeground),
+            ),
+          ],
+        ),
       ),
     );
   }

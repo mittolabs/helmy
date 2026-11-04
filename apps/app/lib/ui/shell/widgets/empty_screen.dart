@@ -30,7 +30,7 @@ class EmptyScreen extends StatelessWidget {
                 style: t.text.sm.copyWith(color: t.colors.mutedForeground),
               ),
               const SizedBox(height: 12),
-              Button(onPressed: () => newSession(context, vm), child: const Text('New session')),
+              Button(onPressed: () => newSession(context, vm), child: const Text('New chat')),
             ],
           ),
         ),

@@ -188,6 +188,9 @@ class const AppSettings({
   /// Both Shift keys, in any app, snapshot the window in front into the
   /// message being written. Off until turned on: macOS must allow it.
   final bool snapshotKeys = false,
+
+  /// The one-time review of grouping earlier threads into chats is done.
+  final bool groupingReviewed = false,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -224,6 +227,7 @@ class const AppSettings({
     DiffColors? diffColors,
     bool? diffHideSpace,
     bool? snapshotKeys,
+    bool? groupingReviewed,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -258,6 +262,7 @@ class const AppSettings({
     diffColors: diffColors ?? this.diffColors,
     diffHideSpace: diffHideSpace ?? this.diffHideSpace,
     snapshotKeys: snapshotKeys ?? this.snapshotKeys,
+    groupingReviewed: groupingReviewed ?? this.groupingReviewed,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -294,6 +299,7 @@ class const AppSettings({
     'diffColors': diffColors.name,
     'diffHideSpace': diffHideSpace,
     'snapshotKeys': snapshotKeys,
+    'groupingReviewed': groupingReviewed,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -333,6 +339,7 @@ class const AppSettings({
     diffColors: DiffColors.values.asNameMap()[json['diffColors']] ?? .greenRed,
     diffHideSpace: json['diffHideSpace'] as bool? ?? false,
     snapshotKeys: json['snapshotKeys'] as bool? ?? false,
+    groupingReviewed: json['groupingReviewed'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {

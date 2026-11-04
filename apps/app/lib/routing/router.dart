@@ -29,6 +29,8 @@ GoRouter router(String initialLocation) => GoRouter(
           settings: context.read(),
           projects: context.read(),
           fixes: context.read(),
+          chats: context.read(),
+          log: context.read(),
         ),
         builder: (vm) => ChangeNotifierProvider.value(
           value: vm,
