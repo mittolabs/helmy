@@ -129,8 +129,14 @@ class HelmyTools {
         'It has no sound.'
       else if (seen.transcript != null)
         'What is said:\n${seen.transcript}'
+      else if ('${seen.heard}'.contains('not allowed'))
+        'It has sound, but Helmy is not allowed to recognize speech on this computer, so '
+            'what is said is unknown. Tell the user, and give them this link, which opens '
+            'the setting: [Allow speech recognition](helmy://fix/allow-speech). Do not guess '
+            'what is said.'
       else
-        'It has sound, but the words could not be made out here: ${seen.heard}.',
+        'It has sound, but the words could not be made out here: ${seen.heard}. Say so; '
+            'do not guess what is said.',
     ].join('\n\n');
     return {
       'content': [

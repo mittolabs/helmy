@@ -22,6 +22,17 @@ class NotifyService {
   /// The window coming into sight (focused, showing) or going out of it.
   Stream<bool> get inSight => _inSight.stream;
 
+  /// Whether the system lets Helmy notify; null when it cannot be asked.
+  Future<bool?> notificationsAllowed() async {
+    try {
+      return await _channel.invokeMethod<bool>('notificationsAllowed');
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   /// Takes [sessionId]'s notification out of the system's list, once seen.
   Future<void> clearNotification(String sessionId) =>
       _call('clearNotification', {'sessionId': sessionId});

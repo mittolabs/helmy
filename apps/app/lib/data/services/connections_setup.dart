@@ -40,9 +40,13 @@ class ConnectionsSetup {
     return _locator.find(name);
   }
 
-  Future<ProcessResult?> _run(String cmd, List<String> args) async {
+  Future<ProcessResult?> _run(String cmd, List<String> args, {Map<String, String>? extra}) async {
     try {
-      return await Process.run(cmd, args, environment: await _locator.environment());
+      return await Process.run(
+        cmd,
+        args,
+        environment: {...await _locator.environment(), ...?extra},
+      );
     } on Object {
       return null;
     }
@@ -118,12 +122,18 @@ class ConnectionsSetup {
 
   /// Signs [id] in through the browser (or, for the model here, starts it).
   /// Done when the browser sign-in finishes; true when it worked.
-  Future<bool> signIn(String id) async {
+  /// [configDir]: one of several Claude accounts on this computer.
+  Future<bool> signIn(String id, {String? configDir}) async {
     switch (id) {
       case 'claude':
         final bin = await _find('claude');
         if (bin == null) return false;
-        return (await _run(bin, ['auth', 'login', '--claudeai']))?.exitCode == 0;
+        final r = await _run(
+          bin,
+          ['auth', 'login', '--claudeai'],
+          extra: {'CLAUDE_CONFIG_DIR': ?configDir},
+        );
+        return r?.exitCode == 0;
       case 'codex':
         final bin = await _find('codex');
         if (bin == null) return false;

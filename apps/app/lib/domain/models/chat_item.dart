@@ -22,7 +22,11 @@ sealed class ChatItem {
     'turn' => TurnSummary.fromJson(json),
     'image' => ImageItem(json['path']! as String, json['prompt'] as String?),
     'tasks' => TaskList.fromJson(json),
-    _ => Notice(json['text'] as String? ?? ''),
+    _ => Notice(
+      json['text'] as String? ?? '',
+      fix: json['fix'] as String?,
+      details: json['details'] as String?,
+    ),
   };
 }
 
@@ -307,6 +311,10 @@ class TurnSummary extends ChatItem {
   /// When the answer finished, as Helmy saw it; unknown for older turns.
   DateTime? endedAt;
 
+  /// The connection that answered (or failed), for a fix that needs it;
+  /// never shown.
+  String? engineId;
+
   @override
   Map<String, Object?> toJson() => {
     'kind': 'turn',
@@ -315,14 +323,18 @@ class TurnSummary extends ChatItem {
     'durationMs': durationMs,
     'error': error,
     if (endedAt != null) 'endedAt': endedAt!.toIso8601String(),
+    'engineId': ?engineId,
   };
 
-  static TurnSummary fromJson(Map<String, Object?> json) => TurnSummary(
-    ok: json['ok'] as bool? ?? true,
-    costUsd: (json['costUsd'] as num?)?.toDouble(),
-    durationMs: (json['durationMs'] as num?)?.toInt(),
-    error: json['error'] as String?,
-  )..endedAt = DateTime.tryParse('${json['endedAt'] ?? ''}');
+  static TurnSummary fromJson(Map<String, Object?> json) =>
+      TurnSummary(
+          ok: json['ok'] as bool? ?? true,
+          costUsd: (json['costUsd'] as num?)?.toDouble(),
+          durationMs: (json['durationMs'] as num?)?.toInt(),
+          error: json['error'] as String?,
+        )
+        ..endedAt = DateTime.tryParse('${json['endedAt'] ?? ''}')
+        ..engineId = json['engineId'] as String?;
 }
 
 /// A picture an engine made, kept as the file it saved.
@@ -368,9 +380,19 @@ class TaskList extends ChatItem {
 }
 
 class Notice extends ChatItem {
-  new(this.text);
+  new(this.text, {this.fix, this.details});
   final String text;
 
+  /// When it tells of a problem: the one action that fixes it (a [Fix]'s
+  /// link name), and the raw account.
+  final String? fix;
+  final String? details;
+
   @override
-  Map<String, Object?> toJson() => {'kind': 'notice', 'text': text};
+  Map<String, Object?> toJson() => {
+    'kind': 'notice',
+    'text': text,
+    'fix': ?fix,
+    'details': ?details,
+  };
 }

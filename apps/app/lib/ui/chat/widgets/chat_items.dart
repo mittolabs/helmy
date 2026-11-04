@@ -39,7 +39,9 @@ import '../../../domain/models/permission_rule.dart';
 import 'step_input.dart';
 import '../../../utils/result.dart';
 import '../view_models/chat_view_model.dart';
+import 'problem_card.dart';
 import 'saved_toast.dart';
+import '../../../domain/problem.dart';
 import '../../../utils/platform.dart';
 
 typedef ChatRow = ({Object id, bool anchor, Widget child});
@@ -98,7 +100,17 @@ List<ChatRow> buildRows(ChatViewModel vm) {
         // A folder move is Helmy's to act on, not the user's to read.
         final shown = withoutFolderLines(text, streaming: streaming);
         if (shown.isEmpty) continue;
-        rows.add((id: i, anchor: false, child: Markdown(shown, streaming: streaming)));
+        rows.add((
+          id: i,
+          anchor: false,
+          child: Builder(
+            builder: (context) => Markdown(
+              shown,
+              streaming: streaming,
+              onLink: (url) => openAnswerLink(context, url, vm),
+            ),
+          ),
+        ));
       case ToolCall call when call.name == 'ExitPlanMode':
         rows.add((id: i, anchor: false, child: _PlanApproval(call, p, vm)));
       case ToolCall call:
@@ -120,7 +132,15 @@ List<ChatRow> buildRows(ChatViewModel vm) {
         rows.add((id: i, anchor: false, child: _Tasks(list)));
       case TurnSummary s:
         if (!s.ok) {
-          rows.add((id: i, anchor: false, child: _Notice(inHelmysWords(s.error))));
+          rows.add((
+            id: i,
+            anchor: false,
+            child: ProblemCard(
+              problem: diagnose(s.error, engineId: s.engineId),
+              vm: vm,
+              last: i == items.length - 1,
+            ),
+          ));
         }
         if (ask != null) {
           rows.add((
@@ -135,6 +155,20 @@ List<ChatRow> buildRows(ChatViewModel vm) {
             ),
           ));
         }
+      case Notice(:final text, :final fix?) when Fix.values.any((f) => f.link == fix):
+        rows.add((
+          id: i,
+          anchor: false,
+          child: ProblemCard(
+            problem: Problem(
+              text,
+              Fix.values.firstWhere((f) => f.link == fix),
+              details: (items[i] as Notice).details,
+            ),
+            vm: vm,
+            last: i == items.length - 1,
+          ),
+        ));
       case Notice(:final text):
         rows.add((id: i, anchor: false, child: _Notice(text)));
     }

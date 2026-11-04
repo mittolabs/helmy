@@ -116,6 +116,12 @@ class SidebarViewModel extends ChangeNotifier {
 
   bool isUnread(String id) => _attention?.isUnread(id) == true;
 
+  /// Helmy's notifications are on, but the system blocks them.
+  bool get notificationsBlocked => _attention?.notificationsBlocked ?? false;
+
+  /// Notifications off in Helmy, for someone who does not want them after all.
+  Future<void> turnOffNotifications() => updateSettings(settings.copyWith(notify: false));
+
   /// Settles a finished session you do not need to open.
   void markRead(String id) => _attention?.markRead(id);
 

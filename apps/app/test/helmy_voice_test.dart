@@ -12,6 +12,7 @@ import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/helmy_voice.dart';
 import 'package:helmy/domain/identity.dart';
+import 'package:helmy/domain/problem.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
@@ -25,22 +26,29 @@ final _names = RegExp(
 );
 
 void main() {
-  test("a connection's errors reach the conversation in Helmy's words", () {
-    expect(
-      inHelmysWords('Claude AI usage limit reached|1793750400'),
-      "I've reached a usage limit. Try again in a little while.",
-    );
-    expect(inHelmysWords('API Error: 529 {"type":"overloaded_error"}'), contains('overloaded'));
-    expect(inHelmysWords('Invalid API key · Please run /login'), contains('signed in'));
-    expect(inHelmysWords('prompt is too long: 210000 tokens'), contains('too long'));
-    expect(
-      inHelmysWords('Ollama answered 500'),
-      'Something went wrong on my side. Send it again to try once more.',
-    );
-    expect(inHelmysWords(null), contains('Something went wrong'));
+  test("a connection's errors reach the conversation in Helmy's words, each with its fix", () {
+    final now = DateTime(2026, 11, 4, 9);
+    final limit = diagnose('Claude AI usage limit reached|1793750400', now: now);
+    expect(limit.what, startsWith("I've reached a usage limit. It frees up at"));
+    expect(limit.fix, Fix.wait);
+    expect(limit.until, DateTime.fromMillisecondsSinceEpoch(1793750400 * 1000));
+    expect(diagnose('API Error: 529 {"type":"overloaded_error"}').fix, Fix.retry);
+    expect(diagnose('Invalid API key · Please run /login', engineId: 'claude').fix, Fix.signIn);
+    expect(diagnose('prompt is too long: 210000 tokens').what, contains('too long'));
+    expect(diagnose('getaddrinfo ENOTFOUND api.anthropic.com').what, contains('internet'));
+    expect(diagnose('Ollama is not running.').fix, Fix.startLocal);
+    expect(diagnose('connect ECONNREFUSED 127.0.0.1:11434').fix, Fix.startLocal);
+    // Nothing Helmy recognises: still what happened, a way on, and the details.
+    final odd = diagnose('Codex exited (code 1): stream error from OpenAI');
+    expect(odd.fix, Fix.retry);
+    expect(odd.details, isNotNull);
+    expect(diagnose(null).what, contains('was not told why'));
     for (final raw in ['Codex exited (code 1)', 'Claude Code exited', 'stream error from OpenAI']) {
-      expect(_names.hasMatch(inHelmysWords(raw)), isFalse, reason: raw);
+      final p = diagnose(raw);
+      expect(_names.hasMatch(p.what), isFalse, reason: raw);
+      expect(_names.hasMatch(p.details ?? ''), isFalse, reason: 'details: $raw');
     }
+    expect(inHelmysWords('Ollama is not running.'), 'The model on this computer is not running.');
   });
 
   test('tool names, stop and decline notes, and descriptions read as Helmy', () {
@@ -125,6 +133,10 @@ void main() {
       for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText(),
     ].join('\n');
     expect(shown, contains("I've reached a usage limit"));
+    // Each problem offers its fix where it happened (here, the latest, at
+    // the end of the list).
+    await tester.scrollUntilVisible(find.text('Try again'), 200);
+    expect(find.text('Try again'), findsOneWidget);
     expect(shown, contains('Google Drive: search'));
     expect(shown, contains('Stopped.'));
     expect(_names.hasMatch(shown), isFalse, reason: shown);

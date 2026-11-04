@@ -10,6 +10,7 @@ import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
 import '../../domain/folder_move.dart';
 import '../../domain/identity.dart';
+import '../../domain/problem.dart';
 import '../../utils/format.dart';
 import '../services/engines/engine_registry.dart';
 import '../services/engines/ollama/ollama_chat_engine.dart';
@@ -44,6 +45,11 @@ class _Turn {
 
   /// Whether the model on this Mac has been asked about it yet.
   bool decided = false;
+
+  /// The last failure on the way, and where: when no connection is left to
+  /// try, this is the cause the user is told, not a vague "try later".
+  String? lastError;
+  String? lastEngine;
 }
 
 /// Routes every message to an engine and hands the conversation across when the
@@ -318,13 +324,28 @@ class ConversationRepositoryEngines extends ConversationRepository {
         c
           ..busy = false
           ..thinking = false;
-        c.items.add(
-          Notice(
-            _engines.engines.isEmpty || turn.tried.isEmpty
-                ? "I can't answer yet: nothing is set up for me to work with. Add a connection in Settings."
-                : "I can't take this message right now. Try again in a little while.",
-          ),
-        );
+        if (turn.lastError != null) {
+          // Every connection was tried: the last real cause, with its fix.
+          c.items.add(
+            TurnSummary(ok: false, error: turn.lastError)
+              ..engineId = turn.lastEngine
+              ..endedAt = DateTime.now(),
+          );
+        } else if (_engines.engines.isEmpty || turn.tried.isEmpty) {
+          c.items.add(
+            Notice(
+              "I can't answer yet: nothing is set up for me to work with.",
+              fix: Fix.setup.link,
+            ),
+          );
+        } else {
+          c.items.add(
+            Notice(
+              'Every connection I can use is busy or at its limit for this message.',
+              fix: Fix.retry.link,
+            ),
+          );
+        }
         _turns.remove(sessionId);
         notifyListeners();
         return;
@@ -408,6 +429,12 @@ class ConversationRepositoryEngines extends ConversationRepository {
             .whereType<TurnSummary>()
             .any((t) => t.error == needsToolsError);
         // Take back what the failure left and let another engine have the message.
+        final failed = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+        if (failed?.error case final error? when error != needsToolsError) {
+          turn
+            ..lastError = error
+            ..lastEngine = engineId;
+        }
         c.items.removeRange(turn.start, c.items.length);
         if (askedForTools) {
           turn.needs.add(Capability.tools);
@@ -418,6 +445,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
         notifyListeners();
         return;
       }
+      // Which connection it ended on, for a fix that needs it (signing in).
+      c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull?.engineId = engineId;
       _finish(sessionId, engineId, run);
     }
     notifyListeners();

@@ -26,6 +26,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     _sessions.addListener(_planWake);
     WidgetsBinding.instance.addObserver(this);
     _planWake();
+    unawaited(checkNotifications());
     // Just opened: Helmy waking up, unless something needs showing first.
     _wakingUp = Timer(wakingFor, _showFace);
     _showFace();
@@ -53,6 +54,19 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Nothing asked of Helmy for this long, and it dozes off in the Dock.
   static const dozeAfter = Duration(minutes: 30);
+
+  /// Notifications are on in Helmy but the system blocks them: nothing would
+  /// reach the user, so the app says so where it can be fixed.
+  bool notificationsBlocked = false;
+
+  Future<void> checkNotifications() async {
+    final allowed = await _notify.notificationsAllowed();
+    final blocked = _settings.settings.notify && allowed == false;
+    if (blocked != notificationsBlocked) {
+      notificationsBlocked = blocked;
+      notifyListeners();
+    }
+  }
 
   /// Finished while the user was elsewhere, and not opened since.
   bool isUnread(String sessionId) => _unread.contains(sessionId);
@@ -104,6 +118,8 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   /// is the active one, so this, not the app's state, is what counts.
   void _onInSight(bool inSight) {
     _active = inSight;
+    // Back from the system's settings, perhaps: ask again.
+    if (inSight) unawaited(checkNotifications());
     if (inSight && _viewing != null) _seen(_viewing!);
   }
 

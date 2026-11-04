@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import '../../../../domain/helmy_voice.dart';
-
 import 'dart:convert';
 
 import '../../../../domain/models/chat_item.dart';
@@ -487,9 +485,8 @@ class _CodexRun implements EngineRun {
         ],
       });
     } on Object catch (e) {
-      _reducer.items
-        ..add(Notice(inHelmysWords('$e')))
-        ..add(TurnSummary(ok: false, error: '$e')..endedAt = DateTime.now());
+      // Said once, by the failed turn, with its cause and fix.
+      _reducer.items.add(TurnSummary(ok: false, error: '$e')..endedAt = DateTime.now());
       _changes.add(true);
     }
   }

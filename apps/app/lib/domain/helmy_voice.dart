@@ -3,30 +3,11 @@
 /// those words. (Answers are the model speaking as Helmy, and are left alone.)
 library;
 
+import 'problem.dart';
+
 /// A failed turn, in Helmy's words: the common causes said plainly, anything
 /// else said simply. The connection's own text never reaches the conversation.
-String inHelmysWords(String? raw) {
-  final e = (raw ?? '').toLowerCase();
-  if (RegExp(r'usage limit|rate.?limit|quota|\b429\b|too many requests|limit reached')
-      .hasMatch(e)) {
-    return "I've reached a usage limit. Try again in a little while.";
-  }
-  if (RegExp(r'overloaded|\b529\b|\b503\b|capacity|unavailable').hasMatch(e)) {
-    return "I'm overloaded right now. Try again in a moment.";
-  }
-  if (RegExp(r'log ?in|sign ?in|auth|\b401\b|\b403\b|credential|api key|expired').hasMatch(e)) {
-    return 'I need to be signed in again. You can do that in Settings.';
-  }
-  if (RegExp(r'context|too long|too large|max(imum)? tokens|prompt is too').hasMatch(e)) {
-    return 'This conversation has grown too long for me to take in. '
-        'Compact it from the menu, or start a new session.';
-  }
-  if (RegExp(r'network|offline|internet|enotfound|econn|timed? ?out|socket|host lookup')
-      .hasMatch(e)) {
-    return "I couldn't reach the network. Check your connection and try again.";
-  }
-  return 'Something went wrong on my side. Send it again to try once more.';
-}
+String inHelmysWords(String? raw) => diagnose(raw).what;
 
 /// A tool's name as Helmy says it: a connected service's tool,
 /// `mcp__claude_ai_Gmail__search_threads` or `gmail.search_threads`, reads

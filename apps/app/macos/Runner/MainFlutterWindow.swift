@@ -262,6 +262,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "keepRunning":
         AppDelegate.keepRunning = args["on"] as? Bool ?? true
         result(nil)
+      case "notificationsAllowed":
+        // Whether macOS lets Helmy notify: false only when the user said no
+        // (not before it was ever asked).
+        UNUserNotificationCenter.current().getNotificationSettings { s in
+          DispatchQueue.main.async { result(s.authorizationStatus != .denied) }
+        }
       case "isActive":
         // In front and showing: a hidden or minimized window is not in sight,
         // though the app may still be the active one.

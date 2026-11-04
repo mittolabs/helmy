@@ -29,7 +29,7 @@ class _Pretend extends ConnectionsSetup {
   ];
 
   @override
-  Future<bool> signIn(String id) async {
+  Future<bool> signIn(String id, {String? configDir}) async {
     asked.add('sign in $id');
     states[id] = SetupState.ready;
     return true;

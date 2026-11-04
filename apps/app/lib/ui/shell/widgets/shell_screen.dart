@@ -25,6 +25,10 @@ import 'new_session.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
 import '../../chat/widgets/player.dart';
+import '../../../domain/problem.dart';
+import '../../../data/services/fixes.dart';
+
+import 'package:provider/provider.dart';
 
 /// The sessions down the side, the open one beside them.
 class ShellScreen extends StatelessWidget {
@@ -119,12 +123,19 @@ class ShellScreen extends StatelessWidget {
           ),
           footer: Padding(
             padding: const .fromLTRB(0, 4, 0, 8),
-            child: _NavRow(
-              icon: AshlarIconsRoundedStroke.settings,
-              label: 'Settings',
-              shortcut: Desktop.current.keys('⌘,'),
-              selected: inSettings,
-              onPressed: () => context.go('/settings'),
+            child: Column(
+              mainAxisSize: .min,
+              crossAxisAlignment: .stretch,
+              children: [
+                if (viewModel.notificationsBlocked) _NotificationsBlocked(viewModel: viewModel),
+                _NavRow(
+                  icon: AshlarIconsRoundedStroke.settings,
+                  label: 'Settings',
+                  shortcut: Desktop.current.keys('⌘,'),
+                  selected: inSettings,
+                  onPressed: () => context.go('/settings'),
+                ),
+              ],
             ),
           ),
           groups: [
@@ -620,4 +631,52 @@ String _when(DateTime t) {
     1 => 'tomorrow at $time',
     _ => '${t.month}/${t.day} at $time',
   };
+}
+
+/// Notifications are on in Helmy, but the system blocks them: said where it
+/// shows, with the way to allow them, or to stop asking.
+class _NotificationsBlocked extends StatelessWidget {
+  const _NotificationsBlocked({required this.viewModel});
+  final SidebarViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return Container(
+      margin: const .only(bottom: 8),
+      padding: const .all(10),
+      decoration: BoxDecoration(
+        border: Border.all(color: t.colors.border),
+        borderRadius: .circular(t.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: .start,
+        spacing: 8,
+        children: [
+          Text(
+            "Notifications are blocked for Helmy, so I can't tell you when work finishes "
+            'or needs you.',
+            style: t.text.xs,
+          ),
+          Row(
+            spacing: 6,
+            children: [
+              Button(
+                variant: .outline,
+                size: .xs,
+                onPressed: () => context.read<Fixes>().apply(Fix.allowNotifications),
+                child: const Text('Allow'),
+              ),
+              Button(
+                variant: .ghost,
+                size: .xs,
+                onPressed: viewModel.turnOffNotifications,
+                child: const Text("I don't want them"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

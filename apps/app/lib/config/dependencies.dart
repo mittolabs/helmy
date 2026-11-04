@@ -31,6 +31,7 @@ import '../data/services/worktrees.dart';
 import '../data/services/connections_setup.dart';
 import '../data/repositories/ship_repository.dart';
 import '../data/services/shipping.dart';
+import '../data/services/fixes.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -106,6 +107,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => DesktopService()),
   // Getting the connections ready: after what it uses.
   Provider(create: (context) => ConnectionsSetup(context.read(), context.read())),
+  Provider(create: (context) => Fixes(context.read(), context.read())),
   // Not lazy: tasks run on time whether or not their page was opened.
   ChangeNotifierProvider(
     lazy: false,
