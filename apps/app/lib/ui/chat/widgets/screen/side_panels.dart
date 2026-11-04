@@ -19,33 +19,183 @@ class _SidePanelsState extends State<_SidePanels> {
   // The one panel, moved whole between beside, expanded and hidden.
   final _panel = GlobalKey();
 
+  // The device, moved whole between its tab and floating: its screen, marks
+  // and logs go with it.
+  final _device = GlobalKey();
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final vm = widget.vm;
-      final panel = vm.tabs.isEmpty ? null : _Panel(key: _panel, vm: vm);
-      // Expanded: the panel has the page, the conversation a press away.
-      if (panel != null && vm.panelOpen && vm.panelExpanded) return panel;
+      final panel = vm.tabs.isEmpty ? null : _Panel(key: _panel, vm: vm, device: _device);
       // No room left beside the conversation (a narrow window): no panel.
       final room = box.maxWidth - _SidePanels._chatMin - _Divider.width;
       final width = room <= 0 ? 0.0 : vm.panelWidth.clamp(0.0, room);
-      final shown = panel != null && vm.panelOpen && width >= 260;
-      return Row(
-        crossAxisAlignment: .stretch,
+      final expanded = panel != null && vm.panelOpen && vm.panelExpanded;
+      final shown = !expanded && panel != null && vm.panelOpen && width >= 260;
+      // Always a stack, so floating the device does not rebuild what is under it.
+      return Stack(
+        fit: .expand,
         children: [
-          Expanded(child: widget.chat),
-          if (shown) ...[
-            _Divider(onDrag: (dx) => vm.resize(width - dx)),
-            SizedBox(width: width, child: panel),
-          ] else if (panel != null)
-            // Hidden, its tabs stay as they were.
-            Offstage(
-              child: SizedBox(width: vm.panelWidth, child: panel),
+          // Expanded: the panel has the page, the conversation a press away.
+          if (expanded) panel else _beside(vm, panel, shown, width),
+          if (vm.deviceFloating && vm.device != null)
+            _FloatingDevice(
+              vm: vm,
+              area: box.biggest,
+              // At first, the top right of the conversation, clear of the panel.
+              start: shown ? box.maxWidth - width - _Divider.width : box.maxWidth,
+              child: DevicePanel(key: _device, vm: vm),
             ),
         ],
       );
     },
   );
+
+  Widget _beside(ChatViewModel vm, Widget? panel, bool shown, double width) => Row(
+    crossAxisAlignment: .stretch,
+    children: [
+      Expanded(child: widget.chat),
+      if (shown) ...[
+        _Divider(onDrag: (dx) => vm.resize(width - dx)),
+        SizedBox(width: width, child: panel),
+      ] else if (panel != null)
+        // Hidden, its tabs stay as they were.
+        Offstage(
+          child: SizedBox(width: vm.panelWidth, child: panel),
+        ),
+    ],
+  );
+}
+
+/// The device floating over the conversation: a card with a bar to drag it
+/// by, kept inside the page, with a way back into the panel and a way to put
+/// it away.
+class _FloatingDevice extends StatelessWidget {
+  const _FloatingDevice({
+    required this.vm,
+    required this.area,
+    required this.start,
+    required this.child,
+  });
+  final ChatViewModel vm;
+
+  /// The page it floats over.
+  final Size area;
+
+  /// Where the room it starts in ends, on the right.
+  final double start;
+  final Widget child;
+
+  static const width = 340.0;
+  static const _bar = 30.0;
+
+  /// Clear of the header.
+  static const _top = titleLine + 28;
+
+  /// [at] moved inside the page, a margin clear of its edges.
+  Offset _inside(Offset at, Size size) => Offset(
+    at.dx.clamp(8.0, (area.width - size.width - 8).clamp(8.0, double.infinity)),
+    at.dy.clamp(_top, (area.height - size.height - 8).clamp(_top, double.infinity)),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final size = Size(
+      width.clamp(0.0, area.width - 16),
+      (area.height - titleLine - 32).clamp(0.0, 700.0),
+    );
+    final at = _inside(vm.deviceFloatAt ?? Offset(start - size.width - 16, 0), size);
+    Widget tool(String label, IconData icon, VoidCallback onPressed) => Tooltip(
+      message: label,
+      child: Button(
+        variant: .ghost,
+        size: .iconXs,
+        semanticLabel: label,
+        onPressed: onPressed,
+        child: AshlarIcon(icon, size: 13),
+      ),
+    );
+    return Positioned(
+      left: at.dx,
+      top: at.dy,
+      width: size.width,
+      height: size.height,
+      child: Semantics(
+        container: true,
+        label: 'Floating device',
+        // Selecting the conversation does not reach into it.
+        child: SelectionContainer.disabled(
+          child: Container(
+            clipBehavior: .antiAlias,
+            decoration: BoxDecoration(
+              color: c.background,
+              border: .all(color: c.border),
+              borderRadius: .circular(t.radiusLg),
+              boxShadow: t.shadowLg,
+            ),
+            child: Column(
+              crossAxisAlignment: .stretch,
+              children: [
+                // Dragged by its bar; the screen below keeps its taps and swipes.
+                // Raw pointer moves, since the page's text selection would win
+                // a drag in the gesture arena.
+                MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerMove: (e) =>
+                        vm.moveFloatingDevice(_inside((vm.deviceFloatAt ?? at) + e.delta, size)),
+                    child: Container(
+                      height: _bar,
+                      padding: const .only(left: 10, right: 4),
+                      color: c.muted.withValues(alpha: .5),
+                      child: Row(
+                        spacing: 2,
+                        children: [
+                          AshlarIcon(
+                            AshlarIconsRoundedStroke.gripHorizontal,
+                            size: 13,
+                            color: c.mutedForeground,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              vm.device?.device?.name ?? 'Device',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: t.text.xs.copyWith(
+                                fontWeight: .w500,
+                                color: c.mutedForeground,
+                              ),
+                            ),
+                          ),
+                          tool(
+                            'Back into the panel',
+                            AshlarIconsRoundedStroke.panelRight,
+                            vm.dockDevice,
+                          ),
+                          tool(
+                            'Put the device away',
+                            AshlarIconsRoundedStroke.x,
+                            vm.closeFloatingDevice,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(height: 1, color: c.border),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A tab kind's name and icon.
@@ -62,8 +212,11 @@ class _SidePanelsState extends State<_SidePanels> {
 
 /// The panel: its tabs along the top, with + to add one, and the tab showing.
 class _Panel extends StatelessWidget {
-  const _Panel({super.key, required this.vm});
+  const _Panel({super.key, required this.vm, required this.device});
   final ChatViewModel vm;
+
+  /// The device's key, so it can move to float over the conversation whole.
+  final GlobalKey device;
 
   String _label(PanelTab tab) => switch (tab.kind) {
     .preview when (tab.title ?? '').isNotEmpty => tab.title!,
@@ -163,6 +316,12 @@ class _Panel extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (active?.kind == .device)
+                  tool(
+                    'Float over the conversation',
+                    AshlarIconsRoundedStroke.pictureInPicture2,
+                    vm.floatDevice,
+                  ),
                 tool(
                   expanded ? 'Back beside the conversation' : 'Expand',
                   expanded
@@ -202,7 +361,7 @@ class _Panel extends StatelessWidget {
                       onExit: tab.action == null ? null : (code) => vm.actionEnded(tab, code),
                       onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
                     ),
-                    .device => DevicePanel(vm: vm),
+                    .device => DevicePanel(key: device, vm: vm),
                     .files => FilesPanel(vm: vm, active: tab == active && vm.panelOpen),
                     .side => SideChatPanel(vm: vm, tab: tab),
                   },

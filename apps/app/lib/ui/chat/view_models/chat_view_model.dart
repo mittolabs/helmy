@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -108,8 +109,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     _attention?.viewing = sessionId;
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
-    // The agent's device tools show the device here, in the Device panel.
-    if (device != null) browser?.deviceOpener(sessionId, () => show(.device));
+    // The agent's device tools show the device here: in the Device panel,
+    // or where it floats.
+    if (device != null) browser?.deviceOpener(sessionId, showDevice);
     _sessions.addListener(notifyListeners);
     _sessions.addListener(_findRepoLater);
     _conversations.addListener(notifyListeners);
@@ -678,6 +680,49 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   void toggleChanges() => toggle(.changes);
 
+  // The device over the conversation, as a picture in picture: watched
+  // while the conversation has the room.
+
+  /// The device floats over the conversation, out of the panel.
+  bool deviceFloating = false;
+
+  /// Where its top left sits, as last dragged; null until then (top right).
+  Offset? deviceFloatAt;
+
+  /// The device shown: where it floats, or in the panel.
+  void showDevice() {
+    if (deviceFloating) return notifyListeners();
+    show(.device);
+  }
+
+  /// The device out of the panel, floating over the conversation. Its tab
+  /// goes; the panel hides with no tab left.
+  void floatDevice() {
+    if (device == null) return;
+    for (final tab in tabs.where((t) => t.kind == .device).toList()) {
+      _removeTab(tab);
+    }
+    deviceFloating = true;
+    notifyListeners();
+  }
+
+  /// The floating device back in the panel, as a tab.
+  void dockDevice() {
+    deviceFloating = false;
+    show(.device);
+  }
+
+  /// The floating device put away.
+  void closeFloatingDevice() {
+    deviceFloating = false;
+    notifyListeners();
+  }
+
+  void moveFloatingDevice(Offset at) {
+    deviceFloatAt = at;
+    notifyListeners();
+  }
+
   /// How many files the session has changed, once counted: again whenever a
   /// turn ends.
   int? changedFiles;
@@ -926,7 +971,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (!embedded) .side,
     .changes,
     if (inRepo) .ship,
-    if (device != null) .device,
+    if (device != null && !deviceFloating) .device,
     if (backgroundSteps.isNotEmpty) .background,
   ];
 
