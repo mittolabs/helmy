@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -17,6 +18,7 @@ import '../data/services/browser/browser_host.dart';
 import '../data/services/browser/browser_tools.dart';
 import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
+import '../data/services/sim_input.dart';
 import '../data/services/engines/claude/claude_engine.dart';
 import '../data/services/engines/codex/codex_engine.dart';
 import '../data/services/engines/decider.dart';
@@ -63,7 +65,20 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.meter),
   Provider(create: (_) => CliLocator()),
   Provider(create: (context) => WatchService(context.read())),
-  Provider(create: (context) => DeviceService(context.read())),
+  // Taps on iOS simulators through Helmy's resident helper: milliseconds.
+  Provider(
+    create: (context) {
+      final locator = context.read<CliLocator>();
+      return SimInput(
+        helper: () async =>
+            (await rootBundle.load('assets/helmy/bin/sim_input')).buffer.asUint8List(),
+        appData: getApplicationSupportDirectory,
+        axe: () => locator.find('axe'),
+      );
+    },
+    dispose: (_, input) => input.dispose(),
+  ),
+  Provider(create: (context) => DeviceService(context.read(), input: context.read())),
   // A Chromium browser for Preview, once asked for; ended with the app.
   Provider(
     create: (_) => ChromiumService(appData: getApplicationSupportDirectory),

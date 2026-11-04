@@ -131,33 +131,44 @@ class DeviceViewModel extends ChangeNotifier {
     unawaited(_read());
   }
 
-  // Keys typed on the keyboard straight onto the screen, gathered for a moment
-  // and sent together: each send to the simulator takes a while.
+  // Keys typed on the keyboard straight onto the screen, sent in order: each
+  // goes as soon as the one before has landed, and keys typed while a send is
+  // on its way go together in the next. Where sending is fast that is key by
+  // key; where it is slow, they gather by themselves.
   final _keys = StringBuffer();
-  Timer? _keysTimer;
+  Future<void> _sending = Future.value();
 
-  /// Return or Backspace pressed onto the screen: what was typed goes first.
-  Future<void> press(String key) async {
-    if (device == null || !canTouch) return;
-    _keysTimer?.cancel();
-    if (_keys.isNotEmpty) {
+  void _queue(Future<void> Function() send) {
+    _sending = _sending.then((_) => send()).catchError((Object _) {});
+  }
+
+  void _flush() {
+    _queue(() async {
+      if (_keys.isEmpty) return;
       final text = _keys.toString();
       _keys.clear();
       await type(text);
-    }
-    await _devices.keyPress(device!, key);
+    });
+  }
+
+  /// Return or Backspace pressed onto the screen, after what was typed.
+  Future<void> press(String key) async {
+    if (device == null || !canTouch) return;
+    final d = device!;
+    _flush();
+    _queue(() async {
+      await _devices.keyPress(d, key);
+    });
+    await _sending;
   }
 
   /// A key typed onto the screen.
   void key(String text) {
     if (device == null || !canTouch) return;
+    final idle = _keys.isEmpty;
     _keys.write(text);
-    _keysTimer?.cancel();
-    _keysTimer = Timer(const Duration(milliseconds: 350), () {
-      final text = _keys.toString();
-      _keys.clear();
-      unawaited(type(text));
-    });
+    // One send queued for whatever gathers; more keys join it.
+    if (idle) _flush();
   }
 
   Future<void> type(String text) async {
@@ -226,7 +237,6 @@ class DeviceViewModel extends ChangeNotifier {
   void dispose() {
     _closed = true;
     _poll?.cancel();
-    _keysTimer?.cancel();
     unawaited(_stream?.cancel());
     super.dispose();
   }

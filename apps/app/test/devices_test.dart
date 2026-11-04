@@ -55,6 +55,26 @@ class FakeDevices extends DeviceService {
     return true;
   }
 
+  /// What reached the device by keyboard, in order: text, or <Enter>.
+  final typed = <String>[];
+
+  /// How long each send takes: as the slow way does.
+  Duration sendTakes = Duration.zero;
+
+  @override
+  Future<bool> type(Device d, String text) async {
+    await Future<void>.delayed(sendTakes);
+    typed.add(text);
+    return true;
+  }
+
+  @override
+  Future<bool> keyPress(Device d, String key) async {
+    await Future<void>.delayed(sendTakes);
+    typed.add('<$key>');
+    return true;
+  }
+
   @override
   Future<bool?> isDark(Device d) async => true;
 
@@ -109,6 +129,37 @@ void main() {
     expect(vm.canTouch, isFalse);
     await vm.tap(.5, .5, const .new(1206, 2622));
     expect(devices.taps, isEmpty);
+  });
+
+  test('keys go at once, gather while a send is on its way, and stay in order', () async {
+    final devices = FakeDevices()..sendTakes = const Duration(milliseconds: 100);
+    final vm = DeviceViewModel(devices);
+    addTearDown(vm.dispose);
+    await vm.open();
+    vm.pause();
+
+    vm.key('h'); // goes at once
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    vm.key('e'); // while 'h' is on its way: these three gather
+    vm.key('l');
+    vm.key('l');
+    await vm.press('Enter'); // after everything typed before it
+    vm.key('o');
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(devices.typed, ['h', 'ell', '<Enter>', 'o']);
+  });
+
+  test('with sends that take no time, each key goes by itself', () async {
+    final devices = FakeDevices();
+    final vm = DeviceViewModel(devices);
+    addTearDown(vm.dispose);
+    await vm.open();
+    vm.pause();
+    for (final k in ['a', 'b', 'c']) {
+      vm.key(k);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(devices.typed, ['a', 'b', 'c']);
   });
 
   group('the device tools', () {

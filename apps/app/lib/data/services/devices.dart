@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'cli_locator.dart';
+import 'sim_input.dart';
 
 /// A simulator or emulator on this computer.
 class Device {
@@ -27,10 +28,13 @@ class Device {
 
 /// Simulators and emulators: which there are, starting one, its screen, and
 /// tapping, swiping, typing and pressing home on it. iOS through Xcode's
-/// `simctl` (and AXe for input, when installed); Android through `adb`.
+/// `simctl` (and AXe for input, when installed: through Helmy's own
+/// resident helper, [SimInput], which costs milliseconds, else the `axe`
+/// command); Android through `adb`.
 class DeviceService {
-  DeviceService(this._locator);
+  DeviceService(this._locator, {this._input});
   final CliLocator _locator;
+  final SimInput? _input;
 
   Future<ProcessResult?> _run(String cmd, List<String> args, {bool binary = false}) async {
     final bin = cmd == 'xcrun' ? '/usr/bin/xcrun' : await _locator.find(cmd);
@@ -320,6 +324,10 @@ class DeviceService {
       _ => null,
     };
     if (code == null) return false;
+    if (d.ios) {
+      final fast = await _input?.key(d.id, int.parse(code));
+      if (fast != null) return fast;
+    }
     final r = d.ios
         ? await _run('axe', ['key', code, '--udid', d.id])
         : await _run('adb', [
@@ -335,6 +343,10 @@ class DeviceService {
 
   /// Taps [d] at ([x], [y]) in its screen's points (iOS) or pixels (Android).
   Future<bool> tap(Device d, double x, double y) async {
+    if (d.ios) {
+      final fast = await _input?.tap(d.id, x, y);
+      if (fast != null) return fast;
+    }
     final r = d.ios
         ? await _run('axe', ['tap', '-x', '${x.round()}', '-y', '${y.round()}', '--udid', d.id])
         : await _run('adb', ['-s', d.id, 'shell', 'input', 'tap', '${x.round()}', '${y.round()}']);
@@ -345,6 +357,10 @@ class DeviceService {
   Future<bool> swipe(Device d, (double, double) from, (double, double) to) async {
     final (x1, y1) = from;
     final (x2, y2) = to;
+    if (d.ios) {
+      final fast = await _input?.swipe(d.id, from, to);
+      if (fast != null) return fast;
+    }
     final r = d.ios
         ? await _run('axe', [
             'swipe', '--start-x', '${x1.round()}', '--start-y', '${y1.round()}', //
@@ -359,6 +375,9 @@ class DeviceService {
 
   /// Types [text] into whatever has focus on [d].
   Future<bool> type(Device d, String text) async {
+    // A character the helper has no key for (an accent, an emoji) goes the
+    // slower way, which types anything.
+    if (d.ios && await _input?.text(d.id, text) == true) return true;
     final r = d.ios
         ? await _run('axe', ['type', text, '--udid', d.id])
         : await _run('adb', ['-s', d.id, 'shell', 'input', 'text', text.replaceAll(' ', '%s')]);
@@ -367,6 +386,10 @@ class DeviceService {
 
   /// Presses [d]'s home button.
   Future<bool> home(Device d) async {
+    if (d.ios) {
+      final fast = await _input?.home(d.id);
+      if (fast != null) return fast;
+    }
     final r = d.ios
         ? await _run('axe', ['button', 'home', '--udid', d.id])
         : await _run('adb', ['-s', d.id, 'shell', 'input', 'keyevent', 'KEYCODE_HOME']);

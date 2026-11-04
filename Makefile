@@ -1,7 +1,7 @@
 # Run from the repository root.
 APP := apps/app
 
-.PHONY: help setup app run test live analyze format
+.PHONY: help setup app run test live analyze format sim-input
 
 help:
 	@echo "make setup     the commit hook and dependencies"
@@ -11,6 +11,7 @@ help:
 	@echo "make live      live tests against the real connections (costs usage)"
 	@echo "make analyze   static analysis"
 	@echo "make format    format the code (100 columns)"
+	@echo "make sim-input rebuild the iOS simulator input helper (needs AXe and Xcode)"
 
 setup:
 	git config core.hooksPath .githooks
@@ -33,3 +34,6 @@ analyze:
 
 format:
 	cd $(APP) && fvm dart format lib test
+
+sim-input:
+	$(APP)/tool/sim_input/build.sh
