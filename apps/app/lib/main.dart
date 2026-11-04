@@ -96,11 +96,6 @@ class _HelmyAppState extends State<HelmyApp> {
   }
 
   void _about() {
-    // A Mac has its own About window: Helmy's credits go in it.
-    if (Platform.isMacOS) {
-      unawaited(NotifyService.aboutPanel(openSourceCredits()));
-      return;
-    }
     final context = _router.routerDelegate.navigatorKey.currentContext;
     if (context == null) return;
     showAbout(

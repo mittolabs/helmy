@@ -263,8 +263,14 @@ class _Step extends StatelessWidget {
                 dimension: 14,
                 child: running
                     ? const Spinner(size: 12, semanticLabel: 'Running')
+                    // Down while open, as the step groups' arrows are; a
+                    // failed step keeps its mark.
                     : AshlarIcon(
-                        failed ? AshlarIconsRoundedStroke.x : AshlarIconsRoundedStroke.chevronRight,
+                        failed
+                            ? AshlarIconsRoundedStroke.x
+                            : open
+                            ? AshlarIconsRoundedStroke.chevronDown
+                            : AshlarIconsRoundedStroke.chevronRight,
                         size: 14,
                         color: c.mutedForeground,
                       ),

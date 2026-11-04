@@ -72,15 +72,6 @@ class NotifyService {
   /// icon when null.
   Future<void> face(String? face) => _call('face', {'face': face});
 
-  /// Opens the Mac's own About window, with [credits] in it.
-  static Future<void> aboutPanel(String credits) async {
-    try {
-      await _channel.invokeMethod<void>('aboutPanel', {'credits': credits});
-    } on Object {
-      // Not on macOS.
-    }
-  }
-
   /// Says on the splash what Helmy is doing as it starts.
   static Future<void> splash(String text) async {
     try {

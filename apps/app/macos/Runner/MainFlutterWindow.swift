@@ -272,10 +272,6 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "ready":
         Splash.shared.finish()
         result(nil)
-      case "aboutPanel":
-        // The Mac's own About window, with Helmy's credits.
-        About.panel(credits: args["credits"] as? String ?? "")
-        result(nil)
       case "splash":
         Splash.shared.say(args["text"] as? String ?? "")
         result(nil)
@@ -625,24 +621,16 @@ final class About: NSObject {
     }
   }
 
-  // The credits are Dart's (written from pubspec.lock): it is asked for them.
+  // The Mac's own About window: Helmy, its version, and the notice. The
+  // open-source credits live on the site, not in the app.
   @objc func show(_ sender: Any?) {
-    Notifier.shared.tell("about", nil)
-  }
-
-  static func panel(credits: String) {
-    let style = NSMutableParagraphStyle()
-    style.alignment = .center
-    let text = NSAttributedString(string: credits, attributes: [
-      .font: NSFont.systemFont(ofSize: 11),
-      .foregroundColor: NSColor.secondaryLabelColor,
-      .paragraphStyle: style,
-    ])
     NSApp.activate(ignoringOtherApps: true)
     NSApp.orderFrontStandardAboutPanel(options: [
-      .credits: text,
+      .credits: NSAttributedString(string: ""),
       NSApplication.AboutPanelOptionKey(rawValue: "Copyright"):
         "© \(Calendar.current.component(.year, from: Date())) Mittolabs · BSD license",
     ])
   }
+
+
 }

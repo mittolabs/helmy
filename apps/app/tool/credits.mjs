@@ -1,5 +1,6 @@
-// Writes lib/config/open_source.dart: every package Helmy ships, with its
-// version and license, read from pubspec.lock and each package's LICENSE.
+// Writes CREDITS.md at the repository root: every package Helmy ships, with
+// its version and license, read from pubspec.lock and each package's
+// LICENSE. The site shows it; the app does not.
 // Run after changing dependencies: node tool/credits.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -36,19 +37,21 @@ for (const { name, dependency: dep = '', source, version } of entries) {
   out.push({ name, version, license });
 }
 out.sort((a, b) => a.name.localeCompare(b.name));
-const esc = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-const dart = `// Written by tool/credits.mjs from pubspec.lock; do not edit by hand.
+const md = `# Open-source credits
 
-/// Open-source software Helmy ships, as the About window credits it.
-const openSource = <({String name, String version, String license})>[
-  (name: 'Flutter', version: '', license: 'BSD 3-Clause'),
-${out.map((p) => `  (name: '${esc(p.name)}', version: '${esc(p.version)}', license: '${esc(p.license)}'),`).join('\n')}
-];
+Helmy is built with this open-source software. Written by
+\`apps/app/tool/credits.mjs\` from \`pubspec.lock\`; run it again when dependencies change.
 
-/// Tools Helmy installs or uses on request, outside its own build.
-const openSourceTools = <({String name, String license, String use})>[
-  (name: 'AXe', license: 'MIT', use: 'Taps and typing on iOS simulators'),
-];
+| Package | Version | License |
+|---|---|---|
+| Flutter | | BSD 3-Clause |
+${out.map((p) => `| ${p.name} | ${p.version} | ${p.license} |`).join('\n')}
+
+## Tools Helmy installs or uses on request
+
+| Tool | License | Used for |
+|---|---|---|
+| AXe | MIT | Taps and typing on iOS simulators |
 `;
-fs.writeFileSync('lib/config/open_source.dart', dart);
+fs.writeFileSync('../../CREDITS.md', md);
 console.log(`${out.length} packages`, Object.entries(out.reduce((a, p) => ((a[p.license] = (a[p.license] || 0) + 1), a), {})));
