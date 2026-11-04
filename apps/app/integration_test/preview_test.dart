@@ -88,10 +88,19 @@ void main() {
           await settle();
         }
       }
+      final shot = '${Directory.systemTemp.path}/helmy-snapshot-test.png';
+      final saved = await tester.runAsync(() => vm.webSnapshot(shot));
+      results['picture'] = saved != null && File(shot).lengthSync() > 1000;
       if (hold > 0) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: hold)));
       }
-      expect(results, {'zoom': true, 'appearance': true, 'hardReload': true, 'inspect': true});
+      expect(results, {
+        'zoom': true,
+        'appearance': true,
+        'hardReload': true,
+        'inspect': true,
+        'picture': true,
+      });
     },
   );
 }

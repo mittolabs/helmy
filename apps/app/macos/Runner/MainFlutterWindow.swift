@@ -302,11 +302,40 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "face":
         DockFace.shared.show(args["face"] as? String)
         result(nil)
+      case "webSnapshot":
+        // A picture of the page in the Preview panel, as PNG, at the
+        // screen's sharpness; nil when there is none.
+        Notifier.snapshot(path: args["path"] as? String ?? "") { result($0) }
       case "webPage":
         // The page in the Preview panel: the largest web view in the window.
         result(Notifier.webPage(args["do"] as? String ?? "", args))
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// The largest web view in the main window: the Preview panel's page.
+  static func previewWebView() -> WKWebView? {
+    func all(_ v: NSView) -> [WKWebView] {
+      (v as? WKWebView).map { [$0] } ?? v.subviews.flatMap(all)
+    }
+    guard let root = (NSApp.mainWindow ?? NSApp.windows.first)?.contentView else { return nil }
+    return all(root).max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
+  }
+
+  /// Saves a picture of the Preview panel's page to [path]; the path, or nil.
+  static func snapshot(path: String, done: @escaping (String?) -> Void) {
+    guard let web = previewWebView() else { return done(nil) }
+    web.takeSnapshot(with: nil) { image, _ in
+      guard let image, let tiff = image.tiffRepresentation,
+            let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+      else { return done(nil) }
+      do {
+        try png.write(to: URL(fileURLWithPath: path))
+        done(path)
+      } catch {
+        done(nil)
       }
     }
   }

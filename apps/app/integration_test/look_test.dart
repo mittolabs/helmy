@@ -203,14 +203,15 @@ void main() {
     chat.closePanel();
     // Settings, a sheet over the conversation: each section, and a search.
     for (final section in [...SettingsSection.values, null]) {
-      final vm = SettingsViewModel(
-        settings: settings,
-        engines: engines,
-        meter: meter,
-        memory: MemoryRepositoryEngines(engines),
-      )
-        ..chromium = ChromiumService(appData: () async => Directory.systemTemp)
-        ..section = section ?? .general;
+      final vm =
+          SettingsViewModel(
+              settings: settings,
+              engines: engines,
+              meter: meter,
+              memory: MemoryRepositoryEngines(engines),
+            )
+            ..chromium = ChromiumService(appData: () async => Directory.systemTemp)
+            ..section = section ?? .general;
       if (section == null) vm.search('notif');
       await shoot(
         'settings-${section?.name ?? 'search'}',

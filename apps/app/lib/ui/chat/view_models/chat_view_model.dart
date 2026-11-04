@@ -191,6 +191,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  /// Saves a picture of the built-in browser's page to [path]; null where it cannot.
+  Future<String?> webSnapshot(String path) async => _desktop?.webSnapshot(path);
+
   /// Does [action] to the page in the Preview panel; false where it cannot.
   Future<bool> webPage(String action, [Map<String, Object?> args = const {}]) async =>
       await _desktop?.webPage(action, args) ?? false;

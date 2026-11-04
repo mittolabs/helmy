@@ -139,7 +139,11 @@ void main() {
     // A click on the page reaches it.
     await tester.tapAt(blank);
     await settleImage();
-    expect(near(await colorAt(blank), const Color(0xFFF59E0B)), isTrue, reason: 'the click turned it amber');
+    expect(
+      near(await colorAt(blank), const Color(0xFFF59E0B)),
+      isTrue,
+      reason: 'the click turned it amber',
+    );
 
     // Typing into its box reaches it.
     await tester.tapAt(view.topLeft + const Offset(60, 40));
@@ -155,8 +159,97 @@ void main() {
       });
       File(shot).writeAsBytesSync(png!.buffer.asUint8List());
     }
-    expect(near(await colorAt(blank), const Color(0xFF16A34A)), isTrue, reason: 'typing "hi" turned it green');
+    expect(
+      near(await colorAt(blank), const Color(0xFF16A34A)),
+      isTrue,
+      reason: 'typing "hi" turned it green',
+    );
 
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(chromium.stop);
+  });
+
+  testWidgets('marking an element puts a picture and its details in the message', (tester) async {
+    late ChatViewModel vm;
+    late ChromiumService chromium;
+    late String file;
+    await tester.runAsync(() async {
+      final root = await Directory.systemTemp.createTemp('chromium-marks');
+      file = '${root.path}/page.html';
+      File(file).writeAsStringSync(
+        '<html><head><title>Shop</title></head><body style="margin:0">'
+        '<button id="buy" style="position:absolute;left:100px;top:100px;width:160px;height:60px">Buy now</button>'
+        '</body></html>',
+      );
+      chromium = ChromiumService(appData: () async => root);
+      final storage = StorageService(root: () async => root);
+      final settings = SettingsRepositoryLocal(storage);
+      await settings.save(settings.settings.copyWith(previewWith: PreviewEngine.chromium));
+      final sessions = SessionRepositoryLocal(storage);
+      final meter = UsageMeter();
+      final repo = ConversationRepositoryEngines(
+        engines: EngineRegistry([]),
+        router: HeadroomRouter(meter),
+        meter: meter,
+        storage: storage,
+        sessions: sessions,
+      );
+      final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
+      vm = ChatViewModel(
+        sessionId: s.id,
+        sessions: sessions,
+        conversations: repo,
+        settings: settings,
+        desktop: DesktopService(),
+        chromium: chromium,
+      );
+    });
+    vm.preview(Uri.file(file).toString());
+    await tester.pumpWidget(
+      AshlarApp(
+        theme: appTheme,
+        darkTheme: appDarkTheme,
+        themeMode: .dark,
+        home: Align(
+          alignment: .topLeft,
+          child: SizedBox(width: 600, height: 600, child: PreviewPanel(vm: vm)),
+        ),
+      ),
+    );
+    Future<void> wait(bool Function() done, {int seconds = 20}) async {
+      for (var i = 0; i < seconds * 10 && !done(); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+    }
+
+    await wait(
+      () => find
+          .descendant(of: find.byType(ChromiumView), matching: find.byType(Image))
+          .evaluate()
+          .isNotEmpty,
+    );
+    await tester.tap(find.bySemanticsLabel('Mark up the page for the agent'));
+    await wait(() => find.text('Element').evaluate().isNotEmpty, seconds: 5);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+    // Click the button on the page: a mark, numbered 1, with a note to type.
+    final view = tester.getRect(find.byType(ChromiumView));
+    await tester.tapAt(view.topLeft + const Offset(180, 130));
+    await wait(
+      () => find.bySemanticsLabel(RegExp('Note on mark 1')).evaluate().isNotEmpty,
+      seconds: 8,
+    );
+    expect(find.bySemanticsLabel(RegExp('Note on mark 1, button')), findsOneWidget);
+    await tester.enterText(find.byType(EditableText).last, 'make it bigger');
+    await tester.tap(find.text('Add to message'));
+    await wait(() => vm.attachments.length >= 2, seconds: 10);
+    expect(vm.attachments.where((p) => p.endsWith('.png')), hasLength(1));
+    final md = vm.attachments.firstWhere((p) => p.endsWith('.md'));
+    final text = await tester.runAsync(() => File(md).readAsString());
+    expect(text, contains('# Marks on Shop'));
+    expect(text, contains('Note: make it bigger'));
+    expect(text, contains('Selector: `#buy`'));
+    expect(text, contains('"Buy now"'));
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(chromium.stop);
   });

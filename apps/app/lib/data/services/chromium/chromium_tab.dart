@@ -18,6 +18,10 @@ class ChromiumTab {
 
   final _frames = StreamController<Uint8List>.broadcast();
   final _urls = StreamController<String>.broadcast();
+  final _called = StreamController<(String, String)>.broadcast();
+
+  /// What the page sent through a binding: its name, and what was sent.
+  Stream<(String, String)> get called => _called.stream;
 
   /// Pictures of the page (JPEG), each as it changes.
   Stream<Uint8List> get frames => _frames.stream;
@@ -33,6 +37,7 @@ class ChromiumTab {
   Future<void> ready() async {
     await _send('Page.enable');
     await _send('Network.enable');
+    await _send('Runtime.enable');
   }
 
   void _event(Map<String, Object?> e) {
@@ -47,6 +52,8 @@ class ChromiumTab {
         if (frame != null && frame['parentId'] == null) _moved('${frame['url']}');
       case 'Page.navigatedWithinDocument':
         _moved('${params['url']}');
+      case 'Runtime.bindingCalled':
+        _called.add(('${params['name']}', '${params['payload']}'));
     }
   }
 
@@ -155,6 +162,21 @@ class ChromiumTab {
     await reload();
   }
 
+  /// Runs [script] in the page; what it gives back, as a value.
+  Future<Object?> evaluate(String script) async {
+    final r = await _send('Runtime.evaluate', {'expression': script, 'returnByValue': true});
+    return (r['result'] as Map?)?['value'];
+  }
+
+  /// A function [name] the page can call to send Helmy a string.
+  Future<void> bind(String name) => _send('Runtime.addBinding', {'name': name});
+
+  /// A picture of what shows of the page now, as PNG, at full sharpness.
+  Future<Uint8List> screenshot() async {
+    final r = await _send('Page.captureScreenshot', {'format': 'png'});
+    return base64Decode('${r['data']}');
+  }
+
   Future<void> clearCookies() => _send('Network.clearBrowserCookies');
   Future<void> clearCache() => _send('Network.clearBrowserCache');
 
@@ -162,6 +184,7 @@ class ChromiumTab {
     await _sub.cancel();
     await _frames.close();
     await _urls.close();
+    await _called.close();
     try {
       await _cdp.send('Target.closeTarget', {'targetId': targetId});
     } on Object {

@@ -62,6 +62,19 @@ class DesktopService {
     }
   }
 
+  /// Saves a picture of the page in the Preview panel (the built-in browser)
+  /// to [path], as PNG; the path, or null where it cannot.
+  Future<String?> webSnapshot(String path) async {
+    if (Desktop.current != .mac) return null;
+    try {
+      return await _channel.invokeMethod<String>('webSnapshot', {'path': path});
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   /// Whether closing the window hides it (sessions keep working) or quits.
   Future<void> setKeepRunning(bool on) async {
     try {

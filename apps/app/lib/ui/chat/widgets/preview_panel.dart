@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
@@ -10,6 +11,7 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/platform.dart';
 import '../../core/helmy_dialog.dart';
 import 'chromium_view.dart';
+import 'page_marking.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/input.dart';
@@ -64,6 +66,65 @@ class _PreviewPanelState extends State<PreviewPanel> {
   StreamSubscription<String>? _tabUrls;
   String? _chromiumState;
   bool get _chromium => widget.vm.previewEngine == .chromium && widget.vm.chromium != null;
+  StreamSubscription<(String, String)>? _tabCalls;
+
+  // Marking up the page for the agent.
+  bool _markingOpen = false;
+  late final _marking = PageMarking((
+    run: _runScript,
+    picture: _picture,
+    title: _title,
+    url: () => _at,
+  ));
+
+  Future<void> _runScript(String script) async {
+    try {
+      if (_chromium) {
+        await _tab?.evaluate(script);
+      } else {
+        await _c.runJavaScript(script);
+      }
+    } on Object {
+      // A page that refuses scripts (a PDF, a blank page) has nothing to mark.
+    }
+  }
+
+  Future<String?> _picture(String path) async {
+    final tab = _tab;
+    if (_chromium && tab != null) {
+      await File(path).writeAsBytes(await tab.screenshot());
+      return path;
+    }
+    return widget.vm.webSnapshot(path);
+  }
+
+  Future<String> _title() async {
+    try {
+      return _chromium
+          ? '${await _tab?.evaluate('document.title') ?? ''}'
+          : await _c.getTitle() ?? '';
+    } on Object {
+      return '';
+    }
+  }
+
+  Future<void> _addMarks() async {
+    final files = await _marking.toFiles();
+    if (files == null || !mounted) return;
+    widget.vm.attach(files);
+    await _marking.clear();
+    setState(() => _markingOpen = false);
+    _say('Added to your message: a picture of the page with the marks, and what each is on.');
+  }
+
+  Future<void> _toggleMarking() async {
+    if (_markingOpen) {
+      await _marking.clear();
+    } else {
+      await _marking.use('pick');
+    }
+    if (mounted) setState(() => _markingOpen = !_markingOpen);
+  }
 
   @override
   void initState() {
@@ -74,6 +135,10 @@ class _PreviewPanelState extends State<PreviewPanel> {
         NavigationDelegate(onUrlChange: (change) => _moved(change.url ?? _at)),
       ),
     );
+    // Marks made on the page come back through this channel (the built-in browser).
+    unawaited(
+      _c.addJavaScriptChannel('Helmy', onMessageReceived: (m) => _marking.fromPage(m.message)),
+    );
     widget.vm.addListener(_follow);
     if (_chromium) unawaited(_startChromium());
     _follow();
@@ -81,6 +146,11 @@ class _PreviewPanelState extends State<PreviewPanel> {
 
   void _moved(String url) {
     if (!mounted) return;
+    // Another page: the marks were on the last one.
+    if (Uri.tryParse(url)?.removeFragment() != Uri.tryParse(_at)?.removeFragment()) {
+      _marking.pageMoved();
+      _markingOpen = false;
+    }
     setState(() {
       _at = url;
       if (!_addressFocus.hasFocus) _address.text = url;
@@ -137,6 +207,11 @@ class _PreviewPanelState extends State<PreviewPanel> {
       tab.zoom = _zoom;
       if (_appearance != 'system') unawaited(tab.appearance(_appearance));
       _tabUrls = tab.urls.listen(_moved);
+      // Marks made on the page come back through this binding (Chromium).
+      await tab.bind('helmyAnnotate');
+      _tabCalls = tab.called
+          .where((c) => c.$1 == 'helmyAnnotate')
+          .listen((c) => _marking.fromPage(c.$2));
       setState(() => _chromiumState = null);
       if (_at.isNotEmpty) unawaited(tab.navigate(_at));
     } on Object catch (e) {
@@ -202,6 +277,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
 
   Future<void> _closeChromium() async {
     await _tabUrls?.cancel();
+    await _tabCalls?.cancel();
     final tab = _tab;
     _tab = null;
     _browser = null;
@@ -252,6 +328,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
     widget.vm.removeListener(_follow);
     _noteTimer?.cancel();
     unawaited(_closeChromium());
+    _marking.dispose();
     _address.dispose();
     _addressFocus.dispose();
     super.dispose();
@@ -315,6 +392,11 @@ class _PreviewPanelState extends State<PreviewPanel> {
                 ),
               ),
               const SizedBox(width: 4),
+              tool(
+                AshlarIconsRoundedStroke.penTool,
+                _markingOpen ? 'Stop marking' : 'Mark up the page for the agent',
+                () => unawaited(_toggleMarking()),
+              ),
               if (native || tab != null)
                 tool(AshlarIconsRoundedStroke.squareCode, 'Inspect the page', _inspect),
               DropdownMenu(
@@ -414,6 +496,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
             padding: const .fromLTRB(12, 0, 12, 6),
             child: Text(_note!, style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
           ),
+        if (_markingOpen) MarkingBar(marking: _marking, onAdd: () => unawaited(_addMarks())),
         Container(height: 1, color: t.colors.border),
         Expanded(
           child: !chromium
