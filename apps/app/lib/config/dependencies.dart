@@ -20,6 +20,7 @@ import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
 import '../data/services/editors.dart';
 import '../data/services/history_import.dart';
+import '../data/services/pull_requests.dart';
 import '../utils/format.dart';
 import '../data/services/sim_input.dart';
 import '../data/services/engines/claude/claude_engine.dart';
@@ -84,6 +85,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     dispose: (_, input) => input.dispose(),
   ),
   Provider(create: (context) => DeviceService(context.read(), input: context.read())),
+  // Open pull requests across every project, through GitHub's command.
+  Provider(create: (context) => PullRequests(context.read())),
   // Conversations from Claude Code and Codex on this Mac, to bring in.
   Provider(create: (_) => HistoryImport()),
   // The apps a project opens in, asked of macOS once.

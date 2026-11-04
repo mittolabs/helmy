@@ -6,6 +6,8 @@ import '../ui/chat/view_models/chat_view_model.dart';
 import '../ui/chat/widgets/chat_screen.dart';
 import '../ui/schedule/view_models/schedule_view_model.dart';
 import '../ui/schedule/widgets/schedule_screen.dart';
+import '../ui/pull_requests/pull_requests_screen.dart';
+import '../ui/pull_requests/pull_requests_view_model.dart';
 import '../ui/settings/view_models/settings_view_model.dart';
 import '../ui/settings/widgets/settings_screen.dart';
 import '../ui/shell/view_models/sidebar_view_model.dart';
@@ -32,6 +34,7 @@ GoRouter router(String initialLocation) => GoRouter(
             viewModel: vm,
             selectedId: state.pathParameters['id'],
             inSchedule: state.uri.path == '/scheduled',
+            inPullRequests: state.uri.path == '/pulls',
             child: child,
           ),
         ),
@@ -45,6 +48,19 @@ GoRouter router(String initialLocation) => GoRouter(
             create: (context) =>
                 ScheduleViewModel(schedules: context.read(), settings: context.read()),
             builder: (vm) => ScheduleScreen(viewModel: vm),
+          ),
+        ),
+        GoRoute(
+          path: '/pulls',
+          builder: (context, state) => _Kept(
+            create: (context) => PullRequestsViewModel(
+              prs: context.read(),
+              sessions: context.read(),
+              conversations: context.read(),
+              settings: context.read(),
+              desktop: context.read(),
+            ),
+            builder: (vm) => PullRequestsScreen(viewModel: vm),
           ),
         ),
         GoRoute(

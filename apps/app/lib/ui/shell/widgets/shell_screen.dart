@@ -38,9 +38,11 @@ class ShellScreen extends StatelessWidget {
     required this.selectedId,
     required this.child,
     this.inSchedule = false,
+    this.inPullRequests = false,
   });
 
   final bool inSchedule;
+  final bool inPullRequests;
 
   final SidebarViewModel viewModel;
   final String? selectedId;
@@ -178,6 +180,12 @@ class ShellScreen extends StatelessWidget {
                           label: 'Scheduled',
                           selected: inSchedule,
                           onPressed: () => context.go('/scheduled'),
+                        ),
+                        _NavRow(
+                          icon: AshlarIconsRoundedStroke.gitPullRequest,
+                          label: 'Pull requests',
+                          selected: inPullRequests,
+                          onPressed: () => context.go('/pulls'),
                         ),
                       ],
                     ),
