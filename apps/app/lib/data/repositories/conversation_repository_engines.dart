@@ -179,11 +179,12 @@ class ConversationRepositoryEngines extends ConversationRepository {
     String text, {
     List<String> attachments = const [],
     Set<Capability> needs = const {},
+    String? from,
   }) async {
     final c = of(session.id);
     // Written while the agent works: it waits, and goes when the turn ends.
     if (c.busy) {
-      c.queue.add((text: text, attachments: attachments, needs: needs));
+      c.queue.add((text: text, attachments: attachments, needs: needs, from: from));
       notifyListeners();
       return const .ok(null);
     }
@@ -214,11 +215,14 @@ class ConversationRepositoryEngines extends ConversationRepository {
       session = session.copyWith(baseline: checkpoint);
       await _sessions.save(session);
     }
-    if (text.startsWith('!') && text.trim().length > 1) {
+    // A !command runs in the shell only when the person typed it, never when
+    // another thread's agent sent it.
+    if (from == null && text.startsWith('!') && text.trim().length > 1) {
       return _shell(session, text.substring(1).trim(), checkpoint);
     }
     c.items.add(
       UserMessage(text, attachments: attachments)
+        ..from = from
         ..sentAt = DateTime.now()
         ..checkpoint = checkpoint
         ..branches = _branching.remove(session.id),
@@ -641,7 +645,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     final session = _sessions.byId(sessionId);
     if (c.busy || c.queue.isEmpty || session == null) return;
     final q = c.queue.removeAt(0);
-    unawaited(send(session, q.text, attachments: q.attachments, needs: q.needs));
+    unawaited(send(session, q.text, attachments: q.attachments, needs: q.needs, from: q.from));
   }
 
   /// Answers, without asking, any approval a rule in settings covers.

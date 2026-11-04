@@ -8,7 +8,8 @@ import '../services/engines/agent_engine.dart';
 
 /// What one session's conversation looks like right now.
 /// A message written while the agent was busy, sent when it is free.
-typedef Queued = ({String text, List<String> attachments, Set<Capability> needs});
+/// [from]: the title of the thread whose agent sent it, when one did.
+typedef Queued = ({String text, List<String> attachments, Set<Capability> needs, String? from});
 
 class Conversation {
   final List<ChatItem> items = [];
@@ -59,6 +60,7 @@ abstract class ConversationRepository extends ChangeNotifier {
     String text, {
     List<String> attachments = const [],
     Set<Capability> needs = const {},
+    String? from,
   });
 
   /// Goes back to the user's message at [index] and sends [text] in its

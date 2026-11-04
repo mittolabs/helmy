@@ -104,6 +104,7 @@ List<ChatRow> buildRows(ChatViewModel vm) {
             vm,
             attachments: attachments,
             sentAt: item.sentAt,
+            from: item.from,
             key: ObjectKey(item),
           ),
         ));

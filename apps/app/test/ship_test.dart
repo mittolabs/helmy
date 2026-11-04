@@ -60,6 +60,7 @@ class _Conversations extends ConversationRepositoryEngines {
     String text, {
     List<String> attachments = const [],
     Set<Capability> needs = const {},
+    String? from,
   }) async {
     sent.add(text);
     return const .ok(null);

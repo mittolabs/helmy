@@ -3,8 +3,19 @@ part of '../chat_items.dart';
 /// A message of yours, with Copy and Edit under it while the pointer is near.
 /// Edit opens it in place; sending it again takes back what came after.
 class _User extends StatefulWidget {
-  const new(this.text, this.index, this.vm, {super.key, this.attachments = const [], this.sentAt});
+  const new(
+    this.text,
+    this.index,
+    this.vm, {
+    super.key,
+    this.attachments = const [],
+    this.sentAt,
+    this.from,
+  });
   final String text;
+
+  /// Sent by another thread's agent: that thread's title.
+  final String? from;
 
   /// When it was sent; unknown for older messages.
   final DateTime? sentAt;
@@ -201,6 +212,31 @@ class _UserState extends State<_User> {
           crossAxisAlignment: .end,
           spacing: 2,
           children: [
+            // Not the person's words: said where they came from.
+            if (widget.from case final from?)
+              Padding(
+                padding: const .only(bottom: 2),
+                child: Row(
+                  mainAxisSize: .min,
+                  spacing: 4,
+                  children: [
+                    AshlarIcon(
+                      AshlarIconsRoundedStroke.messagesSquare,
+                      size: 12,
+                      color: AshlarTheme.of(context).colors.mutedForeground,
+                    ),
+                    Flexible(
+                      child: Text(
+                        'From the thread "$from"',
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: AshlarTheme.of(context).text.xs
+                            .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (widget.attachments.isNotEmpty)
               Wrap(
                 spacing: 6,

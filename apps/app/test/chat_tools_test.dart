@@ -17,6 +17,8 @@ import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/utils/result.dart';
 
+import 'support/storage.dart';
+
 void main() {
   test(
     "an agent looks into its chat's other threads, cheapest first, each lookup logged",
@@ -91,4 +93,74 @@ void main() {
       expect(rungs, ['summaries', 'thread-find', 'thread']);
     },
   );
+
+  test('an agent messages another thread, or starts one, labelled, and not without end', () async {
+    final root = await Directory.systemTemp.createTemp('chatsend');
+    final storage = storageAt(root);
+    addTearDown(() => deleteFolder(root));
+    final sessions = SessionRepositoryLocal(storage);
+    final chats = ChatRepository(storage, sessions);
+    addTearDown(chats.dispose);
+    await chats.load();
+    final meter = UsageMeter();
+    final repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    final design =
+        (await sessions.create(cwd: '/w', title: 'Design the onboarding') as Ok).value as Session;
+    final chatId = sessions.byId(design.id)!.chatId!;
+    final build =
+        (await sessions.create(cwd: '/w', title: 'Build it', chatId: chatId) as Ok).value
+            as Session;
+    repo.of(design.id).loaded = true;
+    var now = DateTime(2026, 11, 5, 9);
+    final tools = ChatTools(sessions: sessions, chats: chats, conversations: repo, now: () => now);
+    String text(Map r) => ((r['content'] as List).first as Map)['text'] as String;
+
+    final sent = await tools.call('chat_message', {
+      'id': design.id,
+      'message': 'Is the skip button on the last screen too?',
+    }, build.id);
+    expect(sent['isError'], isFalse, reason: text(sent));
+    final arrived = repo.of(design.id).items.whereType<UserMessage>().single;
+    expect(
+      (arrived.text, arrived.from),
+      ('Is the skip button on the last screen too?', 'Build it'),
+    );
+
+    expect(
+      text(await tools.call('chat_message', {'id': build.id, 'message': 'hi'}, build.id)),
+      'That is this thread.',
+    );
+    // A shell command from another agent is a message, never run.
+    await tools.call('chat_message', {'id': design.id, 'message': '!rm -rf build'}, build.id);
+    expect(repo.of(design.id).items.whereType<UserMessage>().last.text, '!rm -rf build');
+
+    // Held to five to one thread in ten minutes; then room again.
+    for (var i = 0; i < 3; i++) {
+      await tools.call('chat_message', {'id': design.id, 'message': 'and $i'}, build.id);
+    }
+    final sixth = await tools.call('chat_message', {'id': design.id, 'message': 'more'}, build.id);
+    expect(sixth['isError'], isTrue);
+    expect(text(sixth), contains('Wait for its answer'));
+    now = now.add(const Duration(minutes: 11));
+    expect(
+      (await tools.call('chat_message', {'id': design.id, 'message': 'more'}, build.id))['isError'],
+      isFalse,
+    );
+
+    // A new thread beside this one, in the same chat and folder.
+    final started = await tools.call('chat_start', {
+      'title': 'Write the copy',
+      'message': 'Write the words for the three onboarding screens.',
+    }, build.id);
+    expect(started['isError'], isFalse, reason: text(started));
+    final copy = sessions.sessions.firstWhere((s) => s.title == 'Write the copy');
+    expect((copy.chatId, copy.cwd), (chatId, '/w'));
+    expect(repo.of(copy.id).items.whereType<UserMessage>().single.from, 'Build it');
+  });
 }

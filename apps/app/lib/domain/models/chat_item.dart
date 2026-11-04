@@ -15,7 +15,8 @@ sealed class ChatItem {
         )
         ..checkpoint = Snapshot.fromJson(json['checkpoint'])
         ..branches = Branches.fromJson(json['branches'])
-        ..sentAt = DateTime.tryParse('${json['sentAt'] ?? ''}'),
+        ..sentAt = DateTime.tryParse('${json['sentAt'] ?? ''}')
+        ..from = json['from'] as String?,
     'text' => AssistantText(json['key']! as String, json['text']! as String),
     'tool' => ToolCall.fromJson(json),
     'permission' => PermissionPrompt.fromJson(json),
@@ -48,6 +49,10 @@ class UserMessage extends ChatItem {
   /// When it was sent, as Helmy saw it; unknown for older messages.
   DateTime? sentAt;
 
+  /// Sent by the agent of another thread in its chat, not by the person:
+  /// that thread's title.
+  String? from;
+
   @override
   Map<String, Object?> toJson() => {
     'kind': 'user',
@@ -56,6 +61,7 @@ class UserMessage extends ChatItem {
     if (checkpoint != null) 'checkpoint': checkpoint!.toJson(),
     if (branches != null) 'branches': branches!.toJson(),
     if (sentAt != null) 'sentAt': sentAt!.toIso8601String(),
+    if (from != null) 'from': from,
   };
 }
 
