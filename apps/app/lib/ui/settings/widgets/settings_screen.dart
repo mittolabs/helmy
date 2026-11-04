@@ -183,11 +183,8 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    return Container(
-      padding: const .symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: t.colors.border)),
-      ),
+    return Padding(
+      padding: const .symmetric(horizontal: 16, vertical: 12),
       child: LayoutBuilder(
         builder: (context, box) {
           final words = Column(
@@ -221,18 +218,56 @@ class _Page extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => ScrollArea(
-    child: Padding(
-      padding: const .fromLTRB(8, 0, 32, 32),
-      child: Align(
-        alignment: AlignmentDirectional.topStart,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: Column(crossAxisAlignment: .stretch, children: children),
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    // Settings next to each other share one card, a hairline between each.
+    final out = <Widget>[];
+    final run = <Widget>[];
+    void card() {
+      if (run.isEmpty) return;
+      out.add(
+        Container(
+          decoration: BoxDecoration(
+            color: t.colors.card,
+            border: Border.all(color: t.colors.border),
+            borderRadius: .circular(t.radiusLg),
+          ),
+          child: Column(
+            crossAxisAlignment: .stretch,
+            children: [
+              for (final (i, row) in run.indexed) ...[
+                if (i > 0) Container(height: 1, color: t.colors.border),
+                row,
+              ],
+            ],
+          ),
+        ),
+      );
+      run.clear();
+    }
+
+    for (final c in children) {
+      if (c is _Row) {
+        run.add(c);
+      } else {
+        card();
+        out.add(c);
+      }
+    }
+    card();
+    return ScrollArea(
+      child: Padding(
+        padding: const .fromLTRB(8, 0, 32, 32),
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(crossAxisAlignment: .stretch, children: out),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Heading extends StatelessWidget {
@@ -244,7 +279,7 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Padding(
-      padding: .only(top: first ? 0 : 28, bottom: 4),
+      padding: .only(top: first ? 0 : 28, bottom: 10),
       child: Text(text, style: t.text.base.copyWith(fontWeight: .w600)),
     );
   }

@@ -36,7 +36,13 @@ class _Projects extends StatelessWidget {
               ),
             for (final repo in repos) ...[
               _Heading(folderName(repo)),
-              Text(tildePath(repo), style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
+              Padding(
+                padding: const .only(bottom: 10),
+                child: Text(
+                  tildePath(repo),
+                  style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+                ),
+              ),
               _Row(
                 title: 'Each session on its own branch',
                 description: 'Its own branch and copy, so sessions here do not collide.',
