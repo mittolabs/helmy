@@ -811,6 +811,17 @@ class ConversationRepositoryEngines extends ConversationRepository {
     if (!_disposed) notifyListeners();
   }
 
+  @override
+  Future<void> adopt(String to, List<ChatItem> items, {required String note}) async {
+    of(to)
+      ..loaded = true
+      ..items.clear()
+      ..items.addAll(items)
+      ..items.add(Notice(note));
+    await _persist(to);
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> _persist(String sessionId) => _storage.write(
     'transcripts/$sessionId.json',
     of(sessionId).items.map((i) => i.toJson()).toList(),

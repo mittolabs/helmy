@@ -18,6 +18,25 @@ class _Data extends StatefulWidget {
 class _DataState extends State<_Data> {
   SettingsViewModel get vm => widget.vm;
 
+  /// Conversations from Claude Code and Codex, to bring in.
+  late final HistoryImportViewModel? _import = () {
+    try {
+      return HistoryImportViewModel(
+        import: context.read(),
+        sessions: context.read(),
+        conversations: context.read(),
+      );
+    } on ProviderNotFoundException {
+      return null; // Where the app's services are not all given (a test).
+    }
+  }();
+
+  @override
+  void dispose() {
+    _import?.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +131,23 @@ class _DataState extends State<_Data> {
             child: const Text('Export...'),
           ),
         ),
+        if (_import case final importer?) ...[
+          const _Heading('Bring in conversations'),
+          Text(
+            'The conversations you had in Claude Code and Codex on this Mac, by folder. Each '
+            'comes in as a session that goes on where it left off; the originals stay as they are.',
+            style: muted,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: t.colors.card,
+              border: Border.all(color: t.colors.border),
+              borderRadius: .circular(t.radiusLg),
+            ),
+            clipBehavior: .antiAlias,
+            child: ImportList(vm: importer),
+          ),
+        ],
         _Heading('What leaves ${Desktop.current.thisComputer}'),
         Text(
           'Each message goes to the company behind the agent that answers it (Anthropic for '

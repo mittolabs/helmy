@@ -12,6 +12,8 @@ import '../core/ashlar/scroll_area.dart';
 import '../core/ashlar/spinner.dart';
 import '../core/ashlar/theme.dart';
 import '../core/window_layout.dart';
+import '../import/history_import_view_model.dart';
+import '../import/import_list.dart';
 
 /// Getting Helmy ready: the AI tools it works through, each installed and
 /// signed in with one press, no terminal. Shown on first launch, and from
@@ -32,6 +34,26 @@ class _SetupScreenState extends State<SetupScreen> {
   final Map<String, String> _trouble = {};
 
   ConnectionsSetup get _setup => context.read<ConnectionsSetup>();
+
+  /// Conversations already had in those tools, to bring in; null where the
+  /// app's services are not all given (a test).
+  late final HistoryImportViewModel? _import = () {
+    try {
+      return HistoryImportViewModel(
+        import: context.read(),
+        sessions: context.read(),
+        conversations: context.read(),
+      );
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }();
+
+  @override
+  void dispose() {
+    _import?.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -109,6 +131,27 @@ class _SetupScreenState extends State<SetupScreen> {
                     const Center(child: Spinner(size: 18))
                   else
                     for (final c in checks) _row(t, c),
+                  // Once one is ready: the work already done in them, to go on with.
+                  if (_import case final importer? when anyReady) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Bring in your conversations',
+                      style: t.text.base.copyWith(fontWeight: .w600),
+                    ),
+                    Text(
+                      'From Claude Code and Codex on this Mac, by folder. Each goes on where it '
+                      'left off. You can do this later in Settings, Data.',
+                      style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: t.colors.border),
+                        borderRadius: .circular(t.radiusLg),
+                      ),
+                      clipBehavior: .antiAlias,
+                      child: ImportList(vm: importer),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: .end,
