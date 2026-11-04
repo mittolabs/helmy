@@ -1170,10 +1170,56 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  /// Comments on parts of the conversation: the words chosen, and what the
+  /// person says about them. They go with the next message, quoted, so the
+  /// agent knows what each is about.
+  final comments = <({int id, String quote, String note})>[];
+  static var _nextComment = 0;
+
+  /// Whether something waits to go besides the words typed.
+  bool get hasExtras => attachments.isNotEmpty || comments.isNotEmpty;
+
+  /// A comment on [quote], its words to come; the message box takes them.
+  void comment(String quote) {
+    final q = quote.trim();
+    if (q.isEmpty) return;
+    comments.add((id: _nextComment++, quote: q, note: ''));
+    notifyListeners();
+  }
+
+  void noteComment(int i, String note) {
+    if (i < 0 || i >= comments.length) return;
+    comments[i] = (id: comments[i].id, quote: comments[i].quote, note: note);
+  }
+
+  void dropComment(int i) {
+    if (i < 0 || i >= comments.length) return;
+    comments.removeAt(i);
+    notifyListeners();
+  }
+
+  /// [comments] as they go ahead of the message: each part quoted (cut
+  /// short when long), and what was said about it.
+  static String commentsText(List<({int id, String quote, String note})> comments) => [
+    'About these parts of the conversation:',
+    for (final c in comments) ...[
+      '',
+      for (final line in (c.quote.length <= 600 ? c.quote : '${c.quote.substring(0, 600)}…').split(
+        '\n',
+      ))
+        '> $line',
+      c.note.trim().isEmpty ? '(no comment written: look at this part)' : c.note.trim(),
+    ],
+  ].join('\n');
+
   Future<Result<void>> _send(String text) async {
     final s = session;
-    if (s == null || (text.trim().isEmpty && attachments.isEmpty)) {
+    if (s == null || (text.trim().isEmpty && !hasExtras)) {
       return .error(Exception('Nothing to send'));
+    }
+    if (comments.isNotEmpty) {
+      text = '${commentsText(comments)}${text.trim().isEmpty ? '' : '\n\n${text.trim()}'}';
+      comments.clear();
     }
     final files = [...attachments];
     final needs = {...pendingNeeds};

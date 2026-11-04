@@ -6,7 +6,7 @@ import '../../../domain/helmy_voice.dart';
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/gestures.dart' show DragStartBehavior;
+import 'package:flutter/gestures.dart' show DragStartBehavior, kSecondaryMouseButton;
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -89,6 +89,20 @@ class _ChatScreenState extends State<ChatScreen> {
   final _find = TextEditingController();
   final _findFocus = FocusNode();
   final _scroller = MessageScrollerController();
+
+  /// The words chosen in the conversation, for a comment on them.
+  String _chosen = '';
+
+  /// A right-click is down: on macOS it picks the word under it, which
+  /// would put a longer choice it landed in out of reach.
+  bool _rightDown = false;
+
+  void _choose(String words) {
+    // A word picked by a right-click inside what was chosen keeps the choice.
+    if (_rightDown && _chosen.contains(words.trim()) && words.trim().isNotEmpty) return;
+    _chosen = words;
+  }
+
   int _hit = 0;
 
   /// The rows whose text has what is searched for, in order.
@@ -204,7 +218,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Desktop.current.commandHeld &&
         HardwareKeyboard.instance.isShiftPressed) {
       final text = _text.text;
-      if (text.trim().isEmpty && vm.attachments.isEmpty) return .handled;
+      if (text.trim().isEmpty && !vm.hasExtras) return .handled;
       _text.clear();
       _back = null;
       setState(() => _suggestions = const []);
@@ -271,7 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _submit(String text) {
-    if (text.trim().isEmpty && vm.attachments.isEmpty) return;
+    if (text.trim().isEmpty && !vm.hasExtras) return;
     // "/side" or "/btw", and a question: asked in a side chat, not here.
     final side = RegExp(r'^/(?:side|btw)\b\s*([\s\S]*)$').firstMatch(text.trim());
     if (side != null && widget.bar == null) {
@@ -442,44 +456,69 @@ class _ChatScreenState extends State<ChatScreen> {
                           show: (where, words) =>
                               Media(where: where, words: words, cwd: session.cwd, actions: vm),
                           child: _FadeUnderHeader(
-                            child: SelectableRegion(
-                              selectionControls: AshlarSelectionControls(t.colors.foreground),
-                              contextMenuBuilder: (context, state) => AshlarSelectionMenu(
-                                anchors: state.contextMenuAnchors,
-                                items: state.contextMenuButtonItems,
-                              ),
-                              child: MessageScroller(
-                                controller: _scroller,
-                                busy: vm.busy,
-                                gap: 14,
-                                padding: .fromLTRB(sideMargin(context), 8, sideMargin(context), 32),
-                                semanticLabel: 'Conversation',
-                                items: [
-                                  for (final r in rows)
-                                    MessageScrollerItem(
-                                      id: r.id,
-                                      anchor: r.anchor,
-                                      child: inColumn(
-                                        Container(
-                                          decoration: _isHit(r.id)
-                                              ? BoxDecoration(
-                                                  color: t.colors.foreground.withValues(alpha: .06),
-                                                  borderRadius: .circular(t.radiusLg),
-                                                )
-                                              : null,
-                                          child: Align(
-                                            alignment: AlignmentDirectional.centerStart,
-                                            child: r.child,
+                            child: Listener(
+                              onPointerDown: (e) =>
+                                  _rightDown = e.buttons & kSecondaryMouseButton != 0,
+                              onPointerUp: (_) => _rightDown = false,
+                              child: SelectableRegion(
+                                selectionControls: AshlarSelectionControls(t.colors.foreground),
+                                onSelectionChanged: (chosen) => _choose(chosen?.plainText ?? ''),
+                                contextMenuBuilder: (context, state) => AshlarSelectionMenu(
+                                  anchors: state.contextMenuAnchors,
+                                  items: [
+                                    ...state.contextMenuButtonItems,
+                                    // A comment on the words chosen, to go with the next message.
+                                    if (_chosen.trim().isNotEmpty)
+                                      ContextMenuButtonItem(
+                                        label: 'Comment',
+                                        onPressed: () {
+                                          vm.comment(_chosen);
+                                          state.hideToolbar();
+                                          state.clearSelection();
+                                        },
+                                      ),
+                                  ],
+                                ),
+                                child: MessageScroller(
+                                  controller: _scroller,
+                                  busy: vm.busy,
+                                  gap: 14,
+                                  padding: .fromLTRB(
+                                    sideMargin(context),
+                                    8,
+                                    sideMargin(context),
+                                    32,
+                                  ),
+                                  semanticLabel: 'Conversation',
+                                  items: [
+                                    for (final r in rows)
+                                      MessageScrollerItem(
+                                        id: r.id,
+                                        anchor: r.anchor,
+                                        child: inColumn(
+                                          Container(
+                                            decoration: _isHit(r.id)
+                                                ? BoxDecoration(
+                                                    color: t.colors.foreground.withValues(
+                                                      alpha: .06,
+                                                    ),
+                                                    borderRadius: .circular(t.radiusLg),
+                                                  )
+                                                : null,
+                                            child: Align(
+                                              alignment: AlignmentDirectional.centerStart,
+                                              child: r.child,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  if (vm.busy)
-                                    MessageScrollerItem(
-                                      id: 'working',
-                                      child: inColumn(_Working(vm: vm)),
-                                    ),
-                                ],
+                                    if (vm.busy)
+                                      MessageScrollerItem(
+                                        id: 'working',
+                                        child: inColumn(_Working(vm: vm)),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -507,6 +546,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               : null,
                           attachments: [
                             for (final path in vm.attachments) _Attached(path: path, vm: vm),
+                            for (var i = 0; i < vm.comments.length; i++)
+                              _Comment(i: i, vm: vm, latest: i == vm.comments.length - 1),
                           ],
                           actions: [
                             DropdownMenu(

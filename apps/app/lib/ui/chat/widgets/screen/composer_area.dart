@@ -282,6 +282,76 @@ class _Attached extends StatelessWidget {
   }
 }
 
+/// A comment on part of the conversation, waiting to go with the next
+/// message: the words chosen, and a line to say what about them.
+class _Comment extends StatelessWidget {
+  const new({required this.i, required this.vm, required this.latest});
+  final int i;
+  final ChatViewModel vm;
+
+  /// The newest comment takes the keyboard, ready for its words.
+  final bool latest;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final comment = vm.comments[i];
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: Container(
+        padding: const .fromLTRB(10, 8, 4, 8),
+        decoration: BoxDecoration(
+          color: c.muted.withValues(alpha: .4),
+          border: .all(color: c.border),
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: Row(
+          crossAxisAlignment: .start,
+          spacing: 6,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .stretch,
+                spacing: 6,
+                children: [
+                  Container(
+                    padding: const .only(left: 8),
+                    decoration: BoxDecoration(
+                      border: Border(left: BorderSide(color: c.mutedForeground, width: 2)),
+                    ),
+                    child: Text(
+                      comment.quote,
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                      style: t.text.xs.copyWith(color: c.mutedForeground),
+                    ),
+                  ),
+                  Input(
+                    key: ValueKey('comment-${comment.id}'),
+                    size: .sm,
+                    autofocus: latest,
+                    placeholder: 'What about it?',
+                    semanticLabel: 'Comment ${i + 1}',
+                    onChanged: (v) => vm.noteComment(i, v),
+                  ),
+                ],
+              ),
+            ),
+            Button(
+              variant: .ghost,
+              size: .iconXs,
+              semanticLabel: 'Remove comment ${i + 1}',
+              onPressed: () => vm.dropComment(i),
+              child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Working extends StatelessWidget {
   const new({required this.vm});
   final ChatViewModel vm;
