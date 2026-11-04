@@ -353,11 +353,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
                       item(icon, label, () {
                         if (chromium) {
                           // Many sites choose their colors as they load.
-                          unawaited(
-                            tab
-                                ?.appearance(mode == 'system' ? null : mode)
-                                .then((_) => tab.reload()),
-                          );
+                          unawaited(tab?.appearance(mode == 'system' ? null : mode));
                         } else {
                           unawaited(widget.vm.webPage('appearance', {'appearance': mode}));
                           unawaited(_c.reload());

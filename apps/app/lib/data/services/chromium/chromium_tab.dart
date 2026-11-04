@@ -127,12 +127,21 @@ class ChromiumTab {
     if (key == 'Enter') await _send('Input.dispatchKeyEvent', {'type': 'char', 'text': '\r'});
   }
 
-  /// The light or dark the page sees; null for the system's.
-  Future<void> appearance(String? scheme) => _send('Emulation.setEmulatedMedia', {
-    'features': [
-      {'name': 'prefers-color-scheme', 'value': scheme ?? ''},
-    ],
-  });
+  /// The light or dark the page sees, then the page loaded again in it;
+  /// null for the system's. Sites read it two ways: as a media query in the
+  /// page, and as a header with each request, which some (Google) use to
+  /// choose their colors before the page arrives.
+  Future<void> appearance(String? scheme) async {
+    await _send('Emulation.setEmulatedMedia', {
+      'features': [
+        {'name': 'prefers-color-scheme', 'value': scheme ?? ''},
+      ],
+    });
+    await _send('Network.setExtraHTTPHeaders', {
+      'headers': {'Sec-CH-Prefers-Color-Scheme': ?scheme},
+    });
+    await reload();
+  }
 
   Future<void> clearCookies() => _send('Network.clearBrowserCookies');
   Future<void> clearCache() => _send('Network.clearBrowserCache');

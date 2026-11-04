@@ -90,11 +90,12 @@ class _ScrollAreaState extends State<ScrollArea> {
         child: RawScrollbar(
           controller: _controller,
           thumbVisibility: _hovered,
-          thumbColor: c.border,
-          thickness: 8,
-          radius: const Radius.circular(4),
-          crossAxisMargin: 1,
-          mainAxisMargin: 1,
+          // Helmy's: thin and faint.
+          thumbColor: c.foreground.withValues(alpha: .16),
+          thickness: 5,
+          radius: const Radius.circular(3),
+          crossAxisMargin: 3,
+          mainAxisMargin: 4,
           interactive: true,
           child: widget.itemBuilder == null
               ? SingleChildScrollView(

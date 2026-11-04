@@ -237,4 +237,26 @@ class _AshlarScrollBehavior extends ScrollBehavior {
   @override
   Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) =>
       child;
+
+  /// Helmy's: a thin, faint thumb that shows while scrolling and fades,
+  /// rather than the platform's wide grey bar.
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    final desktop = switch (getPlatform(context)) {
+      TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux => true,
+      _ => false,
+    };
+    if (!desktop) return child;
+    return RawScrollbar(
+      controller: details.controller,
+      thickness: 5,
+      radius: const Radius.circular(3),
+      thumbColor: AshlarTheme.of(context).colors.foreground.withValues(alpha: .16),
+      crossAxisMargin: 3,
+      mainAxisMargin: 4,
+      fadeDuration: const Duration(milliseconds: 250),
+      timeToFade: const Duration(milliseconds: 700),
+      child: child,
+    );
+  }
 }
