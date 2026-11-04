@@ -112,7 +112,12 @@ class _DevicePanelState extends State<DevicePanel> {
                               SelectOption(
                                 x.id,
                                 '${x.name}${x.runtime.isEmpty ? '' : ' · ${x.runtime}'}',
-                                group: x.booted ? 'Running' : (x.ios ? 'iOS' : 'Android'),
+                                // Phones on the cable first, then what is running, then the rest.
+                                group: x.runtime == 'Android phone'
+                                    ? 'Connected phones'
+                                    : x.booted
+                                    ? 'Running'
+                                    : (x.ios ? 'iOS simulators' : 'Android emulators'),
                               ),
                           ],
                           onChanged: (id) => d.choose(d.devices.firstWhere((x) => x.id == id)),

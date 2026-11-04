@@ -77,32 +77,46 @@ class DeviceService {
     // Android: the emulators running (adb), named by their virtual device,
     // then the virtual devices not running, to start.
     final running = <String>{};
-    final android = await _run('adb', ['devices']);
+    final android = await _run('adb', ['devices', '-l']);
     if (android != null && android.exitCode == 0) {
       for (final line in '${android.stdout}'.split('\n').skip(1)) {
         final parts = line.trim().split(RegExp(r'\s+'));
-        if (parts.length == 2 && parts[1] == 'device') {
-          final avd = parts[0].startsWith('emulator-') ? await _avdOf(parts[0]) : null;
-          if (avd != null) running.add(avd);
-          out.add(
-            Device(
-              id: parts[0],
-              name: avd == null ? parts[0] : _avdName(avd),
-              ios: false,
-              booted: true,
-              runtime: 'Android',
-            ),
-          );
-        }
+        if (parts.length < 2 || parts[1] != 'device') continue;
+        final serial = parts[0];
+        final emulator = serial.startsWith('emulator-');
+        final avd = emulator ? await _avdOf(serial) : null;
+        if (avd != null) running.add(avd);
+        // A phone on the cable: its model, as adb says it ("Pixel_5").
+        final model = parts
+            .where((p) => p.startsWith('model:'))
+            .map((p) => p.substring(6).replaceAll('_', ' '))
+            .firstOrNull;
+        out.add(
+          Device(
+            id: serial,
+            name: avd != null ? _avdName(avd) : (model ?? serial),
+            ios: false,
+            booted: true,
+            runtime: emulator ? 'Android emulator' : 'Android phone',
+          ),
+        );
       }
     }
     for (final avd in await _avds()) {
       if (running.contains(avd)) continue;
       out.add(
-        Device(id: 'avd:$avd', name: _avdName(avd), ios: false, booted: false, runtime: 'Android'),
+        Device(
+          id: 'avd:$avd',
+          name: _avdName(avd),
+          ios: false,
+          booted: false,
+          runtime: 'Android emulator',
+        ),
       );
     }
-    out.sort((a, b) => a.booted == b.booted ? a.name.compareTo(b.name) : (a.booted ? -1 : 1));
+    // A phone on the cable first, then what is running, then the rest.
+    int rank(Device d) => d.runtime == 'Android phone' ? 0 : (d.booted ? 1 : 2);
+    out.sort((a, b) => rank(a) != rank(b) ? rank(a) - rank(b) : a.name.compareTo(b.name));
     return out;
   }
 
