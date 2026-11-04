@@ -62,27 +62,34 @@ class _Header extends StatelessWidget {
               child: Transform.translate(
                 offset: const Offset(0, -1.5),
                 child: Row(
-                  spacing: 10,
+                  spacing: 8,
                   children: [
+                    // A breadcrumb: the folder, then the session in it. In its
+                    // own copy, the repository it is a copy of.
+                    // The folder keeps its name whole unless it is very long.
+                    Flexible(
+                      flex: 2,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 200),
+                        child: _FolderButton(
+                          vm: vm,
+                          cwd: session.ownCopy ? session.repo! : session.cwd,
+                          style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
+                        ),
+                      ),
+                    ),
+                    Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
                     Flexible(
                       flex: 3,
                       child: Text(
                         session.title,
                         style: t.text.sm.copyWith(
-                          fontWeight: .w600,
+                          fontWeight: .w500,
                           height: 1,
                           leadingDistribution: .even,
                         ),
                         maxLines: 1,
                         overflow: .ellipsis,
-                      ),
-                    ),
-                    // In its own copy: the repository it is a copy of, and its branch.
-                    Flexible(
-                      child: _FolderButton(
-                        vm: vm,
-                        cwd: session.ownCopy ? session.repo! : session.cwd,
-                        style: muted,
                       ),
                     ),
                     if (session.branch case final branch?)
@@ -273,7 +280,9 @@ class _FolderButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Tooltip(
-      message: vm.busy ? 'Wait for the turn to end to change the folder' : 'Change folder',
+      message: vm.busy
+          ? '${tildePath(cwd)}. Wait for the turn to end to change the folder'
+          : '${tildePath(cwd)}. Click to change the folder',
       child: Pressable(
         onPressed: vm.busy ? null : _pick,
         semanticLabel: 'Folder ${tildePath(cwd)}, change',
@@ -281,10 +290,11 @@ class _FolderButton extends StatelessWidget {
           mainAxisSize: .min,
           spacing: 4,
           children: [
-            AshlarIcon(AshlarIconsRoundedStroke.folder, size: 13, color: style.color),
+            AshlarIcon(AshlarIconsRoundedStroke.folder, size: 14, color: style.color),
             Flexible(
               child: Text(
-                tildePath(cwd),
+                // The folder's name; the whole path is in the tooltip.
+                tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
                 maxLines: 1,
                 overflow: .ellipsis,
                 style: style.copyWith(
