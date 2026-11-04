@@ -199,6 +199,13 @@ class _DevicePanelState extends State<DevicePanel> {
                         ),
                         if (device != null) _DeviceSettings(d: d, device: device),
                         tool(
+                          d.marking ? 'Stop marking' : 'Mark what to change',
+                          AshlarIconsRoundedStroke.squareDashedMousePointer,
+                          device == null || d.screen == null
+                              ? null
+                              : (d.marking ? d.stopMarking : d.startMarking),
+                        ),
+                        tool(
                           d.threeD ? 'Back to the screen' : 'See it in 3D',
                           AshlarIconsRoundedStroke.layers,
                           device == null ? null : d.toggle3D,
@@ -219,6 +226,70 @@ class _DevicePanelState extends State<DevicePanel> {
                 ],
               ),
             ),
+            // Marking: what each mark points at, a note for the latest, and
+            // the way to give them to the agent.
+            if (d.marking && device != null)
+              Container(
+                padding: const .fromLTRB(10, 8, 10, 10),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: t.colors.border)),
+                ),
+                child: Column(
+                  crossAxisAlignment: .stretch,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      d.marks.isEmpty
+                          ? 'Drag around what to change. Each box is named by what is under it.'
+                          : [
+                              for (final m in d.marks)
+                                '${m.n}. ${m.element == null ? 'A part of the screen' : '${m.element!.kind} "${m.element!.label}"'}',
+                            ].join('   '),
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                      style: muted,
+                    ),
+                    if (d.marks.isNotEmpty)
+                      Input(
+                        key: ValueKey('note-${d.marks.last.n}'),
+                        size: .sm,
+                        placeholder: 'What to change at ${d.marks.last.n}…',
+                        onChanged: (v) => d.noteMark(d.marks.last.n, v),
+                      ),
+                    Row(
+                      spacing: 6,
+                      children: [
+                        if (d.marks.isNotEmpty)
+                          Button(
+                            variant: .ghost,
+                            size: .xs,
+                            onPressed: d.removeLastMark,
+                            child: const Text('Undo'),
+                          ),
+                        const Spacer(),
+                        Button(
+                          variant: .ghost,
+                          size: .xs,
+                          onPressed: d.stopMarking,
+                          child: const Text('Cancel'),
+                        ),
+                        Button(
+                          size: .xs,
+                          onPressed: d.marks.isEmpty
+                              ? null
+                              : () async {
+                                  final out = await d.markedPicture();
+                                  if (out == null) return;
+                                  await widget.vm.attachMarks(out.$1, out.$2);
+                                  d.stopMarking();
+                                },
+                          child: Text(d.marks.isEmpty ? 'Attach' : 'Attach ${d.marks.length}'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             // Its logs, the agent's same lines, while asked for.
             if (d.logsOpen && device != null)
               Container(
@@ -390,23 +461,25 @@ class _DevicePanelState extends State<DevicePanel> {
                       focusNode: _screenFocus,
                       onKeyEvent: _key,
                       onFocusChange: (on) => setState(() => _typing = on),
-                      child: GestureDetector(
-                        onTapUp: (e) {
-                          // Clicked, the screen takes the keyboard.
-                          if (d.canTouch) _screenFocus.requestFocus();
-                          final (x, y) = share(e.localPosition);
-                          unawaited(d.tap(x, y, picture));
-                        },
-                        onPanStart: (e) => _down = _last = e.localPosition,
-                        onPanUpdate: (e) => _last = e.localPosition,
-                        onPanEnd: (_) {
-                          final (from, to) = (_down, _last);
-                          _down = _last = null;
-                          if (from == null || to == null) return;
-                          unawaited(d.swipe(share(from), share(to), picture));
-                        },
-                        child: image,
-                      ),
+                      child: d.marking
+                          ? _MarkLayer(d: d, picture: picture, child: image)
+                          : GestureDetector(
+                              onTapUp: (e) {
+                                // Clicked, the screen takes the keyboard.
+                                if (d.canTouch) _screenFocus.requestFocus();
+                                final (x, y) = share(e.localPosition);
+                                unawaited(d.tap(x, y, picture));
+                              },
+                              onPanStart: (e) => _down = _last = e.localPosition,
+                              onPanUpdate: (e) => _last = e.localPosition,
+                              onPanEnd: (_) {
+                                final (from, to) = (_down, _last);
+                                _down = _last = null;
+                                if (from == null || to == null) return;
+                                unawaited(d.swipe(share(from), share(to), picture));
+                              },
+                              child: image,
+                            ),
                     ),
                   ),
                 ),
@@ -753,4 +826,104 @@ class _ThreeDState extends State<_ThreeD> {
       ),
     );
   }
+}
+
+/// Drawing marks on the held picture: a drag draws a box, numbered; the
+/// boxes so far show over the picture.
+class _MarkLayer extends StatefulWidget {
+  const _MarkLayer({required this.d, required this.picture, required this.child});
+  final DeviceViewModel d;
+  final Size picture;
+  final Widget child;
+
+  @override
+  State<_MarkLayer> createState() => _MarkLayerState();
+}
+
+class _MarkLayerState extends State<_MarkLayer> {
+  Offset? _from, _to;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final size = box.biggest;
+      const red = Color(0xFFFF3B30);
+      Rect? draft;
+      if (_from != null && _to != null) draft = Rect.fromPoints(_from!, _to!);
+      return MouseRegion(
+        cursor: SystemMouseCursors.precise,
+        child: GestureDetector(
+          onPanStart: (e) => setState(() => _from = _to = e.localPosition),
+          onPanUpdate: (e) => setState(() => _to = e.localPosition),
+          onPanEnd: (_) {
+            final r = draft;
+            setState(() => _from = _to = null);
+            // A click, not a box: nothing to mark.
+            if (r == null || r.width < 6 || r.height < 6) return;
+            widget.d.addMark(
+              (r.left / size.width).clamp(0, 1),
+              (r.top / size.height).clamp(0, 1),
+              (r.width / size.width).clamp(0, 1),
+              (r.height / size.height).clamp(0, 1),
+              widget.picture,
+            );
+          },
+          child: Stack(
+            children: [
+              Positioned.fill(child: widget.child),
+              for (final m in widget.d.marks)
+                Positioned(
+                  left: m.left * size.width,
+                  top: m.top * size.height,
+                  width: m.width * size.width,
+                  height: m.height * size.height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: red, width: 2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: -9,
+                        top: -9,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(color: red, shape: BoxShape.circle),
+                          child: Text(
+                            '${m.n}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFFFFFFF),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (draft != null)
+                Positioned.fromRect(
+                  rect: draft,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: red.withValues(alpha: .12),
+                      border: Border.all(color: red, width: 1.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

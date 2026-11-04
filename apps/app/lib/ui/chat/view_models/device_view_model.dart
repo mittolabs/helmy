@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Size;
 
 import '../../../data/services/devices.dart';
 import '../../../domain/device_outline.dart';
+import '../../../domain/device_marks.dart';
 
 /// The Device panel's state: which simulator or emulator, its screen kept
 /// fresh while the panel shows, and what a tap or a key does to it.
@@ -304,6 +306,122 @@ class DeviceViewModel extends ChangeNotifier {
     if (!threeD || _closed) return;
     layers = raw == null ? const [] : (d.ios ? iosElements(raw) : androidElements(raw));
     notifyListeners();
+  }
+
+  // Marking the screen for the agent, as pages are marked: the picture held
+  // still, boxes drawn on it, each named by what is under it.
+
+  bool marking = false;
+  final marks = <DeviceMark>[];
+  List<ScreenElement> _markElements = const [];
+
+  /// Holds the picture still and reads what is on it, to name the marks.
+  Future<void> startMarking() async {
+    if (screen == null || device == null) return;
+    pause();
+    marking = true;
+    marks.clear();
+    notifyListeners();
+    final d = device!;
+    final raw = await _devices.describe(d);
+    _markElements = raw == null ? const [] : (d.ios ? iosElements(raw) : androidElements(raw));
+  }
+
+  /// A box drawn at [left], [top], [width], [height] (shares of the screen).
+  void addMark(double left, double top, double width, double height, Size picture) {
+    final ios = device?.ios ?? false;
+    final unitsWide = ios && _markElements.isNotEmpty
+        ? _markElements.map((e) => e.x + e.width).reduce((a, b) => a > b ? a : b)
+        : picture.width;
+    final unitsHigh = unitsWide * picture.height / picture.width;
+    marks.add((
+      n: marks.length + 1,
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      note: '',
+      element: elementUnder(
+        _markElements,
+        left: left,
+        top: top,
+        width: width,
+        height: height,
+        unitsWide: unitsWide,
+        unitsHigh: unitsHigh,
+      ),
+    ));
+    notifyListeners();
+  }
+
+  void noteMark(int n, String note) {
+    final i = marks.indexWhere((m) => m.n == n);
+    if (i < 0) return;
+    final m = marks[i];
+    marks[i] = (
+      n: m.n,
+      left: m.left,
+      top: m.top,
+      width: m.width,
+      height: m.height,
+      note: note,
+      element: m.element,
+    );
+  }
+
+  void removeLastMark() {
+    if (marks.isNotEmpty) marks.removeLast();
+    notifyListeners();
+  }
+
+  /// Back to the live screen, the marks put away.
+  void stopMarking() {
+    marking = false;
+    marks.clear();
+    notifyListeners();
+    unawaited(_ready());
+  }
+
+  /// The picture with its marks drawn on it, as PNG, and the marks as text.
+  Future<(Uint8List, String)?> markedPicture() async {
+    final bytes = screen, d = device;
+    if (bytes == null || d == null || marks.isEmpty) return null;
+    final codec = await ui.instantiateImageCodec(bytes);
+    final image = (await codec.getNextFrame()).image;
+    final w = image.width.toDouble(), h = image.height.toDouble();
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder)..drawImage(image, ui.Offset.zero, ui.Paint());
+    final stroke = w / 120;
+    const red = ui.Color(0xFFFF3B30);
+    for (final m in marks) {
+      final rect = ui.Rect.fromLTWH(m.left * w, m.top * h, m.width * w, m.height * h);
+      canvas.drawRRect(
+        ui.RRect.fromRectAndRadius(rect, ui.Radius.circular(stroke * 2)),
+        ui.Paint()
+          ..color = red
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      );
+      // Its number, in a badge at its corner.
+      final r = stroke * 5;
+      final center = ui.Offset(rect.left, rect.top);
+      canvas.drawCircle(center, r, ui.Paint()..color = red);
+      final builder =
+          ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center, fontSize: r * 1.2))
+            ..pushStyle(
+              ui.TextStyle(color: const ui.Color(0xFFFFFFFF), fontWeight: ui.FontWeight.w700),
+            )
+            ..addText('${m.n}');
+      final p = builder.build()..layout(ui.ParagraphConstraints(width: r * 2));
+      canvas.drawParagraph(p, ui.Offset(center.dx - r, center.dy - p.height / 2));
+    }
+    final picture = await recorder.endRecording().toImage(image.width, image.height);
+    final png = await picture.toByteData(format: ui.ImageByteFormat.png);
+    if (png == null) return null;
+    return (
+      png.buffer.asUint8List(),
+      deviceMarksMarkdown(d.name, marks, picture: 'the attached picture'),
+    );
   }
 
   // The device's logs, under its screen while asked for: the same lines its

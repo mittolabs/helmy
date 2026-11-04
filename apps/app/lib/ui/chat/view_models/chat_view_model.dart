@@ -1090,6 +1090,19 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   /// A device's screen as it is now, attached to the message.
+  /// A device's screen with marks drawn on it, and the marks as text: both
+  /// go with the next message.
+  Future<void> attachMarks(Uint8List png, String text) async {
+    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final picture = File('${dir.path}/device-marks-$stamp.png');
+    final notes = File('${dir.path}/device-marks-$stamp.md');
+    await picture.writeAsBytes(png);
+    await notes.writeAsString(text);
+    attach([picture.path, notes.path]);
+    focusRequests.value++;
+  }
+
   Future<void> attachScreen(Uint8List bytes) async {
     final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
     final png = bytes.length > 3 && bytes[1] == 0x50;
