@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Size;
 
 import '../../../data/services/devices.dart';
+import '../../../domain/device_outline.dart';
 
 /// The Device panel's state: which simulator or emulator, its screen kept
 /// fresh while the panel shows, and what a tap or a key does to it.
@@ -283,6 +284,26 @@ class DeviceViewModel extends ChangeNotifier {
   Future<bool> push(String bundle, String payload) async {
     final d = device;
     return d != null && await _devices.push(d, bundle, payload);
+  }
+
+  // The screen in 3D: its elements stacked over it by their depth, as the
+  // screen's accessibility tree has them.
+
+  bool threeD = false;
+
+  /// The elements, read when the view opened; null while reading.
+  List<ScreenElement>? layers;
+
+  Future<void> toggle3D() async {
+    threeD = !threeD;
+    layers = null;
+    notifyListeners();
+    final d = device;
+    if (!threeD || d == null) return;
+    final raw = await _devices.describe(d);
+    if (!threeD || _closed) return;
+    layers = raw == null ? const [] : (d.ios ? iosElements(raw) : androidElements(raw));
+    notifyListeners();
   }
 
   // The device's logs, under its screen while asked for: the same lines its

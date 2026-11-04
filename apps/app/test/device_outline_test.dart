@@ -29,6 +29,7 @@ void main() {
     expect([for (final e in elements) e.label], ['Wi-Fi', 'Search settings', 'Password']);
     expect(centerOf(elements[1]), (960.0, 180.0));
     expect(elements[2].kind, 'EditText (password)');
+    expect([for (final e in elements) e.depth], [1, 1, 1], reason: 'all inside the frame layout');
     final text = outline('Pixel', elements);
     expect(text, contains('[d2] ImageButton "Search settings"'));
     expect(text, contains('[d3] EditText (password) "Password" = "hunter2" (disabled)'));

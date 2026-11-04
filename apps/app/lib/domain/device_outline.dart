@@ -13,6 +13,9 @@ typedef ScreenElement = ({
   double width,
   double height,
   bool enabled,
+
+  /// How deep in the screen's tree it sits: what a 3D view stacks it by.
+  int depth,
 });
 
 /// The middle of [e], where a tap lands.
@@ -22,10 +25,10 @@ typedef ScreenElement = ({
 /// reading: those with words, in reading order.
 List<ScreenElement> iosElements(String json) {
   final out = <ScreenElement>[];
-  void walk(Object? node) {
+  void walk(Object? node, [int depth = 0]) {
     if (node is List) {
       for (final n in node) {
-        walk(n);
+        walk(n, depth);
       }
       return;
     }
@@ -46,9 +49,10 @@ List<ScreenElement> iosElements(String json) {
         width: (f['width'] as num).toDouble(),
         height: (f['height'] as num).toDouble(),
         enabled: node['enabled'] != false,
+        depth: depth,
       ));
     }
-    walk(node['children']);
+    walk(node['children'], depth + 1);
   }
 
   try {
@@ -72,7 +76,14 @@ List<ScreenElement> androidElements(String xml) {
       .replaceAll('&gt;', '>')
       .replaceAll('&quot;', '"')
       .replaceAll('&#39;', "'");
+  // Depth from the nesting: a node that is not closed at once holds the next.
+  var depth = 0;
+  var last = 0;
   for (final m in node.allMatches(xml)) {
+    depth -= '</node>'.allMatches(xml.substring(last, m.start)).length;
+    last = m.end;
+    final here = depth;
+    if (!m[0]!.endsWith('/>')) depth++;
     final a = {for (final p in attr.allMatches(m[1]!)) p[1]!: unescape(p[2]!)};
     final text = (a['text'] ?? '').trim();
     final desc = (a['content-desc'] ?? '').trim();
@@ -93,6 +104,7 @@ List<ScreenElement> androidElements(String xml) {
       width: x2 - x1,
       height: y2 - y1,
       enabled: a['enabled'] != 'false',
+      depth: here,
     ));
   }
   return out;

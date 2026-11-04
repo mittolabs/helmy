@@ -19,6 +19,7 @@ import '../../core/ashlar/textarea.dart';
 import '../../core/ashlar/toast.dart';
 import '../../core/helmy_dialog.dart';
 import '../../../data/services/devices.dart';
+import '../../../domain/device_outline.dart';
 import '../view_models/chat_view_model.dart';
 import '../view_models/device_view_model.dart';
 
@@ -198,6 +199,11 @@ class _DevicePanelState extends State<DevicePanel> {
                         ),
                         if (device != null) _DeviceSettings(d: d, device: device),
                         tool(
+                          d.threeD ? 'Back to the screen' : 'See it in 3D',
+                          AshlarIconsRoundedStroke.layers,
+                          device == null ? null : d.toggle3D,
+                        ),
+                        tool(
                           d.logsOpen ? 'Hide its logs' : 'Its logs',
                           AshlarIconsRoundedStroke.scrollText,
                           device == null ? null : d.toggleLogs,
@@ -345,6 +351,25 @@ class _DevicePanelState extends State<DevicePanel> {
             final corner = w * (d.device?.ios == true ? .13 : .09);
             (double, double) share(Offset p) =>
                 ((p.dx / w).clamp(0.0, 1.0), (p.dy / h).clamp(0.0, 1.0));
+            if (d.threeD) {
+              final layers = d.layers;
+              if (layers == null) return const Center(child: Spinner(size: 16));
+              if (layers.isEmpty) {
+                return Center(
+                  child: Text('Nothing on this screen has words to stack.', style: muted),
+                );
+              }
+              // The elements' units: points on iOS (the widest one is the screen), pixels on Android.
+              final unitsWide = d.device?.ios == true
+                  ? layers.map((e) => e.x + e.width).reduce((a, b) => a > b ? a : b)
+                  : picture.width;
+              return _ThreeD(
+                picture: bytes,
+                size: Size(w, h),
+                layers: layers,
+                unitsWide: unitsWide,
+              );
+            }
             return _Body(
               screen: Size(w, h),
               bezel: bezel,
@@ -619,6 +644,112 @@ class _Body extends StatelessWidget {
             child: SizedBox(width: screen.width, height: screen.height, child: child),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The screen in 3D, as Xcode's view debugger shows one: the picture below,
+/// each element with words stacked above it by its depth in the screen's
+/// tree, drawn as a card where it sits. Dragging turns it.
+class _ThreeD extends StatefulWidget {
+  const _ThreeD({
+    required this.picture,
+    required this.size,
+    required this.layers,
+    required this.unitsWide,
+  });
+  final Uint8List picture;
+  final Size size;
+  final List<ScreenElement> layers;
+
+  /// How wide the screen is in the elements' units (points or pixels).
+  final double unitsWide;
+
+  @override
+  State<_ThreeD> createState() => _ThreeDState();
+}
+
+class _ThreeDState extends State<_ThreeD> {
+  double _yaw = -.55, _pitch = .25;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final scale = widget.size.width / widget.unitsWide;
+    final deepest = widget.layers.fold(1, (m, e) => e.depth > m ? e.depth : m);
+    // The stack spread over a third of the screen's width, whatever its depth.
+    final step = widget.size.width * .33 / deepest;
+    const hues = [205.0, 160.0, 35.0, 280.0, 340.0];
+    return GestureDetector(
+      onPanUpdate: (e) => setState(() {
+        _yaw = (_yaw + e.delta.dx * .008).clamp(-1.3, 1.3);
+        _pitch = (_pitch - e.delta.dy * .008).clamp(-1.0, 1.0);
+      }),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, .0011)
+            ..rotateX(_pitch)
+            ..rotateY(_yaw),
+          child: SizedBox.fromSize(
+            size: widget.size,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Opacity(opacity: .55, child: Image.memory(widget.picture, gaplessPlayback: true)),
+                for (final e in [...widget.layers]..sort((a, b) => a.depth.compareTo(b.depth)))
+                  Positioned(
+                    left: e.x * scale,
+                    top: e.y * scale,
+                    width: (e.width * scale).clamp(2, widget.size.width),
+                    height: (e.height * scale).clamp(2, widget.size.height),
+                    child: Transform(
+                      transform: Matrix4.translationValues(0, 0, -e.depth * step),
+                      child: Tooltip(
+                        message:
+                            '${e.kind} "${e.label}"${e.value == null ? '' : ' = "${e.value}"'}',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: HSLColor.fromAHSL(
+                              .16,
+                              hues[e.depth % hues.length],
+                              .7,
+                              .55,
+                            ).toColor(),
+                            border: Border.all(
+                              color: HSLColor.fromAHSL(
+                                .85,
+                                hues[e.depth % hues.length],
+                                .7,
+                                .62,
+                              ).toColor(),
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          alignment: Alignment.topLeft,
+                          padding: const EdgeInsets.all(2),
+                          child: e.height * scale < 14
+                              ? null
+                              : Text(
+                                  e.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.clip,
+                                  style: t.text.xs.copyWith(
+                                    fontSize: 8,
+                                    color: t.colors.foreground,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
