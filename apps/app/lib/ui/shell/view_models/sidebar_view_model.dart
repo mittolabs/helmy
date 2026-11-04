@@ -385,6 +385,10 @@ class SidebarViewModel extends ChangeNotifier {
     String text;
     if (c.pendingPrompts > 0) {
       text = 'Waiting for your approval';
+    } else if (c.heldUntil != null) {
+      text = 'Waiting for room';
+    } else if (s.hasDraft && !c.busy) {
+      text = 'Draft: ${s.draft!.trim().split('\n').first}';
     } else if (c.busy) {
       final step = c.items.whereType<ToolCall>().where((t) => !t.done).lastOrNull;
       text = step == null ? 'Working' : 'Working: ${toolLabel(step.name)}';

@@ -159,7 +159,29 @@ class _ChatScreenState extends State<ChatScreen> {
     // One asked for before this screen was open (both Shift keys from
     // another app, with no conversation showing).
     WidgetsBinding.instance.addPostFrameCallback((_) => _snapshot());
+    // What was being written here when the thread was last left.
+    _text.text = vm.draft;
     _text.addListener(_suggest);
+    _text.addListener(_keepDraft);
+  }
+
+  String _kept = '';
+
+  void _keepDraft() {
+    if (_text.text == _kept) return;
+    _kept = _text.text;
+    vm.keepDraft(_text.text);
+  }
+
+  @override
+  void didUpdateWidget(ChatScreen old) {
+    super.didUpdateWidget(old);
+    if (old.viewModel == widget.viewModel) return;
+    // Another thread in the same place: this one's words stay with it.
+    old.viewModel.keepDraft(_text.text);
+    unawaited(old.viewModel.saveDraft());
+    _kept = vm.draft;
+    _text.text = vm.draft;
   }
 
   /// "/" at the start offers commands; "@word" at the cursor offers files.
@@ -354,6 +376,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Left: what was being written stays with the thread.
+    vm.keepDraft(_text.text);
+    unawaited(vm.saveDraft());
     vm.focusRequests.removeListener(_focus);
     vm.draftInserts.removeListener(_insert);
     snapshotRequests.removeListener(_snapshot);

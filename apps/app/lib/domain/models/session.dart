@@ -63,7 +63,13 @@ class const Session({
 
   /// One line of what the thread is about and where it stands, kept by Helmy.
   final String? summary,
+
+  /// What the person was writing and has not sent; empty or null for none.
+  final String? draft,
 }) {
+  /// Something written and not sent.
+  bool get hasDraft => draft?.trim().isNotEmpty ?? false;
+
   /// In its own working copy, on its own branch.
   bool get ownCopy => repo != null && branch != null;
 
@@ -89,6 +95,9 @@ class const Session({
     String? brief,
     String? summary,
 
+    /// '' clears it.
+    String? draft,
+
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
     bool rebase = false,
@@ -113,6 +122,7 @@ class const Session({
     chatId: chatId ?? this.chatId,
     brief: brief ?? this.brief,
     summary: summary ?? this.summary,
+    draft: draft ?? this.draft,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -139,6 +149,7 @@ class const Session({
     'chatId': ?chatId,
     'brief': ?brief,
     'summary': ?summary,
+    if (hasDraft) 'draft': draft,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -175,6 +186,7 @@ class const Session({
       chatId: json['chatId'] as String?,
       brief: json['brief'] as String?,
       summary: json['summary'] as String?,
+      draft: json['draft'] as String?,
     );
   }
 }

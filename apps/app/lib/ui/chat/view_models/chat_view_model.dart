@@ -1173,6 +1173,33 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  // What is being written and not sent: kept with the thread, so leaving it
+  // (for another, or a new one) or closing Helmy loses nothing.
+
+  /// The words in the message box, as last kept; null when not changed here.
+  String? _draft;
+  Timer? _draftTimer;
+
+  /// What was being written when the thread was last left.
+  String get draft => session?.draft ?? '';
+
+  /// The message box changed: kept a moment after typing stops.
+  void keepDraft(String text) {
+    _draft = text;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 700), saveDraft);
+  }
+
+  /// Keeps what is in the message box now (the thread is being left).
+  Future<void> saveDraft() async {
+    _draftTimer?.cancel();
+    final text = _draft;
+    final s = session;
+    if (text == null || s == null || text == (s.draft ?? '')) return;
+    _draft = null;
+    await _sessions.save(s.copyWith(draft: text));
+  }
+
   /// Comments on parts of the conversation: the words chosen, and what the
   /// person says about them. They go with the next message, quoted, so the
   /// agent knows what each is about.
@@ -1224,6 +1251,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
       text = '${commentsText(comments)}${text.trim().isEmpty ? '' : '\n\n${text.trim()}'}';
       comments.clear();
     }
+    _draftTimer?.cancel();
+    _draft = null;
+    if (session?.hasDraft ?? false) await _sessions.save(session!.copyWith(draft: ''));
     final files = [...attachments];
     final needs = {...pendingNeeds};
     attachments.clear();
@@ -1453,6 +1483,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   void dispose() {
     _disposed = true;
+    _draftTimer?.cancel();
     _attention?.viewing = null;
     browser?.opener(sessionId, null);
     browser?.deviceOpener(sessionId, null);
