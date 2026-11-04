@@ -20,6 +20,7 @@ import 'page_marking.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/input.dart';
+import '../../core/ashlar/popover.dart' show openOverlays;
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/chat_view_model.dart';
@@ -237,7 +238,10 @@ class _PreviewPanelState extends State<PreviewPanel> {
           onUrlChange: (change) => _moved(change.url ?? _at),
           onPageStarted: (_) => _loadingAt(.05),
           onProgress: (p) => _loadingAt(p / 100),
-          onPageFinished: (_) => _loadingAt(1),
+          onPageFinished: (_) {
+            _loadingAt(1);
+            unawaited(_readPage());
+          },
         ),
       ),
     );
@@ -249,6 +253,33 @@ class _PreviewPanelState extends State<PreviewPanel> {
     if (widget.active) widget.vm.browser?.attach(widget.vm.sessionId, _driver);
     if (_chromium) unawaited(_startChromium());
     _follow();
+  }
+
+  /// The page's title and icon, for its tab.
+  Future<void> _readPage() async {
+    final tab = widget.tab;
+    if (tab == null) return;
+    const script =
+        '(() => { const l = document.querySelector("link[rel~=icon], link[rel=apple-touch-icon]");'
+        ' return JSON.stringify({title: document.title, icon: l ? l.href : new URL("/favicon.ico", location.href).href}); })()';
+    try {
+      final Object? raw = _chromium
+          ? await _tab?.evaluate(script)
+          : await _c.runJavaScriptReturningResult(script);
+      var text = raw is String ? raw : '$raw';
+      // WebKit hands back a string inside a string.
+      if (text.startsWith('"')) text = jsonDecode(text) as String;
+      final page = jsonDecode(text) as Map;
+      if (!mounted) return;
+      setState(() {
+        tab.title = '${page['title'] ?? ''}'.trim();
+        final icon = '${page['icon'] ?? ''}';
+        tab.icon = icon.startsWith('http') ? icon : null;
+      });
+      widget.vm.panelChanged();
+    } on Object {
+      // A page with no title or icon (a file, a PDF) keeps its address.
+    }
   }
 
   void _moved(String url) {
@@ -316,7 +347,14 @@ class _PreviewPanelState extends State<PreviewPanel> {
       tab.zoom = _zoom;
       if (_appearance != 'system') unawaited(tab.appearance(_appearance));
       _tabUrls = tab.urls.listen(_moved);
-      _tabLoading = tab.loading.listen((on) => on ? _creepFrom(.1) : _loadingAt(1));
+      _tabLoading = tab.loading.listen((on) {
+        if (on) {
+          _creepFrom(.1);
+        } else {
+          _loadingAt(1);
+          unawaited(_readPage());
+        }
+      });
       tab.mobile = _device?.mobile ?? false;
       // Marks made on the page come back through this binding (Chromium).
       await tab.bind('helmyAnnotate');
@@ -696,7 +734,19 @@ class _PreviewPanelState extends State<PreviewPanel> {
             builder: (context, box) {
               _fills = box.biggest;
               final page = !chromium
-                  ? WebViewWidget(controller: _c)
+                  // A click on the page while a menu is open closes the menu:
+                  // the native page would take it without Flutter seeing it.
+                  ? Stack(
+                      children: [
+                        WebViewWidget(controller: _c),
+                        ValueListenableBuilder(
+                          valueListenable: openOverlays,
+                          builder: (context, open, _) => open > 0
+                              ? const Positioned.fill(child: ColoredBox(color: Color(0x00000000)))
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    )
                   : tab != null && _browser != null
                   ? ChromiumView(tab: tab, browserName: _browser!.name)
                   : null;

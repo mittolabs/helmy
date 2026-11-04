@@ -128,7 +128,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
         (j) => ChatItem.fromJson(j.cast<String, Object?>()),
       ),
     );
-    notifyListeners();
+    // Read for a row in the list, it may arrive after the app has closed.
+    if (!_disposed) notifyListeners();
   }
 
   @override

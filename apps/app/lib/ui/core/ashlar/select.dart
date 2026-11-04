@@ -128,7 +128,11 @@ class _SelectState<T> extends State<Select<T>> {
       controller: _menu,
       childFocusNode: _focus,
       // Focus goes back to the trigger when the list closes.
-      onClose: () => _focus.requestFocus(),
+      onOpen: () => openOverlays.value++,
+      onClose: () {
+        openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30);
+        _focus.requestFocus();
+      },
       overlayBuilder: (context, info) => PopoverPanel(
         info: info,
         matchWidth: true,

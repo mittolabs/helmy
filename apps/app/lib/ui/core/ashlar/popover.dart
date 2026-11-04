@@ -9,6 +9,12 @@ import 'package:flutter/widgets.dart';
 
 import 'theme.dart';
 
+/// Helmy's: how many menus, selects and popovers are open. A page in a
+/// native web view takes the mouse without Flutter seeing it, so what sits
+/// over one covers it while this is above zero, letting a click there close
+/// the menu as a click anywhere else does.
+final openOverlays = ValueNotifier<int>(0);
+
 /// Which side of its trigger a panel opens on. It flips when there is no room.
 enum PopoverSide { top, bottom, left, right }
 

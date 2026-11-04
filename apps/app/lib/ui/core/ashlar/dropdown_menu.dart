@@ -66,6 +66,8 @@ class _DropdownMenuState extends State<DropdownMenu> {
   @override
   Widget build(BuildContext context) => RawMenuAnchor(
     controller: widget.controller ?? _own,
+    onOpen: () => openOverlays.value++,
+    onClose: () => openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30),
     builder: (context, controller, _) => widget.builder(context, controller),
     overlayBuilder: (context, info) => PopoverPanel(
       info: info,
@@ -444,8 +446,14 @@ class _MenuSubState extends State<MenuSub> {
   Widget build(BuildContext context) => RawMenuAnchor(
     controller: _menu,
     childFocusNode: _focus,
-    onOpen: () => setState(() => _open = true),
-    onClose: () => setState(() => _open = false),
+    onOpen: () {
+      openOverlays.value++;
+      setState(() => _open = true);
+    },
+    onClose: () {
+      openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30);
+      setState(() => _open = false);
+    },
     overlayBuilder: (context, info) => PopoverPanel(
       info: info,
       side: isRtl(context) ? PopoverSide.left : PopoverSide.right,

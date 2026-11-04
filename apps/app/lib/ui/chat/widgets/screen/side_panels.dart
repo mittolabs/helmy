@@ -64,6 +64,7 @@ class _Panel extends StatelessWidget {
   final ChatViewModel vm;
 
   String _label(PanelTab tab) => switch (tab.kind) {
+    .preview when (tab.title ?? '').isNotEmpty => tab.title!,
     .preview => switch (Uri.tryParse(tab.url ?? '')) {
       final u? when u.host.isNotEmpty => u.host.replaceFirst('www.', ''),
       final u? when u.scheme == 'file' => u.pathSegments.lastOrNull ?? 'Page',
@@ -122,6 +123,7 @@ class _Panel extends StatelessWidget {
                             _TabChip(
                               label: _label(tab),
                               icon: _kindOf(tab.kind).$2,
+                              image: tab.kind == .preview ? tab.icon : null,
                               on: tab == active,
                               onPressed: () => vm.focus(tab),
                               onClose: () => vm.closeTab(tab),
@@ -195,12 +197,16 @@ class _TabChip extends StatelessWidget {
   const _TabChip({
     required this.label,
     required this.icon,
+    this.image,
     required this.on,
     required this.onPressed,
     required this.onClose,
   });
   final String label;
   final IconData icon;
+
+  /// The page's own icon, when it has one; [icon] until then, or if it fails.
+  final String? image;
   final bool on;
   final VoidCallback onPressed;
   final VoidCallback onClose;
@@ -228,7 +234,16 @@ class _TabChip extends StatelessWidget {
           mainAxisSize: .min,
           spacing: 6,
           children: [
-            AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
+            if (image case final src?)
+              Image.network(
+                src,
+                width: 14,
+                height: 14,
+                errorBuilder: (_, _, _) =>
+                    AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
+              )
+            else
+              AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
               child: Text(

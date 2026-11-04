@@ -146,110 +146,145 @@ class MarkingBar extends StatelessWidget {
   final VoidCallback onDone;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: marking,
-    builder: (context, _) {
-      final t = AshlarTheme.of(context);
-      final c = t.colors;
-      final count = marking.marks.length;
-      // One control, three ways: the chosen one raised, as a segmented control.
-      Widget way(String mode, IconData icon, String label, String tip) {
-        final on = marking.mode == mode;
-        return Tooltip(
-          message: tip,
-          child: Pressable(
-            selected: on,
-            semanticLabel: label,
-            onPressed: () => unawaited(marking.use(on ? null : mode)),
-            builder: (context, state) => Container(
-              padding: const .symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(
-                color: on
-                    ? c.background
-                    : state.hovered
-                    ? c.background.withValues(alpha: .5)
-                    : null,
-                borderRadius: .circular(t.radiusMd - 2),
-                border: Border.all(color: on ? c.border : const Color(0x00000000)),
-              ),
-              child: Row(
-                mainAxisSize: .min,
-                spacing: 6,
-                children: [
-                  AshlarIcon(icon, size: 14, color: on ? c.foreground : c.mutedForeground),
-                  Text(
-                    label,
-                    style: t.text.xs.copyWith(
-                      fontWeight: .w500,
-                      color: on ? c.foreground : c.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }
-
-      return Padding(
-        padding: const .fromLTRB(8, 0, 8, 8),
-        child: Row(
-          spacing: 8,
-          children: [
-            Container(
-              padding: const .all(2),
-              decoration: BoxDecoration(color: c.muted, borderRadius: .circular(t.radiusMd)),
-              child: Row(
-                mainAxisSize: .min,
-                spacing: 2,
-                children: [
-                  way(
-                    'pick',
-                    AshlarIconsRoundedStroke.mousePointerClick,
-                    'Element',
-                    'Click an element, or Tab to it and press Enter',
-                  ),
-                  way(
-                    'region',
-                    AshlarIconsRoundedStroke.squareDashed,
-                    'Region',
-                    'Drag over a region',
-                  ),
-                  way('draw', AshlarIconsRoundedStroke.pencil, 'Draw', 'Draw on the page'),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Text(
-                count == 0
-                    ? 'Mark what you mean; a note opens beside each mark.'
-                    : '$count mark${count == 1 ? '' : 's'}',
-                maxLines: 1,
-                overflow: .ellipsis,
-                style: t.text.xs.copyWith(color: c.mutedForeground),
-              ),
-            ),
-            if (count > 0)
-              Tooltip(
-                message: 'Undo the last mark',
-                child: Button(
-                  variant: .ghost,
-                  size: .iconXs,
-                  semanticLabel: 'Undo the last mark',
-                  onPressed: () => unawaited(marking.undo()),
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => ListenableBuilder(
+      listenable: marking,
+      builder: (context, _) {
+        // Narrow: the ways to mark and the actions as icons, named in tips.
+        final narrow = box.maxWidth < 440;
+        final t = AshlarTheme.of(context);
+        final c = t.colors;
+        final count = marking.marks.length;
+        // One control, three ways: the chosen one raised, as a segmented control.
+        Widget way(String mode, IconData icon, String label, String tip) {
+          final on = marking.mode == mode;
+          return Tooltip(
+            message: tip,
+            child: Pressable(
+              selected: on,
+              semanticLabel: label,
+              onPressed: () => unawaited(marking.use(on ? null : mode)),
+              builder: (context, state) => Container(
+                padding: .symmetric(horizontal: narrow ? 6 : 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: on
+                      ? c.background
+                      : state.hovered
+                      ? c.background.withValues(alpha: .5)
+                      : null,
+                  borderRadius: .circular(t.radiusMd - 2),
+                  border: Border.all(color: on ? c.border : const Color(0x00000000)),
+                ),
+                child: Row(
+                  mainAxisSize: .min,
+                  spacing: 6,
+                  children: [
+                    AshlarIcon(icon, size: 14, color: on ? c.foreground : c.mutedForeground),
+                    if (!narrow)
+                      Text(
+                        label,
+                        style: t.text.xs.copyWith(
+                          fontWeight: .w500,
+                          color: on ? c.foreground : c.mutedForeground,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            Button(
-              size: .xs,
-              onPressed: count == 0 ? null : onAdd,
-              leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
-              child: const Text('Add to message'),
             ),
-            Button(variant: .ghost, size: .xs, onPressed: onDone, child: const Text('Done')),
-          ],
-        ),
-      );
-    },
+          );
+        }
+
+        return Padding(
+          padding: const .fromLTRB(8, 0, 8, 8),
+          child: Row(
+            spacing: 8,
+            children: [
+              // Scrolls sideways when the panel is too narrow for it.
+              Flexible(
+                flex: 3,
+                child: SingleChildScrollView(
+                  scrollDirection: .horizontal,
+                  child: Container(
+                    padding: const .all(2),
+                    decoration: BoxDecoration(color: c.muted, borderRadius: .circular(t.radiusMd)),
+                    child: Row(
+                      mainAxisSize: .min,
+                      spacing: 2,
+                      children: [
+                        way(
+                          'pick',
+                          AshlarIconsRoundedStroke.mousePointerClick,
+                          'Element',
+                          'Click an element, or Tab to it and press Enter',
+                        ),
+                        way(
+                          'region',
+                          AshlarIconsRoundedStroke.squareDashed,
+                          'Region',
+                          'Drag over a region',
+                        ),
+                        way('draw', AshlarIconsRoundedStroke.pencil, 'Draw', 'Draw on the page'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  count == 0
+                      ? (narrow ? '' : 'Mark what you mean; a note opens beside each mark.')
+                      : '$count mark${count == 1 ? '' : 's'}',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: t.text.xs.copyWith(color: c.mutedForeground),
+                ),
+              ),
+              if (count > 0)
+                Tooltip(
+                  message: 'Undo the last mark',
+                  child: Button(
+                    variant: .ghost,
+                    size: .iconXs,
+                    semanticLabel: 'Undo the last mark',
+                    onPressed: () => unawaited(marking.undo()),
+                    child: const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14),
+                  ),
+                ),
+              if (narrow)
+                Tooltip(
+                  message: 'Add to message',
+                  child: Button(
+                    size: .iconXs,
+                    semanticLabel: 'Add to message',
+                    onPressed: count == 0 ? null : onAdd,
+                    child: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
+                  ),
+                )
+              else
+                Button(
+                  size: .xs,
+                  onPressed: count == 0 ? null : onAdd,
+                  leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
+                  child: const Text('Add to message'),
+                ),
+              if (narrow)
+                Tooltip(
+                  message: 'Done marking',
+                  child: Button(
+                    variant: .ghost,
+                    size: .iconXs,
+                    semanticLabel: 'Done marking',
+                    onPressed: onDone,
+                    child: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 14),
+                  ),
+                )
+              else
+                Button(variant: .ghost, size: .xs, onPressed: onDone, child: const Text('Done')),
+            ],
+          ),
+        );
+      },
+    ),
   );
 }

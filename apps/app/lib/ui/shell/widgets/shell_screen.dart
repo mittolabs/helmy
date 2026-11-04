@@ -331,6 +331,7 @@ class ShellScreen extends StatelessWidget {
                                       child: _SessionRow(
                                         session: s,
                                         activity: viewModel.activityOf(s.id),
+                                        line: viewModel.lineOf(s),
                                         selected: s.id == selectedId,
                                         onOpen: () => context.go('/s/${s.id}'),
                                         onDelete: () => _delete(context, s),
@@ -530,6 +531,7 @@ class _SessionRow extends StatefulWidget {
   const new({
     required this.session,
     required this.activity,
+    required this.line,
     required this.selected,
     required this.onOpen,
     required this.onDelete,
@@ -537,6 +539,7 @@ class _SessionRow extends StatefulWidget {
 
   final Session session;
   final SessionActivity activity;
+  final ({String text, int added, int removed}) line;
   final bool selected;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
@@ -554,36 +557,28 @@ class _SessionRowState extends State<_SessionRow> {
     final c = t.colors;
     final s = widget.session;
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
-    final status = switch (widget.activity) {
-      .working => const Spinner(size: 12, semanticLabel: 'Working'),
-      .needsYou => Tooltip(
-        message: 'Waiting for your approval',
-        child: Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: c.primary, shape: .circle),
-        ),
-      ),
-      .unread => Tooltip(
-        message: 'Finished while you were away',
-        child: Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: c.foreground, shape: .circle),
-        ),
-      ),
-      .idle => Text(ago(s.updatedAt), style: muted),
-    };
+    final line = widget.line;
+    final folder = folderName(s.ownCopy ? s.repo! : s.cwd);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Pressable(
         onPressed: widget.onOpen,
-        semanticLabel: '${s.title}, in ${folderName(s.cwd)}',
+        semanticLabel: [
+          s.title,
+          'in $folder',
+          switch (widget.activity) {
+            .working => 'working',
+            .needsYou => 'needs you',
+            .unread => 'finished while you were away',
+            .idle => '',
+          },
+          line.text,
+        ].where((x) => x.isNotEmpty).join(', '),
         selected: widget.selected,
         builder: (context, state) => AnimatedContainer(
           duration: t.duration,
-          padding: const .symmetric(horizontal: 10, vertical: 8),
+          padding: const .fromLTRB(10, 8, 10, 9),
           decoration: BoxDecoration(
             color: widget.selected
                 ? c.sidebarAccent
@@ -593,40 +588,154 @@ class _SessionRowState extends State<_SessionRow> {
             borderRadius: .circular(t.radiusMd),
             boxShadow: [if (state.focused) BoxShadow(color: c.sidebarRing, spreadRadius: 2)],
           ),
-          child: Row(
-            spacing: 10,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 3,
             children: [
-              if (s.pinned)
-                AshlarIcon(AshlarIconsRoundedStroke.pin, size: 12, color: c.mutedForeground),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  children: [
-                    Text(
-                      s.title,
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: t.text.sm.copyWith(
-                        color: c.sidebarForeground,
-                        fontWeight: widget.selected ? .w500 : .w400,
+              // The project, and when; or a way to delete, under the mouse.
+              Row(
+                spacing: 8,
+                children: [
+                  _ProjectBadge(name: folder, activity: widget.activity),
+                  Expanded(
+                    child: Text(folder, maxLines: 1, overflow: .ellipsis, style: muted),
+                  ),
+                  if (s.pinned)
+                    AshlarIcon(AshlarIconsRoundedStroke.pin, size: 11, color: c.mutedForeground),
+                  if (_hovered && (widget.activity == .idle || widget.activity == .unread))
+                    SizedBox(
+                      height: 16,
+                      child: Button(
+                        variant: .ghost,
+                        size: .iconXs,
+                        semanticLabel: 'Delete ${s.title}',
+                        onPressed: widget.onDelete,
+                        child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 13),
                       ),
-                    ),
-                  ],
+                    )
+                  else
+                    Text(ago(s.updatedAt), style: muted),
+                ],
+              ),
+              Text(
+                s.title,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: t.text.sm.copyWith(
+                  color: c.sidebarForeground,
+                  fontWeight: widget.selected || widget.activity == .unread ? .w600 : .w500,
                 ),
               ),
-              if (_hovered && (widget.activity == .idle || widget.activity == .unread))
-                Button(
-                  variant: .ghost,
-                  size: .iconXs,
-                  semanticLabel: 'Delete ${s.title}',
-                  onPressed: widget.onDelete,
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 14),
-                )
-              else
-                status,
+              // What it waits on or does, or how it answered; and its changes.
+              if (line.text.isNotEmpty || line.added + line.removed > 0 || s.branch != null)
+                Row(
+                  spacing: 8,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        line.text.isNotEmpty ? line.text : (s.branch ?? ''),
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: muted.copyWith(
+                          color: widget.activity == .needsYou ? c.foreground : c.mutedForeground,
+                        ),
+                      ),
+                    ),
+                    if (line.added + line.removed > 0)
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '+${line.added}',
+                              style: const TextStyle(color: Color(0xFF3FB950)),
+                            ),
+                            const TextSpan(text: ' '),
+                            TextSpan(
+                              text: '−${line.removed}',
+                              style: const TextStyle(color: Color(0xFFF85149)),
+                            ),
+                          ],
+                        ),
+                        style: muted.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A project's badge: its initials on a color of its own, the same for the
+/// same folder everywhere. Working, it spins; needing you, or finished while
+/// you were away, it carries a dot.
+class _ProjectBadge extends StatelessWidget {
+  const _ProjectBadge({required this.name, required this.activity});
+  final String name;
+  final SessionActivity activity;
+
+  static const _hues = [210.0, 280.0, 160.0, 25.0, 330.0, 45.0, 190.0, 250.0];
+
+  String get _initials {
+    final words = name.split(RegExp(r'[\s_\-.]+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return '?';
+    if (words.length == 1) {
+      return words.first.substring(0, words.first.length.clamp(1, 2)).toUpperCase();
+    }
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final dark = t.brightness == Brightness.dark;
+    final hue = _hues[name.codeUnits.fold(0, (a, b) => a + b) % _hues.length];
+    final ink = HSLColor.fromAHSL(1, hue, .7, dark ? .72 : .38).toColor();
+    final fill = HSLColor.fromAHSL(dark ? .18 : .12, hue, .7, .5).toColor();
+    return SizedBox.square(
+      dimension: 18,
+      child: Stack(
+        clipBehavior: .none,
+        children: [
+          Positioned.fill(
+            child: activity == .working
+                ? Padding(
+                    padding: const .all(2),
+                    child: Spinner(size: 14, semanticLabel: 'Working'),
+                  )
+                : Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: fill, borderRadius: .circular(4)),
+                    child: Text(
+                      _initials,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                        height: 1,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ),
+          ),
+          if (activity == .needsYou || activity == .unread)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: activity == .needsYou ? c.primary : c.foreground,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.sidebar, width: 1.5),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

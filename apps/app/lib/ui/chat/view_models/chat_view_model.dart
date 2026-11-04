@@ -48,6 +48,10 @@ class PanelTab {
 
   /// A browser tab's address.
   String? url;
+
+  /// A browser tab's page: its title and the address of its icon, once read.
+  String? title;
+  String? icon;
 }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
@@ -308,6 +312,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     }
     notifyListeners();
   }
+
+  /// Something a tab shows changed (a page's title or icon): its name redrawn.
+  void panelChanged() => notifyListeners();
 
   /// The panel shown or hidden, its tabs kept.
   void togglePanel() {

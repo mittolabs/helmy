@@ -12,6 +12,11 @@ import '../../../utils/platform.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../data/services/fixes.dart';
 import '../../../domain/problem.dart';
+import '../../../domain/models/chat_item.dart';
+import '../../../domain/helmy_voice.dart';
+import '../../../utils/diffs.dart';
+
+import 'dart:async';
 
 enum SessionActivity { idle, working, needsYou, unread }
 
@@ -210,6 +215,59 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   SessionActivity activityOf(String id) => _activity[id] ?? .idle;
+
+  /// What a session's row says under its title: what it waits on, what it
+  /// is doing, or how its last answer began; and the lines its changes
+  /// added and removed. Read from its conversation, from disk the first
+  /// time the row shows.
+  ({String text, int added, int removed}) lineOf(Session s) {
+    final c = _conversations.of(s.id);
+    if (!c.loaded) {
+      unawaited(_conversations.load(s.id));
+      return (text: '', added: 0, removed: 0);
+    }
+    var added = 0, removed = 0;
+    final seen = <String>{};
+    for (final i in c.items.reversed) {
+      if (i is! ToolCall) continue;
+      for (final d in diffsOf(i)) {
+        // Each file once, at its latest change.
+        if (!seen.add(d.path)) continue;
+        added += d.added;
+        removed += d.removed;
+      }
+    }
+    String text;
+    if (c.pendingPrompts > 0) {
+      text = 'Waiting for your approval';
+    } else if (c.busy) {
+      final step = c.items.whereType<ToolCall>().where((t) => !t.done).lastOrNull;
+      text = step == null ? 'Working' : 'Working: ${toolLabel(step.name)}';
+    } else {
+      final last = c.items
+          .whereType<AssistantText>()
+          .where((a) => a.text.trim().isNotEmpty)
+          .lastOrNull;
+      text = last == null ? '' : _plain(last.text);
+    }
+    return (text: text, added: added, removed: removed);
+  }
+
+  /// The first line of [markdown], as words: no marks, links or code.
+  static String _plain(String markdown) {
+    final line = markdown
+        .split('\n')
+        .map((l) => l.trim())
+        .firstWhere(
+          (l) => l.isNotEmpty && !l.startsWith('```') && !l.startsWith('|'),
+          orElse: () => '',
+        );
+    return line
+        .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1] ?? '')
+        .replaceAll(RegExp(r'[*_`#>]+'), '')
+        .replaceAll(RegExp(r'^\s*[-+]\s+'), '')
+        .trim();
+  }
 
   void _onConversations() {
     var changed = false;
