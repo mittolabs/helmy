@@ -223,7 +223,12 @@ class SidebarViewModel extends ChangeNotifier {
   ({String text, int added, int removed}) lineOf(Session s) {
     final c = _conversations.of(s.id);
     if (!c.loaded) {
-      unawaited(_conversations.load(s.id));
+      // Read, the row is drawn again with it.
+      unawaited(
+        _conversations.load(s.id).then((_) {
+          if (!_disposed) notifyListeners();
+        }),
+      );
       return (text: '', added: 0, removed: 0);
     }
     var added = 0, removed = 0;
@@ -301,8 +306,11 @@ class SidebarViewModel extends ChangeNotifier {
     return _sessions.delete(id);
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _sessions.removeListener(notifyListeners);
     _settings.removeListener(notifyListeners);
     _conversations.removeListener(_onConversations);
