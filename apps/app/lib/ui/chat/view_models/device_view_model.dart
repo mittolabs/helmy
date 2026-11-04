@@ -82,6 +82,8 @@ class DeviceViewModel extends ChangeNotifier {
     // for four times a second.
     final frames = await _devices.stream(device!);
     if (frames != null) {
+      // One picture now: a stream may wait for the screen to change.
+      unawaited(_read());
       _stream = frames.listen((f) {
         screen = f;
         trouble = null;

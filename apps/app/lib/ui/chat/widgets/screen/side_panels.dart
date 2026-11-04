@@ -95,59 +95,67 @@ class _Panel extends StatelessWidget {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        Container(
-          height: 32,
-          margin: .only(top: titleLine - 16),
-          // Expanded, the bar starts past the window's buttons, as the header does.
-          padding: .only(
-            left: expanded && !sidebarBeside(context) ? titleRowStart + 40 : 6,
-            right: 8,
-          ),
-          child: Row(
-            spacing: 2,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: .horizontal,
-                  child: Row(
-                    spacing: 2,
-                    children: [
-                      for (final tab in vm.tabs)
-                        _TabChip(
-                          label: _label(tab),
-                          icon: _kindOf(tab.kind).$2,
-                          on: tab == active,
-                          onPressed: () => vm.focus(tab),
-                          onClose: () => vm.closeTab(tab),
-                        ),
-                      DropdownMenu(
-                        items: [
-                          for (final kind in vm.addable)
-                            MenuItem(
-                              leading: AshlarIcon(_kindOf(kind).$2, size: 16),
-                              // Several pages and terminals; one of each other kind.
-                              onPressed: () => kind == .preview || kind == .terminal
-                                  ? vm.add(kind)
-                                  : vm.show(kind),
-                              child: Text(_kindOf(kind).$1),
+        // In the window's title bar: a double-click on its empty space zooms
+        // the window, as on the conversation's side.
+        TitleBar(
+          child: Container(
+            height: 32,
+            margin: .only(top: titleLine - 16),
+            // Expanded, the bar starts past the window's buttons, as the header does.
+            padding: .only(
+              left: expanded && !sidebarBeside(context) ? titleRowStart + 40 : 6,
+              right: 8,
+            ),
+            child: Row(
+              spacing: 2,
+              children: [
+                Expanded(
+                  // As wide as the tabs: the space past them is the title bar's.
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SingleChildScrollView(
+                      scrollDirection: .horizontal,
+                      child: Row(
+                        spacing: 2,
+                        children: [
+                          for (final tab in vm.tabs)
+                            _TabChip(
+                              label: _label(tab),
+                              icon: _kindOf(tab.kind).$2,
+                              on: tab == active,
+                              onPressed: () => vm.focus(tab),
+                              onClose: () => vm.closeTab(tab),
                             ),
+                          DropdownMenu(
+                            items: [
+                              for (final kind in vm.addable)
+                                MenuItem(
+                                  leading: AshlarIcon(_kindOf(kind).$2, size: 16),
+                                  // Several pages and terminals; one of each other kind.
+                                  onPressed: () => kind == .preview || kind == .terminal
+                                      ? vm.add(kind)
+                                      : vm.show(kind),
+                                  child: Text(_kindOf(kind).$1),
+                                ),
+                            ],
+                            builder: (context, menu) =>
+                                tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
+                          ),
                         ],
-                        builder: (context, menu) =>
-                            tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              tool(
-                expanded ? 'Back beside the conversation' : 'Expand',
-                expanded
-                    ? AshlarIconsRoundedStroke.arrowsMinimize
-                    : AshlarIconsRoundedStroke.arrowsMaximize,
-                vm.toggleExpanded,
-              ),
-              tool('Hide the panel', AshlarIconsRoundedStroke.x, vm.closePanel),
-            ],
+                tool(
+                  expanded ? 'Back beside the conversation' : 'Expand',
+                  expanded
+                      ? AshlarIconsRoundedStroke.arrowsMinimize
+                      : AshlarIconsRoundedStroke.arrowsMaximize,
+                  vm.toggleExpanded,
+                ),
+                tool('Hide the panel', AshlarIconsRoundedStroke.x, vm.closePanel),
+              ],
+            ),
           ),
         ),
         Container(height: 1, color: c.border),

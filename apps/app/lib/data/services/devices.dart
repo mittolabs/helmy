@@ -225,41 +225,81 @@ class DeviceService {
   /// second, from one process, rather than a picture asked for each time.
   /// Null when it cannot stream; cancelling the subscription ends it.
   Future<Stream<Uint8List>?> stream(Device d) async {
-    if (!d.ios) return null;
-    final axe = await _locator.find('axe');
-    if (axe == null) return null;
-    final Process p;
-    try {
-      p = await Process.start(axe, [
+    final env = await _locator.environment();
+    // A process whose output is JPEG frames, one after another; started
+    // again when it ends while the stream is still wanted.
+    Future<Process?> Function() start;
+    if (d.ios) {
+      final axe = await _locator.find('axe');
+      if (axe == null) return null;
+      start = () => Process.start(axe, [
         'stream-video', '--udid', d.id, '--format', 'mjpeg', //
         '--fps', '24', '--quality', '75', '--scale', '1.0',
-      ], environment: await _locator.environment());
-    } on ProcessException {
-      return null;
+      ], environment: env);
+    } else {
+      // Android records its own screen as video, a frame each time it
+      // changes; ffmpeg turns that into pictures. At the screen's own size,
+      // so taps land where they are pointed. Android ends a recording after
+      // three minutes: it starts again.
+      final adb = await _locator.find('adb');
+      final ffmpeg = await _locator.find('ffmpeg');
+      if (adb == null || ffmpeg == null || d.id.startsWith('avd:')) return null;
+      start = () => Process.start('/bin/sh', [
+        '-c',
+        r'"$1" -s "$2" exec-out screenrecord --output-format=h264 --bit-rate 8000000 - '
+            r'| "$3" -loglevel error -flags low_delay -f h264 -i - -f mjpeg -q:v 4 -',
+        'sh',
+        adb,
+        d.id,
+        ffmpeg,
+      ], environment: env);
     }
-    unawaited(p.stderr.drain<void>());
+    Process? p;
+    var wanted = true;
     late final StreamController<Uint8List> out;
-    final buf = BytesBuilder(copy: false);
-    out = StreamController<Uint8List>(onCancel: () => p.kill());
-    // Each frame is a JPEG between its start (FF D8) and end (FF D9) marks.
-    var pending = Uint8List(0);
-    p.stdout.listen((chunk) {
-      buf
-        ..add(pending)
-        ..add(chunk);
-      pending = buf.takeBytes();
-      while (true) {
-        final start = _find(pending, 0xD8, 0);
-        if (start < 0) break;
-        final end = _find(pending, 0xD9, start + 2);
-        if (end < 0) {
-          pending = pending.sublist(start);
-          break;
-        }
-        out.add(pending.sublist(start, end + 2));
-        pending = pending.sublist(end + 2);
+    out = StreamController<Uint8List>(
+      onCancel: () {
+        wanted = false;
+        p?.kill();
+        if (!d.ios) unawaited(_run('adb', ['-s', d.id, 'shell', 'pkill', 'screenrecord']));
+      },
+    );
+    Future<void> run() async {
+      try {
+        p = await start();
+      } on ProcessException {
+        await out.close();
+        return;
       }
-    }, onDone: () => out.close());
+      final proc = p!;
+      unawaited(proc.stderr.drain<void>());
+      final buf = BytesBuilder(copy: false);
+      // Each frame is a JPEG between its start (FF D8) and end (FF D9) marks.
+      var pending = Uint8List(0);
+      await proc.stdout.forEach((chunk) {
+        buf
+          ..add(pending)
+          ..add(chunk);
+        pending = buf.takeBytes();
+        while (true) {
+          final start = _find(pending, 0xD8, 0);
+          if (start < 0) break;
+          final end = _find(pending, 0xD9, start + 2);
+          if (end < 0) {
+            pending = pending.sublist(start);
+            break;
+          }
+          if (!out.isClosed) out.add(pending.sublist(start, end + 2));
+          pending = pending.sublist(end + 2);
+        }
+      });
+      if (wanted && !out.isClosed) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        if (wanted) unawaited(run());
+      }
+    }
+
+    unawaited(run());
     return out.stream;
   }
 

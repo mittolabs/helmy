@@ -17,7 +17,7 @@ setup:
 	cd $(APP) && fvm flutter pub get
 
 app:
-	cd $(APP) && fvm flutter build macos --debug
+	cd $(APP) && fvm flutter build macos --debug --build-number=$(git rev-list --count HEAD)
 
 run: app
 	open $(APP)/build/macos/Build/Products/Debug/Helmy.app
