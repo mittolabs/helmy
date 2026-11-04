@@ -38,8 +38,14 @@ class Cdp {
 
   bool get isOpen => _open;
 
+  final _done = Completer<void>();
+
+  /// Completes when the connection ends: the browser closed or was ended.
+  Future<void> get done => _done.future;
+
   void _closed() {
     _open = false;
+    if (!_done.isCompleted) _done.complete();
     for (final c in _pending.values) {
       c.completeError(CdpError('The browser closed.'));
     }

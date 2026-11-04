@@ -133,12 +133,15 @@ class _DividerState extends State<_Divider> {
       width: _Divider.width,
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,
-        onEnter: (_) => setState(() => _hot = true),
-        onExit: (_) => setState(() => _hot = false),
+        // Lit only while dragged: a page in the panel (a native view) takes
+        // the mouse without saying it left, so a hover would stay lit.
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           // Follows the pointer from where it was pressed.
           dragStartBehavior: DragStartBehavior.down,
+          onHorizontalDragStart: (_) => setState(() => _hot = true),
+          onHorizontalDragEnd: (_) => setState(() => _hot = false),
+          onHorizontalDragCancel: () => setState(() => _hot = false),
           onHorizontalDragUpdate: (d) => widget.onDrag(d.delta.dx),
           child: Align(
             alignment: Alignment.centerRight,

@@ -267,7 +267,8 @@ class ChromiumService {
   /// ask; another browser asked for replaces it.
   Future<Cdp> _browser(ChromiumBrowser browser) {
     if (_running == browser.executable && (_cdp?.isOpen ?? false)) return Future.value(_cdp!);
-    if (_running == browser.executable && _starting != null) return _starting!;
+    // Still starting: the same start. Started and since gone: a new one.
+    if (_running == browser.executable && _starting != null && _cdp == null) return _starting!;
     unawaited(stop());
     _running = browser.executable;
     return _starting = _start(browser);

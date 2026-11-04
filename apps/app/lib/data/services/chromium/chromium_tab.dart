@@ -19,6 +19,11 @@ class ChromiumTab {
   final _frames = StreamController<Uint8List>.broadcast();
   final _urls = StreamController<String>.broadcast();
   final _called = StreamController<(String, String)>.broadcast();
+  final _loading = StreamController<bool>.broadcast();
+
+  /// True as the page starts loading, false once it has.
+  Stream<bool> get loading => _loading.stream;
+  String? _mainFrame;
 
   /// What the page sent through a binding: its name, and what was sent.
   Stream<(String, String)> get called => _called.stream;
@@ -30,6 +35,9 @@ class ChromiumTab {
   Stream<String> get urls => _urls.stream;
 
   String url = 'about:blank';
+
+  /// Completes when the browser this page is in has gone.
+  Future<void> get gone => _cdp.done;
 
   Future<Map<String, Object?>> _send(String method, [Map<String, Object?> params = const {}]) =>
       _cdp.send(method, params, session);
@@ -49,9 +57,16 @@ class ChromiumTab {
         unawaited(_send('Page.screencastFrameAck', {'sessionId': params['sessionId']}));
       case 'Page.frameNavigated':
         final frame = params['frame'] as Map?;
-        if (frame != null && frame['parentId'] == null) _moved('${frame['url']}');
+        if (frame != null && frame['parentId'] == null) {
+          _mainFrame = '${frame['id']}';
+          _moved('${frame['url']}');
+        }
       case 'Page.navigatedWithinDocument':
         _moved('${params['url']}');
+      case 'Page.frameStartedLoading' when _mainFrame == null || params['frameId'] == _mainFrame:
+        _loading.add(true);
+      case 'Page.frameStoppedLoading' when _mainFrame == null || params['frameId'] == _mainFrame:
+        _loading.add(false);
       case 'Runtime.bindingCalled':
         _called.add(('${params['name']}', '${params['payload']}'));
     }
@@ -66,6 +81,10 @@ class ChromiumTab {
   double zoom = 1;
   (double, double, double)? _shown;
 
+  /// Whether it is laid out as a phone or tablet (a device size chosen):
+  /// the page's own viewport settings then apply, as on the device.
+  bool mobile = false;
+
   /// The page shown in [width] by [height] points, at [scale] pixels a point,
   /// and pictures of it sent at that size. Zoomed, the page lays out in fewer
   /// (or more) of its own pixels, each drawn larger, as a browser zooms.
@@ -77,7 +96,7 @@ class ChromiumTab {
       'width': (w / zoom).round(),
       'height': (h / zoom).round(),
       'deviceScaleFactor': scale * zoom,
-      'mobile': false,
+      'mobile': mobile,
     });
     await _send('Page.startScreencast', {
       'format': 'jpeg',
@@ -185,6 +204,7 @@ class ChromiumTab {
     await _frames.close();
     await _urls.close();
     await _called.close();
+    await _loading.close();
     try {
       await _cdp.send('Target.closeTarget', {'targetId': targetId});
     } on Object {

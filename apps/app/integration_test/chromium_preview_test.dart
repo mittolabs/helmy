@@ -165,6 +165,15 @@ void main() {
       reason: 'typing "hi" turned it green',
     );
 
+    // The browser ends (a crash, or something closing it): it starts again,
+    // back on the same page.
+    await tester.runAsync(chromium.stop);
+    await wait(() => find.byType(ChromiumView).evaluate().isEmpty, seconds: 5);
+    await wait(() => find.byType(ChromiumView).evaluate().isNotEmpty, seconds: 20);
+    expect(find.byType(ChromiumView), findsOneWidget, reason: 'started again');
+    await settleImage();
+    await settleImage();
+    expect(near(await colorAt(blank), const Color(0xFFFFFFFF)), isTrue, reason: 'the page again');
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(chromium.stop);
   });
@@ -250,6 +259,116 @@ void main() {
     expect(text, contains('Note: make it bigger'));
     expect(text, contains('Selector: `#buy`'));
     expect(text, contains('"Buy now"'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(chromium.stop);
+  });
+
+  testWidgets('a device size lays the page out at that width', (tester) async {
+    late ChatViewModel vm;
+    late ChromiumService chromium;
+    late String file;
+    await tester.runAsync(() async {
+      final root = await Directory.systemTemp.createTemp('chromium-size');
+      file = '${root.path}/page.html';
+      File(file).writeAsStringSync(
+        '<html><body style="margin:0;background:#ffffff;height:100vh">'
+        '<style>@media (max-width: 500px) { body { background: #16a34a !important } }</style>'
+        '</body></html>',
+      );
+      chromium = ChromiumService(appData: () async => root);
+      final storage = StorageService(root: () async => root);
+      final settings = SettingsRepositoryLocal(storage);
+      await settings.save(settings.settings.copyWith(previewWith: PreviewEngine.chromium));
+      final sessions = SessionRepositoryLocal(storage);
+      final meter = UsageMeter();
+      final repo = ConversationRepositoryEngines(
+        engines: EngineRegistry([]),
+        router: HeadroomRouter(meter),
+        meter: meter,
+        storage: storage,
+        sessions: sessions,
+      );
+      final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
+      vm = ChatViewModel(
+        sessionId: s.id,
+        sessions: sessions,
+        conversations: repo,
+        settings: settings,
+        desktop: DesktopService(),
+        chromium: chromium,
+      );
+    });
+    vm.preview(Uri.file(file).toString());
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      AshlarApp(
+        theme: appTheme,
+        darkTheme: appDarkTheme,
+        themeMode: .dark,
+        home: Align(
+          alignment: .topLeft,
+          child: RepaintBoundary(
+            key: key,
+            child: SizedBox(width: 700, height: 700, child: PreviewPanel(vm: vm)),
+          ),
+        ),
+      ),
+    );
+    Future<void> wait(bool Function() done, {int seconds = 20}) async {
+      for (var i = 0; i < seconds * 10 && !done(); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+    }
+
+    Future<Color> colorAt(Offset at) async {
+      final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final got = await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        return (await image.toByteData(format: ui.ImageByteFormat.rawRgba), image.width);
+      });
+      final (data, width) = got!;
+      final i = ((at.dy.round() * width) + at.dx.round()) * 4;
+      return Color.fromARGB(255, data!.getUint8(i), data.getUint8(i + 1), data.getUint8(i + 2));
+    }
+
+    await wait(
+      () => find
+          .descendant(of: find.byType(ChromiumView), matching: find.byType(Image))
+          .evaluate()
+          .isNotEmpty,
+    );
+    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 1)));
+    await tester.pump();
+    final page = tester.getRect(find.byType(ChromiumView)).center;
+    expect(
+      (await colorAt(page)).g > .9 && (await colorAt(page)).r > .9,
+      isTrue,
+      reason: '700 wide: white',
+    );
+
+    await tester.tap(find.bySemanticsLabel('More for this page'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Show device sizes'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.descendant(of: find.bySemanticsLabel('Width'), matching: find.byType(EditableText)),
+      '375',
+    );
+    await tester.enterText(
+      find.descendant(of: find.bySemanticsLabel('Height'), matching: find.byType(EditableText)),
+      '600',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+    expect(find.textContaining('375 × 600'), findsOneWidget);
+    final shown = tester.getRect(find.byType(ChromiumView));
+    final c = await colorAt(shown.center);
+    expect(c.g > .5 && c.r < .3, isTrue, reason: 'laid out 375 wide: green, got $c');
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(chromium.stop);
   });

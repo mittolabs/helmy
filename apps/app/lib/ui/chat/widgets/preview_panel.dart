@@ -11,6 +11,7 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/platform.dart';
 import '../../core/helmy_dialog.dart';
 import 'chromium_view.dart';
+import 'device_sizes.dart';
 import 'page_marking.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/dropdown_menu.dart';
@@ -65,8 +66,69 @@ class _PreviewPanelState extends State<PreviewPanel> {
   ChromiumTab? _tab;
   StreamSubscription<String>? _tabUrls;
   String? _chromiumState;
+
+  /// Chromium could not start or keeps closing: the panel offers to start it again.
+  bool _chromiumFailed = false;
+  final _restarts = <DateTime>[];
   bool get _chromium => widget.vm.previewEngine == .chromium && widget.vm.chromium != null;
   StreamSubscription<(String, String)>? _tabCalls;
+
+  // The size the page is shown at: null fills the panel (Responsive).
+  bool _sizesOpen = false;
+  DeviceSize? _device;
+  Size _fills = Size.zero;
+
+  /// How much a device size is shrunk to fit the panel (1 when it fits).
+  double _fit = 1;
+  double? _webZoomApplied;
+
+  // Loading: a share from 0 to 1 while a page loads, null when it has.
+  double? _progress;
+  Timer? _creep;
+  StreamSubscription<bool>? _tabLoading;
+
+  void _loadingAt(double share) {
+    if (!mounted) return;
+    _creep?.cancel();
+    if (share >= 1) {
+      setState(() => _progress = 1);
+      // The full line a moment, then gone.
+      _creep = Timer(const Duration(milliseconds: 250), () {
+        if (mounted) setState(() => _progress = null);
+      });
+    } else {
+      setState(() => _progress = share.clamp(.05, .95));
+    }
+  }
+
+  /// Chromium says only when loading starts and stops: the line eases on
+  /// in between, slower as it goes, until the page has loaded.
+  void _creepFrom(double share) {
+    _creep?.cancel();
+    if (mounted) setState(() => _progress = share);
+    _creep = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (!mounted || _progress == null) return;
+      setState(() => _progress = _progress! + (.9 - _progress!) * .06);
+    });
+  }
+
+  /// The built-in browser's page zoom: the user's, times the shrinking that
+  /// fits a device size, so the page still lays out at the device's width.
+  void _fitWebZoom() {
+    final want = _zoom * (_device == null ? 1 : _fit);
+    if (_chromium || want == _webZoomApplied) return;
+    _webZoomApplied = want;
+    unawaited(widget.vm.webPage('zoom', {'zoom': want}));
+  }
+
+  void _useSize(DeviceSize? size) {
+    setState(() => _device = size);
+    final tab = _tab;
+    if (tab != null) {
+      tab.mobile = size?.mobile ?? false;
+      unawaited(tab.setZoom(tab.zoom));
+    }
+  }
 
   // Marking up the page for the agent.
   bool _markingOpen = false;
@@ -132,7 +194,12 @@ class _PreviewPanelState extends State<PreviewPanel> {
     unawaited(_c.setJavaScriptMode(JavaScriptMode.unrestricted));
     unawaited(
       _c.setNavigationDelegate(
-        NavigationDelegate(onUrlChange: (change) => _moved(change.url ?? _at)),
+        NavigationDelegate(
+          onUrlChange: (change) => _moved(change.url ?? _at),
+          onPageStarted: (_) => _loadingAt(.05),
+          onProgress: (p) => _loadingAt(p / 100),
+          onPageFinished: (_) => _loadingAt(1),
+        ),
       ),
     );
     // Marks made on the page come back through this channel (the built-in browser).
@@ -207,18 +274,47 @@ class _PreviewPanelState extends State<PreviewPanel> {
       tab.zoom = _zoom;
       if (_appearance != 'system') unawaited(tab.appearance(_appearance));
       _tabUrls = tab.urls.listen(_moved);
+      _tabLoading = tab.loading.listen((on) => on ? _creepFrom(.1) : _loadingAt(1));
+      tab.mobile = _device?.mobile ?? false;
       // Marks made on the page come back through this binding (Chromium).
       await tab.bind('helmyAnnotate');
       _tabCalls = tab.called
           .where((c) => c.$1 == 'helmyAnnotate')
           .listen((c) => _marking.fromPage(c.$2));
-      setState(() => _chromiumState = null);
+      setState(() {
+        _chromiumState = null;
+        _chromiumFailed = false;
+      });
       if (_at.isNotEmpty) unawaited(tab.navigate(_at));
+      unawaited(tab.gone.then((_) => _browserGone(tab, chosen)));
     } on Object catch (e) {
       if (mounted) {
-        setState(() => _chromiumState = "${chosen.name} didn't start: $e");
+        setState(() {
+          _chromiumState = "${chosen.name} didn't start: $e";
+          _chromiumFailed = true;
+        });
       }
     }
+  }
+
+  /// The browser closed (it crashed, or something ended it). Once in a while
+  /// it starts again by itself, back on the same page; closing again and
+  /// again, it stops and says so, with a way to start it.
+  Future<void> _browserGone(ChromiumTab tab, ChromiumBrowser browser) async {
+    if (!mounted || _tab != tab) return;
+    await _closeChromium();
+    final now = DateTime.now();
+    _restarts.removeWhere((t) => now.difference(t) > const Duration(minutes: 1));
+    if (_restarts.length >= 2) {
+      setState(() {
+        _chromiumState = '${browser.name} closed again, twice in a minute.';
+        _chromiumFailed = true;
+      });
+      return;
+    }
+    _restarts.add(now);
+    _say('${browser.name} closed; it was started again.');
+    await _startChromium();
   }
 
   Future<ChromiumBrowser?> _download(ChromiumService service) async {
@@ -278,6 +374,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
   Future<void> _closeChromium() async {
     await _tabUrls?.cancel();
     await _tabCalls?.cancel();
+    await _tabLoading?.cancel();
     final tab = _tab;
     _tab = null;
     _browser = null;
@@ -319,7 +416,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
     if (_chromium) {
       await _tab?.setZoom(_zoom);
     } else {
-      await widget.vm.webPage('zoom', {'zoom': _zoom});
+      _fitWebZoom();
     }
   }
 
@@ -327,6 +424,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
   void dispose() {
     widget.vm.removeListener(_follow);
     _noteTimer?.cancel();
+    _creep?.cancel();
     unawaited(_closeChromium());
     _marking.dispose();
     _address.dispose();
@@ -410,6 +508,14 @@ class _PreviewPanelState extends State<PreviewPanel> {
                     }),
                   if (native || tab != null)
                     item(AshlarIconsRoundedStroke.squareCode, 'Inspect the page', _inspect),
+                  item(
+                    AshlarIconsRoundedStroke.smartphone,
+                    _sizesOpen ? 'Hide device sizes' : 'Show device sizes',
+                    () {
+                      if (_sizesOpen) _useSize(null);
+                      setState(() => _sizesOpen = !_sizesOpen);
+                    },
+                  ),
                   item(
                     AshlarIconsRoundedStroke.externalLink,
                     'Open in its own app',
@@ -496,25 +602,126 @@ class _PreviewPanelState extends State<PreviewPanel> {
             padding: const .fromLTRB(12, 0, 12, 6),
             child: Text(_note!, style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
           ),
+        if (_sizesOpen)
+          DeviceSizeBar(
+            size: _device,
+            fills: _fills,
+            onSize: _useSize,
+            onClose: () {
+              _useSize(null);
+              setState(() => _sizesOpen = false);
+            },
+          ),
         if (_markingOpen) MarkingBar(marking: _marking, onAdd: () => unawaited(_addMarks())),
-        Container(height: 1, color: t.colors.border),
-        Expanded(
-          child: !chromium
-              ? WebViewWidget(controller: _c)
-              : tab != null && _browser != null
-              ? ChromiumView(tab: tab, browserName: _browser!.name)
-              : Center(
-                  child: Padding(
-                    padding: const .all(24),
-                    child: Text(
-                      _chromiumState ?? '',
-                      textAlign: .center,
-                      style: t.text.sm.copyWith(color: t.colors.mutedForeground),
-                    ),
+        // The line under the toolbar, and the page's progress along it.
+        SizedBox(
+          height: 2,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(height: 1, color: t.colors.border),
+              ),
+              if (_progress != null)
+                FractionallySizedBox(
+                  widthFactor: _progress,
+                  child: Semantics(
+                    label: 'Loading the page',
+                    value: '${(_progress! * 100).round()}%',
+                    child: Container(color: t.colors.primary),
                   ),
                 ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, box) {
+              _fills = box.biggest;
+              final page = !chromium
+                  ? WebViewWidget(controller: _c)
+                  : tab != null && _browser != null
+                  ? ChromiumView(tab: tab, browserName: _browser!.name)
+                  : null;
+              final device = _device;
+              if (page == null || device == null) {
+                if (!chromium) WidgetsBinding.instance.addPostFrameCallback((_) => _fitWebZoom());
+                return page ?? _starting(t);
+              }
+              // A device size: shown at it, shrunk to fit when bigger.
+              final w = device.width.toDouble(), h = device.height.toDouble();
+              _fit = [
+                1.0,
+                (box.maxWidth - 24) / w,
+                (box.maxHeight - 44) / h,
+              ].reduce((a, b) => a < b ? a : b).clamp(.1, 1.0);
+              if (!chromium) WidgetsBinding.instance.addPostFrameCallback((_) => _fitWebZoom());
+              return ColoredBox(
+                color: t.colors.muted,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: .min,
+                    spacing: 6,
+                    children: [
+                      Text(
+                        '${device.name == 'Custom' ? '' : '${device.name}  '}'
+                        '${device.width} × ${device.height}'
+                        '${_fit < 1 ? '  ·  shown at ${(_fit * 100).round()}%' : ''}',
+                        style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+                      ),
+                      SizedBox(
+                        width: w * _fit,
+                        height: h * _fit,
+                        child: chromium
+                            ? FittedBox(
+                                child: SizedBox(width: w, height: h, child: page),
+                              )
+                            : page,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
   }
+
+  /// While Chromium starts or downloads: what is happening.
+  Widget _starting(AshlarThemeData t) => Center(
+    child: Padding(
+      padding: const .all(24),
+      child: Column(
+        mainAxisSize: .min,
+        spacing: 12,
+        children: [
+          Text(
+            _chromiumState ?? '',
+            textAlign: .center,
+            style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+          ),
+          if (_chromiumFailed) ...[
+            Button(
+              size: .sm,
+              onPressed: () {
+                _restarts.clear();
+                unawaited(_startChromium());
+              },
+              child: const Text('Start it again'),
+            ),
+            Button(
+              variant: .ghost,
+              size: .sm,
+              onPressed: () => unawaited(_useEngine(.system)),
+              child: const Text('Use the built-in browser'),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }

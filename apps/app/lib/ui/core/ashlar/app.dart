@@ -246,7 +246,12 @@ class _AshlarScrollBehavior extends ScrollBehavior {
       TargetPlatform.macOS || TargetPlatform.windows || TargetPlatform.linux => true,
       _ => false,
     };
-    if (!desktop) return child;
+    // Up and down only: a row that scrolls sideways shows no bar.
+    if (!desktop ||
+        details.direction == AxisDirection.left ||
+        details.direction == AxisDirection.right) {
+      return child;
+    }
     return RawScrollbar(
       controller: details.controller,
       thickness: 5,

@@ -759,7 +759,6 @@ class _SidebarWidth extends StatefulWidget {
 
 class _SidebarWidthState extends State<_SidebarWidth> {
   double? _dragging;
-  bool _hot = false;
 
   @override
   Widget build(BuildContext context) {
@@ -779,8 +778,7 @@ class _SidebarWidthState extends State<_SidebarWidth> {
               label: 'Sidebar width',
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeColumn,
-                onEnter: (_) => setState(() => _hot = true),
-                onExit: (_) => setState(() => _hot = false),
+                // Lit only while dragged, as the panel's edge is.
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   // Follows the pointer from where it was pressed.
@@ -800,7 +798,7 @@ class _SidebarWidthState extends State<_SidebarWidth> {
                     alignment: Alignment.centerLeft,
                     child: Container(
                       width: 2,
-                      color: _hot || _dragging != null
+                      color: _dragging != null
                           ? c.foreground.withValues(alpha: .3)
                           : const Color(0x00000000),
                     ),
