@@ -19,7 +19,9 @@ import '../data/services/browser/browser_tools.dart';
 import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
 import '../data/services/editors.dart';
+import '../data/repositories/chat_repository.dart';
 import '../data/services/history_import.dart';
+import '../data/services/turn_log.dart';
 import '../data/services/pull_requests.dart';
 import '../data/services/window_snapshots.dart';
 import '../utils/format.dart';
@@ -53,6 +55,7 @@ typedef Loaded = ({
   SessionRepository sessions,
   SettingsRepository settings,
   UsageMeter meter,
+  ChatRepository chats,
 });
 
 Future<Loaded> load() async {
@@ -61,15 +64,19 @@ Future<Loaded> load() async {
   final settings = SettingsRepositoryLocal(storage);
   final meter = UsageMeter(storage: storage);
   await (sessions.load(), settings.load(), meter.load()).wait;
+  // Every thread in a chat (decision 0014): those from before chats get one.
+  final chats = ChatRepository(storage, sessions);
+  await chats.load();
   // Sessions started without a project each get a folder here.
   scratchRoot = '${(await getApplicationSupportDirectory()).path}/scratch';
-  return (storage: storage, sessions: sessions, settings: settings, meter: meter);
+  return (storage: storage, sessions: sessions, settings: settings, meter: meter, chats: chats);
 }
 
 List<SingleChildWidget> providers(Loaded loaded) => [
   Provider.value(value: loaded.storage),
   ChangeNotifierProvider.value(value: loaded.settings),
   ChangeNotifierProvider.value(value: loaded.meter),
+  ChangeNotifierProvider.value(value: loaded.chats),
   Provider(create: (_) => CliLocator()),
   Provider(create: (context) => WatchService(context.read())),
   // Taps on iOS simulators through Helmy's resident helper: milliseconds.
@@ -88,6 +95,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (context) => DeviceService(context.read(), input: context.read())),
   // Open pull requests across every project, through GitHub's command.
   Provider(create: (context) => PullRequests(context.read())),
+  // What each turn cost, measured (decision 0014), on this Mac only.
+  Provider(create: (_) => TurnLog(appData: getApplicationSupportDirectory)),
   // Conversations from Claude Code and Codex on this Mac, to bring in.
   Provider(create: (_) => HistoryImport()),
   // Any app's window, snapshotted into the message being written.
@@ -155,6 +164,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         rules: () => loaded.settings.settings.rules,
         snapshots: Snapshots(),
         worktrees: Worktrees(),
+        log: context.read(),
         ownCopies: (repo) => loaded.settings.settings.ownCopiesIn(repo),
         decider: Decider(model: () => loaded.settings.settings.ollamaModel),
       );

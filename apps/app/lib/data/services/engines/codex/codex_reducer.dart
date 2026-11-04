@@ -17,6 +17,14 @@ class CodexReducer {
   /// What the last request sent against the model's window.
   ContextUse? context;
 
+  /// The last turn's tokens, as Codex reported them: its running total at
+  /// the end of the turn, less what it was when the turn began.
+  TurnTokens? tokens;
+
+  /// Codex's running total when the current turn began.
+  Map<String, Object?>? _totalAtStart;
+  Map<String, Object?>? _total;
+
   /// Returns true when a turn ended.
   bool apply(Map<String, Object?> m) {
     final params = (m['params'] as Map?)?.cast<String, Object?>() ?? {};
@@ -28,6 +36,9 @@ class CodexReducer {
     switch (m['method']) {
       case 'turn/started':
         turnId = (params['turn'] as Map?)?['id'] as String?;
+        // This turn's tokens are counted from the total as it stands now.
+        _totalAtStart = _total;
+        tokens = null;
       case 'item/started':
         _started((params['item'] as Map).cast<String, Object?>());
       case 'item/agentMessage/delta':
@@ -84,6 +95,29 @@ class CodexReducer {
         final window = (usage?['modelContextWindow'] as num?)?.toInt();
         final last = (usage?['last'] as Map?)?.cast<String, Object?>();
         final used = (last?['inputTokens'] as num?)?.toInt();
+        final total = (usage?['total'] as Map?)?.cast<String, Object?>();
+        if (total != null) {
+          // Not known when the turn began (a thread resumed after Helmy
+          // restarted): it began at this total less its first request.
+          _totalAtStart ??= {
+            for (final k in total.keys)
+              k: ((total[k] as num?)?.toInt() ?? 0) - ((last?[k] as num?)?.toInt() ?? 0),
+          };
+          _total = total;
+          int? d(String k) {
+            final now = (total[k] as num?)?.toInt();
+            if (now == null) return null;
+            return now - ((_totalAtStart![k] as num?)?.toInt() ?? 0);
+          }
+
+          final input = d('inputTokens'), cached = d('cachedInputTokens');
+          tokens = TurnTokens(
+            fresh: input == null ? null : input - (cached ?? 0),
+            cacheRead: cached,
+            cacheWrite: d('cacheWriteInputTokens'),
+            output: d('outputTokens'),
+          );
+        }
         if (window != null && window > 0 && used != null) {
           context = ContextUse(used: used, window: window);
         }

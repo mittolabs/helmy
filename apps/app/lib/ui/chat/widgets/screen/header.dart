@@ -82,6 +82,11 @@ class _Header extends StatelessWidget {
                           ),
                         ),
                         Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
+                        // Its chat, when the chat is more than this thread.
+                        if (_ChatCrumb.of(context, session) case final crumb?) ...[
+                          Flexible(flex: 2, child: crumb),
+                          Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
+                        ],
                       ],
                       Flexible(
                         flex: 3,
@@ -281,6 +286,12 @@ class _SessionMenu extends StatelessWidget {
         onPressed: () => _save(context),
         child: const Text('Save as Markdown...'),
       ),
+      if (vm.session?.chatId case final chatId?)
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
+          onPressed: () => context.go('/c/$chatId'),
+          child: const Text('Open its chat'),
+        ),
       const MenuSeparator(),
       // A question beside the session, without adding to it ("/side" too).
       MenuItem(
@@ -363,6 +374,49 @@ class _FolderButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The chat a thread is in, in the breadcrumb, as a link to its page: shown
+/// when the chat holds more than this thread, or was named.
+class _ChatCrumb extends StatelessWidget {
+  const _ChatCrumb({required this.chatId, required this.title});
+  final String chatId;
+  final String title;
+
+  static Widget? of(BuildContext context, Session session) {
+    final ChatRepository chats;
+    try {
+      chats = context.watch<ChatRepository>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+    final id = session.chatId;
+    final chat = id == null ? null : chats.byId(id);
+    if (chat == null || (!chat.named && chats.threadsOf(chat.id).length < 2)) return null;
+    return _ChatCrumb(chatId: chat.id, title: chat.title);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final style = t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1);
+    return Tooltip(
+      message: 'This thread is in the chat "$title". Click to see the chat',
+      child: Pressable(
+        onPressed: () => context.go('/c/$chatId'),
+        semanticLabel: 'Chat $title',
+        builder: (context, state) => Text(
+          title,
+          maxLines: 1,
+          overflow: .ellipsis,
+          style: style.copyWith(
+            color: state.hovered ? t.colors.foreground : style.color,
+            decoration: state.hovered ? TextDecoration.underline : null,
+          ),
         ),
       ),
     );

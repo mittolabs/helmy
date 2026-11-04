@@ -159,3 +159,20 @@ class const Usage({
     ],
   );
 }
+
+/// A turn's tokens, as its connection reported them: input read fresh, read
+/// from the provider's cache, written to it, and output. A figure the
+/// connection does not report is null: unknown, never estimated.
+class const TurnTokens({
+  final int? fresh,
+  final int? cacheRead,
+  final int? cacheWrite,
+  final int? output,
+}) {
+  Map<String, Object?> toJson() => {
+    'fresh': fresh,
+    'cacheRead': cacheRead,
+    'cacheWrite': cacheWrite,
+    'output': output,
+  };
+}

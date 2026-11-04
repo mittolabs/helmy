@@ -345,7 +345,8 @@ class _ClaudeRun implements EngineRun {
       ..thinking = _reducer.thinking
       ..resumeId = _reducer.sessionId ?? status.resumeId
       ..usage = _reducer.usage ?? status.usage
-      ..context = _reducer.context ?? status.context;
+      ..context = _reducer.context ?? status.context
+      ..tokens = _reducer.tokens ?? status.tokens;
     _changes.add(ended);
   }
 

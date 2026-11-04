@@ -26,6 +26,9 @@ class EngineStatus {
   /// How full its context was at the last request; null until it reports.
   ContextUse? context;
 
+  /// The last turn's tokens; null until it reports.
+  TurnTokens? tokens;
+
   /// Set when the agent began a turn nobody sent it, as Claude Code does when
   /// work it left in the background ends. Whoever acts on it clears it.
   bool startedByItself = false;

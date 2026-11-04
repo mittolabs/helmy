@@ -21,6 +21,7 @@ import '../services/engines/needs.dart';
 import '../services/engines/usage_meter.dart';
 import '../services/snapshots.dart';
 import '../services/worktrees.dart';
+import '../services/turn_log.dart';
 import '../services/storage_service.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
@@ -38,6 +39,7 @@ class _Turn {
   /// a detour, and the session goes back to its own engine afterwards.
   final Set<Capability> needs;
   final int start;
+  final startedAt = DateTime.now();
   final Set<String> tried = {};
   String? engineId;
 
@@ -67,6 +69,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     this._snapshots,
     this._decider,
     this._worktrees,
+    this._log,
     bool Function(String repo)? ownCopies,
   }) : _ownCopies = ownCopies ?? ((_) => false),
        _enabled = enabled ?? ((_) => true),
@@ -74,6 +77,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// Takes the folder's state before each message, when it is a git repository.
   final Snapshots? _snapshots;
+
+  /// What each turn cost, measured (decision `0014`).
+  final TurnLog? _log;
 
   /// Runs `!command` in the user's shell.
   final ShellService _shellService = const ShellService();
@@ -469,6 +475,31 @@ class ConversationRepositoryEngines extends ConversationRepository {
       final saved = detour
           ? session.withThread(engineId, thread)
           : session.withThread(engineId, thread).copyWith(lastEngineId: engineId);
+      // Measured, not assumed: where it ran and what it cost.
+      if (turn != null) {
+        final moved = session.lastEngineId != null && session.lastEngineId != engineId;
+        final needed = [
+          for (final n in turn.needs)
+            if (n != Capability.tools) n.name,
+        ];
+        unawaited(
+          _log?.turn(
+            chat: session.chatId,
+            thread: session.id,
+            connection: engineId,
+            moved: moved,
+            why: detour
+                ? 'needed ${needed.join(', ')}'
+                : moved
+                ? 'moved from ${session.lastEngineId}'
+                : null,
+            tokens: run.status.tokens,
+            took: DateTime.now().difference(turn.startedAt),
+            from: turn.start,
+            to: c.items.length,
+          ),
+        );
+      }
       if (moveTo != null) {
         // Another folder: every connection starts afresh there, handed the
         // conversation so far, as after a switch between them.

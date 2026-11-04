@@ -18,6 +18,9 @@ class ClaudeReducer {
   /// What the last request sent against the model's window.
   ContextUse? context;
 
+  /// The last turn's tokens, as Claude Code reported them.
+  TurnTokens? tokens;
+
   String? _messageId;
   final Map<String, int> _textBlocksSeen = {};
 
@@ -106,6 +109,7 @@ class ClaudeReducer {
       case 'result':
         thinking = false;
         _context(m);
+        _tokens(m);
         sessionId = m['session_id'] as String? ?? sessionId;
         final isError = m['is_error'] == true || m['subtype'] != 'success';
         final interrupted = m['subtype'] == 'error_during_execution';
@@ -142,6 +146,19 @@ class ClaudeReducer {
       }
     }
     items.add(list);
+  }
+
+  /// A turn's tokens, from its result: every request in it, added up.
+  void _tokens(Map<String, Object?> result) {
+    final u = (result['usage'] as Map?)?.cast<String, Object?>();
+    if (u == null) return;
+    int? n(String k) => (u[k] as num?)?.toInt();
+    tokens = TurnTokens(
+      fresh: n('input_tokens'),
+      cacheRead: n('cache_read_input_tokens'),
+      cacheWrite: n('cache_creation_input_tokens'),
+      output: n('output_tokens'),
+    );
   }
 
   /// The last request's input, cached and not, is what the context held.

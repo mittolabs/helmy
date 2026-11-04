@@ -23,6 +23,7 @@ abstract class SessionRepository extends ChangeNotifier {
     String? title,
     String? taskId,
     String? sideOf,
+    String? chatId,
   });
 
   Future<Result<void>> save(Session session);

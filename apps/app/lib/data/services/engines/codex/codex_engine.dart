@@ -474,7 +474,8 @@ class _CodexRun implements EngineRun {
     status
       ..thinking = _reducer.thinking
       ..usage = _reducer.usage ?? status.usage
-      ..context = _reducer.context ?? status.context;
+      ..context = _reducer.context ?? status.context
+      ..tokens = _reducer.tokens ?? status.tokens;
     _changes.add(ended);
   }
 

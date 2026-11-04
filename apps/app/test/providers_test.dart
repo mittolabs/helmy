@@ -11,6 +11,7 @@ import 'package:helmy/data/repositories/project_repository.dart';
 import 'package:helmy/data/repositories/schedule_repository.dart';
 import 'package:helmy/data/repositories/session_repository.dart';
 import 'package:helmy/data/repositories/session_repository_local.dart';
+import 'package:helmy/data/repositories/chat_repository.dart';
 import 'package:helmy/data/repositories/settings_repository.dart';
 import 'package:helmy/data/repositories/ship_repository.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
@@ -27,11 +28,13 @@ void main() {
       (call) async => dir,
     );
     final storage = StorageService(root: () async => root);
+    final sessions = SessionRepositoryLocal(storage);
     final loaded = (
       storage: storage,
-      sessions: SessionRepositoryLocal(storage) as SessionRepository,
+      sessions: sessions as SessionRepository,
       settings: SettingsRepositoryLocal(storage) as SettingsRepository,
       meter: UsageMeter(),
+      chats: ChatRepository(storage, sessions),
     );
     late BuildContext context;
     await tester.pumpWidget(

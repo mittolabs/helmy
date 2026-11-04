@@ -42,6 +42,7 @@ import 'changes_panel.dart';
 import 'media.dart';
 import 'bottom_terminal.dart';
 import 'files_panel.dart';
+import '../../../data/repositories/chat_repository.dart';
 import 'window_picker.dart';
 import '../../../data/services/window_snapshots.dart';
 import 'side_chat_panel.dart';

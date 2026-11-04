@@ -44,6 +44,7 @@ class SessionRepositoryLocal extends SessionRepository {
     String? title,
     String? taskId,
     String? sideOf,
+    String? chatId,
   }) async {
     final now = DateTime.now();
     final name = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ?? cwd;
@@ -53,6 +54,7 @@ class SessionRepositoryLocal extends SessionRepository {
       title: title ?? 'New session in $name',
       taskId: taskId,
       sideOf: sideOf,
+      chatId: chatId,
       cwd: cwd,
       createdAt: now,
       updatedAt: now,

@@ -7,6 +7,8 @@ import '../ui/chat/widgets/chat_screen.dart';
 import '../ui/schedule/view_models/schedule_view_model.dart';
 import '../ui/schedule/widgets/schedule_screen.dart';
 import '../ui/pull_requests/pull_requests_screen.dart';
+import '../ui/chats/chat_page_screen.dart';
+import '../ui/chats/chat_page_view_model.dart';
 import '../ui/pull_requests/pull_requests_view_model.dart';
 import '../ui/settings/view_models/settings_view_model.dart';
 import '../ui/settings/widgets/settings_screen.dart';
@@ -48,6 +50,19 @@ GoRouter router(String initialLocation) => GoRouter(
             create: (context) =>
                 ScheduleViewModel(schedules: context.read(), settings: context.read()),
             builder: (vm) => ScheduleScreen(viewModel: vm),
+          ),
+        ),
+        GoRoute(
+          path: '/c/:id',
+          builder: (context, state) => _Kept(
+            key: ValueKey(state.uri.toString()),
+            create: (context) => ChatPageViewModel(
+              chatId: state.pathParameters['id']!,
+              chats: context.read(),
+              sessions: context.read(),
+              log: context.read(),
+            ),
+            builder: (vm) => ChatPageScreen(viewModel: vm),
           ),
         ),
         GoRoute(
