@@ -62,6 +62,8 @@ class HelmyTools {
     'device_swipe',
     'device_type',
     'device_home',
+    'device_install',
+    'device_launch',
   ];
 
   Future<String?> _start() async {
@@ -236,9 +238,11 @@ class HelmyTools {
     _tool(
       'device_list',
       'List devices',
-      'The iOS simulators and Android emulators on this computer, which are running, and '
-          'their ids. Use the device tools to try an app you built on a phone: see its '
-          'screen, tap, swipe, type and go home.',
+      'The iOS simulators and Android emulators on this computer, the phones it reaches, '
+          'which are running, and their ids. Use the device tools to try an app you built on a '
+          'phone: see its screen, tap, swipe, type and go home. A real iPhone takes only '
+          'device_install, device_launch and device_logs: Apple lets only simulators be '
+          'watched and tapped.',
       readOnly: true,
     ),
     _tool(
@@ -332,6 +336,26 @@ class HelmyTools {
       required: ['text'],
     ),
     _tool('device_home', 'Press home', "Presses the device's home button."),
+    _tool(
+      'device_install',
+      'Install an app on a device',
+      'Installs a built app: a .app (built for a simulator, or for a device to go on a real '
+          'iPhone), an .ipa, or an .apk. Then device_launch opens it.',
+      properties: {
+        'path': {'type': 'string', 'description': 'The built .app, .ipa or .apk.'},
+      },
+      required: ['path'],
+    ),
+    _tool(
+      'device_launch',
+      'Open an app on a device',
+      'Opens an installed app, closing it first if it is open. On a real iPhone, what it '
+          'prints from then on is what device_logs gives.',
+      properties: {
+        'app': {'type': 'string', 'description': 'Its bundle id (iOS) or package (Android).'},
+      },
+      required: ['app'],
+    ),
   ];
 
   /// Each device's elements by ref, from its last reading.
@@ -430,22 +454,41 @@ class HelmyTools {
         [
           for (final d in all)
             '${d.id}: ${d.name}${d.runtime.isEmpty ? '' : ' (${d.runtime})'}'
-                '${d.booted ? ', running' : ''}',
+                '${d.realIphone
+                    ? ', a real iPhone: install, launch and logs only'
+                    : d.booted
+                    ? ', running'
+                    : ''}',
         ].join('\n'),
       );
     }
     final wanted = args['device'] as String?;
+    // Left out, the device is one whose screen can be used: not a real iPhone.
+    final usable = all.where((x) => !x.realIphone);
     var d = wanted == null
-        ? (all.where((x) => x.booted).firstOrNull ?? all.firstOrNull)
+        ? (usable.where((x) => x.booted).firstOrNull ?? usable.firstOrNull)
         : all.where((x) => x.id == wanted).firstOrNull;
     if (d == null) return says('No such device. device_list gives the ids.', error: true);
+    const onPhones = {'device_install', 'device_launch', 'device_logs'};
+    if (d.realIphone && !onPhones.contains(name)) {
+      return says(
+        "${d.name} is a real iPhone: its screen can't be read, seen or used from here, since "
+        'Apple lets only simulators be. Use a simulator for that; on this iPhone, '
+        'device_install, device_launch and then device_logs work.',
+        error: true,
+      );
+    }
     if (!d.booted) {
       if (!await devices.boot(d)) return says("${d.name} didn't start.", error: true);
-      d = Device(id: d.id, name: d.name, ios: d.ios, booted: true, runtime: d.runtime);
+      d = d.started;
     }
     // The user sees what the agent does: the device in the session's panel.
     final shown = _showDevice?.call(session) ?? false;
-    if (d.ios && name != 'device_screen' && !await devices.iosInput()) {
+    if (d.ios &&
+        !d.realIphone &&
+        !onPhones.contains(name) &&
+        name != 'device_screen' &&
+        !await devices.iosInput()) {
       return says(
         'Taps and typing on iOS simulators need AXe, which is not installed. Tell the user, '
         'and give them this link, which installs it: '
@@ -515,7 +558,32 @@ class HelmyTools {
                 "${d.name} didn't take it${d.ios ? '' : ' (some settings are for iOS simulators, or Android emulators, only)'}.",
                 error: true,
               );
+      case 'device_install':
+        final path = '${args['path'] ?? ''}'.trim();
+        if (path.isEmpty) return says('Give the path of the built app.', error: true);
+        final why = await devices.install(d, path);
+        return why == null
+            ? says('Installed on ${d.name}. device_launch opens it.')
+            : says(why, error: true);
+      case 'device_launch':
+        final app = '${args['app'] ?? ''}'.trim();
+        if (app.isEmpty) return says('Give its bundle id or package.', error: true);
+        final why = await devices.launch(d, app);
+        if (why != null) return says(why, error: true);
+        return says(
+          'Opened $app on ${d.name}.'
+          '${d.realIphone ? ' What it prints from now on is what device_logs gives.' : ''}',
+        );
       case 'device_logs':
+        if (d.realIphone) {
+          final lines = await devices.logs(d, find: args['find'] as String?) ?? const [];
+          return says(
+            lines.isEmpty
+                ? 'Nothing printed yet. On a real iPhone, the logs are what an app opened with '
+                      'device_launch prints.'
+                : lines.join('\n'),
+          );
+        }
         final minutes = ((args['minutes'] as num?) ?? 2).clamp(1, 30).toInt();
         final find = args['find'] as String?;
         final lines = await devices.logs(

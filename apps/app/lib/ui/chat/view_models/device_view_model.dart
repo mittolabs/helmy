@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' show Size;
 import '../../../data/services/devices.dart';
 import '../../../domain/device_outline.dart';
 import '../../../domain/device_marks.dart';
+import '../../../domain/iphones.dart';
 
 /// The Device panel's state: which simulator or emulator, its screen kept
 /// fresh while the panel shows, and what a tap or a key does to it.
@@ -37,11 +38,12 @@ class DeviceViewModel extends ChangeNotifier {
   bool _closed = false;
 
   /// Lists the devices and picks one for the user: one already running,
-  /// an iPhone before an iPad or an emulator.
+  /// an iPhone before an iPad or an emulator. A real iPhone only when
+  /// chosen: its screen does not show here.
   Future<void> open() async {
     devices = await _devices.list();
     device ??=
-        devices.where((d) => d.booted).firstOrNull ??
+        devices.where((d) => d.booted && !d.realIphone).firstOrNull ??
         devices.where((d) => d.ios && d.name.startsWith('iPhone')).firstOrNull ??
         devices.firstOrNull;
     trouble = devices.isEmpty
@@ -60,6 +62,7 @@ class DeviceViewModel extends ChangeNotifier {
   Future<void> _ready() async {
     final d = device;
     if (d == null || _closed) return _changed();
+    if (d.realIphone) return _readyPhone();
     canTouch = !d.ios || await _devices.iosInput();
     if (!d.booted) {
       doing = 'Starting ${d.name}…';
@@ -100,7 +103,7 @@ class DeviceViewModel extends ChangeNotifier {
 
   Future<void> _read() async {
     final d = device;
-    if (d == null || _reading || _closed) return;
+    if (d == null || d.realIphone || _reading || _closed) return;
     _reading = true;
     final bytes = await _devices.screen(d);
     _reading = false;
@@ -422,6 +425,82 @@ class DeviceViewModel extends ChangeNotifier {
       png.buffer.asUint8List(),
       deviceMarksMarkdown(d.name, marks, picture: 'the attached picture'),
     );
+  }
+
+  // A real iPhone: its apps, installed and launched from here.
+
+  /// The apps on it that their developer built; null while read, or when
+  /// they could not be.
+  List<PhoneApp>? apps;
+
+  /// Why the last thing asked of the iPhone did not happen, and what fixes it.
+  String? phoneTrouble;
+
+  /// The app last opened from here, whose output its logs show.
+  String? launched;
+
+  /// What is being done to it now ("Installing…").
+  String? phoneDoing;
+
+  Future<void> _readyPhone() async {
+    _poll?.cancel();
+    await _stream?.cancel();
+    _stream = null;
+    screen = null;
+    canTouch = false;
+    trouble = null;
+    marking = false;
+    threeD = false;
+    await readApps();
+  }
+
+  /// Reads the iPhone's apps again (after it was unlocked, say).
+  Future<void> readApps() async {
+    final d = device;
+    if (d == null || !d.realIphone || _closed) return;
+    apps = null;
+    phoneTrouble = null;
+    phoneDoing = 'Reading its apps…';
+    _changed();
+    final (list, why) = await _devices.phoneApps(d);
+    if (device != d || _closed) return;
+    phoneDoing = null;
+    apps = list;
+    phoneTrouble = why;
+    _changed();
+  }
+
+  /// Opens [app] on the iPhone; its logs then show what it prints.
+  Future<void> launch(PhoneApp app) async {
+    final d = device;
+    if (d == null || phoneDoing != null) return;
+    phoneDoing = 'Opening ${app.name}…';
+    phoneTrouble = null;
+    _changed();
+    final why = await _devices.launch(d, app.bundle);
+    if (_closed) return;
+    phoneDoing = null;
+    phoneTrouble = why;
+    if (why == null) {
+      launched = app.name;
+      if (!logsOpen) toggleLogs();
+    }
+    _changed();
+  }
+
+  /// Installs the built app at [path] on the iPhone, then reads its apps.
+  Future<void> install(String path) async {
+    final d = device;
+    if (d == null || phoneDoing != null) return;
+    phoneDoing = 'Installing ${path.split('/').last}…';
+    phoneTrouble = null;
+    _changed();
+    final why = await _devices.install(d, path);
+    if (_closed) return;
+    phoneDoing = null;
+    phoneTrouble = why;
+    _changed();
+    if (why == null) await readApps();
   }
 
   // The device's logs, under its screen while asked for: the same lines its

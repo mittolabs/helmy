@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -20,6 +21,7 @@ import '../../core/ashlar/toast.dart';
 import '../../core/helmy_dialog.dart';
 import '../../../data/services/devices.dart';
 import '../../../domain/device_outline.dart';
+import '../../../domain/iphones.dart';
 import '../view_models/chat_view_model.dart';
 import '../view_models/device_view_model.dart';
 
@@ -148,7 +150,7 @@ class _DevicePanelState extends State<DevicePanel> {
                                 x.id,
                                 '${x.name}${x.runtime.isEmpty ? '' : ' · ${x.runtime}'}',
                                 // Phones on the cable first, then what is running, then the rest.
-                                group: x.runtime == 'Android phone'
+                                group: x.physical
                                     ? 'Connected phones'
                                     : x.booted
                                     ? 'Running'
@@ -160,7 +162,7 @@ class _DevicePanelState extends State<DevicePanel> {
                       ),
                     ),
             ),
-            if (!d.canTouch && device != null)
+            if (!d.canTouch && device != null && !device.realIphone)
               Padding(
                 padding: const .fromLTRB(12, 0, 12, 8),
                 child: Row(
@@ -182,50 +184,55 @@ class _DevicePanelState extends State<DevicePanel> {
                   ],
                 ),
               ),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: _screen(t, muted)),
-                  Padding(
-                    padding: const .symmetric(horizontal: 6, vertical: 8),
-                    child: Column(
-                      spacing: 4,
-                      children: [
-                        tool('Home', AshlarIconsRoundedStroke.house, d.canTouch ? d.home : null),
-                        tool(
-                          d.dark ? 'Light appearance' : 'Dark appearance',
-                          d.dark ? AshlarIconsRoundedStroke.sun : AshlarIconsRoundedStroke.moon,
-                          device == null ? null : d.toggleAppearance,
-                        ),
-                        if (device != null) _DeviceSettings(d: d, device: device),
-                        tool(
-                          d.marking ? 'Stop marking' : 'Mark what to change',
-                          AshlarIconsRoundedStroke.squareDashedMousePointer,
-                          device == null || d.screen == null
-                              ? null
-                              : (d.marking ? d.stopMarking : d.startMarking),
-                        ),
-                        tool(
-                          d.threeD ? 'Back to the screen' : 'See it in 3D',
-                          AshlarIconsRoundedStroke.layers,
-                          device == null ? null : d.toggle3D,
-                        ),
-                        tool(
-                          d.logsOpen ? 'Hide its logs' : 'Its logs',
-                          AshlarIconsRoundedStroke.scrollText,
-                          device == null ? null : d.toggleLogs,
-                        ),
-                        tool(
-                          'Attach the screen to your message',
-                          AshlarIconsRoundedStroke.camera,
-                          d.screen == null ? null : () => widget.vm.attachScreen(d.screen!),
-                        ),
-                      ],
+            if (device != null && device.realIphone)
+              Expanded(
+                child: _PhoneBody(d: d, device: device, cwd: widget.vm.session?.cwd),
+              )
+            else
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(child: _screen(t, muted)),
+                    Padding(
+                      padding: const .symmetric(horizontal: 6, vertical: 8),
+                      child: Column(
+                        spacing: 4,
+                        children: [
+                          tool('Home', AshlarIconsRoundedStroke.house, d.canTouch ? d.home : null),
+                          tool(
+                            d.dark ? 'Light appearance' : 'Dark appearance',
+                            d.dark ? AshlarIconsRoundedStroke.sun : AshlarIconsRoundedStroke.moon,
+                            device == null ? null : d.toggleAppearance,
+                          ),
+                          if (device != null) _DeviceSettings(d: d, device: device),
+                          tool(
+                            d.marking ? 'Stop marking' : 'Mark what to change',
+                            AshlarIconsRoundedStroke.squareDashedMousePointer,
+                            device == null || d.screen == null
+                                ? null
+                                : (d.marking ? d.stopMarking : d.startMarking),
+                          ),
+                          tool(
+                            d.threeD ? 'Back to the screen' : 'See it in 3D',
+                            AshlarIconsRoundedStroke.layers,
+                            device == null ? null : d.toggle3D,
+                          ),
+                          tool(
+                            d.logsOpen ? 'Hide its logs' : 'Its logs',
+                            AshlarIconsRoundedStroke.scrollText,
+                            device == null ? null : d.toggleLogs,
+                          ),
+                          tool(
+                            'Attach the screen to your message',
+                            AshlarIconsRoundedStroke.camera,
+                            d.screen == null ? null : () => widget.vm.attachScreen(d.screen!),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             // Marking: what each mark points at, a note for the latest, and
             // the way to give them to the agent.
             if (d.marking && device != null)
@@ -324,7 +331,11 @@ class _DevicePanelState extends State<DevicePanel> {
                           child: Padding(
                             padding: const .symmetric(horizontal: 16),
                             child: Text(
-                              device.ios
+                              device.realIphone
+                                  ? (d.launched == null
+                                        ? 'Open an app from here to see what it prints.'
+                                        : 'Nothing printed by ${d.launched} yet.')
+                                  : device.ios
                                   ? 'Nothing from the apps on it in the last 2 minutes. Apps you '
                                         'build show here; the system\'s own lines are left out.'
                                   : 'No warnings or errors in the last 2 minutes.',
@@ -926,4 +937,125 @@ class _MarkLayerState extends State<_MarkLayer> {
       );
     },
   );
+}
+
+/// A real iPhone: what can be done with it from here (open the apps you
+/// build, install one, read what an open one prints), and when something
+/// will not go, why and what fixes it. Its screen is not shown: Apple lets
+/// only simulators be watched and driven.
+class _PhoneBody extends StatelessWidget {
+  const _PhoneBody({required this.d, required this.device, this.cwd});
+  final DeviceViewModel d;
+  final Device device;
+  final String? cwd;
+
+  Future<void> _pick() async {
+    final file = await openFile(
+      initialDirectory: cwd,
+      confirmButtonText: 'Install',
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Apps', extensions: ['app', 'ipa']),
+      ],
+    );
+    if (file != null) await d.install(file.path);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final muted = t.text.xs.copyWith(color: c.mutedForeground);
+    final apps = d.apps;
+    return ScrollArea(
+      padding: const .fromLTRB(12, 4, 12, 12),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 10,
+        children: [
+          Text(
+            "Your apps open on it from here, and what they print shows in its logs. Its screen "
+            "stays on the phone: Apple lets only a simulator be watched and tapped.",
+            style: muted,
+          ),
+          if (d.phoneTrouble case final why?)
+            Container(
+              padding: const .all(10),
+              decoration: BoxDecoration(
+                color: c.destructive.withValues(alpha: .08),
+                border: .all(color: c.destructive.withValues(alpha: .35)),
+                borderRadius: .circular(t.radiusMd),
+              ),
+              child: Row(
+                spacing: 8,
+                children: [
+                  Expanded(child: Text(why, style: t.text.xs)),
+                  Button(
+                    variant: .outline,
+                    size: .xs,
+                    onPressed: d.phoneDoing == null ? d.readApps : null,
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Apps you build', style: t.text.xs.copyWith(fontWeight: .w600)),
+              ),
+              // What the app opened from here printed: the phone's logs.
+              if (d.launched != null)
+                Button(
+                  variant: .ghost,
+                  size: .xs,
+                  onPressed: d.toggleLogs,
+                  child: Text(d.logsOpen ? 'Hide logs' : 'Logs'),
+                ),
+              Button(
+                variant: .outline,
+                size: .xs,
+                onPressed: d.phoneDoing == null ? _pick : null,
+                child: const Text('Install…'),
+              ),
+            ],
+          ),
+          if (d.phoneDoing case final doing?)
+            Row(
+              spacing: 8,
+              children: [
+                const Spinner(size: 13),
+                Text(doing, style: muted),
+              ],
+            )
+          else if (apps != null && apps.isEmpty)
+            Text(
+              'None yet. Build one for a device and install it here, or ask me to.',
+              style: muted,
+            ),
+          for (final app in apps ?? const <PhoneApp>[])
+            Row(
+              spacing: 8,
+              children: [
+                const AshlarIcon(AshlarIconsRoundedStroke.appWindow, size: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    children: [
+                      Text(app.name, maxLines: 1, overflow: .ellipsis, style: t.text.sm),
+                      Text(app.bundle, maxLines: 1, overflow: .ellipsis, style: muted),
+                    ],
+                  ),
+                ),
+                Button(
+                  variant: .ghost,
+                  size: .xs,
+                  onPressed: d.phoneDoing == null ? () => d.launch(app) : null,
+                  child: Text(d.launched == app.name ? 'Open again' : 'Open'),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }

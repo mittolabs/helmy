@@ -1,0 +1,104 @@
+{
+ "error": {
+  "code": 12040,
+  "domain": "com.apple.dt.CoreDeviceError",
+  "userInfo": {
+   "DeviceIdentifier": {
+    "string": "0A1B2C3D-0000-4000-8000-00000000A001"
+   },
+   "NSLocalizedDescription": {
+    "string": "The developer disk image could not be mounted on this device."
+   },
+   "NSUnderlyingError": {
+    "error": {
+     "code": 12040,
+     "domain": "com.apple.dt.CoreDeviceError",
+     "userInfo": {
+      "DDIBuildUpdate": {
+       "string": "17F42 (developerTools)"
+      },
+      "DDIPath": {
+       "string": "/Library/Developer/DeveloperDiskImages/iOS_DDI"
+      },
+      "DeviceFusing": {
+       "string": "prod"
+      },
+      "DeviceIdentifier": {
+       "string": "0A1B2C3D-0000-4000-8000-00000000A001"
+      },
+      "NSLocalizedDescription": {
+       "string": "The developer disk image could not be mounted on this device."
+      },
+      "NSURL": {
+       "url": "file:///Library/Developer/DeveloperDiskImages/iOS_DDI/"
+      },
+      "NSUnderlyingError": {
+       "error": {
+        "code": -402652958,
+        "domain": "com.apple.mobiledevice",
+        "userInfo": {
+         "FunctionName": {
+          "string": "AMDeviceRemoteMountPersonalizedBundle"
+         },
+         "LineNumber": {
+          "int": 2127
+         },
+         "NSLocalizedDescription": {
+          "string": "Error mounting image: 0xe80000e2 (kAMDMobileImageMounterDeviceLocked: The device is locked.)"
+         },
+         "NSUnderlyingError": {
+          "error": {
+           "code": -402652958,
+           "domain": "com.apple.mobiledevice",
+           "userInfo": {
+            "FunctionName": {
+             "string": "-[PersonalizedImage mountImage:]"
+            },
+            "LineNumber": {
+             "int": 2049
+            },
+            "NSLocalizedDescription": {
+             "string": "Failed to mount image: 0xe80000e2 (kAMDMobileImageMounterDeviceLocked: The device is locked.)"
+            },
+            "NSUnderlyingError": {
+             "error": {
+              "code": -402652958,
+              "domain": "com.apple.mobiledevice",
+              "userInfo": {
+               "FunctionName": {
+                "string": "-[PersonalizedImage mountRemoteImage:serverTicket:imageDigest:trustCacheURL:error:]"
+               },
+               "LineNumber": {
+                "int": 1725
+               },
+               "NSLocalizedDescription": {
+                "string": "Failed to mount /Library/Developer/DeveloperDiskImages/iOS_DDI/Restore/022-21793-047.dmg: 0xe80000e2 (kAMDMobileImageMounterDeviceLocked: The device is locked.)"
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      },
+      "Options": {
+       "dictionary": {
+        "MountedBundlePath": {
+         "url": "file:///Library/Developer/DeveloperDiskImages/iOS_DDI/"
+        },
+        "UseCredentials": {
+         "bool": false
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "info": {
+  "outcome": "failed"
+ }
+}

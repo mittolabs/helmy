@@ -90,6 +90,8 @@ class FakeDevices extends DeviceService {
 }
 
 void main() {
+  group('real iPhones', realIphones);
+
   test('a picture\'s size comes from its header', () {
     expect(imageSize(png(1080, 2400)), (1080, 2400));
     expect(imageSize(jpeg(1206, 2622)), (1206, 2622));
@@ -279,5 +281,78 @@ void main() {
       final tools = HelmyTools(WatchService(CliLocator()), devices);
       expect(await call(tools, 'device_read'), contains('device_screen'));
     });
+  });
+}
+
+/// [FakeDevices] with a real iPhone paired too, ranked first as phones are.
+class WithIphone extends FakeDevices {
+  final launched = <String>[];
+
+  @override
+  Future<List<Device>> list() async => [
+    const Device(
+      id: 'real',
+      name: 'Alex’s iPhone',
+      ios: true,
+      booted: true,
+      runtime: 'iOS 26.3.1, over Wi-Fi',
+      physical: true,
+    ),
+    ...await super.list(),
+  ];
+
+  @override
+  Future<String?> launch(Device d, String app) async {
+    launched.add('${d.id} $app');
+    return d.realIphone ? null : 'not here';
+  }
+
+  @override
+  Future<List<String>?> logs(
+    Device d, {
+    String? app,
+    String? find,
+    int minutes = 2,
+    int max = 150,
+  }) async => d.realIphone ? ['budget: loaded 3 months'] : const [];
+}
+
+void realIphones() {
+  Future<Map> call(HelmyTools tools, String name, [Map args = const {}]) async {
+    final r = await tools.answer('tools/call', {'name': name, 'arguments': args});
+    return r['result']! as Map;
+  }
+
+  String text(Map r) => (r['content'] as List).first['text'] as String;
+
+  test('a real iPhone is listed for what it takes, and never chosen unasked', () async {
+    final devices = WithIphone();
+    final tools = HelmyTools(WatchService(CliLocator()), devices);
+    expect(
+      text(await call(tools, 'device_list')),
+      contains('real: Alex’s iPhone (iOS 26.3.1, over Wi-Fi), a real iPhone: install, launch'),
+    );
+    // Left out, the device is the running simulator, not the phone ranked first.
+    expect(text(await call(tools, 'device_read')), contains('iPhone 17 Pro'));
+
+    final screen = await call(tools, 'device_screen', {'device': 'real'});
+    expect(screen['isError'], isTrue);
+    expect(text(screen), contains('Apple lets only simulators be'));
+
+    final opened = await call(tools, 'device_launch', {
+      'device': 'real',
+      'app': 'com.example.budget',
+    });
+    expect(text(opened), contains('What it prints from now on is what device_logs gives'));
+    expect(devices.launched, ['real com.example.budget']);
+    expect(text(await call(tools, 'device_logs', {'device': 'real'})), 'budget: loaded 3 months');
+  });
+
+  test('the panel opens on a simulator, and on the iPhone only when chosen', () async {
+    final vm = DeviceViewModel(WithIphone());
+    addTearDown(vm.dispose);
+    await vm.open();
+    vm.pause();
+    expect(vm.device?.id, 'phone');
   });
 }

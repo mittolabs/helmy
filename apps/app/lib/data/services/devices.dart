@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../domain/iphones.dart';
 import 'cli_locator.dart';
 import 'sim_input.dart';
 
-/// A simulator or emulator on this computer.
+/// A simulator or emulator on this computer, or a real phone it reaches.
 class Device {
   const Device({
     required this.id,
@@ -14,16 +15,28 @@ class Device {
     required this.ios,
     required this.booted,
     this.runtime = '',
+    this.physical = false,
   });
 
-  /// The simulator's UDID, or the emulator's adb serial.
+  /// The simulator's UDID, the emulator's or phone's adb serial, or the
+  /// iPhone's CoreDevice id.
   final String id;
   final String name;
 
-  /// An iOS Simulator; false for an Android emulator.
+  /// iOS (a simulator or an iPhone); false for Android.
   final bool ios;
   final bool booted;
   final String runtime;
+
+  /// A real phone, not a simulator or emulator.
+  final bool physical;
+
+  /// A real iPhone or iPad: Apple lets apps be installed and launched on it,
+  /// and their output read, but its screen is not shown or tapped from here.
+  bool get realIphone => ios && physical;
+
+  Device get started =>
+      Device(id: id, name: name, ios: ios, booted: true, runtime: runtime, physical: physical);
 }
 
 /// Simulators and emulators: which there are, starting one, its screen, and
@@ -102,6 +115,7 @@ class DeviceService {
             ios: false,
             booted: true,
             runtime: emulator ? 'Android emulator' : 'Android phone',
+            physical: !emulator,
           ),
         );
       }
@@ -118,10 +132,152 @@ class DeviceService {
         ),
       );
     }
-    // A phone on the cable first, then what is running, then the rest.
-    int rank(Device d) => d.runtime == 'Android phone' ? 0 : (d.booted ? 1 : 2);
+    for (final phone in await iphones()) {
+      out.add(
+        Device(
+          id: phone.id,
+          name: phone.name,
+          ios: true,
+          booted: true,
+          runtime: 'iOS ${phone.os}${phone.wired ? '' : ', over Wi-Fi'}',
+          physical: true,
+        ),
+      );
+    }
+    // A real phone first, then what is running, then the rest.
+    int rank(Device d) => d.physical ? 0 : (d.booted ? 1 : 2);
     out.sort((a, b) => rank(a) != rank(b) ? rank(a) - rank(b) : a.name.compareTo(b.name));
     return out;
+  }
+
+  // Real iPhones, through Xcode's devicectl: listed, their apps installed
+  // and launched, and what a launched app prints kept as its logs.
+
+  /// devicectl writes its JSON only to a file: run with [args], read back.
+  Future<(bool, String)> _devicectl(List<String> args) async {
+    final file = File(
+      '${Directory.systemTemp.path}/helmy-devicectl-$pid-${DateTime.now().microsecondsSinceEpoch}.json',
+    );
+    final r = await _run('xcrun', ['devicectl', ...args, '--json-output', file.path]);
+    var json = '';
+    try {
+      json = await file.readAsString();
+      await file.delete();
+    } on FileSystemException {
+      // It wrote nothing: what it printed says why.
+    }
+    if (r == null) return (false, json);
+    final ok = r.exitCode == 0;
+    return (ok, ok ? json : (json.isNotEmpty ? json : '${r.stderr}\n${r.stdout}'));
+  }
+
+  /// The iPhones and iPads paired with this Mac that Apple reaches now.
+  Future<List<Iphone>> iphones() async {
+    if (!Platform.isMacOS) return const [];
+    final (ok, json) = await _devicectl(['list', 'devices', '--timeout', '5']);
+    return ok ? iphonesFrom(json) : const [];
+  }
+
+  /// The apps on real iPhone [d] that their developer built; a list, or why
+  /// they cannot be read (with what fixes it).
+  Future<(List<PhoneApp>?, String?)> phoneApps(Device d) async {
+    final (ok, out) = await _devicectl([
+      'device', 'info', 'apps', '--device', d.id, '--timeout', '30', //
+    ]);
+    return ok ? (phoneAppsFrom(out), null) : (null, phoneTrouble(d.name, out));
+  }
+
+  /// Installs the app at [path] (a built .app, or an .ipa or .apk) on [d]:
+  /// null when done, else why not and what fixes it.
+  Future<String?> install(Device d, String path) async {
+    if (!File(path).existsSync() && !Directory(path).existsSync()) {
+      return 'There is nothing at $path to install.';
+    }
+    if (d.realIphone) {
+      final (ok, out) = await _devicectl([
+        'device', 'install', 'app', '--device', d.id, '--timeout', '120', path, //
+      ]);
+      return ok ? null : phoneTrouble(d.name, out);
+    }
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'install', d.id, path])
+        : await _run('adb', ['-s', d.id, 'install', '-r', path]);
+    if (r != null && r.exitCode == 0) return null;
+    final said = '${r?.stderr ?? ''}'.trim().split('\n').lastOrNull ?? '';
+    return "${d.name} didn't install it${said.isEmpty ? '.' : ': $said'}";
+  }
+
+  /// What the apps launched on each real iPhone printed, newest last, kept
+  /// while they run: an iPhone's own log is not readable from here.
+  final _console = <String, List<String>>{};
+  final _consoleRuns = <String, Process>{};
+  static const _consoleMax = 2000;
+
+  /// Opens [app] (a bundle id, or an Android package) on [d], closing it
+  /// first if it is open: null when it opened, else why not and what fixes
+  /// it. On a real iPhone, what it prints is kept as its logs.
+  Future<String?> launch(Device d, String app) async {
+    if (d.realIphone) return _launchOnIphone(d, app);
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'launch', '--terminate-running-process', d.id, app])
+        : await _run('adb', [
+            '-s', d.id, 'shell', 'monkey', '-p', app, //
+            '-c', 'android.intent.category.LAUNCHER', '1',
+          ]);
+    if (r != null && r.exitCode == 0 && !'${r.stdout}'.contains('No activities found')) {
+      return null;
+    }
+    return "${d.name} didn't open $app. Is it installed?";
+  }
+
+  Future<String?> _launchOnIphone(Device d, String app) async {
+    _consoleRuns.remove(d.id)?.kill();
+    final Process p;
+    try {
+      p = await Process.start('/usr/bin/xcrun', [
+        'devicectl', 'device', 'process', 'launch', '--console', '--terminate-existing', //
+        '--device', d.id, '--timeout', '60', app,
+      ], environment: await _locator.environment());
+    } on ProcessException {
+      return "Xcode's device tools aren't here. Install Xcode to use ${d.name}.";
+    }
+    _consoleRuns[d.id] = p;
+    final lines = _console[d.id] = [];
+    final said = StringBuffer();
+    final opened = Completer<String?>();
+    void take(String line) {
+      said.writeln(line);
+      // devicectl says when the app is up; after that, each line is the app's.
+      if (!opened.isCompleted && line.contains('Launched application')) {
+        opened.complete(null);
+        return;
+      }
+      if (opened.isCompleted) {
+        lines.add(line);
+        if (lines.length > _consoleMax) lines.removeRange(0, lines.length - _consoleMax);
+      }
+    }
+
+    p.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(take);
+    p.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(take);
+    unawaited(
+      p.exitCode.then((code) {
+        if (_consoleRuns[d.id] == p) _consoleRuns.remove(d.id);
+        if (!opened.isCompleted) {
+          opened.complete(code == 0 ? null : phoneTrouble(d.name, said.toString()));
+        } else {
+          lines.add('($app closed)');
+        }
+      }),
+    );
+    return opened.future.timeout(
+      const Duration(seconds: 90),
+      onTimeout: () {
+        p.kill();
+        return "${d.name} can't be reached. Wake it, and have it on this Mac's Wi-Fi or on "
+            'the cable, then try again.';
+      },
+    );
   }
 
   /// Starts [d] (an iOS simulator) and waits until it is up.
@@ -388,6 +544,14 @@ class DeviceService {
     int minutes = 2,
     int max = 150,
   }) async {
+    final want = find?.toLowerCase();
+    if (d.realIphone) {
+      final printed = [
+        for (final l in _console[d.id] ?? const <String>[])
+          if (want == null || want.isEmpty || l.toLowerCase().contains(want)) l,
+      ];
+      return printed.length <= max ? printed : printed.sublist(printed.length - max);
+    }
     final ProcessResult? r;
     if (d.ios) {
       final name = (app ?? '').replaceAll('"', '');
@@ -412,7 +576,6 @@ class DeviceService {
       ]);
     }
     if (r == null || r.exitCode != 0) return null;
-    final want = find?.toLowerCase();
     final lines = [
       for (final l in '${r.stdout}'.split('\n'))
         if (l.trim().isNotEmpty &&

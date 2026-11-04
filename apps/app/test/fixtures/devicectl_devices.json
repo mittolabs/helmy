@@ -1,0 +1,79 @@
+{
+ "info": {
+  "outcome": "success"
+ },
+ "result": {
+  "devices": [
+   {
+    "identifier": "0A1B2C3D-0000-4000-8000-00000000A001",
+    "deviceProperties": {
+     "name": "Alex’s iPhone",
+     "osVersionNumber": "26.3.1",
+     "ddiServicesAvailable": false
+    },
+    "hardwareProperties": {
+     "platform": "iOS",
+     "deviceType": "iPhone",
+     "marketingName": "iPhone 11 Pro",
+     "productType": "iPhone12,3"
+    },
+    "connectionProperties": {
+     "authenticationType": "manualPairing",
+     "isMobileDeviceOnly": false,
+     "pairingState": "paired",
+     "potentialHostnames": [
+      "Alexs-iPhone.coredevice.local"
+     ],
+     "transportType": "localNetwork",
+     "tunnelState": "disconnected",
+     "tunnelTransportProtocol": "tcp"
+    }
+   },
+   {
+    "identifier": "0A1B2C3D-0000-4000-8000-00000000A002",
+    "deviceProperties": {
+     "name": "Alex’s iPad",
+     "osVersionNumber": "18.2"
+    },
+    "hardwareProperties": {
+     "platform": "iOS",
+     "deviceType": "iPad"
+    },
+    "connectionProperties": {
+     "pairingState": "paired",
+     "tunnelState": "unavailable",
+     "transportType": "localNetwork"
+    }
+   },
+   {
+    "identifier": "0A1B2C3D-0000-4000-8000-00000000A003",
+    "deviceProperties": {
+     "name": "Test iPhone",
+     "osVersionNumber": "26.5"
+    },
+    "hardwareProperties": {
+     "platform": "iOS",
+     "deviceType": "iPhone"
+    },
+    "connectionProperties": {
+     "pairingState": "paired",
+     "tunnelState": "connected",
+     "transportType": "wired"
+    }
+   },
+   {
+    "identifier": "0A1B2C3D-0000-4000-8000-00000000A004",
+    "deviceProperties": {
+     "name": "Alex’s Watch"
+    },
+    "hardwareProperties": {
+     "platform": "watchOS"
+    },
+    "connectionProperties": {
+     "pairingState": "paired",
+     "tunnelState": "disconnected"
+    }
+   }
+  ]
+ }
+}
