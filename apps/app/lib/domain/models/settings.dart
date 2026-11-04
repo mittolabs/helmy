@@ -66,6 +66,16 @@ enum Recency {
 
 enum SortSessions { recent, name }
 
+/// The colors changes are shown in: people see colors differently.
+enum DiffColors {
+  greenRed('Green and red'),
+  blueOrange('Blue and orange (for color blindness)'),
+  none('Without color');
+
+  const DiffColors(this.label);
+  final String label;
+}
+
 /// What is set for one project (a git repository, by its top folder), over
 /// the settings for everything. Null means "as everywhere else".
 class const ProjectSettings({
@@ -168,6 +178,12 @@ class const AppSettings({
   /// Each project's default branch brought up to date when its checkout is
   /// on it with nothing of its own (fast-forward only).
   final bool keepDefaultCurrent = true,
+
+  /// The colors changes are shown in.
+  final DiffColors diffColors = .greenRed,
+
+  /// Changes only in spaces and tabs shown as unchanged.
+  final bool diffHideSpace = false,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -201,6 +217,8 @@ class const AppSettings({
     String? chromiumBrowser,
     String? editor,
     bool? keepDefaultCurrent,
+    DiffColors? diffColors,
+    bool? diffHideSpace,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -232,6 +250,8 @@ class const AppSettings({
     chromiumBrowser: chromiumBrowser ?? this.chromiumBrowser,
     editor: editor ?? this.editor,
     keepDefaultCurrent: keepDefaultCurrent ?? this.keepDefaultCurrent,
+    diffColors: diffColors ?? this.diffColors,
+    diffHideSpace: diffHideSpace ?? this.diffHideSpace,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -265,6 +285,8 @@ class const AppSettings({
     'chromiumBrowser': chromiumBrowser,
     'editor': editor,
     'keepDefaultCurrent': keepDefaultCurrent,
+    'diffColors': diffColors.name,
+    'diffHideSpace': diffHideSpace,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -301,6 +323,8 @@ class const AppSettings({
     chromiumBrowser: json['chromiumBrowser'] as String?,
     editor: json['editor'] as String?,
     keepDefaultCurrent: json['keepDefaultCurrent'] as bool? ?? true,
+    diffColors: DiffColors.values.asNameMap()[json['diffColors']] ?? .greenRed,
+    diffHideSpace: json['diffHideSpace'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
@@ -322,6 +346,8 @@ const restorableSettings = <String, List<String>>{
   'Text size': ['textSize'],
   'Conversation width': ['width'],
   'Wrap long code blocks': ['wrapCode'],
+  'Colors for changes': ['diffColors'],
+  'Hide changes only in spaces': ['diffHideSpace'],
   'When a session needs you or finishes': ['notify'],
   'Keep sessions running when the window closes': ['keepRunning'],
   'Send with': ['sendWithEnter'],

@@ -54,6 +54,30 @@ class _Appearance extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(wrapCode: v)),
           ),
         ),
+        _Row(
+          title: 'Colors for changes',
+          description:
+              'What a session added and removed in files. Blue and orange read apart for the '
+              'commonest kinds of color blindness.',
+          control: SizedBox(
+            width: 230,
+            child: Select<DiffColors>(
+              value: s.diffColors,
+              semanticLabel: 'Colors for changes',
+              options: [for (final d in DiffColors.values) SelectOption(d, d.label)],
+              onChanged: (d) => vm.update(s.copyWith(diffColors: d)),
+            ),
+          ),
+        ),
+        _Row(
+          title: 'Hide changes only in spaces',
+          description: 'A line whose only change is its spaces or tabs shows as unchanged.',
+          control: Switch(
+            value: s.diffHideSpace,
+            semanticLabel: 'Hide changes only in spaces',
+            onChanged: (v) => vm.update(s.copyWith(diffHideSpace: v)),
+          ),
+        ),
       ],
     );
   }

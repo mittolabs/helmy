@@ -36,73 +36,14 @@ class _HelperSteps extends StatelessWidget {
   }
 }
 
-/// A file's change: lines removed faint and struck through, lines added bold.
-/// Long ones are cut, as other output is, so the page keeps one scroll.
+/// A file's change, as the Changes panel shows it, cut shorter: the page
+/// keeps one scroll.
 class _Diff extends StatelessWidget {
   const new(this.diff);
   final FileDiff diff;
 
-  static const _maxLines = 60;
-
   @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    final base = t.text.xs.copyWith(
-      fontFamily: 'monospace',
-      fontFamilyFallback: monoFonts,
-      height: 1.5,
-    );
-    final shown = diff.lines.take(_maxLines).toList();
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: c.border),
-        borderRadius: .circular(t.radiusMd),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: .stretch,
-        children: [
-          Container(
-            padding: const .symmetric(horizontal: 12, vertical: 6),
-            color: c.muted.withValues(alpha: .5),
-            child: Text(
-              '${tildePath(diff.path)}   +${diff.added} -${diff.removed}',
-              style: base.copyWith(color: c.mutedForeground),
-            ),
-          ),
-          for (final l in shown)
-            Container(
-              color: l.startsWith('+')
-                  ? c.foreground.withValues(alpha: .07)
-                  : l.startsWith('-')
-                  ? c.foreground.withValues(alpha: .03)
-                  : null,
-              padding: const .symmetric(horizontal: 12),
-              child: Text(
-                l.isEmpty ? ' ' : l,
-                style: l.startsWith('+')
-                    ? base.copyWith(color: c.foreground, fontWeight: .w600)
-                    : l.startsWith('-')
-                    ? base.copyWith(
-                        color: c.mutedForeground,
-                        decoration: TextDecoration.lineThrough,
-                      )
-                    : base.copyWith(color: c.mutedForeground),
-              ),
-            ),
-          if (diff.lines.length > _maxLines)
-            Padding(
-              padding: const .symmetric(horizontal: 12, vertical: 6),
-              child: Text(
-                '... ${diff.lines.length - _maxLines} more lines',
-                style: base.copyWith(color: c.mutedForeground),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DiffView(diff: diff, maxRows: 60);
 }
 
 /// "Ran 2 commands, read 3 files and edited a file": what a run of steps did.

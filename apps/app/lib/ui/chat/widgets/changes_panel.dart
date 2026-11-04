@@ -13,6 +13,7 @@ import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/chat_view_model.dart';
+import 'diff_view.dart';
 import '../../../utils/platform.dart';
 
 /// Beside the conversation: every file the session changed, each opening to
@@ -297,70 +298,7 @@ class _FileRowState extends State<_FileRow> {
         padding: const .fromLTRB(8, 4, 0, 10),
         child: diff == null
             ? const Align(alignment: AlignmentDirectional.centerStart, child: Spinner(size: 12))
-            : _PanelDiff(diff: diff),
-      ),
-    );
-  }
-}
-
-/// A diff in the panel's narrow column: lines wrap rather than scroll, and a
-/// long one is cut so the panel keeps a single scroll.
-class _PanelDiff extends StatelessWidget {
-  const new({required this.diff});
-  final FileDiff diff;
-
-  static const _maxLines = 200;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    final base = t.text.xs.copyWith(
-      fontFamily: 'monospace',
-      fontFamilyFallback: monoFonts,
-      height: 1.45,
-    );
-    final lines = diff.lines.where((l) => !l.startsWith('\\')).take(_maxLines).toList();
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: c.border),
-        borderRadius: .circular(t.radiusMd),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: .stretch,
-        children: [
-          for (final l in lines)
-            Container(
-              color: l.startsWith('+')
-                  ? c.foreground.withValues(alpha: .07)
-                  : l.startsWith('-')
-                  ? c.foreground.withValues(alpha: .03)
-                  : null,
-              padding: const .symmetric(horizontal: 8),
-              child: Text(
-                l.isEmpty ? ' ' : l,
-                style: l.startsWith('@@')
-                    ? base.copyWith(color: c.mutedForeground)
-                    : l.startsWith('+')
-                    ? base.copyWith(color: c.foreground, fontWeight: .w600)
-                    : l.startsWith('-')
-                    ? base.copyWith(
-                        color: c.mutedForeground,
-                        decoration: TextDecoration.lineThrough,
-                      )
-                    : base.copyWith(color: c.mutedForeground),
-              ),
-            ),
-          if (diff.lines.length > _maxLines)
-            Padding(
-              padding: const .all(8),
-              child: Text(
-                '... ${diff.lines.length - _maxLines} more lines',
-                style: base.copyWith(color: c.mutedForeground),
-              ),
-            ),
-        ],
+            : DiffView(diff: diff),
       ),
     );
   }
