@@ -31,7 +31,6 @@ GoRouter router(String initialLocation) => GoRouter(
           child: ShellScreen(
             viewModel: vm,
             selectedId: state.pathParameters['id'],
-            inSettings: state.uri.path == '/settings',
             inSchedule: state.uri.path == '/scheduled',
             child: child,
           ),
@@ -40,26 +39,6 @@ GoRouter router(String initialLocation) => GoRouter(
       routes: [
         GoRoute(path: '/', builder: (context, state) => const EmptyScreen()),
         GoRoute(path: '/setup', builder: (context, state) => const SetupScreen()),
-        GoRoute(
-          path: '/settings',
-          builder: (context, state) => _Kept(
-            create: (context) =>
-                SettingsViewModel(
-                    settings: context.read(),
-                    engines: context.read(),
-                    meter: context.read(),
-                    memory: context.read(),
-                  )
-                  ..desktop = context.read()
-                  ..sessions = context.read()
-                  ..projectsOf = context.read()
-                  ..section =
-                      SettingsSection.values.asNameMap()[state.uri.queryParameters['section']] ??
-                      .general,
-            builder: (vm) => SettingsScreen(viewModel: vm),
-            key: ValueKey(state.uri.toString()),
-          ),
-        ),
         GoRoute(
           path: '/scheduled',
           builder: (context, state) => _Kept(
@@ -88,6 +67,45 @@ GoRouter router(String initialLocation) => GoRouter(
           ),
         ),
       ],
+    ),
+    GoRoute(
+      path: '/settings',
+      // A sheet over the page it opened from, which stays behind it.
+      pageBuilder: (context, state) => CustomTransitionPage(
+        key: state.pageKey,
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: const Color(0x99000000),
+        transitionDuration: const Duration(milliseconds: 160),
+        reverseTransitionDuration: const Duration(milliseconds: 120),
+        transitionsBuilder: (context, animation, _, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: ScaleTransition(
+            scale: Tween(
+              begin: .98,
+              end: 1.0,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+            child: child,
+          ),
+        ),
+        child: _Kept(
+          create: (context) =>
+              SettingsViewModel(
+                  settings: context.read(),
+                  engines: context.read(),
+                  meter: context.read(),
+                  memory: context.read(),
+                )
+                ..desktop = context.read()
+                ..sessions = context.read()
+                ..projectsOf = context.read()
+                ..section =
+                    SettingsSection.values.asNameMap()[state.uri.queryParameters['section']] ??
+                    .general,
+          builder: (vm) => SettingsScreen(viewModel: vm),
+          key: ValueKey(state.uri.toString()),
+        ),
+      ),
     ),
   ],
 );

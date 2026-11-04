@@ -1,8 +1,10 @@
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:file_selector/file_selector.dart';
 
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +15,10 @@ import '../../../domain/models/memory.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/app_theme.dart';
+import '../../../routing/settings_route.dart';
 import '../../core/ashlar/button.dart';
+import '../../core/ashlar/input.dart';
+import '../../core/ashlar/kbd.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/select.dart';
@@ -27,10 +32,10 @@ import '../../core/markdown_preview.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/settings_view_model.dart';
-import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
 
+part 'pages/appearance.dart';
 part 'pages/connections.dart';
 part 'pages/data.dart';
 part 'pages/general.dart';
@@ -39,71 +44,217 @@ part 'pages/memory.dart';
 part 'pages/projects.dart';
 part 'pages/tools.dart';
 
-class SettingsScreen extends StatelessWidget {
+/// Settings, a sheet over the app: the sections down the side
+/// in groups, with a search at the top, and the page beside them under a
+/// breadcrumb. Esc clears the search, then closes it.
+class SettingsScreen extends StatefulWidget {
   const new({super.key, required this.viewModel});
   final SettingsViewModel viewModel;
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  SettingsViewModel get vm => widget.viewModel;
+  final _search = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _escape() {
+    if (vm.query.isNotEmpty) {
+      _search.clear();
+      vm.search('');
+    } else {
+      closeSettings(context);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    return ColoredBox(
-      color: t.colors.background,
-      child: ListenableBuilder(
-        listenable: viewModel,
-        builder: (context, _) => Column(
-          crossAxisAlignment: .stretch,
-          children: [
-            TitleBar(
-              child: Padding(
-                // Below the window's buttons, so in line with the page either way.
-                padding: const .fromLTRB(32, 40, 32, 16),
-                child: Text('Settings', style: t.text.xl.copyWith(fontWeight: .w600)),
+    final c = t.colors;
+    final window = MediaQuery.sizeOf(context);
+    // Room around the sheet, and none on a small window.
+    final margin = window.width < 720 ? 8.0 : 40.0;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _escape,
+        const SingleActivator(LogicalKeyboardKey.slash): _searchFocus.requestFocus,
+        Desktop.current.shortcut(LogicalKeyboardKey.keyF): _searchFocus.requestFocus,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Padding(
+          padding: .fromLTRB(margin, margin + (window.width < 720 ? 24 : 0), margin, margin),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 900),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: c.background,
+                  border: Border.all(color: c.border),
+                  borderRadius: .circular(16),
+                  boxShadow: t.shadowLg,
+                ),
+                clipBehavior: .antiAlias,
+                child: ListenableBuilder(
+                  listenable: vm,
+                  builder: (context, _) => LayoutBuilder(
+                    builder: (context, box) {
+                      final across = box.maxWidth < _Nav.besideFrom;
+                      final page = vm.query.trim().isNotEmpty
+                          ? _Results(vm: vm)
+                          : switch (vm.section) {
+                              .general => _General(vm: vm),
+                              .appearance => _Appearance(vm: vm),
+                              .projects => _Projects(vm: vm),
+                              .agents => _Agents(vm: vm),
+                              .tools => _Tools(vm: vm),
+                              .memory => _Memory(vm: vm),
+                              .data => _Data(vm: vm),
+                              .keyboard => const _Keyboard(),
+                            };
+                      final search = _SearchBox(
+                        controller: _search,
+                        focusNode: _searchFocus,
+                        onChanged: vm.search,
+                      );
+                      final content = Column(
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          _Crumb(vm: vm, onClose: () => closeSettings(context)),
+                          if (across) ...[
+                            Padding(padding: const .fromLTRB(16, 12, 16, 8), child: search),
+                            _Nav(vm: vm, across: true),
+                          ],
+                          Expanded(
+                            child: Padding(
+                              padding: .only(left: across ? 16 : 32, top: across ? 0 : 24),
+                              child: page,
+                            ),
+                          ),
+                        ],
+                      );
+                      if (across) return content;
+                      return Row(
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          Container(
+                            width: 264,
+                            decoration: BoxDecoration(
+                              color: c.card,
+                              border: Border(right: BorderSide(color: c.border)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: .stretch,
+                              children: [
+                                Padding(padding: const .fromLTRB(12, 12, 12, 8), child: search),
+                                Expanded(
+                                  child: ScrollArea(child: _Nav(vm: vm)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(child: content),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  final page = switch (viewModel.section) {
-                    .general => _General(vm: viewModel),
-                    .projects => _Projects(vm: viewModel),
-                    .agents => _Agents(vm: viewModel),
-                    .tools => _Tools(vm: viewModel),
-                    .memory => _Memory(vm: viewModel),
-                    .data => _Data(vm: viewModel),
-                    .keyboard => const _Keyboard(),
-                  };
-                  // Narrow: the sections as a row of tabs above the page.
-                  if (box.maxWidth < _Nav.besideFrom) {
-                    return Column(
-                      crossAxisAlignment: .stretch,
-                      children: [
-                        _Nav(vm: viewModel, across: true),
-                        // In line with the tabs.
-                        Expanded(
-                          child: Padding(padding: const .only(left: 16), child: page),
-                        ),
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: .start,
-                    children: [
-                      _Nav(vm: viewModel),
-                      Expanded(child: page),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// The sections: a list beside the page, or a row of tabs above it when
-/// [across] (a narrow window).
+class _SearchBox extends StatelessWidget {
+  const new({required this.controller, required this.focusNode, required this.onChanged});
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Input(
+    controller: controller,
+    focusNode: focusNode,
+    placeholder: 'Search',
+    semanticLabel: 'Search settings',
+    leading: const AshlarIcon(AshlarIconsRoundedStroke.search, size: 14),
+    trailing: const Kbd(child: Text('/')),
+    onChanged: onChanged,
+  );
+}
+
+/// "Settings / General", and the way out.
+class _Crumb extends StatelessWidget {
+  const new({required this.vm, required this.onClose});
+  final SettingsViewModel vm;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
+    return Container(
+      height: 52,
+      padding: const .only(left: 24, right: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: t.colors.border)),
+      ),
+      child: Row(
+        spacing: 10,
+        children: [
+          Text('Settings', style: muted),
+          Text('/', style: muted),
+          Expanded(
+            child: Text(
+              vm.query.trim().isNotEmpty ? 'Search' : _sections[vm.section]!.label,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: t.text.sm.copyWith(fontWeight: .w500),
+            ),
+          ),
+          Tooltip(
+            message: 'Close (Esc)',
+            child: Button(
+              variant: .ghost,
+              size: .iconSm,
+              semanticLabel: 'Close settings',
+              onPressed: onClose,
+              child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Each section's name, icon, and the group it sits in (null: the first,
+/// unlabelled one).
+const _sections = <SettingsSection, ({String label, IconData icon, String? group})>{
+  .general: (label: 'General', icon: AshlarIconsRoundedStroke.settings, group: null),
+  .appearance: (label: 'Appearance', icon: AshlarIconsRoundedStroke.palette, group: null),
+  .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedStroke.keyboard, group: null),
+  .agents: (label: 'Connections and usage', icon: AshlarIconsRoundedStroke.bot, group: 'Assistant'),
+  .tools: (label: 'Skills and tools', icon: AshlarIconsRoundedStroke.wrench, group: 'Assistant'),
+  .memory: (label: 'Memory', icon: AshlarIconsRoundedStroke.brain, group: 'Assistant'),
+  .projects: (label: 'Projects', icon: AshlarIconsRoundedStroke.gitBranch, group: 'Your work'),
+  .data: (label: 'Data and storage', icon: AshlarIconsRoundedStroke.database, group: 'Your work'),
+};
+
+/// The sections, in their groups: a list beside the page, or a row of tabs
+/// above it when [across] (a narrow window).
 class _Nav extends StatelessWidget {
   const new({required this.vm, this.across = false});
   final SettingsViewModel vm;
@@ -115,61 +266,146 @@ class _Nav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    Widget item(SettingsSection s, IconData icon, String label) => Pressable(
-      onPressed: () => vm.show(s),
-      selected: vm.section == s,
-      semanticLabel: label,
-      builder: (context, state) => Container(
-        padding: const .symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: vm.section == s
-              ? t.colors.accent
-              : state.hovered
-              ? t.colors.accent.withValues(alpha: .5)
-              : null,
-          borderRadius: .circular(t.radiusMd),
-        ),
-        child: Row(
-          spacing: 10,
-          mainAxisSize: across ? .min : .max,
-          children: [
-            AshlarIcon(icon, size: 16, color: t.colors.foreground),
-            if (across)
-              Text(label, style: t.text.sm)
-            else
-              Flexible(
-                child: Text(label, style: t.text.sm, maxLines: 1, overflow: .ellipsis),
+    final searching = vm.query.trim().isNotEmpty;
+    Widget item(SettingsSection s) {
+      final (:label, :icon, group: _) = _sections[s]!;
+      final on = !searching && vm.section == s;
+      return Pressable(
+        onPressed: () => vm.show(s),
+        selected: on,
+        semanticLabel: label,
+        builder: (context, state) => Container(
+          padding: const .symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: on
+                ? t.colors.accent
+                : state.hovered
+                ? t.colors.accent.withValues(alpha: .5)
+                : null,
+            borderRadius: .circular(t.radiusMd),
+          ),
+          child: Row(
+            spacing: 10,
+            mainAxisSize: across ? .min : .max,
+            children: [
+              AshlarIcon(
+                icon,
+                size: 16,
+                color: on ? t.colors.foreground : t.colors.mutedForeground,
               ),
-          ],
+              if (across)
+                Text(label, style: t.text.sm)
+              else
+                Flexible(
+                  child: Text(
+                    label,
+                    style: t.text.sm.copyWith(
+                      color: on ? t.colors.foreground : t.colors.foreground.withValues(alpha: .85),
+                    ),
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-    );
-    final items = [
-      item(.general, AshlarIconsRoundedStroke.settings, 'General'),
-      item(.projects, AshlarIconsRoundedStroke.gitBranch, 'Projects'),
-      item(.agents, AshlarIconsRoundedStroke.bot, 'Connections and usage'),
-      item(.tools, AshlarIconsRoundedStroke.wrench, 'Skills and tools'),
-      item(.memory, AshlarIconsRoundedStroke.brain, 'Memory'),
-      item(.data, AshlarIconsRoundedStroke.database, 'Data and storage'),
-      item(.keyboard, AshlarIconsRoundedStroke.keyboard, 'Keyboard'),
-    ];
+      );
+    }
+
     if (across) {
       return Padding(
         padding: const .only(bottom: 12),
         child: SingleChildScrollView(
           scrollDirection: .horizontal,
-          padding: const .symmetric(horizontal: 24),
-          child: Row(spacing: 4, children: items),
+          padding: const .symmetric(horizontal: 16),
+          child: Row(spacing: 4, children: [for (final s in _sections.keys) item(s)]),
         ),
       );
     }
-    return SizedBox(
-      width: 248,
-      child: Padding(
-        padding: const .fromLTRB(24, 0, 16, 0),
-        child: Column(spacing: 2, crossAxisAlignment: .stretch, children: items),
-      ),
+    final out = <Widget>[];
+    String? group;
+    for (final s in _sections.keys) {
+      final g = _sections[s]!.group;
+      if (g != group) {
+        group = g;
+        out.add(
+          Padding(
+            padding: const .fromLTRB(10, 16, 10, 4),
+            child: Text(g!, style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
+          ),
+        );
+      }
+      out.add(item(s));
+    }
+    return Padding(
+      padding: const .fromLTRB(12, 0, 12, 12),
+      child: Column(spacing: 2, crossAxisAlignment: .stretch, children: out),
     );
+  }
+}
+
+/// Every setting that matches the search, under its section; and the
+/// sections whose name matches, to open.
+class _Results extends StatelessWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final q = vm.query.trim().toLowerCase();
+    bool matches(String s) => s.toLowerCase().contains(q);
+    final out = <Widget>[];
+    // Pages that are a plain list of settings give their rows; the others
+    // (lists of files, of projects) are found by their name.
+    final pages = <SettingsSection, Widget>{
+      .general: _General(vm: vm),
+      .appearance: _Appearance(vm: vm),
+      .agents: _Agents(vm: vm),
+      .keyboard: const _Keyboard(),
+    };
+    for (final s in _sections.keys) {
+      final label = _sections[s]!.label;
+      final page = pages[s];
+      final built = page is StatelessWidget ? page.build(context) : null;
+      final rows = built is _Page
+          ? [
+              for (final r in built.children.whereType<_Row>())
+                if (matches('${r.title} ${r.description ?? ''}')) r,
+            ]
+          : const <_Row>[];
+      if (rows.isEmpty && !matches(label)) continue;
+      out.add(
+        Padding(
+          padding: .only(top: out.isEmpty ? 0 : 28, bottom: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(label, style: t.text.base.copyWith(fontWeight: .w600)),
+              ),
+              Button(
+                variant: .ghost,
+                size: .sm,
+                onPressed: () => vm.show(s),
+                child: const Text('Open'),
+              ),
+            ],
+          ),
+        ),
+      );
+      out.addAll(rows);
+    }
+    if (out.isEmpty) {
+      return _Page(
+        children: [
+          Text(
+            'No setting matches "${vm.query.trim()}".',
+            style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+          ),
+        ],
+      );
+    }
+    return _Page(children: out);
   }
 }
 
@@ -184,7 +420,7 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Padding(
-      padding: const .symmetric(horizontal: 16, vertical: 12),
+      padding: const .symmetric(horizontal: 18, vertical: 14),
       child: LayoutBuilder(
         builder: (context, box) {
           final words = Column(
@@ -193,7 +429,14 @@ class _Row extends StatelessWidget {
             children: [
               Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
               if (description != null)
-                Text(description!, style: t.text.sm.copyWith(color: t.colors.mutedForeground)),
+                Text(
+                  description!,
+                  style: t.text.xs.copyWith(
+                    fontSize: 13,
+                    height: 18 / 13,
+                    color: t.colors.mutedForeground,
+                  ),
+                ),
             ],
           );
           // Narrow: the control under the words, rather than squeezing them.
@@ -259,9 +502,9 @@ class _Page extends StatelessWidget {
       child: Padding(
         padding: const .fromLTRB(8, 0, 32, 32),
         child: Align(
-          alignment: AlignmentDirectional.topStart,
+          alignment: AlignmentDirectional.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
+            constraints: const BoxConstraints(maxWidth: 720),
             child: Column(crossAxisAlignment: .stretch, children: out),
           ),
         ),

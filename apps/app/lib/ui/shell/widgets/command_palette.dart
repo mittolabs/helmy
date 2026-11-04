@@ -2,6 +2,9 @@ import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../routing/settings_route.dart';
+import '../../settings/view_models/settings_view_model.dart';
+
 import '../../../utils/format.dart';
 import '../../core/ashlar/command.dart';
 import '../view_models/sidebar_view_model.dart';
@@ -29,19 +32,19 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
           'Settings',
           leading: const AshlarIcon(AshlarIconsRoundedStroke.settings, size: 16),
           shortcut: Desktop.current.keys('⌘,'),
-          onSelected: () => router.go('/settings'),
+          onSelected: () => openSettings(router),
         ),
         CommandItem(
           'Memory',
           keywords: const ['claude.md', 'agents.md', 'instructions'],
           leading: const AshlarIcon(AshlarIconsRoundedStroke.brain, size: 16),
-          onSelected: () => router.go('/settings?section=memory'),
+          onSelected: () => openSettings(router, SettingsSection.memory),
         ),
         CommandItem(
           'Usage',
           keywords: const ['limits', 'agents', 'accounts'],
           leading: const AshlarIcon(AshlarIconsRoundedStroke.gauge, size: 16),
-          onSelected: () => router.go('/settings?section=agents'),
+          onSelected: () => openSettings(router, SettingsSection.agents),
         ),
       ]),
       CommandGroup(heading: 'Sessions', [

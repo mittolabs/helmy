@@ -97,7 +97,7 @@ void main() {
     );
     final key = GlobalKey();
 
-    Future<void> shoot(String name, Widget page, {String? selected}) async {
+    Future<void> shoot(String name, Widget page, {String? selected, Widget? over}) async {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(
         MultiProvider(
@@ -121,7 +121,15 @@ void main() {
                 child: Builder(
                   builder: (context) => MediaQuery(
                     data: MediaQuery.of(context).copyWith(size: window),
-                    child: ShellScreen(viewModel: sidebar, selectedId: selected, child: page),
+                    child: Stack(
+                      children: [
+                        ShellScreen(viewModel: sidebar, selectedId: selected, child: page),
+                        if (over != null) ...[
+                          const Positioned.fill(child: ColoredBox(color: Color(0x99000000))),
+                          Positioned.fill(child: over),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -150,17 +158,20 @@ void main() {
     chat.toggleExpanded();
     await shoot('panel-expanded', ChatScreen(viewModel: chat), selected: session.id);
     chat.closePanel();
-    for (final section in SettingsSection.values) {
+    // Settings, a sheet over the conversation: each section, and a search.
+    for (final section in [...SettingsSection.values, null]) {
+      final vm = SettingsViewModel(
+        settings: settings,
+        engines: engines,
+        meter: meter,
+        memory: MemoryRepositoryEngines(engines),
+      )..section = section ?? .general;
+      if (section == null) vm.search('notif');
       await shoot(
-        'settings-${section.name}',
-        SettingsScreen(
-          viewModel: SettingsViewModel(
-            settings: settings,
-            engines: engines,
-            meter: meter,
-            memory: MemoryRepositoryEngines(engines),
-          )..section = section,
-        ),
+        'settings-${section?.name ?? 'search'}',
+        ChatScreen(viewModel: chat),
+        selected: session.id,
+        over: SettingsScreen(viewModel: vm),
       );
     }
     await tester.pumpWidget(const SizedBox());

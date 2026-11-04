@@ -24,7 +24,7 @@ import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../core/file_actions.dart';
 
-enum SettingsSection { general, projects, agents, tools, memory, data, keyboard }
+enum SettingsSection { general, appearance, projects, agents, tools, memory, data, keyboard }
 
 /// One engine as settings shows it: what it is, whether it can run, and what
 /// it last said about its usage.
@@ -60,6 +60,16 @@ class SettingsViewModel extends ChangeNotifier {
 
   void show(SettingsSection s) {
     section = s;
+    query = '';
+    notifyListeners();
+  }
+
+  /// What is typed in the search box; the page shows the settings that
+  /// match it while it is not empty.
+  String query = '';
+
+  void search(String q) {
+    query = q;
     notifyListeners();
   }
 

@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../routing/settings_route.dart';
+
 import '../../../domain/models/session.dart';
 import '../../../utils/format.dart';
 import '../../../domain/models/settings.dart';
@@ -34,11 +36,9 @@ class ShellScreen extends StatelessWidget {
     required this.viewModel,
     required this.selectedId,
     required this.child,
-    this.inSettings = false,
     this.inSchedule = false,
   });
 
-  final bool inSettings;
   final bool inSchedule;
 
   final SidebarViewModel viewModel;
@@ -55,7 +55,8 @@ class ShellScreen extends StatelessWidget {
         bindings: {
           Desktop.current.shortcut(LogicalKeyboardKey.keyK): () => showPalette(context, viewModel),
           Desktop.current.shortcut(LogicalKeyboardKey.keyN): () => newSession(context, viewModel),
-          Desktop.current.shortcut(LogicalKeyboardKey.comma): () => context.go('/settings'),
+          Desktop.current.shortcut(LogicalKeyboardKey.comma): () =>
+              openSettings(GoRouter.of(context)),
           // ⌘1 to ⌘9: the sessions in the order the list shows them.
           for (final (i, key) in const [
             LogicalKeyboardKey.digit1,
@@ -132,8 +133,7 @@ class ShellScreen extends StatelessWidget {
                     icon: AshlarIconsRoundedStroke.settings,
                     label: 'Settings',
                     shortcut: Desktop.current.keys('⌘,'),
-                    selected: inSettings,
-                    onPressed: () => context.go('/settings'),
+                    onPressed: () => openSettings(GoRouter.of(context)),
                   ),
                 ],
               ),
