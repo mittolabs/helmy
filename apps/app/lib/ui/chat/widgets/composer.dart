@@ -62,12 +62,17 @@ class Composer extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final text = t.text.base.copyWith(color: c.foreground, height: 1.45);
+    final dark = t.brightness == .dark;
     return Container(
       padding: const .fromLTRB(16, 10, 10, 10),
       decoration: BoxDecoration(
-        color: c.muted.withValues(alpha: .45),
+        // On black, a solid grey that stands off the page; on white, a tint.
+        color: dark ? const Color(0xFF151515) : c.muted.withValues(alpha: .45),
         borderRadius: .circular(22),
-        border: Border.all(color: c.border.withValues(alpha: .8), width: .5),
+        border: Border.all(
+          color: dark ? const Color(0x24FFFFFF) : c.border.withValues(alpha: .8),
+          width: dark ? 1 : .5,
+        ),
       ),
       child: Column(
         mainAxisSize: .min,
