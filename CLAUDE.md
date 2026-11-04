@@ -24,6 +24,24 @@ Settings the way you add an account. After that they never show.
 
 When a change would let one of them show through, it is a bug.
 
+## Two principles every change is judged by
+
+**Helmy chooses for the user.** Opinionated, intent-based design: the user
+says what they want, and Helmy decides how (which connection, which model,
+how much effort, how many opinions), well and efficiently. Complexity is
+carried by Helmy, not handed over (Tesler's law). No model pickers, effort
+dials or knobs that only exist because we did not decide. A setting earns its
+place only when people genuinely differ in what they want.
+
+**When something goes wrong, Helmy shows the cause and the fix.** Never a
+vague failure, never "go to Settings to find out". Every problem says what
+happened and why in plain words, where it happened, with one action that
+fixes it there: sign in, allow a permission (opening the exact system pane),
+start what stopped, try again. An error Helmy cannot explain still says what
+happened, with the details a press away and a way to report it. (Nielsen's
+ninth heuristic: recognize, diagnose, recover.) Explaining a problem in
+Helmy's words is not hiding it.
+
 ## Layout
 
 One repository, per the workspace's `docs/engineering/repos.md`:
