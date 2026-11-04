@@ -56,6 +56,7 @@ class HelmyTools {
     'device_read',
     'device_act',
     'device_logs',
+    'device_set',
     'device_screen',
     'device_tap',
     'device_swipe',
@@ -281,6 +282,21 @@ class HelmyTools {
       readOnly: true,
     ),
     _tool(
+      'device_set',
+      "Change a device's settings",
+      'What an app is checked against. One of: {"do":"text_size","size":"small|normal|large|'
+          'larger|accessibility"}, {"do":"appearance","dark":true}, {"do":"location","lat":..,'
+          '"lon":..} (no lat and lon: its own place again; iOS simulators and Android emulators), '
+          '{"do":"open_url","url":"https://… or myapp://…"}, and on iOS simulators '
+          '{"do":"status_bar","clean":true} (9:41, full battery, for screenshots), '
+          '{"do":"reset_permissions"} (every app asks again), {"do":"push","bundle":"com.example.app",'
+          '"payload":{APNs JSON}}.',
+      properties: {
+        'do': {'type': 'string'},
+      },
+      required: ['do'],
+    ),
+    _tool(
       'device_screen',
       "See a device's screen",
       "A picture of the device's screen now, with its size in the units device_tap takes. "
@@ -468,6 +484,37 @@ class HelmyTools {
           ],
           'isError': false,
         };
+      case 'device_set':
+        double? num_(String k) => (args[k] as num?)?.toDouble();
+        final what = '${args['do'] ?? ''}';
+        final took = switch (what) {
+          'text_size' => await devices.textSize(
+            d,
+            DeviceText.values.asNameMap()['${args['size']}'] ?? DeviceText.normal,
+          ),
+          'appearance' => await devices.appearance(d, dark: args['dark'] == true),
+          'location' => await devices.location(d, lat: num_('lat'), lon: num_('lon')),
+          'open_url' => await devices.openUrl(d, '${args['url'] ?? ''}'),
+          'status_bar' => await devices.cleanStatusBar(d, args['clean'] != false),
+          'reset_permissions' => await devices.resetPermissions(d),
+          'push' => await devices.push(
+            d,
+            '${args['bundle'] ?? ''}',
+            args['payload'] is String ? args['payload'] as String : jsonEncode(args['payload']),
+          ),
+          _ => null,
+        };
+        if (took == null) {
+          return says('No setting "$what". The tool\'s description lists them.', error: true);
+        }
+        return took
+            ? says(
+                'Done on ${d.name}.${shown ? ' The user sees it live in the Device panel.' : ''}',
+              )
+            : says(
+                "${d.name} didn't take it${d.ios ? '' : ' (some settings are for iOS simulators, or Android emulators, only)'}.",
+                error: true,
+              );
       case 'device_logs':
         final minutes = ((args['minutes'] as num?) ?? 2).clamp(1, 30).toInt();
         final find = args['find'] as String?;

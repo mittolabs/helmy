@@ -233,6 +233,58 @@ class DeviceViewModel extends ChangeNotifier {
     _stream = null;
   }
 
+  // The device's own settings (T3 Code's device tools): each true when it
+  // took, so the panel can say when it did not.
+
+  DeviceText? textSize;
+  bool cleanStatusBar = false;
+
+  /// Reads the settings the menu shows ticked.
+  Future<void> readSettings() async {
+    final d = device;
+    if (d == null) return;
+    textSize = await _devices.textSizeOf(d);
+    notifyListeners();
+  }
+
+  Future<bool> setTextSize(DeviceText size) async {
+    final d = device;
+    if (d == null) return false;
+    final ok = await _devices.textSize(d, size);
+    if (ok) textSize = size;
+    notifyListeners();
+    return ok;
+  }
+
+  Future<bool> setLocation(double? lat, double? lon) async {
+    final d = device;
+    return d != null && await _devices.location(d, lat: lat, lon: lon);
+  }
+
+  Future<bool> openLink(String url) async {
+    final d = device;
+    return d != null && await _devices.openUrl(d, url);
+  }
+
+  Future<bool> toggleStatusBar() async {
+    final d = device;
+    if (d == null) return false;
+    final ok = await _devices.cleanStatusBar(d, !cleanStatusBar);
+    if (ok) cleanStatusBar = !cleanStatusBar;
+    notifyListeners();
+    return ok;
+  }
+
+  Future<bool> resetPermissions() async {
+    final d = device;
+    return d != null && await _devices.resetPermissions(d);
+  }
+
+  Future<bool> push(String bundle, String payload) async {
+    final d = device;
+    return d != null && await _devices.push(d, bundle, payload);
+  }
+
   // The device's logs, under its screen while asked for: the same lines its
   // agent reads, refreshed while they show.
 

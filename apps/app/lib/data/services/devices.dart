@@ -481,17 +481,134 @@ class DeviceService {
 
   /// Turns [d]'s dark mode on or off (iOS).
   Future<bool> appearance(Device d, {required bool dark}) async {
-    if (!d.ios) return false;
-    final r = await _run('xcrun', ['simctl', 'ui', d.id, 'appearance', dark ? 'dark' : 'light']);
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'ui', d.id, 'appearance', dark ? 'dark' : 'light'])
+        : await _run('adb', ['-s', d.id, 'shell', 'cmd', 'uimode', 'night', dark ? 'yes' : 'no']);
     return r?.exitCode == 0;
   }
 
-  /// Whether [d] is in dark mode; null when it cannot say (Android).
+  /// Whether [d] is in dark mode; null when it cannot say.
   Future<bool?> isDark(Device d) async {
-    if (!d.ios) return null;
-    final r = await _run('xcrun', ['simctl', 'ui', d.id, 'appearance']);
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'ui', d.id, 'appearance'])
+        : await _run('adb', ['-s', d.id, 'shell', 'cmd', 'uimode', 'night']);
     if (r == null || r.exitCode != 0) return null;
-    return '${r.stdout}'.trim() == 'dark';
+    final out = '${r.stdout}'.trim();
+    return d.ios ? out == 'dark' : out.endsWith('yes');
+  }
+
+  // Settings of the device itself, as T3 Code's device tools have them: what
+  // a person checks an app against. Each says false where the device cannot.
+
+  /// Whether [d] is an Android emulator, which takes a location; a phone
+  /// keeps its own.
+  static bool emulatorOf(Device d) => !d.ios && d.id.startsWith('emulator-');
+
+  /// [d]'s text size, one of [DeviceText] (as each platform names its own).
+  Future<bool> textSize(Device d, DeviceText size) async {
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'ui', d.id, 'content_size', size.ios])
+        : await _run('adb', [
+            '-s',
+            d.id,
+            'shell',
+            'settings',
+            'put',
+            'system',
+            'font_scale',
+            '${size.android}',
+          ]);
+    return r?.exitCode == 0;
+  }
+
+  /// [d]'s text size now; null when it cannot say.
+  Future<DeviceText?> textSizeOf(Device d) async {
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'ui', d.id, 'content_size'])
+        : await _run('adb', ['-s', d.id, 'shell', 'settings', 'get', 'system', 'font_scale']);
+    if (r == null || r.exitCode != 0) return null;
+    final out = '${r.stdout}'.trim();
+    if (d.ios) return DeviceText.values.where((t) => t.ios == out).firstOrNull;
+    final scale = double.tryParse(out) ?? 1.0;
+    return DeviceText.values.reduce(
+      (a, b) => (b.android - scale).abs() < (a.android - scale).abs() ? b : a,
+    );
+  }
+
+  /// Puts [d] at a place ([lat], [lon]); with none, gives it back its own.
+  Future<bool> location(Device d, {double? lat, double? lon}) async {
+    final ProcessResult? r;
+    if (d.ios) {
+      r = lat == null || lon == null
+          ? await _run('xcrun', ['simctl', 'location', d.id, 'clear'])
+          : await _run('xcrun', ['simctl', 'location', d.id, 'set', '$lat,$lon']);
+    } else {
+      if (!emulatorOf(d) || lat == null || lon == null) return false;
+      r = await _run('adb', ['-s', d.id, 'emu', 'geo', 'fix', '$lon', '$lat']);
+    }
+    return r?.exitCode == 0;
+  }
+
+  /// Opens [url] on [d], in whatever app it is for.
+  Future<bool> openUrl(Device d, String url) async {
+    final r = d.ios
+        ? await _run('xcrun', ['simctl', 'openurl', d.id, url])
+        : await _run('adb', [
+            '-s',
+            d.id,
+            'shell',
+            'am',
+            'start',
+            '-a',
+            'android.intent.action.VIEW',
+            '-d',
+            url,
+          ]);
+    return r?.exitCode == 0;
+  }
+
+  /// A status bar fit for screenshots (9:41, full battery), or [d]'s own.
+  /// iOS simulators only.
+  Future<bool> cleanStatusBar(Device d, bool clean) async {
+    if (!d.ios) return false;
+    final r = clean
+        ? await _run('xcrun', [
+            'simctl', 'status_bar', d.id, 'override', '--time', '9:41', //
+            '--batteryState',
+            'charged',
+            '--batteryLevel',
+            '100',
+            '--cellularBars',
+            '4',
+            '--wifiBars',
+            '3',
+          ])
+        : await _run('xcrun', ['simctl', 'status_bar', d.id, 'clear']);
+    return r?.exitCode == 0;
+  }
+
+  /// Every app on [d] asks for its permissions afresh. iOS simulators only.
+  Future<bool> resetPermissions(Device d) async {
+    if (!d.ios) return false;
+    return (await _run('xcrun', ['simctl', 'privacy', d.id, 'reset', 'all']))?.exitCode == 0;
+  }
+
+  /// Sends a push notification to the app [bundle] on [d], as [payload] (an
+  /// APNs JSON body). iOS simulators only.
+  Future<bool> push(Device d, String bundle, String payload) async {
+    if (!d.ios) return false;
+    try {
+      jsonDecode(payload);
+    } on FormatException {
+      return false;
+    }
+    final dir = await Directory.systemTemp.createTemp('helmy-push');
+    try {
+      final file = File('${dir.path}/push.apns')..writeAsStringSync(payload);
+      return (await _run('xcrun', ['simctl', 'push', d.id, bundle, file.path]))?.exitCode == 0;
+    } finally {
+      unawaited(dir.delete(recursive: true));
+    }
   }
 
   /// Installs AXe, which carries taps and typing to iOS simulators, from its
@@ -542,4 +659,22 @@ class DeviceService {
       return false;
     }
   }
+}
+
+/// A device's text size, on one scale across both platforms.
+enum DeviceText {
+  small('Smaller', 'small', .85),
+  normal('Default', 'large', 1.0),
+  large('Larger', 'extra-large', 1.15),
+  larger('Largest', 'extra-extra-extra-large', 1.3),
+  accessibility('Accessibility size', 'accessibility-extra-large', 2.0);
+
+  const DeviceText(this.label, this.ios, this.android);
+  final String label;
+
+  /// iOS's content size category.
+  final String ios;
+
+  /// Android's font scale.
+  final double android;
 }

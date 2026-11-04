@@ -13,6 +13,12 @@ import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
+import '../../core/ashlar/dropdown_menu.dart';
+import '../../core/ashlar/dialog.dart';
+import '../../core/ashlar/textarea.dart';
+import '../../core/ashlar/toast.dart';
+import '../../core/helmy_dialog.dart';
+import '../../../data/services/devices.dart';
 import '../view_models/chat_view_model.dart';
 import '../view_models/device_view_model.dart';
 
@@ -188,8 +194,9 @@ class _DevicePanelState extends State<DevicePanel> {
                         tool(
                           d.dark ? 'Light appearance' : 'Dark appearance',
                           d.dark ? AshlarIconsRoundedStroke.sun : AshlarIconsRoundedStroke.moon,
-                          device?.ios == true ? d.toggleAppearance : null,
+                          device == null ? null : d.toggleAppearance,
                         ),
+                        if (device != null) _DeviceSettings(d: d, device: device),
                         tool(
                           d.logsOpen ? 'Hide its logs' : 'Its logs',
                           AshlarIconsRoundedStroke.scrollText,
@@ -375,6 +382,179 @@ class _DevicePanelState extends State<DevicePanel> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// The device's own settings, as T3 Code's device tools: what an app is
+/// checked against. Only what this device can do is offered; what did not
+/// take is said.
+class _DeviceSettings extends StatelessWidget {
+  const _DeviceSettings({required this.d, required this.device});
+  final DeviceViewModel d;
+  final Device device;
+
+  /// Places to try an app in: a few cities across the world.
+  static const places = [
+    ('San Francisco', 37.7749, -122.4194),
+    ('New York', 40.7128, -74.0060),
+    ('London', 51.5074, -0.1278),
+    ('Tokyo', 35.6762, 139.6503),
+    ('Sydney', -33.8688, 151.2093),
+  ];
+
+  Future<void> _did(BuildContext context, Future<bool> act, String what) async {
+    final ok = await act;
+    if (ok || !context.mounted) return;
+    showToast(
+      context,
+      title: "$what didn't take",
+      description: "${device.name} didn't accept it.",
+      type: .error,
+    );
+  }
+
+  Future<void> _push(BuildContext context) async {
+    final bundle = TextEditingController();
+    final payload = TextEditingController(
+      text: '{\n  "aps": {\n    "alert": { "title": "Hello", "body": "A push from Helmy" },\n    "sound": "default"\n  }\n}',
+    );
+    final send = await showAshlarDialog<bool>(
+      context: context,
+      builder: (context) => HelmyDialog(
+        title: 'Send a push notification',
+        body: 'To an app on ${device.name}, by its bundle id, as an APNs payload.',
+        icon: AshlarIconsRoundedStroke.bell,
+        content: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 10,
+          children: [
+            Input(controller: bundle, autofocus: true, placeholder: 'com.example.app'),
+            Textarea(controller: payload, minLines: 6, maxLines: 10),
+          ],
+        ),
+        actions: [
+          DialogButton('Cancel', onPressed: () => Navigator.pop(context, false)),
+          DialogButton('Send', main: true, onPressed: () => Navigator.pop(context, true)),
+        ],
+      ),
+    );
+    if (send == true && context.mounted) {
+      final ok = await d.push(bundle.text.trim(), payload.text);
+      if (context.mounted) {
+        showToast(
+          context,
+          title: ok ? 'Sent' : "The push didn't go",
+          description: ok
+              ? 'It shows on ${device.name} as it would from the app\'s server.'
+              : 'Check the bundle id is an app on it, and the payload is JSON.',
+          type: ok ? .success : .error,
+        );
+      }
+    }
+    bundle.dispose();
+    payload.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ios = device.ios;
+    return DropdownMenu(
+      align: .end,
+      side: .left,
+      items: [
+        MenuSub(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.type, size: 16),
+          items: [
+            for (final size in DeviceText.values)
+              MenuItem(
+                leading: d.textSize == size
+                    ? const AshlarIcon(AshlarIconsRoundedStroke.check, size: 14)
+                    : const SizedBox(width: 14),
+                onPressed: () => _did(context, d.setTextSize(size), 'The text size'),
+                child: Text(size.label),
+              ),
+          ],
+          child: const Text('Text size'),
+        ),
+        if (ios || DeviceService.emulatorOf(device))
+          MenuSub(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.mapPin, size: 16),
+            items: [
+              for (final (name, lat, lon) in places)
+                MenuItem(
+                  onPressed: () => _did(context, d.setLocation(lat, lon), 'The place'),
+                  child: Text(name),
+                ),
+              if (ios) ...[
+                const MenuSeparator(),
+                MenuItem(
+                  onPressed: () => _did(context, d.setLocation(null, null), 'Its own place'),
+                  child: const Text('Its own'),
+                ),
+              ],
+            ],
+            child: const Text('Location'),
+          ),
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.link, size: 16),
+          onPressed: () async {
+            final url = await askText(
+              context,
+              title: 'Open a link on ${device.name}',
+              action: 'Open',
+              body: 'A web address, or an app\'s own link (myapp://...), opened as a tap on it would.',
+              icon: AshlarIconsRoundedStroke.link,
+            );
+            if (url != null && url.trim().isNotEmpty && context.mounted) {
+              await _did(context, d.openLink(url.trim()), 'The link');
+            }
+          },
+          child: const Text('Open a link...'),
+        ),
+        if (ios) ...[
+          const MenuSeparator(),
+          MenuItem(
+            leading: d.cleanStatusBar
+                ? const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16)
+                : const AshlarIcon(AshlarIconsRoundedStroke.smartphone, size: 16),
+            onPressed: () => _did(context, d.toggleStatusBar(), 'The status bar'),
+            child: const Text('Status bar for screenshots'),
+          ),
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.shieldCheck, size: 16),
+            onPressed: () async {
+              final ok = await d.resetPermissions();
+              if (!context.mounted) return;
+              showToast(
+                context,
+                title: ok ? 'Permissions asked for again' : "Permissions weren't reset",
+                description: ok ? 'Every app asks afresh, as on a new phone.' : null,
+                type: ok ? .success : .error,
+              );
+            },
+            child: const Text('Ask for permissions again'),
+          ),
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.bell, size: 16),
+            onPressed: () => _push(context),
+            child: const Text('Send a push...'),
+          ),
+        ],
+      ],
+      builder: (context, menu) => Tooltip(
+        message: 'Device settings',
+        child: Button(
+          variant: .ghost,
+          size: .iconSm,
+          semanticLabel: 'Device settings',
+          onPressed: () {
+            unawaited(d.readSettings());
+            menu.open();
+          },
+          child: const AshlarIcon(AshlarIconsRoundedStroke.slidersHorizontal, size: 16),
         ),
       ),
     );
