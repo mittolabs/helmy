@@ -106,7 +106,7 @@ class _Connections extends StatelessWidget {
               spacing: 10,
               children: [
                 AshlarIcon(AshlarIconsRoundedStroke.plus, size: 16, color: c.mutedForeground),
-                Text('Add a connection', style: t.text.sm),
+                Flexible(child: Text('Add a connection', style: t.text.sm)),
               ],
             ),
           ),
