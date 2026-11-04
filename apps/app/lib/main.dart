@@ -10,6 +10,8 @@ import 'data/repositories/settings_repository.dart';
 import 'data/services/desktop_service.dart';
 import 'data/services/error_reports.dart';
 import 'data/services/notify_service.dart';
+import 'data/services/window_snapshots.dart';
+import 'data/repositories/session_repository.dart';
 import 'routing/router.dart';
 import 'routing/nav_history.dart';
 import 'ui/core/ashlar/app.dart';
@@ -75,6 +77,7 @@ class _HelmyAppState extends State<HelmyApp> {
   late final _router = router(widget.initialLocation);
   late final NavHistory _history;
   StreamSubscription<String>? _opened;
+  StreamSubscription<Map<String, Object?>>? _snapKeys;
 
   @override
   void initState() {
@@ -94,6 +97,31 @@ class _HelmyAppState extends State<HelmyApp> {
     _opened = context.read<NotifyService>().opened.listen((id) => _router.go('/s/$id'));
     // About Helmy, from the app's menu.
     aboutRequests.addListener(_about);
+    // Both Shift keys, in any app: that window into the message being written,
+    // in the conversation on screen (else the last one).
+    final snaps = context.read<WindowSnapshots>();
+    var listening = settings.settings.snapshotKeys;
+    if (listening) unawaited(snaps.listen(true));
+    settings.addListener(() {
+      if (settings.settings.snapshotKeys == listening) return;
+      listening = settings.settings.snapshotKeys;
+      unawaited(snaps.listen(listening));
+    });
+    final sessions = context.read<SessionRepository>();
+    _snapKeys = context.read<NotifyService>().snapshotKeys.listen((w) {
+      final window = (
+        id: (w['id'] as num).toInt(),
+        pid: (w['pid'] as num).toInt(),
+        app: '${w['app']}',
+        title: '${w['title'] ?? ''}',
+      );
+      final here = _router.routerDelegate.currentConfiguration.uri.path;
+      if (!here.startsWith('/s/')) {
+        final last = sessions.sessions.where((s) => s.sideOf == null && !s.archived).firstOrNull;
+        if (last != null) _router.go('/s/${last.id}');
+      }
+      snapshotRequests.value = (window: window, fromKeys: true);
+    });
   }
 
   void _about() {
@@ -109,6 +137,7 @@ class _HelmyAppState extends State<HelmyApp> {
   void dispose() {
     aboutRequests.removeListener(_about);
     _opened?.cancel();
+    _snapKeys?.cancel();
     _history.dispose();
     super.dispose();
   }

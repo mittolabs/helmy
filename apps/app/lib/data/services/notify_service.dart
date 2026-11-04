@@ -17,12 +17,19 @@ class NotifyService {
       if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
       if (call.method == 'inSight') _inSight.add(call.arguments == true);
       if (call.method == 'about') aboutRequests.value++;
+      if (call.method == 'snapshot' && call.arguments is Map) {
+        _snapshots.add((call.arguments as Map).cast<String, Object?>());
+      }
     });
   }
 
   static const _channel = MethodChannel('helmy/notify');
   final _opened = StreamController<String>.broadcast();
   final _inSight = StreamController<bool>.broadcast();
+  final _snapshots = StreamController<Map<String, Object?>>.broadcast();
+
+  /// Both Shift keys pressed (snapshots on): the window that was in front.
+  Stream<Map<String, Object?>> get snapshotKeys => _snapshots.stream;
 
   /// The window coming into sight (focused, showing) or going out of it.
   Stream<bool> get inSight => _inSight.stream;

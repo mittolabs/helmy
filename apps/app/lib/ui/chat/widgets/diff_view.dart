@@ -76,7 +76,10 @@ class DiffView extends StatelessWidget {
             span = TextSpan(
               style: style,
               children: [
-                TextSpan(text: indent, style: const TextStyle(decoration: TextDecoration.none)),
+                TextSpan(
+                  text: indent,
+                  style: const TextStyle(decoration: TextDecoration.none),
+                ),
                 TextSpan(text: words.substring(indent.length)),
               ],
             );

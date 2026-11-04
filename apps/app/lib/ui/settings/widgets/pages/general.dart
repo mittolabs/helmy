@@ -58,6 +58,7 @@ class _General extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(ownCopies: v)),
           ),
         ),
+        if (Platform.isMacOS) _SnapshotRow(vm: vm),
         _Row(
           title: 'Keep default branches current',
           description:
@@ -291,6 +292,112 @@ class _ThemeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Snapshots with both Shift keys: on or off, and what macOS still has to
+/// allow, each with the pane that allows it.
+class _SnapshotRow extends StatefulWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_SnapshotRow> createState() => _SnapshotRowState();
+}
+
+class _SnapshotRowState extends State<_SnapshotRow> {
+  SnapshotAccess? _access;
+
+  WindowSnapshots? get _snaps {
+    try {
+      return context.read<WindowSnapshots>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    final a = await _snaps?.access();
+    if (mounted) setState(() => _access = a);
+  }
+
+  Future<void> _turn(bool on) async {
+    final s = widget.vm.settings;
+    await widget.vm.update(s.copyWith(snapshotKeys: on));
+    if (on) {
+      // macOS shows its own prompts; each is asked once, then only its pane grants it.
+      await _snaps?.askRecord();
+      await _snaps?.askRead();
+    }
+    await _check();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final on = widget.vm.settings.snapshotKeys;
+    final a = _access;
+    Widget need(String what, String pane) => Padding(
+      padding: const .only(top: 6),
+      child: Row(
+        spacing: 8,
+        children: [
+          AshlarIcon(AshlarIconsRoundedStroke.circleAlert, size: 14, color: t.colors.destructive),
+          Expanded(
+            child: Text(what, style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
+          ),
+          Button(
+            variant: .outline,
+            size: .xs,
+            onPressed: () async {
+              await widget.vm.fileActions.open(pane);
+            },
+            child: const Text('Open'),
+          ),
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        _Row(
+          title: 'Snapshots with both Shift keys',
+          description:
+              'Press both Shift keys in any app: its window goes into the message you are writing, '
+              'with the text in it, so Helmy can read the window and not only look at it.',
+          control: Switch(
+            value: on,
+            semanticLabel: 'Snapshots with both Shift keys',
+            onChanged: _turn,
+          ),
+        ),
+        if (on && a != null && (!a.record || !a.read))
+          Padding(
+            padding: const .fromLTRB(18, 0, 18, 14),
+            child: Column(
+              crossAxisAlignment: .stretch,
+              children: [
+                if (!a.record)
+                  need(
+                    'Screen Recording: macOS must allow Helmy to see other apps\' windows.',
+                    screenRecordingPane,
+                  ),
+                if (!a.read)
+                  need(
+                    'Accessibility: for both Shift keys in other apps, and the text in windows.',
+                    accessibilityPane,
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

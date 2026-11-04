@@ -26,6 +26,7 @@ import '../../../utils/platform.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../data/services/desktop_service.dart';
 import '../../../data/services/editors.dart';
+import '../../../data/services/window_snapshots.dart';
 import '../../../data/services/project_actions.dart';
 import '../../../domain/models/project_action.dart';
 import '../../../data/services/watch_service.dart';
@@ -41,6 +42,15 @@ import '../../../domain/models/settings.dart';
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
 enum SidePanel { changes, background, preview, terminal, files, side, ship, device }
+
+/// What came of a snapshot.
+enum SnapResult {
+  taken,
+
+  /// macOS does not let Helmy see other apps' windows: screen recording.
+  notAllowed,
+  failed,
+}
 
 /// The note a side chat begins with, after what it was copied from.
 const sideChatNote = 'A side chat: it knows what was said in the session, which goes on as it is.';
@@ -87,6 +97,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this.chromium,
     this.browser,
     this._editors,
+    this._snaps,
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
@@ -166,6 +177,22 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   final AttentionRepository? _attention;
   final SettingsRepository? _settings;
   final EditorService? _editors;
+  final WindowSnapshots? _snaps;
+
+  /// Snapshots [window] into the message being written: its picture, and its
+  /// text where macOS gives it. What came of it, to say so when it did not.
+  Future<SnapResult> snapshotWindow(ScreenWindow window) async {
+    final snaps = _snaps;
+    if (snaps == null) return .failed;
+    final taken = await snaps.take(window);
+    if (taken == null) return (await snaps.access()).record ? .failed : .notAllowed;
+    attach([taken.picture, ?taken.text]);
+    focusRequests.value++;
+    return .taken;
+  }
+
+  /// The windows that can be snapshotted now.
+  Future<List<ScreenWindow>> snapshotWindows() async => await _snaps?.windows() ?? const [];
 
   /// Shown inside another session's panel (a side chat): it opens no panel
   /// of its own.

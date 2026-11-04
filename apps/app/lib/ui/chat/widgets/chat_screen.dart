@@ -42,6 +42,8 @@ import 'changes_panel.dart';
 import 'media.dart';
 import 'bottom_terminal.dart';
 import 'files_panel.dart';
+import 'window_picker.dart';
+import '../../../data/services/window_snapshots.dart';
 import 'side_chat_panel.dart';
 import 'preview_panel.dart';
 import 'project_menu.dart';
@@ -137,6 +139,10 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     vm.focusRequests.addListener(_focus);
     vm.draftInserts.addListener(_insert);
+    snapshotRequests.addListener(_snapshot);
+    // One asked for before this screen was open (both Shift keys from
+    // another app, with no conversation showing).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _snapshot());
     _text.addListener(_suggest);
   }
 
@@ -282,6 +288,36 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _focus() => _composer.requestFocus();
 
+  /// A window asked to go into this message (the conversation on screen,
+  /// not a side chat's).
+  Future<void> _snapshot() async {
+    final asked = snapshotRequests.value;
+    if (asked == null || widget.bar != null || !mounted) return;
+    snapshotRequests.value = null;
+    final snaps = context.read<WindowSnapshots>();
+    final result = await vm.snapshotWindow(asked.window);
+    if (asked.fromKeys) await snaps.activate();
+    if (!mounted || result == .taken) return;
+    showToast(
+      context,
+      title: result == .notAllowed
+          ? "macOS isn't letting Helmy see that window"
+          : "That window couldn't be snapshotted",
+      description: result == .notAllowed
+          ? 'Allow Helmy under Screen Recording in Privacy & Security, then try again.'
+          : 'It may have closed. Try again with it in front.',
+      type: .error,
+      duration: const Duration(seconds: 8),
+      action: result == .notAllowed
+          ? Button(
+              size: .sm,
+              onPressed: () => vm.open(screenRecordingPane),
+              child: const Text('Open Screen Recording'),
+            )
+          : null,
+    );
+  }
+
   /// Text asked to go into the message (a file mentioned from the Files
   /// tab): at the cursor, a space before it if it would join a word.
   void _insert() {
@@ -304,6 +340,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     vm.focusRequests.removeListener(_focus);
     vm.draftInserts.removeListener(_insert);
+    snapshotRequests.removeListener(_snapshot);
     _composer.dispose();
     _text.dispose();
     _find.dispose();
@@ -465,13 +502,35 @@ class _ChatScreenState extends State<ChatScreen> {
                             for (final path in vm.attachments) _Attached(path: path, vm: vm),
                           ],
                           actions: [
-                            ComposerButton(
-                              icon: AshlarIconsRoundedStroke.plus,
-                              label: 'Attach files (or paste a picture)',
-                              onPressed: () async {
-                                final files = await openFiles(confirmButtonText: 'Attach');
-                                vm.attach(files.map((f) => f.path));
-                              },
+                            DropdownMenu(
+                              side: .top,
+                              items: [
+                                MenuItem(
+                                  leading: const AshlarIcon(
+                                    AshlarIconsRoundedStroke.paperclip,
+                                    size: 16,
+                                  ),
+                                  onPressed: () async {
+                                    final files = await openFiles(confirmButtonText: 'Attach');
+                                    vm.attach(files.map((f) => f.path));
+                                  },
+                                  child: const Text('Attach files...'),
+                                ),
+                                if (Platform.isMacOS)
+                                  MenuItem(
+                                    leading: const AshlarIcon(
+                                      AshlarIconsRoundedStroke.appWindow,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => pickWindow(context, vm),
+                                    child: const Text('Snapshot a window...'),
+                                  ),
+                              ],
+                              builder: (context, menu) => ComposerButton(
+                                icon: AshlarIconsRoundedStroke.plus,
+                                label: 'Attach files or a window (or paste a picture)',
+                                onPressed: menu.open,
+                              ),
                             ),
                             Tooltip(
                               message: vm.busy

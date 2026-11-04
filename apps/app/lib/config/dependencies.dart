@@ -21,6 +21,7 @@ import '../data/services/devices.dart';
 import '../data/services/editors.dart';
 import '../data/services/history_import.dart';
 import '../data/services/pull_requests.dart';
+import '../data/services/window_snapshots.dart';
 import '../utils/format.dart';
 import '../data/services/sim_input.dart';
 import '../data/services/engines/claude/claude_engine.dart';
@@ -89,6 +90,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (context) => PullRequests(context.read())),
   // Conversations from Claude Code and Codex on this Mac, to bring in.
   Provider(create: (_) => HistoryImport()),
+  // Any app's window, snapshotted into the message being written.
+  Provider(create: (_) => WindowSnapshots(appData: getApplicationSupportDirectory)),
   // The apps a project opens in, asked of macOS once.
   Provider(create: (_) => EditorService()),
   // A Chromium browser for Preview, once asked for; ended with the app.

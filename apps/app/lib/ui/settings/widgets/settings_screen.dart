@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
+import '../../../data/services/window_snapshots.dart';
 
 import 'package:go_router/go_router.dart';
 

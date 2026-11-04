@@ -184,6 +184,10 @@ class const AppSettings({
 
   /// Changes only in spaces and tabs shown as unchanged.
   final bool diffHideSpace = false,
+
+  /// Both Shift keys, in any app, snapshot the window in front into the
+  /// message being written. Off until turned on: macOS must allow it.
+  final bool snapshotKeys = false,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -219,6 +223,7 @@ class const AppSettings({
     bool? keepDefaultCurrent,
     DiffColors? diffColors,
     bool? diffHideSpace,
+    bool? snapshotKeys,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -252,6 +257,7 @@ class const AppSettings({
     keepDefaultCurrent: keepDefaultCurrent ?? this.keepDefaultCurrent,
     diffColors: diffColors ?? this.diffColors,
     diffHideSpace: diffHideSpace ?? this.diffHideSpace,
+    snapshotKeys: snapshotKeys ?? this.snapshotKeys,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -287,6 +293,7 @@ class const AppSettings({
     'keepDefaultCurrent': keepDefaultCurrent,
     'diffColors': diffColors.name,
     'diffHideSpace': diffHideSpace,
+    'snapshotKeys': snapshotKeys,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -325,6 +332,7 @@ class const AppSettings({
     keepDefaultCurrent: json['keepDefaultCurrent'] as bool? ?? true,
     diffColors: DiffColors.values.asNameMap()[json['diffColors']] ?? .greenRed,
     diffHideSpace: json['diffHideSpace'] as bool? ?? false,
+    snapshotKeys: json['snapshotKeys'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
@@ -348,6 +356,7 @@ const restorableSettings = <String, List<String>>{
   'Wrap long code blocks': ['wrapCode'],
   'Colors for changes': ['diffColors'],
   'Hide changes only in spaces': ['diffHideSpace'],
+  'Snapshots with both Shift keys': ['snapshotKeys'],
   'When a session needs you or finishes': ['notify'],
   'Keep sessions running when the window closes': ['keepRunning'],
   'Send with': ['sendWithEnter'],

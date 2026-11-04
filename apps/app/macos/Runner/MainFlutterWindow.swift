@@ -1,3 +1,4 @@
+import ApplicationServices
 import Cocoa
 import FlutterMacOS
 import desktop_multi_window
@@ -363,6 +364,35 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "face":
         DockFace.shared.show(args["face"] as? String)
         result(nil)
+      case "snapWindows":
+        result(Snapshots.windows())
+      case "snapCapture":
+        // Off the main thread: screencapture takes a moment.
+        let id = args["id"] as? Int ?? 0
+        let path = args["path"] as? String ?? ""
+        DispatchQueue.global(qos: .userInitiated).async {
+          let ok = Snapshots.capture(id, to: path)
+          DispatchQueue.main.async { result(ok) }
+        }
+      case "snapText":
+        let pid = args["pid"] as? Int ?? 0
+        let title = args["title"] as? String ?? ""
+        DispatchQueue.global(qos: .userInitiated).async {
+          let text = Snapshots.text(pid: pid, title: title)
+          DispatchQueue.main.async { result(text) }
+        }
+      case "snapAllowed":
+        result(["record": Snapshots.canRecord(), "read": Snapshots.trusted(prompt: false)])
+      case "snapAskRecord":
+        result(Snapshots.askRecord())
+      case "snapAskRead":
+        result(Snapshots.trusted(prompt: true))
+      case "snapKeys":
+        Snapshots.shared.onKeys = { [weak self] w in self?.tell("snapshot", w) }
+        result(Snapshots.shared.keys(args["on"] as? Bool ?? false))
+      case "activate":
+        NSApp.activate(ignoringOtherApps: true)
+        result(nil)
       case "apps":
         // Which of these apps (by bundle id) are installed: where, their
         // name, when last used, and their icon. Off the main thread: asking
@@ -671,4 +701,122 @@ final class About: NSObject {
   }
 
 
+}
+
+
+/// SnapShots: a window of any app, captured into the message being written,
+/// with the text in it where macOS gives it (its accessibility data), as T3
+/// Code has them. Both Shift keys together take the window in front.
+final class Snapshots {
+  static let shared = Snapshots()
+  private var monitors: [Any] = []
+  private var last = Date.distantPast
+  var onKeys: (([String: Any]) -> Void)?
+
+  /// Whether macOS lets Helmy see other apps' windows' pixels.
+  static func canRecord() -> Bool { CGPreflightScreenCaptureAccess() }
+
+  /// Asks for screen recording: macOS shows its prompt once, then only the
+  /// settings pane grants it.
+  static func askRecord() -> Bool { CGRequestScreenCaptureAccess() }
+
+  /// Whether Helmy may read other apps' windows (and hear keys anywhere).
+  static func trusted(prompt: Bool) -> Bool {
+    let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: prompt] as CFDictionary
+    return AXIsProcessTrustedWithOptions(options)
+  }
+
+  /// The windows on screen, front to back, other than the menu bar's and
+  /// the Dock's: id, app, its process, title.
+  static func windows(includeHelmy: Bool = false) -> [[String: Any]] {
+    guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+      as? [[String: Any]] else { return [] }
+    let me = ProcessInfo.processInfo.processIdentifier
+    return list.compactMap { w in
+      guard (w[kCGWindowLayer as String] as? Int) == 0,
+            let id = w[kCGWindowNumber as String] as? Int,
+            let pid = w[kCGWindowOwnerPID as String] as? Int32,
+            let app = w[kCGWindowOwnerName as String] as? String,
+            let bounds = w[kCGWindowBounds as String] as? [String: CGFloat],
+            (bounds["Width"] ?? 0) > 80, (bounds["Height"] ?? 0) > 60
+      else { return nil }
+      if pid == me && !includeHelmy { return nil }
+      return ["id": id, "pid": Int(pid), "app": app, "title": w[kCGWindowName as String] as? String ?? ""]
+    }
+  }
+
+  /// The window in front of the app in front: what both Shift keys take.
+  static func front() -> [String: Any]? {
+    guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+    return windows(includeHelmy: true).first { ($0["pid"] as? Int) == Int(pid) }
+  }
+
+  /// The window [id] as a PNG at [path]: its own pixels, not what covers it.
+  static func capture(_ id: Int, to path: String) -> Bool {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    p.arguments = ["-x", "-o", "-l\(id)", path]
+    do { try p.run() } catch { return false }
+    p.waitUntilExit()
+    return p.terminationStatus == 0 && FileManager.default.fileExists(atPath: path)
+  }
+
+  /// The text in a window of [pid] titled [title] (else its focused one), as
+  /// an outline of what is in it: roles, names, values. Nil when Helmy may
+  /// not read it, or the app does not say. Stops at a second and a half.
+  static func text(pid: Int, title: String) -> String? {
+    guard trusted(prompt: false) else { return nil }
+    let app = AXUIElementCreateApplication(pid_t(pid))
+    AXUIElementSetMessagingTimeout(app, 1.0)
+    func attr(_ e: AXUIElement, _ name: String) -> AnyObject? {
+      var v: AnyObject?
+      return AXUIElementCopyAttributeValue(e, name as CFString, &v) == .success ? v : nil
+    }
+    var window: AXUIElement?
+    if let all = attr(app, kAXWindowsAttribute) as? [AXUIElement] {
+      window = all.first { (attr($0, kAXTitleAttribute) as? String) == title }
+    }
+    if window == nil, let w = attr(app, kAXFocusedWindowAttribute) { window = (w as! AXUIElement) }
+    guard let root = window else { return nil }
+    let until = Date().addingTimeInterval(1.5)
+    var lines: [String] = []
+    func walk(_ e: AXUIElement, _ depth: Int) {
+      if lines.count >= 600 || depth > 30 || Date() > until { return }
+      let role = (attr(e, kAXRoleAttribute) as? String ?? "").replacingOccurrences(of: "AX", with: "")
+      let words = [kAXTitleAttribute, kAXValueAttribute, kAXDescriptionAttribute]
+        .compactMap { attr(e, $0) as? String }
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+      if !words.isEmpty {
+        var seen = Set<String>()
+        let unique = words.filter { seen.insert($0).inserted }
+        lines.append(String(repeating: "  ", count: min(depth, 12)) + "- \(role): " + unique.joined(separator: " | "))
+      }
+      for child in attr(e, kAXChildrenAttribute) as? [AXUIElement] ?? [] { walk(child, depth + 1) }
+    }
+    walk(root, 0)
+    return lines.isEmpty ? nil : lines.joined(separator: "\n")
+  }
+
+  /// Both Shift keys together, in any app: on or off. True when on and
+  /// macOS lets Helmy hear keys in other apps.
+  func keys(_ on: Bool) -> Bool {
+    for m in monitors { NSEvent.removeMonitor(m) }
+    monitors = []
+    guard on else { return false }
+    let handle: (NSEvent) -> Void = { [weak self] e in
+      let raw = e.modifierFlags.rawValue
+      // The left and right Shift keys' own bits, and no other modifier.
+      let both = raw & 0x2 != 0 && raw & 0x4 != 0
+      let others = e.modifierFlags.intersection([.command, .option, .control])
+      guard both, others.isEmpty, let self, Date().timeIntervalSince(self.last) > 0.8 else { return }
+      self.last = Date()
+      if let w = Snapshots.front() { self.onKeys?(w) }
+    }
+    if let g = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: handle) { monitors.append(g) }
+    if let l = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { handle($0); return $0 }) {
+      monitors.append(l)
+    }
+    return Snapshots.trusted(prompt: false)
+  }
 }
