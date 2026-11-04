@@ -118,7 +118,10 @@ void main() {
         child: AshlarApp(
           home: ListenableBuilder(
             listenable: vm,
-            builder: (context, _) => ListView(children: [for (final r in buildRows(vm)) r.child]),
+            // Every row built, not only those that fit the test's window.
+            builder: (context, _) => SingleChildScrollView(
+              child: Column(children: [for (final r in buildRows(vm)) r.child]),
+            ),
           ),
         ),
       ),

@@ -325,6 +325,7 @@ class _Step extends StatelessWidget {
               _MarkdownResult(md)
             else if (call.result != null && call.result!.isNotEmpty && diffsOf(call).isEmpty)
               _Code(stepResult(call.result!), error: call.isError),
+            _StepCopy(call: call, vm: vm),
           ],
         ),
       ),
@@ -651,4 +652,46 @@ class _Code extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Under an open step: copy what went in, what came out, or the whole step
+/// as JSON.
+class _StepCopy extends StatelessWidget {
+  const _StepCopy({required this.call, required this.vm});
+  final ToolCall call;
+  final ChatViewModel vm;
+
+  String get _input => call.input['command'] is String
+      ? '${call.input['command']}'
+      : const JsonEncoder.withIndent('  ').convert(call.input);
+
+  String get _json => const JsonEncoder.withIndent('  ').convert({
+    'tool': call.name,
+    'input': call.input,
+    if (call.result != null) 'output': call.result,
+    if (call.isError) 'error': true,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      if (call.input.isNotEmpty)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.copy,
+          label: 'Copy what went in',
+          onPressed: () => copyWithToast(context, vm, _input),
+        ),
+      if (call.result != null && call.result!.isNotEmpty)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.clipboardCopy,
+          label: 'Copy what came out',
+          onPressed: () => copyWithToast(context, vm, stepResult(call.result!)),
+        ),
+      _IconAction(
+        icon: AshlarIconsRoundedStroke.braces,
+        label: 'Copy the step as JSON',
+        onPressed: () => copyWithToast(context, vm, _json),
+      ),
+    ],
+  );
 }
