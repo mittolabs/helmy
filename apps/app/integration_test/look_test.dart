@@ -1,5 +1,6 @@
 // Pictures of Helmy's main screens, with real fonts, for judging its look:
 // fvm flutter test integration_test/look_test.dart -d macos --dart-define=SHOTS=<folder>
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -27,11 +28,13 @@ import 'package:helmy/ui/settings/view_models/settings_view_model.dart';
 import 'package:helmy/ui/settings/widgets/settings_screen.dart';
 import 'package:helmy/ui/shell/view_models/sidebar_view_model.dart';
 import 'package:helmy/ui/shell/widgets/empty_screen.dart';
+import 'package:helmy/ui/shell/widgets/command_palette.dart';
 import 'package:helmy/ui/shell/widgets/shell_screen.dart';
 import 'package:helmy/data/services/engines/agent_engine.dart';
 import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/utils/result.dart';
+import 'package:go_router/go_router.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
 
@@ -212,6 +215,65 @@ void main() {
         selected: session.id,
         over: SettingsScreen(viewModel: vm),
       );
+    }
+    // The ⌘K palette over a session, with a router as the app has.
+    final router = GoRouter(
+      initialLocation: '/s/${session.id}',
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const SizedBox()),
+        GoRoute(
+          path: '/s/:id',
+          builder: (_, _) => ShellScreen(
+            viewModel: sidebar,
+            selectedId: session.id,
+            child: ChatScreen(viewModel: chat),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SettingsRepository>.value(value: settings),
+          ChangeNotifierProvider.value(value: sidebar),
+          Provider(create: (_) => DesktopService()),
+        ],
+        child: AshlarApp.router(
+          routerConfig: router,
+          theme: appTheme,
+          darkTheme: appDarkTheme,
+          themeMode: .dark,
+          builder: (context, child) => OverflowBox(
+            alignment: .topLeft,
+            minWidth: window.width,
+            maxWidth: window.width,
+            minHeight: window.height,
+            maxHeight: window.height,
+            child: RepaintBoundary(
+              key: key,
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(size: window),
+                child: child!,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    unawaited(showPalette(tester.element(find.byType(ChatScreen)), sidebar));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    }
+    if (shots.isNotEmpty) {
+      final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final bytes = await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        return image.toByteData(format: ui.ImageByteFormat.png);
+      });
+      File('$shots/palette.png').writeAsBytesSync(bytes!.buffer.asUint8List());
     }
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));

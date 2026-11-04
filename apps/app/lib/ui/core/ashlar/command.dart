@@ -20,7 +20,11 @@ class CommandItem {
     this.leading,
     this.shortcut,
     this.enabled = true,
+    this.description,
   });
+
+  /// A line under the label, faint: what it does, or what it acts on.
+  final String? description;
 
   /// What the item says.
   final String label;
@@ -107,7 +111,11 @@ class _CommandState extends State<Command> {
   List<_Line> _lines = const [];
   List<int> _items = const [];
 
-  static const _itemHeight = 32.0, _headingHeight = 28.0, _gapHeight = 9.0, _pad = 4.0;
+  static const _itemHeight = 32.0,
+      _describedHeight = 48.0,
+      _headingHeight = 28.0,
+      _gapHeight = 9.0,
+      _pad = 4.0;
 
   @override
   void initState() {
@@ -155,7 +163,10 @@ class _CommandState extends State<Command> {
   double _grow = 1;
 
   double _extent(_Line l) =>
-      (l.item != null ? _itemHeight : (l.heading != null ? _headingHeight : _gapHeight)) * _grow;
+      (l.item != null
+          ? (l.item!.description != null ? _describedHeight : _itemHeight)
+          : (l.heading != null ? _headingHeight : _gapHeight)) *
+      _grow;
 
   /// Where a row starts in the list, from the top of the list's padding.
   double _top(int line) {
@@ -172,7 +183,7 @@ class _CommandState extends State<Command> {
     setState(() => _at = (_at + by).clamp(0, n - 1));
     if (!_scroll.hasClients) return;
     // Scroll just enough to bring the highlighted row into view.
-    final top = _top(_items[_at]), bottom = top + _itemHeight;
+    final top = _top(_items[_at]), bottom = top + _extent(_lines[_items[_at]]);
     final view = _scroll.position;
     if (top - _pad < view.pixels) {
       _scroll.jumpTo((top - _pad).clamp(0, view.maxScrollExtent));
@@ -374,11 +385,24 @@ class _Row extends StatelessWidget {
                   children: [
                     if (item.leading != null) ...[item.leading!, const SizedBox(width: 8)],
                     Expanded(
-                      child: Text(
-                        item.label,
-                        style: TextStyle(color: fg),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: TextStyle(color: fg),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (item.description != null)
+                            Text(
+                              item.description!,
+                              style: t.text.xs.copyWith(color: c.mutedForeground),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     ),
                     if (item.shortcut != null)
@@ -413,7 +437,8 @@ Future<void> showCommandDialog({
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 512),
+            // Helmy's: wider, with the keys that work along the bottom.
+            constraints: const BoxConstraints(maxWidth: 600),
             child: Container(
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -422,24 +447,35 @@ Future<void> showCommandDialog({
                 border: Border.all(color: t.colors.border),
                 boxShadow: t.shadowLg,
               ),
-              child: Command(
-                placeholder: placeholder,
-                groups: [
-                  for (final g in groups)
-                    CommandGroup(heading: g.heading, [
-                      for (final i in g.items)
-                        CommandItem(
-                          i.label,
-                          keywords: i.keywords,
-                          leading: i.leading,
-                          shortcut: i.shortcut,
-                          enabled: i.enabled,
-                          onSelected: () {
-                            close();
-                            i.onSelected();
-                          },
-                        ),
-                    ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    child: Command(
+                      maxHeight: 380,
+                      placeholder: placeholder,
+                      groups: [
+                        for (final g in groups)
+                          CommandGroup(heading: g.heading, [
+                            for (final i in g.items)
+                              CommandItem(
+                                i.label,
+                                keywords: i.keywords,
+                                leading: i.leading,
+                                shortcut: i.shortcut,
+                                enabled: i.enabled,
+                                description: i.description,
+                                onSelected: () {
+                                  close();
+                                  i.onSelected();
+                                },
+                              ),
+                          ]),
+                      ],
+                    ),
+                  ),
+                  const _KeyHints(),
                 ],
               ),
             ),
@@ -449,3 +485,50 @@ Future<void> showCommandDialog({
     );
   },
 );
+
+/// The keys the palette answers to, along its bottom.
+class _KeyHints extends StatelessWidget {
+  const _KeyHints();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final muted = t.text.xs.copyWith(color: c.mutedForeground);
+    Widget key(String k) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: c.muted,
+        border: Border.all(color: c.border),
+        borderRadius: BorderRadius.circular(t.radiusSm),
+      ),
+      child: Text(k, style: muted.copyWith(color: c.foreground)),
+    );
+    Widget hint(List<String> keys, String what) => Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 4,
+      children: [
+        ...keys.map(key),
+        const SizedBox(width: 2),
+        Text(what, style: muted),
+      ],
+    );
+    return ExcludeSemantics(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: c.border)),
+        ),
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 6,
+          children: [
+            hint(['↑', '↓'], 'Navigate'),
+            hint(['Enter'], 'Select'),
+            hint(['Esc'], 'Close'),
+          ],
+        ),
+      ),
+    );
+  }
+}
