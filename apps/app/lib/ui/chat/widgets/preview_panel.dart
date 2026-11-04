@@ -130,6 +130,8 @@ class _PreviewPanelState extends State<PreviewPanel> {
       }
       _browser = chosen;
       _tab = tab;
+      // The zoom chosen before it opened.
+      tab.zoom = _zoom;
       _tabUrls = tab.urls.listen(_moved);
       setState(() => _chromiumState = null);
       if (_at.isNotEmpty) unawaited(tab.navigate(_at));
@@ -234,7 +236,11 @@ class _PreviewPanelState extends State<PreviewPanel> {
   Future<void> _setZoom(double z) async {
     _zoom = z.clamp(.3, 3.0);
     setState(() {});
-    await widget.vm.webPage('zoom', {'zoom': _zoom});
+    if (_chromium) {
+      await _tab?.setZoom(_zoom);
+    } else {
+      await widget.vm.webPage('zoom', {'zoom': _zoom});
+    }
   }
 
   @override
@@ -335,7 +341,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
                             'Use Chromium',
                             () => unawaited(_useEngine(.chromium)),
                           ),
-                  if (native) ...[
+                  if (native || tab != null) ...[
                     const MenuSeparator(),
                     MenuLabel(child: Text('Zoom ${(_zoom * 100).round()}%')),
                     item(AshlarIconsRoundedStroke.zoomIn, 'Zoom in', () => _setZoom(_zoom + .1)),

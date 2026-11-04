@@ -55,15 +55,21 @@ class ChromiumTab {
     _urls.add(to);
   }
 
-  /// The page drawn at [width] by [height] points, at [scale] pixels a
-  /// point, and pictures of it sent at that size.
+  /// The page's zoom, as a browser zooms: 1 is its own size.
+  double zoom = 1;
+  (double, double, double)? _shown;
+
+  /// The page shown in [width] by [height] points, at [scale] pixels a point,
+  /// and pictures of it sent at that size. Zoomed, the page lays out in fewer
+  /// (or more) of its own pixels, each drawn larger, as a browser zooms.
   Future<void> show(double width, double height, double scale) async {
     final w = width.round(), h = height.round();
     if (w <= 0 || h <= 0) return;
+    _shown = (width, height, scale);
     await _send('Emulation.setDeviceMetricsOverride', {
-      'width': w,
-      'height': h,
-      'deviceScaleFactor': scale,
+      'width': (w / zoom).round(),
+      'height': (h / zoom).round(),
+      'deviceScaleFactor': scale * zoom,
       'mobile': false,
     });
     await _send('Page.startScreencast', {
@@ -72,6 +78,12 @@ class ChromiumTab {
       'maxWidth': (w * scale).round(),
       'maxHeight': (h * scale).round(),
     });
+  }
+
+  /// Zooms the page to [to] (0.3 to 3), as a browser does.
+  Future<void> setZoom(double to) async {
+    zoom = to.clamp(.3, 3.0);
+    if (_shown case (final w, final h, final scale)) await show(w, h, scale);
   }
 
   Future<void> navigate(String to) => _send('Page.navigate', {'url': to});
@@ -97,8 +109,8 @@ class ChromiumTab {
     int modifiers = 0,
   }) => _send('Input.dispatchMouseEvent', {
     'type': type,
-    'x': x,
-    'y': y,
+    'x': x / zoom,
+    'y': y / zoom,
     'button': button,
     'clickCount': clickCount,
     'modifiers': modifiers,
@@ -106,7 +118,7 @@ class ChromiumTab {
 
   Future<void> scroll(double x, double y, double dx, double dy) => _send(
     'Input.dispatchMouseEvent',
-    {'type': 'mouseWheel', 'x': x, 'y': y, 'deltaX': dx, 'deltaY': dy},
+    {'type': 'mouseWheel', 'x': x / zoom, 'y': y / zoom, 'deltaX': dx / zoom, 'deltaY': dy / zoom},
   );
 
   /// Text typed into whatever has focus.
