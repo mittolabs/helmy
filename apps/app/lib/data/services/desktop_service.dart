@@ -49,6 +49,19 @@ class DesktopService {
     }
   }
 
+  /// Does [action] to the page in the Preview panel ('inspect', 'zoom',
+  /// 'hardReload', 'appearance'); false where it cannot.
+  Future<bool> webPage(String action, [Map<String, Object?> args = const {}]) async {
+    if (Desktop.current != .mac) return false;
+    try {
+      return await _channel.invokeMethod<bool>('webPage', {'do': action, ...args}) ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   /// Whether closing the window hides it (sessions keep working) or quits.
   Future<void> setKeepRunning(bool on) async {
     try {

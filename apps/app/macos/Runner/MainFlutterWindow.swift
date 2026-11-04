@@ -4,6 +4,7 @@ import desktop_multi_window
 import ServiceManagement
 import Speech
 import UserNotifications
+import WebKit
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
@@ -301,9 +302,62 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "face":
         DockFace.shared.show(args["face"] as? String)
         result(nil)
+      case "webPage":
+        // The page in the Preview panel: the largest web view in the window.
+        result(Notifier.webPage(args["do"] as? String ?? "", args))
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  /// Does [action] to the largest web view in the main window (the Preview
+  /// panel's): its inspector, its zoom, a reload past the cache, or the
+  /// appearance the page sees. False when there is no page.
+  static func webPage(_ action: String, _ args: [String: Any]) -> Bool {
+    func all(_ v: NSView) -> [WKWebView] {
+      (v as? WKWebView).map { [$0] } ?? v.subviews.flatMap(all)
+    }
+    guard let root = (NSApp.mainWindow ?? NSApp.windows.first)?.contentView,
+          let web = all(root).max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
+    else { return false }
+    switch action {
+    case "inspect":
+      // WebKit's own inspector, as Safari opens it: developer extras on for
+      // the page, then shown.
+      if #available(macOS 13.3, *) { web.isInspectable = true }
+      web.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+      guard let inspector = web.perform(NSSelectorFromString("_inspector"))?.takeUnretainedValue() as? NSObject,
+            inspector.responds(to: NSSelectorFromString("show"))
+      else { return false }
+      inspector.perform(NSSelectorFromString("show"))
+      // Docked to the page; without this some versions open it nowhere.
+      if inspector.responds(to: NSSelectorFromString("attach")) {
+        inspector.perform(NSSelectorFromString("attach"))
+      }
+      return true
+    case "inspecting":
+      // Whether the inspector is showing, so a press is never reported as
+      // working when it did not.
+      guard let inspector = web.perform(NSSelectorFromString("_inspector"))?.takeUnretainedValue() as? NSObject,
+            inspector.responds(to: NSSelectorFromString("isVisible"))
+      else { return false }
+      return inspector.value(forKey: "visible") as? Bool ?? false
+    case "zoom":
+      web.pageZoom = CGFloat(args["zoom"] as? Double ?? 1)
+      return true
+    case "hardReload":
+      web.reloadFromOrigin()
+      return true
+    case "appearance":
+      switch args["appearance"] as? String {
+      case "light": web.appearance = NSAppearance(named: .aqua)
+      case "dark": web.appearance = NSAppearance(named: .darkAqua)
+      default: web.appearance = nil
+      }
+      return true
+    default:
+      return false
     }
   }
 

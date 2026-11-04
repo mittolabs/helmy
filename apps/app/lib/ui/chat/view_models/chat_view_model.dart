@@ -172,6 +172,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   Future<String?> documentPicture(String path) async => _desktop?.documentPicture(path);
 
+  /// Does [action] to the page in the Preview panel; false where it cannot.
+  Future<bool> webPage(String action, [Map<String, Object?> args = const {}]) async =>
+      await _desktop?.webPage(action, args) ?? false;
+
   @override
   Future<List<Frame>> frames(String path, {int count = 40, int width = 240}) async =>
       await _watch?.frames(path, count: count, width: width) ?? const [];
