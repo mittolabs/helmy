@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import '../../domain/models/chat_item.dart';
 import '../../domain/models/engine.dart';
@@ -9,7 +8,9 @@ import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
 import '../../domain/folder_move.dart';
-import '../../domain/identity.dart';
+import '../../domain/routing.dart';
+import '../services/engines/explainer.dart';
+import '../services/shell_service.dart';
 import '../../domain/problem.dart';
 import '../../utils/format.dart';
 import '../services/engines/engine_registry.dart';
@@ -73,6 +74,12 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// Takes the folder's state before each message, when it is a git repository.
   final Snapshots? _snapshots;
+
+  /// Runs `!command` in the user's shell.
+  final ShellService _shellService = const ShellService();
+
+  /// Explains a step's command in plain words.
+  late final _explainer = CommandExplainer(_engines, _router, _enabled);
 
   /// Gives a session its own working copy of a repository, where the
   /// project asks for that ([_ownCopies]).
@@ -301,22 +308,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
             ..addAll(owners);
         }
       }
-      // A local model only answers when nothing online can; and then, for a
-      // message that needs no tools, the one answering directly does.
-      final online = [
-        for (final e in candidates)
-          if (!e.localOnly) e,
-      ];
-      final plain = [
-        for (final e in candidates)
-          if (!e.capabilities.contains(Capability.tools)) e,
-      ];
       final id = _router.choose(
-        candidates: online.isNotEmpty
-            ? online
-            : !turn.needs.contains(Capability.tools) && plain.isNotEmpty
-            ? plain
-            : candidates,
+        candidates: eligible(candidates, turn.needs),
         current: session.lastEngineId,
         needs: turn.needs,
       );
@@ -505,21 +498,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       a.text = withoutFolderLines(a.text);
     }
     if (named == null) return null;
-    final home = homeDir;
-    var path = named.startsWith('~') ? '$home${named.substring(1)}' : named;
-    if (path.length > 1 && path.endsWith('/')) path = path.substring(0, path.length - 1);
-    if (!path.startsWith('/') || !Directory(path).existsSync()) return null;
-    // The same folder by another way in (a link) is no move.
-    String real(String p) {
-      try {
-        return Directory(p).resolveSymbolicLinksSync();
-      } on FileSystemException {
-        return p;
-      }
-    }
-
-    if (cwd != null && real(path) == real(cwd)) return null;
-    return path;
+    return resolveFolderMove(named, cwd: cwd, home: homeDir);
   }
 
   /// Sends the next message that waited for this turn, if any.
@@ -562,24 +541,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
       ..add(call);
     c.busy = true;
     notifyListeners();
-    try {
-      final (shell, args) = shellFor(command);
-      final r = await Process.run(
-        shell,
-        args,
-        workingDirectory: session.cwd,
-      ).timeout(const Duration(minutes: 2));
-      call
-        ..result = '${r.stdout}${r.stderr}'.trimRight()
-        ..isError = r.exitCode != 0;
-      if (call.result!.isEmpty) {
-        call.result = r.exitCode == 0 ? '(no output)' : 'exit ${r.exitCode}';
-      }
-    } on Object catch (e) {
-      call
-        ..result = '$e'
-        ..isError = true;
-    }
+    final ran = await _shellService.run(command, session.cwd);
+    call
+      ..result = ran.output
+      ..isError = ran.failed;
     c.busy = false;
     await _persist(session.id);
     notifyListeners();
@@ -775,47 +740,22 @@ class ConversationRepositoryEngines extends ConversationRepository {
     await run?.close();
   }
 
-  static const _explainer =
-      '$helmyIdentity\n\n'
-      'You explain shell commands to a developer in plain words: first what the whole '
-      'command does, then each part in one short line as a Markdown list. Mention anything '
-      'risky. No preamble. Under 150 words.';
-
   @override
   Future<Result<String>> explain(String sessionId, ToolCall call) async {
     final command = PermissionRule.plainCommand('${call.input['command'] ?? ''}');
     if (command.trim().isEmpty) return .error(Exception('No command to explain'));
-    // The engine with the most room first, then the rest; one on this Mac last.
-    final ready = [
-      for (final e in _engines.engines)
-        if (_enabled(e.info.id)) e,
-    ];
-    final online = ready.where((e) => !e.info.localOnly).toList();
-    final first = online.isEmpty
-        ? null
-        : _router.choose(
-            candidates: [for (final e in online) e.info],
-            current: null,
-            needs: const {},
-          );
-    final order = [
-      ...online.where((e) => e.info.id == first),
-      ...online.where((e) => e.info.id != first),
-      ...ready.where((e) => e.info.localOnly),
-    ];
-    for (final e in order) {
-      final answer = await e.ask(_explainer, 'Explain this command:\n\n$command');
-      if (answer == null) continue;
-      call.explanation = answer;
-      await _persist(sessionId);
-      notifyListeners();
-      return .ok(answer);
+    final answer = await _explainer.explain(command);
+    if (answer == null) {
+      return .error(
+        Exception(
+          "I couldn't explain this right now. Check your connection, or set up a model on ${Desktop.current.thisComputer} in Settings.",
+        ),
+      );
     }
-    return .error(
-      Exception(
-        "I couldn't explain this right now. Check your connection, or set up a model on ${Desktop.current.thisComputer} in Settings.",
-      ),
-    );
+    call.explanation = answer;
+    await _persist(sessionId);
+    notifyListeners();
+    return .ok(answer);
   }
 
   @override

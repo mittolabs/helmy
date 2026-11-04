@@ -3,6 +3,8 @@
 /// it). The line is Helmy's, never the user's to see.
 library;
 
+import 'dart:io';
+
 const folderMarker = 'HELMY_FOLDER:';
 
 final _line = RegExp(r'^[ \t]*HELMY_FOLDER:[ \t]*(\S[^\n]*?)[ \t]*$', multiLine: true);
@@ -23,4 +25,23 @@ String withoutFolderLines(String text, {bool streaming = false}) {
     if (tail.isNotEmpty && folderMarker.startsWith(tail)) out = out.substring(0, cut + 1);
   }
   return out.trimRight();
+}
+
+/// The folder a move named, as a full path, when it is one to move to: it
+/// exists, and it is not [cwd] itself by another way in (a link). Null
+/// otherwise. `~` is [home].
+String? resolveFolderMove(String named, {required String? cwd, required String home}) {
+  var path = named.startsWith('~') ? '$home${named.substring(1)}' : named;
+  if (path.length > 1 && path.endsWith('/')) path = path.substring(0, path.length - 1);
+  if (!path.startsWith('/') || !Directory(path).existsSync()) return null;
+  String real(String p) {
+    try {
+      return Directory(p).resolveSymbolicLinksSync();
+    } on FileSystemException {
+      return p;
+    }
+  }
+
+  if (cwd != null && real(path) == real(cwd)) return null;
+  return path;
 }
