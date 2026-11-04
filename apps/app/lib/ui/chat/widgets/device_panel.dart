@@ -10,6 +10,7 @@ import '../../core/ashlar/input.dart';
 import '../../core/ashlar/select.dart';
 import '../../core/ashlar/progress.dart';
 import '../../core/ashlar/spinner.dart';
+import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/chat_view_model.dart';
@@ -30,6 +31,31 @@ class DevicePanel extends StatefulWidget {
 class _DevicePanelState extends State<DevicePanel> {
   DeviceViewModel get d => widget.vm.device!;
   final _typed = TextEditingController();
+
+  /// The logs follow the newest line, as a terminal does, unless scrolled up
+  /// to read.
+  final _logScroll = ScrollController();
+  int _logCount = 0;
+
+  void _followLogs(int count) {
+    if (count == _logCount) return;
+    final atEnd =
+        !_logScroll.hasClients ||
+        _logScroll.position.pixels >= _logScroll.position.maxScrollExtent - 24;
+    _logCount = count;
+    if (!atEnd) return;
+    // Twice: lines of different heights are measured as they are laid out,
+    // so the end is known for sure only a frame after the first jump.
+    void end() {
+      if (_logScroll.hasClients) _logScroll.jumpTo(_logScroll.position.maxScrollExtent);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      end();
+      WidgetsBinding.instance.addPostFrameCallback((_) => end());
+    });
+  }
+
   Offset? _down;
   Offset? _last;
 
@@ -70,6 +96,7 @@ class _DevicePanelState extends State<DevicePanel> {
 
   @override
   void dispose() {
+    _logScroll.dispose();
     _screenFocus.dispose();
     d.pause();
     _typed.dispose();
@@ -84,6 +111,7 @@ class _DevicePanelState extends State<DevicePanel> {
       listenable: d,
       builder: (context, _) {
         final device = d.device;
+        if (d.logLines case final lines? when d.logsOpen) _followLogs(lines.length);
         Widget tool(String label, IconData icon, VoidCallback? onPressed) => Tooltip(
           message: label,
           child: Button(
@@ -163,6 +191,11 @@ class _DevicePanelState extends State<DevicePanel> {
                           device?.ios == true ? d.toggleAppearance : null,
                         ),
                         tool(
+                          d.logsOpen ? 'Hide its logs' : 'Its logs',
+                          AshlarIconsRoundedStroke.scrollText,
+                          device == null ? null : d.toggleLogs,
+                        ),
+                        tool(
                           'Attach the screen to your message',
                           AshlarIconsRoundedStroke.camera,
                           d.screen == null ? null : () => widget.vm.attachScreen(d.screen!),
@@ -173,6 +206,70 @@ class _DevicePanelState extends State<DevicePanel> {
                 ],
               ),
             ),
+            // Its logs, the agent's same lines, while asked for.
+            if (d.logsOpen && device != null)
+              Container(
+                height: 220,
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: t.colors.border)),
+                ),
+                child: Column(
+                  crossAxisAlignment: .stretch,
+                  children: [
+                    Padding(
+                      padding: const .fromLTRB(10, 8, 6, 6),
+                      child: Row(
+                        spacing: 6,
+                        children: [
+                          Expanded(
+                            child: Input(
+                              size: .sm,
+                              placeholder: 'Only lines holding…',
+                              leading: const AshlarIcon(AshlarIconsRoundedStroke.search, size: 13),
+                              onChanged: d.findInLogs,
+                            ),
+                          ),
+                          tool('Hide the logs', AshlarIconsRoundedStroke.x, d.toggleLogs),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: switch (d.logLines) {
+                        null => const Center(child: Spinner(size: 14)),
+                        [] => Center(
+                          child: Padding(
+                            padding: const .symmetric(horizontal: 16),
+                            child: Text(
+                              device.ios
+                                  ? 'Nothing from the apps on it in the last 2 minutes. Apps you '
+                                        'build show here; the system\'s own lines are left out.'
+                                  : 'No warnings or errors in the last 2 minutes.',
+                              textAlign: .center,
+                              style: muted,
+                            ),
+                          ),
+                        ),
+                        final lines => ScrollArea.builder(
+                          controller: _logScroll,
+                          padding: const .fromLTRB(10, 0, 10, 8),
+                          itemCount: lines.length,
+                          itemBuilder: (context, i) => Text(
+                            lines[i],
+                            style: t.text.xs.copyWith(
+                              fontFamily: 'Menlo',
+                              fontSize: 11,
+                              height: 1.45,
+                              color: RegExp(r'\b(E|F|Error|Fault)\b|\sE/|\sF/').hasMatch(lines[i])
+                                  ? t.colors.destructive
+                                  : t.colors.foreground.withValues(alpha: .85),
+                            ),
+                          ),
+                        ),
+                      },
+                    ),
+                  ],
+                ),
+              ),
             if (d.canTouch && device != null)
               Padding(
                 padding: const .fromLTRB(10, 0, 10, 10),

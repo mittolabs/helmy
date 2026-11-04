@@ -233,9 +233,53 @@ class DeviceViewModel extends ChangeNotifier {
     _stream = null;
   }
 
+  // The device's logs, under its screen while asked for: the same lines its
+  // agent reads, refreshed while they show.
+
+  bool logsOpen = false;
+
+  /// The latest lines; null while the first are read.
+  List<String>? logLines;
+
+  /// Only lines holding this.
+  String logFind = '';
+  Timer? _logTimer;
+
+  void toggleLogs() {
+    logsOpen = !logsOpen;
+    _logTimer?.cancel();
+    if (logsOpen) {
+      unawaited(readLogs());
+      _logTimer = Timer.periodic(const Duration(seconds: 3), (_) => unawaited(readLogs()));
+    }
+    notifyListeners();
+  }
+
+  void findInLogs(String words) {
+    logFind = words;
+    unawaited(readLogs());
+  }
+
+  bool _readingLogs = false;
+
+  Future<void> readLogs() async {
+    final d = device;
+    if (d == null || _readingLogs || _closed) return;
+    _readingLogs = true;
+    try {
+      final lines = await _devices.logs(d, find: logFind.trim().isEmpty ? null : logFind.trim());
+      if (_closed) return;
+      logLines = lines ?? const [];
+      notifyListeners();
+    } finally {
+      _readingLogs = false;
+    }
+  }
+
   @override
   void dispose() {
     _closed = true;
+    _logTimer?.cancel();
     _poll?.cancel();
     unawaited(_stream?.cancel());
     super.dispose();
