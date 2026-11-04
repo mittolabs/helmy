@@ -69,6 +69,16 @@ void main() {
     vm.resize(2000);
     expect(vm.panelWidth, 900);
 
+    // Expanded, the panel has the page; closing it ends that too.
+    vm.toggle(.changes);
+    expect(vm.panel, SidePanel.changes);
+    vm.toggleExpanded();
+    expect(vm.panelExpanded, isTrue);
+    vm.closePanel();
+    expect((vm.panel, vm.panelExpanded), (null, false));
+    vm.toggleExpanded();
+    expect(vm.panelExpanded, isFalse, reason: 'nothing open to expand');
+
     vm.dispose();
     repo.dispose();
     await storage.flush();

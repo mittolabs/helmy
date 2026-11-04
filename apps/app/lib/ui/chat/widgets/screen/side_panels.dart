@@ -14,6 +14,8 @@ class _SidePanels extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final p = vm.panel;
+      // Expanded: the panel has the page, the conversation a press away.
+      if (p != null && vm.panelExpanded) return _Panel(vm: vm, panel: p);
       // No room left beside the conversation (a narrow window): no panel.
       final room = box.maxWidth - _chatMin - _Divider.width;
       final width = room <= 0 ? 0.0 : vm.panelWidth.clamp(0.0, room);
@@ -25,19 +27,86 @@ class _SidePanels extends StatelessWidget {
             _Divider(onDrag: (dx) => vm.resize(width - dx)),
             SizedBox(
               width: width,
-              child: switch (p) {
-                .changes => ChangesPanel(vm: vm),
-                .background => BackgroundPanel(vm: vm),
-                .preview => PreviewPanel(vm: vm),
-                .ship => ShipPanel(vm: vm),
-                .device => DevicePanel(vm: vm),
-              },
+              child: _Panel(vm: vm, panel: p),
             ),
           ],
         ],
       );
     },
   );
+}
+
+/// One panel, under a bar that names it and can expand or close it.
+class _Panel extends StatelessWidget {
+  const new({required this.vm, required this.panel});
+  final ChatViewModel vm;
+  final SidePanel panel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final expanded = vm.panelExpanded;
+    Widget tool(String label, IconData icon, VoidCallback onPressed) => Tooltip(
+      message: label,
+      child: Button(
+        variant: .ghost,
+        size: .iconXs,
+        semanticLabel: label,
+        onPressed: onPressed,
+        child: AshlarIcon(icon, size: 14),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        Container(
+          height: 32,
+          margin: .only(top: titleLine - 16),
+          // Expanded, the bar starts past the window's buttons, as the header does.
+          padding: .only(
+            left: expanded && !sidebarBeside(context) ? titleRowStart + 40 : 14,
+            right: 12,
+          ),
+          child: Row(
+            spacing: 2,
+            children: [
+              Expanded(
+                child: Text(
+                  switch (panel) {
+                    .changes => 'Changes',
+                    .background => 'Background',
+                    .preview => 'Preview',
+                    .ship => 'Ship',
+                    .device => 'Device',
+                  },
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                ),
+              ),
+              tool(
+                expanded ? 'Back beside the conversation' : 'Expand',
+                expanded
+                    ? AshlarIconsRoundedStroke.arrowsMinimize
+                    : AshlarIconsRoundedStroke.arrowsMaximize,
+                vm.toggleExpanded,
+              ),
+              tool('Close', AshlarIconsRoundedStroke.x, vm.closePanel),
+            ],
+          ),
+        ),
+        Expanded(
+          child: switch (panel) {
+            .changes => ChangesPanel(vm: vm),
+            .background => BackgroundPanel(vm: vm),
+            .preview => PreviewPanel(vm: vm),
+            .ship => ShipPanel(vm: vm),
+            .device => DevicePanel(vm: vm),
+          },
+        ),
+      ],
+    );
+  }
 }
 
 /// The edge between two columns: a hairline, and a wider strip to drag.

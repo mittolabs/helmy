@@ -217,6 +217,21 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   void toggle(SidePanel p) {
     panel = panel == p ? null : p;
+    if (panel == null) panelExpanded = false;
+    notifyListeners();
+  }
+
+  /// The open panel over the whole page, the conversation set aside.
+  bool panelExpanded = false;
+
+  void toggleExpanded() {
+    panelExpanded = panel != null && !panelExpanded;
+    notifyListeners();
+  }
+
+  void closePanel() {
+    panel = null;
+    panelExpanded = false;
     notifyListeners();
   }
 

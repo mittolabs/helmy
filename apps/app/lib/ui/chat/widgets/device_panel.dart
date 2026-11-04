@@ -69,17 +69,23 @@ class _DevicePanelState extends State<DevicePanel> {
               padding: const .fromLTRB(10, 8, 10, 8),
               child: d.devices.isEmpty
                   ? Text(d.trouble ?? 'Looking for devices…', style: muted)
-                  : Select<String>(
-                      value: device?.id,
-                      options: [
-                        for (final x in d.devices)
-                          SelectOption(
-                            x.id,
-                            '${x.name}${x.runtime.isEmpty ? '' : ' · ${x.runtime}'}',
-                            group: x.booted ? 'Running' : (x.ios ? 'iOS' : 'Android'),
-                          ),
-                      ],
-                      onChanged: (id) => d.choose(d.devices.firstWhere((x) => x.id == id)),
+                  : Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 360),
+                        child: Select<String>(
+                          value: device?.id,
+                          options: [
+                            for (final x in d.devices)
+                              SelectOption(
+                                x.id,
+                                '${x.name}${x.runtime.isEmpty ? '' : ' · ${x.runtime}'}',
+                                group: x.booted ? 'Running' : (x.ios ? 'iOS' : 'Android'),
+                              ),
+                          ],
+                          onChanged: (id) => d.choose(d.devices.firstWhere((x) => x.id == id)),
+                        ),
+                      ),
                     ),
             ),
             if (!d.canTouch && device != null)
