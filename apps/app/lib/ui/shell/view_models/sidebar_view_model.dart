@@ -9,7 +9,9 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
 import '../../../utils/platform.dart';
-import '../../../data/services/worktrees.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../data/services/fixes.dart';
+import '../../../domain/problem.dart';
 
 enum SessionActivity { idle, working, needsYou, unread }
 
@@ -19,14 +21,18 @@ class SidebarViewModel extends ChangeNotifier {
     required this._conversations,
     required this._settings,
     this._attention,
+    this._projects,
+    this._fixes,
   }) {
     _attention?.addListener(_onConversations);
     _sessions.addListener(notifyListeners);
     _settings.addListener(notifyListeners);
     _conversations.addListener(_onConversations);
     create = Command0(
-      () async =>
-          _sessions.create(cwd: defaultFolder, level: await _settings.levelFor(defaultFolder)),
+      () async => _sessions.create(
+        cwd: defaultFolder,
+        level: await _projects?.levelFor(defaultFolder) ?? _settings.settings.defaultLevel,
+      ),
     );
     delete = Command1(_delete);
   }
@@ -35,6 +41,11 @@ class SidebarViewModel extends ChangeNotifier {
   final ConversationRepository _conversations;
   final SettingsRepository _settings;
   final AttentionRepository? _attention;
+  final ProjectRepository? _projects;
+  final Fixes? _fixes;
+
+  /// Opens the system's own pane for allowing notifications.
+  Future<void> allowNotifications() async => _fixes?.apply(Fix.allowNotifications);
 
   late final Command0<Session> create;
   late final Command1<void, String> delete;
@@ -221,7 +232,7 @@ class SidebarViewModel extends ChangeNotifier {
     // Its own working copy goes with it, unless it holds uncommitted work;
     // its branch stays either way.
     if (session != null && session.ownCopy) {
-      await Worktrees().remove(session.repo!, session.cwd);
+      await _projects?.removeCopy(session.repo!, session.cwd);
     }
     return _sessions.delete(id);
   }

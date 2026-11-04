@@ -20,8 +20,9 @@ import '../../../utils/result.dart';
 import '../../../utils/platform.dart';
 import '../../../utils/format.dart';
 import '../../../domain/models/session.dart';
-import '../../../data/services/worktrees.dart';
 import '../../../data/repositories/session_repository.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../core/file_actions.dart';
 
 enum SettingsSection { general, projects, agents, tools, memory, data, keyboard }
 
@@ -74,13 +75,15 @@ class SettingsViewModel extends ChangeNotifier {
 
   /// Every repository a session has worked in, and every one set before,
   /// by its top folder, sorted by name.
+  /// Which repository a folder is in; set where the page is made.
+  ProjectRepository? projectsOf;
+
   Future<List<String>> projects() async {
-    final git = Worktrees();
     final found = <String>{...settings.projects.keys};
     for (final s in sessions?.sessions ?? const <Session>[]) {
       if (s.repo case final repo?) {
         found.add(repo);
-      } else if (await git.repoOf(s.cwd) case final repo?) {
+      } else if (await projectsOf?.repoOf(s.cwd) case final repo?) {
         found.add(repo);
       }
     }
@@ -176,6 +179,9 @@ class SettingsViewModel extends ChangeNotifier {
   List<({String label, String path, int? bytes, String note})> places = const [];
   bool? openAtLogin;
   DesktopService? _desktop;
+
+  /// Opening and showing files, for what this page saves.
+  FileActions get fileActions => _Files(_desktop);
 
   set desktop(DesktopService d) {
     _desktop = d;
@@ -292,4 +298,15 @@ class SettingsViewModel extends ChangeNotifier {
     _meter.removeListener(notifyListeners);
     super.dispose();
   }
+}
+
+class _Files implements FileActions {
+  _Files(this._desktop);
+  final DesktopService? _desktop;
+
+  @override
+  Future<void> open(String where) async => _desktop?.open(where);
+
+  @override
+  Future<void> reveal(String path) async => _desktop?.reveal(path);
 }

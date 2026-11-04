@@ -1,15 +1,19 @@
 import 'package:flutter/widgets.dart';
-import 'package:provider/provider.dart';
 
-import '../../../data/services/desktop_service.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/toast.dart';
 import '../../../utils/platform.dart';
+import '../../core/file_actions.dart';
 
 /// "Saved", with the place it went and a way to open it or find it.
-void showSavedToast(BuildContext context, String path, {String title = 'Saved'}) {
-  final desktop = context.read<DesktopService>();
+void showSavedToast(
+  BuildContext context,
+  String path, {
+  required FileActions files,
+  String title = 'Saved',
+}) {
+  final desktop = files;
   late final ToastHandle toast;
   toast = showToast(
     context,

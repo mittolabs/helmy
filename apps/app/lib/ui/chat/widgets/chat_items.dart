@@ -17,7 +17,6 @@ import '../../../utils/diffs.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/plan.dart';
 import '../../../data/repositories/settings_repository.dart';
-import '../../../data/services/desktop_service.dart';
 import '../../../data/services/engines/attachments.dart';
 import '../../core/ashlar/dialog.dart';
 import '../../core/ashlar/dropdown_menu.dart';
@@ -1574,7 +1573,7 @@ class _Image extends StatelessWidget {
   final ChatViewModel vm;
 
   Future<void> _copy(BuildContext context) async {
-    final ok = await context.read<DesktopService>().copyImage(image.path);
+    final ok = await vm.copyImage(image.path);
     if (context.mounted) {
       showToast(
         context,
@@ -1591,7 +1590,7 @@ class _Image extends StatelessWidget {
     if (where == null) return;
     try {
       await File(image.path).copy(where.path);
-      if (context.mounted) showSavedToast(context, where.path);
+      if (context.mounted) showSavedToast(context, where.path, files: vm);
     } on FileSystemException catch (e) {
       if (context.mounted) {
         showToast(context, title: 'Could not save', description: e.message, type: .error);
@@ -1628,7 +1627,7 @@ class _Image extends StatelessWidget {
         child: Text('The image is no longer at ${tildePath(image.path)}', style: muted),
       );
     }
-    final desktop = context.read<DesktopService>();
+    final desktop = vm;
     return Column(
       crossAxisAlignment: .start,
       spacing: 4,

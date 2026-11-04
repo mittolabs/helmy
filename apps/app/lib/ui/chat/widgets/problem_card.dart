@@ -3,10 +3,7 @@ import 'dart:async';
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
-import '../../../data/services/desktop_service.dart';
-import '../../../data/services/fixes.dart';
 import '../../../domain/problem.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/collapsible.dart';
@@ -141,7 +138,7 @@ Future<void> runFix(
     case .wait:
       break;
     case .signIn || .startLocal:
-      final ok = await context.read<Fixes>().apply(fix, engineId: engineId);
+      final ok = await vm.applyFix(fix, engineId: engineId);
       if (ok) {
         await vm.retry();
       } else {
@@ -152,7 +149,7 @@ Future<void> runFix(
         );
       }
     case .allowSpeech || .allowNotifications:
-      final ok = await context.read<Fixes>().apply(fix);
+      final ok = await vm.applyFix(fix);
       onNote?.call(
         ok
             ? 'Turn Helmy on in the window that opened, then try again.'
@@ -168,5 +165,5 @@ void openAnswerLink(BuildContext context, String url, ChatViewModel vm) {
     unawaited(runFix(context, fix, vm));
     return;
   }
-  unawaited(context.read<DesktopService>().open(url));
+  unawaited(vm.open(url));
 }

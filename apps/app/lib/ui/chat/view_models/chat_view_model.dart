@@ -22,19 +22,28 @@ import '../../../utils/project_files.dart';
 import '../../../utils/result.dart';
 import '../../../utils/transcript_markdown.dart';
 import '../../../utils/platform.dart';
-import '../../../data/services/worktrees.dart';
+import '../../../data/repositories/project_repository.dart';
+import '../../../data/services/desktop_service.dart';
+import '../../../data/services/watch_service.dart';
+import '../../../data/services/fixes.dart';
+import '../../../domain/problem.dart';
+import '../../core/file_actions.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
 enum SidePanel { changes, background, preview, ship }
 
-class ChatViewModel extends ChangeNotifier {
+class ChatViewModel extends ChangeNotifier implements MediaActions {
   new({
     required this.sessionId,
     required this._sessions,
     required this._conversations,
     this._attention,
     this._settings,
+    this._projects,
+    this._desktop,
+    this._watch,
+    this._fixes,
   }) {
     _attention?.viewing = sessionId;
     _sessions.addListener(notifyListeners);
@@ -57,7 +66,7 @@ class ChatViewModel extends ChangeNotifier {
     final cwd = session?.cwd;
     if (cwd == null || cwd == _askedFor) return;
     _askedFor = cwd;
-    final found = await Worktrees().repoOf(cwd) != null;
+    final found = await _projects?.repoOf(cwd) != null;
     if (found != inRepo) {
       inRepo = found;
       notifyListeners();
@@ -130,10 +139,41 @@ class ChatViewModel extends ChangeNotifier {
     return _conversations.compact(s);
   }
 
+  // What the conversation's widgets may do, through the services here.
+  final ProjectRepository? _projects;
+  final DesktopService? _desktop;
+  final WatchService? _watch;
+  final Fixes? _fixes;
+
+  @override
+  Future<void> open(String where) async => _desktop?.open(where);
+
+  @override
+  Future<void> reveal(String path) async => _desktop?.reveal(path);
+
+  @override
+  Future<bool> copyImage(String path) async => await _desktop?.copyImage(path) ?? false;
+
+  @override
+  Future<String?> documentPicture(String path) async => _desktop?.documentPicture(path);
+
+  @override
+  Future<List<Frame>> frames(String path, {int count = 40, int width = 240}) async =>
+      await _watch?.frames(path, count: count, width: width) ?? const [];
+
+  /// Does [fix] outside the conversation (signing in, starting the model
+  /// here, a system pane); true when it worked.
+  Future<bool> applyFix(Fix fix, {String? engineId}) async =>
+      await _fixes?.apply(fix, engineId: engineId) ?? false;
+
   /// A picture on the clipboard, attached; false when there is none.
-  Future<bool> pasteImage(Future<String?> Function(String path) paste) async {
+  Future<bool> pasteImage() async {
+    final desktop = _desktop;
+    if (desktop == null) return false;
     final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
-    final path = await paste('${dir.path}/pasted-${DateTime.now().millisecondsSinceEpoch}.png');
+    final path = await desktop.pasteImage(
+      '${dir.path}/pasted-${DateTime.now().millisecondsSinceEpoch}.png',
+    );
     if (path == null) return false;
     attach([path]);
     return true;
@@ -226,6 +266,7 @@ class ChatViewModel extends ChangeNotifier {
   String? previewUrl;
 
   /// Shows [url] in the Preview panel beside the conversation.
+  @override
   void preview(String url) {
     previewUrl = url;
     panel = .preview;
@@ -583,7 +624,7 @@ class ChatViewModel extends ChangeNotifier {
     await _conversations.stop(sessionId);
     // Before its first message, a session takes on its new project's level.
     final fresh = !items.any((i) => i is UserMessage);
-    final level = fresh ? await _settings?.levelFor(cwd) : null;
+    final level = fresh ? await _projects?.levelFor(cwd) : null;
     await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level));
   }
 

@@ -13,6 +13,7 @@ import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../../../data/services/watch_service.dart';
 import 'floating_player.dart';
+import '../../core/file_actions.dart';
 
 /// A video, or a sound, played in place: play and pause (or play again at the
 /// end), where it is and a bar to move through it, speed, sound, and for a
@@ -20,7 +21,17 @@ import 'floating_player.dart';
 /// player focused, Space plays and pauses, ← and → move 5 seconds, M mutes,
 /// F goes full screen and Esc comes back.
 class Player extends StatefulWidget {
-  const Player({super.key, this.path, this.web, required this.words, required this.video});
+  const Player({
+    super.key,
+    this.path,
+    this.web,
+    required this.words,
+    required this.video,
+    required this.actions,
+  });
+
+  /// Where its bar's preview frames come from.
+  final MediaActions actions;
 
   /// A file on this computer, or else [web], an address.
   final String? path;
@@ -63,8 +74,7 @@ class _PlayerState extends State<Player> {
       },
     );
     if (widget.video && widget.path != null) {
-      final watch = Provider.of<WatchService?>(context, listen: false);
-      watch?.frames(widget.path!, count: 40, width: 240).then((f) {
+      widget.actions.frames(widget.path!, count: 40, width: 240).then((f) {
         if (mounted) setState(() => _strip = f);
       });
     }

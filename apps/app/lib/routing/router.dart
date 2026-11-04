@@ -23,6 +23,8 @@ GoRouter router(String initialLocation) => GoRouter(
           sessions: context.read(),
           conversations: context.read(),
           settings: context.read(),
+          projects: context.read(),
+          fixes: context.read(),
         ),
         builder: (vm) => ChangeNotifierProvider.value(
           value: vm,
@@ -50,6 +52,7 @@ GoRouter router(String initialLocation) => GoRouter(
                   )
                   ..desktop = context.read()
                   ..sessions = context.read()
+                  ..projectsOf = context.read()
                   ..section =
                       SettingsSection.values.asNameMap()[state.uri.queryParameters['section']] ??
                       .general,
@@ -75,6 +78,10 @@ GoRouter router(String initialLocation) => GoRouter(
               sessionId: state.pathParameters['id']!,
               sessions: context.read(),
               conversations: context.read(),
+              projects: context.read(),
+              desktop: context.read(),
+              watch: context.read(),
+              fixes: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),

@@ -2,10 +2,8 @@ import 'dart:async';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
-import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../../data/services/desktop_service.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
@@ -92,7 +90,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
               tool(
                 AshlarIconsRoundedStroke.externalLink,
                 'Open in its own app',
-                () => unawaited(context.read<DesktopService>().open(_at)),
+                () => unawaited(widget.vm.open(_at)),
               ),
             ],
           ),

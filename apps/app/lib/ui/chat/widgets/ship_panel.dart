@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/repositories/ship_repository.dart';
-import '../../../data/services/desktop_service.dart';
 import '../../../data/services/shipping.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/format.dart';
@@ -120,7 +119,7 @@ class _ShipPanelState extends State<ShipPanel> {
                         : '${s.unpushed} ${s.unpushed == 1 ? 'commit' : 'commits'} not pushed',
                   ),
                   if (s.pr case final pr?) ...[
-                    _PullRequest(pr: pr),
+                    _PullRequest(pr: pr, vm: widget.vm),
                     _Watch(session: session),
                   ] else
                     Button(
@@ -141,8 +140,9 @@ class _ShipPanelState extends State<ShipPanel> {
 
 /// The pull request, opened in the browser on a press, and its checks.
 class _PullRequest extends StatelessWidget {
-  const _PullRequest({required this.pr});
+  const _PullRequest({required this.pr, required this.vm});
   final PullRequest pr;
+  final ChatViewModel vm;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +176,7 @@ class _PullRequest extends StatelessWidget {
               Button(
                 variant: .ghost,
                 size: .xs,
-                onPressed: () => context.read<DesktopService>().open(pr.url),
+                onPressed: () => vm.open(pr.url),
                 child: Text(pr.state == 'OPEN' ? 'Open' : pr.state.toLowerCase()),
               ),
             ],

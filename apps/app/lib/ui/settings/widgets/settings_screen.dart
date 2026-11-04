@@ -599,7 +599,12 @@ class _DataState extends State<_Data> {
     if (dir == null || !mounted) return;
     final n = await context.read<ChatExport>().exportAll(dir);
     if (mounted) {
-      showSavedToast(context, dir, title: '$n conversation${n == 1 ? '' : 's'} exported');
+      showSavedToast(
+        context,
+        dir,
+        files: widget.vm.fileActions,
+        title: '$n conversation${n == 1 ? '' : 's'} exported',
+      );
     }
   }
 

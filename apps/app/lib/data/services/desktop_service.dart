@@ -9,6 +9,23 @@ import '../../utils/platform.dart';
 class DesktopService {
   static const _channel = MethodChannel('helmy/notify');
 
+  final _pictures = <String, Future<String?>>{};
+
+  /// A picture of a document's first page, by Quick Look, made once into a
+  /// temporary folder; null where there is no Quick Look (off a Mac) or it
+  /// could not make one.
+  Future<String?> documentPicture(String path) => _pictures[path] ??= () async {
+    if (!Desktop.current.documentPictures) return null;
+    try {
+      final out = await Directory.systemTemp.createTemp('helmy-look');
+      final r = await Process.run('/usr/bin/qlmanage', ['-t', '-s', '900', '-o', out.path, path]);
+      if (r.exitCode != 0) return null;
+      return out.listSync().whereType<File>().firstOrNull?.path;
+    } on Object {
+      return null;
+    }
+  }();
+
   /// Puts the picture at [path] on the clipboard. False when it could not.
   Future<bool> copyImage(String path) async {
     try {

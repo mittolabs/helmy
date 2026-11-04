@@ -3,16 +3,15 @@ import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
-import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../../data/services/desktop_service.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../../utils/platform.dart';
 import 'player.dart';
+import '../../core/file_actions.dart';
 
 /// What an answer shows (`![words](where)`), by what it is.
 enum MediaKind {
@@ -79,15 +78,16 @@ class Media extends StatelessWidget {
     required this.where,
     required this.words,
     required this.cwd,
-    required this.onPreview,
+    required this.actions,
   });
 
   final String where;
   final String words;
   final String cwd;
 
-  /// Opens a page or document in the Preview panel beside the conversation.
-  final ValueChanged<String> onPreview;
+  /// What it may do: open, reveal, preview beside the conversation, and the
+  /// pictures of documents and videos. The screen's view model.
+  final MediaActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -110,14 +110,27 @@ class Media extends StatelessWidget {
         ? _Elsewhere(kind: kind, words: words)
         : switch (kind) {
             .image => _Picture(path: at.path, web: at.web, words: words),
-            .video => Player(path: at.path, web: at.web, words: words, video: true),
-            .audio => Player(path: at.path, web: at.web, words: words, video: false),
+            .video => Player(
+              path: at.path,
+              web: at.web,
+              words: words,
+              video: true,
+              actions: actions,
+            ),
+            .audio => Player(
+              path: at.path,
+              web: at.web,
+              words: words,
+              video: false,
+              actions: actions,
+            ),
             .document => _Document(path: at.path, web: at.web),
-            .quickLook => _QuickLook(path: at.path!),
+            .quickLook => _QuickLook(path: at.path!, actions: actions),
             .page => _PageCard(
               url: at.web!,
               words: words,
-              onPreview: webViewHere ? onPreview : null,
+              onPreview: webViewHere ? actions.preview : null,
+              actions: actions,
             ),
           };
     if (kind == .page) return body;
@@ -127,11 +140,12 @@ class Media extends StatelessWidget {
       children: [
         body,
         _Caption(
+          actions: actions,
           words: words,
           path: at.path,
           web: at.web,
           onPreview: kind == .document && webViewHere
-              ? () => onPreview(at.web?.toString() ?? Uri.file(at.path!).toString())
+              ? () => actions.preview(at.web?.toString() ?? Uri.file(at.path!).toString())
               : null,
         ),
       ],
@@ -141,7 +155,8 @@ class Media extends StatelessWidget {
 
 /// The words for a shown thing, and what can be done with it.
 class _Caption extends StatelessWidget {
-  const _Caption({required this.words, this.path, this.web, this.onPreview});
+  const _Caption({required this.words, required this.actions, this.path, this.web, this.onPreview});
+  final FileActions actions;
   final String words;
   final String? path;
   final Uri? web;
@@ -150,7 +165,7 @@ class _Caption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    final desktop = context.read<DesktopService>();
+    final desktop = actions;
     return Row(
       spacing: 4,
       children: [
@@ -270,27 +285,15 @@ class _DocumentState extends State<_Document> {
 
 /// A picture of an office document's first page, by Quick Look.
 class _QuickLook extends StatelessWidget {
-  const _QuickLook({required this.path});
+  const _QuickLook({required this.path, required this.actions});
   final String path;
-
-  static final _made = <String, Future<String?>>{};
-
-  /// Quick Look's picture of [path], made once into a temporary folder.
-  static Future<String?> _thumbnail(String path) => _made[path] ??= () async {
-    // Quick Look is a Mac's; elsewhere the document opens in its own app.
-    if (!Desktop.current.documentPictures) return null;
-    final out = await Directory.systemTemp.createTemp('helmy-look');
-    final r = await Process.run('/usr/bin/qlmanage', ['-t', '-s', '900', '-o', out.path, path]);
-    if (r.exitCode != 0) return null;
-    final made = out.listSync().whereType<File>().firstOrNull;
-    return made?.path;
-  }();
+  final MediaActions actions;
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return FutureBuilder(
-      future: _thumbnail(path),
+      future: actions.documentPicture(path),
       builder: (context, snap) {
         if (snap.connectionState != .done) {
           return const _Frame(height: 48, child: Center(child: Spinner(size: 16)));
@@ -316,7 +319,13 @@ class _QuickLook extends StatelessWidget {
 /// A web page, or an app running on this Mac: what it is, and the way to open
 /// it beside the conversation.
 class _PageCard extends StatelessWidget {
-  const _PageCard({required this.url, required this.words, required this.onPreview});
+  const _PageCard({
+    required this.url,
+    required this.words,
+    required this.onPreview,
+    required this.actions,
+  });
+  final FileActions actions;
   final Uri url;
   final String words;
 
@@ -367,9 +376,7 @@ class _PageCard extends StatelessWidget {
           Button(
             variant: .outline,
             size: .sm,
-            onPressed: onPreview != null
-                ? () => onPreview!('$url')
-                : () => context.read<DesktopService>().open('$url'),
+            onPressed: onPreview != null ? () => onPreview!('$url') : () => actions.open('$url'),
             child: Text(onPreview != null ? 'Open beside' : 'Open in browser'),
           ),
         ],

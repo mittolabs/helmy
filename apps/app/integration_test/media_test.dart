@@ -16,10 +16,16 @@ import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/ui/core/ashlar/button.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
+
+import '../testing/media_actions.dart';
+
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 const samples = String.fromEnvironment('SAMPLES');
+
+/// What the pictures and players may do, with the real services behind.
+final actions = TestMediaActions(desktop: DesktopService(), watch: WatchService(CliLocator()));
 
 /// The corner player, as the app provides it.
 final corner = PoppedOut();
@@ -35,7 +41,7 @@ Future<void> show(WidgetTester tester, String file) async {
         theme: appTheme,
         darkTheme: appDarkTheme,
         home: SingleChildScrollView(
-          child: Media(where: '$samples/$file', words: file, cwd: samples, onPreview: (_) {}),
+          child: Media(where: '$samples/$file', words: file, cwd: samples, actions: actions),
         ),
       ),
     ),
@@ -168,7 +174,7 @@ void main() {
                   where: '$samples/sample.mp4',
                   words: 'sample',
                   cwd: samples,
-                  onPreview: (_) {},
+                  actions: actions,
                 ),
               ),
               const CornerPlayer(),
@@ -215,7 +221,7 @@ void main() {
               where: '$samples/sample.mp4',
               words: 'sample',
               cwd: samples,
-              onPreview: (_) {},
+              actions: actions,
             ),
           ),
         ),

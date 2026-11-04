@@ -26,10 +26,6 @@ import 'new_session.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
 import '../../chat/widgets/player.dart';
-import '../../../domain/problem.dart';
-import '../../../data/services/fixes.dart';
-
-import 'package:provider/provider.dart';
 
 /// The sessions down the side, the open one beside them.
 class ShellScreen extends StatelessWidget {
@@ -670,7 +666,7 @@ class _NotificationsBlocked extends StatelessWidget {
               Button(
                 variant: .outline,
                 size: .xs,
-                onPressed: () => context.read<Fixes>().apply(Fix.allowNotifications),
+                onPressed: viewModel.allowNotifications,
                 child: const Text('Allow'),
               ),
               Button(

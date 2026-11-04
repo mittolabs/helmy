@@ -12,6 +12,8 @@ import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/ui/core/ashlar/markdown.dart';
 import 'package:provider/provider.dart';
 
+import '../testing/media_actions.dart';
+
 void main() {
   test('a folder line is found, taken out, and hidden while it is still arriving', () {
     const answer = 'Moved.\nHELMY_FOLDER: /Users/someone/Mittolabs\n';
@@ -56,7 +58,7 @@ void main() {
         4, 0, 9, 251, 3, 253, 227, 85, 242, 156, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
       ]);
     });
-    final previewed = <String>[];
+    final actions = TestMediaActions();
     await tester.pumpWidget(
       Provider(
         create: (_) => DesktopService(),
@@ -65,7 +67,7 @@ void main() {
           darkTheme: appDarkTheme,
           home: MarkdownMedia(
             show: (where, words) =>
-                Media(where: where, words: words, cwd: dir.path, onPreview: previewed.add),
+                Media(where: where, words: words, cwd: dir.path, actions: actions),
             child: Markdown(
               'Here it is:\n\n![a dot](${dir.path}/my dot.png)\n\n'
               '![the old one](${dir.path}/gone.png)\n\n'
@@ -81,7 +83,7 @@ void main() {
     expect(find.textContaining('Not found: the old one'), findsOneWidget);
     expect(find.text('your app'), findsOneWidget);
     await tester.tap(find.text('Open beside'));
-    expect(previewed, ['http://localhost:3000']);
+    expect(actions.previewed, ['http://localhost:3000']);
     await tester.runAsync(() => dir.delete(recursive: true));
   });
 

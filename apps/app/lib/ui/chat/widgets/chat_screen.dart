@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
-import '../../../data/services/desktop_service.dart';
 import '../../../utils/project_files.dart';
 import '../../../utils/starters.dart';
 import '../../../data/services/engines/attachments.dart';
@@ -232,7 +231,7 @@ class _ChatScreenState extends State<ChatScreen> {
   );
 
   Future<void> _paste() async {
-    if (await vm.pasteImage(context.read<DesktopService>().pasteImage)) return;
+    if (await vm.pasteImage()) return;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final paste = data?.text;
     if (paste == null || paste.isEmpty) return;
@@ -325,12 +324,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         // What answers show (`![words](where)`): pictures,
                         // players, documents, pages.
                         child: MarkdownMedia(
-                          show: (where, words) => Media(
-                            where: where,
-                            words: words,
-                            cwd: session.cwd,
-                            onPreview: vm.preview,
-                          ),
+                          show: (where, words) =>
+                              Media(where: where, words: words, cwd: session.cwd, actions: vm),
                           child: _FadeUnderHeader(
                             child: SelectableRegion(
                               selectionControls: AshlarSelectionControls(t.colors.foreground),
@@ -1029,7 +1024,7 @@ class _SessionMenu extends StatelessWidget {
     if (where == null) return;
     final result = await vm.saveMarkdown(where.path);
     if (!context.mounted) return;
-    if (result is Ok) return showSavedToast(context, where.path);
+    if (result is Ok) return showSavedToast(context, where.path, files: vm);
     showToast(
       context,
       title: 'Could not save',
