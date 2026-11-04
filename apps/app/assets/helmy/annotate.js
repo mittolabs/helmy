@@ -20,12 +20,27 @@
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      .box { position: fixed; border: 2px solid #2563eb; background: rgba(37,99,235,.10);
-             border-radius: 3px; pointer-events: none; box-sizing: border-box; }
-      .hover { border-style: dashed; background: rgba(37,99,235,.06); }
-      .badge { position: fixed; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
-               background: #2563eb; color: #fff; font: 600 11px/18px -apple-system, system-ui, sans-serif;
-               text-align: center; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+      :host { --mark: #2563eb; --bg: #0a0a0a; --fg: #fafafa; --muted: #a1a1a1; --line: rgba(255,255,255,.12);
+              --radius: 10px; --font: -apple-system, system-ui, sans-serif; }
+      .box { position: fixed; border: 2px solid var(--mark); background: color-mix(in srgb, var(--mark) 10%, transparent);
+             border-radius: 4px; pointer-events: none; box-sizing: border-box; }
+      .hover { border-style: dashed; background: color-mix(in srgb, var(--mark) 6%, transparent); }
+      .badge { position: fixed; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; box-sizing: border-box;
+               background: var(--mark); color: #fff; font: 600 11px/18px var(--font);
+               text-align: center; pointer-events: auto; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+      .note { position: fixed; width: 260px; box-sizing: border-box; padding: 8px; pointer-events: auto;
+              background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: var(--radius);
+              box-shadow: 0 8px 24px rgba(0,0,0,.35); font: 13px/1.4 var(--font); }
+      .note textarea { all: unset; display: block; width: 100%; min-height: 38px; max-height: 120px; overflow: auto;
+                       box-sizing: border-box; font: 13px/1.4 var(--font); color: var(--fg); white-space: pre-wrap; }
+      .note textarea::placeholder { color: var(--muted); }
+      .note .row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px;
+                   color: var(--muted); font-size: 11px; }
+      .note button { all: unset; cursor: pointer; color: var(--muted); padding: 2px 6px; border-radius: 6px; font-size: 11px; }
+      .note button:hover { color: var(--fg); background: var(--line); }
+      .said { position: fixed; max-width: 220px; padding: 3px 8px; border-radius: 8px; pointer-events: auto; cursor: pointer;
+              background: var(--bg); color: var(--fg); border: 1px solid var(--line); font: 12px/1.35 var(--font);
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
       .catch { position: fixed; inset: 0; pointer-events: auto; cursor: crosshair; }
       canvas { position: fixed; inset: 0; pointer-events: none; }
       .live { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -186,14 +201,77 @@
     marksLayer.appendChild(mark.badgeEl);
     place(mark.badgeEl, r.x - 9, r.y - 9);
     marks.push(mark);
-    const { boxEl, badgeEl, ...out } = mark;
+    mark.badgeEl.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); openNote(mark); });
+    const { boxEl, badgeEl, noteEl, saidEl, ...out } = mark;
     post({ type: 'mark', mark: out });
-    live.textContent = `Marked ${mark.n}: ${mark.summary}`;
+    live.textContent = `Marked ${mark.n}: ${mark.summary}. Type a note, then Enter.`;
+    openNote(mark);
+  };
+
+  // A note on a mark, typed on the page beside it.
+  let open = null;
+  const closeNote = () => {
+    if (!open) return;
+    const m = open;
+    open = null;
+    m.noteEl.remove();
+    m.noteEl = null;
+    showSaid(m);
+  };
+  const showSaid = (m) => {
+    m.saidEl && m.saidEl.remove();
+    m.saidEl = null;
+    if (!m.note) return;
+    m.saidEl = document.createElement('div');
+    m.saidEl.className = 'said';
+    m.saidEl.textContent = m.note;
+    m.saidEl.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); openNote(m); });
+    root.appendChild(m.saidEl);
+    placeSaid(m);
+  };
+  const placeSaid = (m) => m.saidEl && place(m.saidEl, m.rect.x + 14, m.rect.y - 11);
+  const placeNote = (m) => {
+    if (!m.noteEl) return;
+    const below = m.rect.y + m.rect.height + 8;
+    const y = below + 110 < innerHeight ? below : Math.max(8, m.rect.y - 118);
+    place(m.noteEl, Math.min(Math.max(8, m.rect.x), innerWidth - 268), y);
+  };
+  const openNote = (m) => {
+    closeNote();
+    m.saidEl && (m.saidEl.remove(), (m.saidEl = null));
+    m.noteEl = document.createElement('div');
+    m.noteEl.className = 'note';
+    m.noteEl.innerHTML = `<textarea rows="2" placeholder="What should change here?"></textarea>
+      <div class="row"><span>Mark ${m.n} · Enter to keep</span><button type="button">Remove</button></div>`;
+    const area = m.noteEl.querySelector('textarea');
+    area.value = m.note || '';
+    area.addEventListener('input', () => {
+      m.note = area.value;
+      post({ type: 'note', n: m.n, text: area.value });
+    });
+    area.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') { e.preventDefault(); closeNote(); }
+    });
+    m.noteEl.querySelector('button').addEventListener('click', () => {
+      const n = m.n;
+      closeNote();
+      removeMark(n);
+      post({ type: 'removed', n });
+    });
+    m.noteEl.addEventListener('mousedown', (e) => e.stopPropagation());
+    root.appendChild(m.noteEl);
+    open = m;
+    placeNote(m);
+    setTimeout(() => area.focus(), 0);
   };
 
   const removeMark = (n) => {
     const m = marks.find((x) => x.n === n);
     if (!m) return;
+    if (open === m) { open = null; }
+    m.noteEl && m.noteEl.remove();
+    m.saidEl && m.saidEl.remove();
     m.boxEl && m.boxEl.remove();
     m.badgeEl.remove();
     if (m.kind === 'drawing') strokes = strokes.filter((s) => s !== m.strokes);
@@ -246,6 +324,7 @@
 
   const down = (e) => {
     e.preventDefault();
+    if (open) { closeNote(); return; }
     const p = pointIn(e);
     if (mode === 'pick') pick(under(e));
     else if (mode === 'region') drag = { from: p, to: p };
@@ -302,7 +381,7 @@
     live.textContent = name(el);
   };
   const key = (e) => {
-    if (!mode) return;
+    if (!mode || open) return;
     if (e.key === 'Escape') { post({ type: 'stop' }); return; }
     if (mode !== 'pick') return;
     const all = [...document.body.querySelectorAll('*')].filter(walkable);
@@ -354,6 +433,8 @@
       m.rect = { ...m.rect, x: m.rect.x - dx, y: m.rect.y - dy };
       if (m.boxEl) Object.assign(m.boxEl.style, { left: m.rect.x + 'px', top: m.rect.y + 'px' });
       place(m.badgeEl, m.rect.x - 9, m.rect.y - 9);
+      placeNote(m);
+      placeSaid(m);
     }
     for (const s of strokes.flat()) for (const p of s) { p.x -= dx; p.y -= dy; }
     paint();
@@ -362,6 +443,8 @@
 
   window.__helmyAnnotate = {
     setMode,
+    // Helmy's colors, corners and font, so the marks and notes look like it.
+    theme: (t) => { for (const [k, v] of Object.entries(t)) host.style.setProperty('--' + k, v); },
     remove: removeMark,
     clear: () => { for (const m of [...marks]) removeMark(m.n); },
     undo: () => marks.length && removeMark(marks[marks.length - 1].n),

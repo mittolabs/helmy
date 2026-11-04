@@ -244,7 +244,10 @@ class _ThemeCard extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 borderRadius: .circular(t.radiusLg),
-                border: Border.all(color: t.colors.border.withValues(alpha: .7), width: .5),
+                border: Border.all(
+                  color: t.colors.border.withValues(alpha: t.colors.border.a * .7),
+                  width: .5,
+                ),
               ),
               child: switch (choice) {
                 .light => light,

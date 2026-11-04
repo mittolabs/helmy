@@ -45,7 +45,7 @@ class HelmyDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: c.popover,
             borderRadius: .circular(18),
-            border: Border.all(color: c.border.withValues(alpha: .45), width: .5),
+            border: Border.all(color: c.border.withValues(alpha: c.border.a * .45), width: .5),
             boxShadow: t.shadowLg,
           ),
           child: Column(

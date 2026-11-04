@@ -183,6 +183,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
     if (_markingOpen) {
       await _marking.clear();
     } else {
+      _marking.theme = markTheme(AshlarTheme.of(context));
       await _marking.use('pick');
     }
     if (mounted) setState(() => _markingOpen = !_markingOpen);
@@ -612,7 +613,12 @@ class _PreviewPanelState extends State<PreviewPanel> {
               setState(() => _sizesOpen = false);
             },
           ),
-        if (_markingOpen) MarkingBar(marking: _marking, onAdd: () => unawaited(_addMarks())),
+        if (_markingOpen)
+          MarkingBar(
+            marking: _marking,
+            onAdd: () => unawaited(_addMarks()),
+            onDone: () => unawaited(_toggleMarking()),
+          ),
         // The line under the toolbar, and the page's progress along it.
         SizedBox(
           height: 2,

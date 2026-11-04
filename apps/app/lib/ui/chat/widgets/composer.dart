@@ -70,7 +70,7 @@ class Composer extends StatelessWidget {
         color: dark ? const Color(0xFF151515) : c.muted.withValues(alpha: .45),
         borderRadius: .circular(22),
         border: Border.all(
-          color: dark ? const Color(0x24FFFFFF) : c.border.withValues(alpha: .8),
+          color: dark ? const Color(0x24FFFFFF) : c.border.withValues(alpha: c.border.a * .8),
           width: dark ? 1 : .5,
         ),
       ),

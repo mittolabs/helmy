@@ -147,7 +147,8 @@ class _DividerState extends State<_Divider> {
             alignment: Alignment.centerRight,
             child: Container(
               width: _hot ? 2 : 1,
-              color: _hot ? c.foreground.withValues(alpha: .3) : c.border.withValues(alpha: .6),
+              // The theme's hairline, brighter only while dragged.
+              color: _hot ? c.foreground.withValues(alpha: .3) : c.border,
             ),
           ),
         ),

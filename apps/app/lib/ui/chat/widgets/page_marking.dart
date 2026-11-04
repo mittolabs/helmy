@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../domain/page_marks.dart';
 import '../../core/ashlar/button.dart';
-import '../../core/ashlar/input.dart';
+import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 
@@ -22,10 +22,10 @@ typedef PageAccess = ({
 });
 
 /// Marking up the page for the agent: point at an element, drag over a
-/// region or draw, with a note on each mark. The marks go to the message as a
-/// picture of the page showing them, numbered, and a file that says what each
-/// is: the user's note, then the element's selector, source file, styles and
-/// HTML.
+/// region or draw. Each mark is numbered on the page, and its note is typed
+/// there beside it. The marks go to the message as a picture of the page
+/// showing them, and a file that says what each is: the note, then the
+/// element's selector, source file, styles and HTML.
 class PageMarking extends ChangeNotifier {
   PageMarking(this._page);
   final PageAccess _page;
@@ -33,13 +33,16 @@ class PageMarking extends ChangeNotifier {
   /// 'pick', 'region' or 'draw' while marking; null when not.
   String? mode;
   final marks = <PageMark>[];
-  final notes = <int, TextEditingController>{};
 
   static String? _script;
+
+  /// Helmy's colors, corners and font, for the marks and notes on the page.
+  Map<String, String> theme = const {};
 
   Future<void> _ensure() async {
     _script ??= await rootBundle.loadString('assets/helmy/annotate.js');
     await _page.run(_script!);
+    await _page.run('window.__helmyAnnotate.theme(${jsonEncode(theme)})');
   }
 
   Future<void> use(String? to) async {
@@ -49,7 +52,8 @@ class PageMarking extends ChangeNotifier {
     await _page.run('window.__helmyAnnotate && window.__helmyAnnotate.setMode(${jsonEncode(to)})');
   }
 
-  /// What the page sent: a mark made, or Escape pressed.
+  /// What the page sent: a mark made, a note typed, a mark removed there, or
+  /// Escape pressed.
   void fromPage(String message) {
     final Object? json;
     try {
@@ -58,36 +62,34 @@ class PageMarking extends ChangeNotifier {
       return;
     }
     if (json is! Map) return;
+    final n = json['n'];
     switch (json['type']) {
       case 'mark':
-        final mark = PageMark.fromJson(json['mark'] as Map);
-        marks.add(mark);
-        notes[mark.n] = TextEditingController();
+        marks.add(PageMark.fromJson(json['mark'] as Map));
+        notifyListeners();
+      case 'note':
+        for (final m in marks.where((m) => m.n == n)) {
+          m.note = '${json['text'] ?? ''}';
+        }
+      case 'removed':
+        marks.removeWhere((m) => m.n == n);
         notifyListeners();
       case 'stop':
         unawaited(use(null));
     }
   }
 
-  Future<void> remove(int n) async {
-    marks.removeWhere((m) => m.n == n);
-    notes.remove(n)?.dispose();
+  Future<void> undo() async {
+    if (marks.isEmpty) return;
+    final n = marks.removeLast().n;
     notifyListeners();
     await _page.run('window.__helmyAnnotate && window.__helmyAnnotate.remove($n)');
-  }
-
-  Future<void> undo() async {
-    if (marks.isNotEmpty) await remove(marks.last.n);
   }
 
   /// The page moved on: its marks went with it.
   void pageMoved() {
     if (marks.isEmpty && mode == null) return;
-    for (final c in notes.values) {
-      c.dispose();
-    }
     marks.clear();
-    notes.clear();
     mode = null;
     notifyListeners();
   }
@@ -102,12 +104,9 @@ class PageMarking extends ChangeNotifier {
   /// The picture and the file for the message; null when there are no marks.
   Future<List<String>?> toFiles() async {
     if (marks.isEmpty) return null;
-    for (final m in marks) {
-      m.note = notes[m.n]?.text ?? '';
-    }
     final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    // The hover outline off, so only the marks show.
+    // The hover outline off, so only the marks (and notes) show.
     await _page.run('window.__helmyAnnotate && window.__helmyAnnotate.setMode(null)');
     final picture = await _page.picture('${dir.path}/page-marks-$stamp.png');
     final md = File('${dir.path}/page-marks-$stamp.md');
@@ -121,22 +120,30 @@ class PageMarking extends ChangeNotifier {
     );
     return [?picture, md.path];
   }
-
-  @override
-  void dispose() {
-    for (final c in notes.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
 }
 
-/// Under the page's toolbar while marking: the ways to mark, and the marks
-/// made, each with a note.
+/// Helmy's look for the page's marks and notes, as CSS values.
+Map<String, String> markTheme(AshlarThemeData t) {
+  String css(Color c) =>
+      'rgba(${(c.r * 255).round()}, ${(c.g * 255).round()}, ${(c.b * 255).round()}, ${c.a.toStringAsFixed(3)})';
+  final c = t.colors;
+  return {
+    'bg': css(c.popover),
+    'fg': css(c.popoverForeground),
+    'muted': css(c.mutedForeground),
+    'line': css(c.border),
+    'radius': '${t.radiusLg}px',
+    'font': '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+  };
+}
+
+/// Under the page's toolbar while marking: how to mark, the marks so far,
+/// and what to do with them.
 class MarkingBar extends StatelessWidget {
-  const MarkingBar({super.key, required this.marking, required this.onAdd});
+  const MarkingBar({super.key, required this.marking, required this.onAdd, required this.onDone});
   final PageMarking marking;
   final VoidCallback onAdd;
+  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -144,120 +151,102 @@ class MarkingBar extends StatelessWidget {
     builder: (context, _) {
       final t = AshlarTheme.of(context);
       final c = t.colors;
-      final muted = t.text.xs.copyWith(color: c.mutedForeground);
-      Widget way(String mode, IconData icon, String label, String tip) => Tooltip(
-        message: tip,
-        child: Button(
-          variant: marking.mode == mode ? .secondary : .ghost,
-          size: .xs,
-          semanticLabel: label,
-          onPressed: () => unawaited(marking.use(marking.mode == mode ? null : mode)),
-          leading: AshlarIcon(icon, size: 14),
-          child: Text(label),
-        ),
-      );
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: c.border)),
-        ),
-        padding: const .fromLTRB(8, 6, 8, 6),
-        child: Column(
-          crossAxisAlignment: .stretch,
-          spacing: 6,
-          children: [
-            Row(
-              spacing: 2,
-              children: [
-                way(
-                  'pick',
-                  AshlarIconsRoundedStroke.mousePointerClick,
-                  'Element',
-                  'Point at an element and click, or Tab to it and press Enter',
-                ),
-                way(
-                  'region',
-                  AshlarIconsRoundedStroke.squareDashed,
-                  'Region',
-                  'Drag over a region',
-                ),
-                way('draw', AshlarIconsRoundedStroke.pencil, 'Draw', 'Draw on the page'),
-                const Spacer(),
-                Tooltip(
-                  message: 'Undo the last mark',
-                  child: Button(
-                    variant: .ghost,
-                    size: .iconXs,
-                    semanticLabel: 'Undo the last mark',
-                    onPressed: marking.marks.isEmpty ? null : () => unawaited(marking.undo()),
-                    child: const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14),
+      final count = marking.marks.length;
+      // One control, three ways: the chosen one raised, as a segmented control.
+      Widget way(String mode, IconData icon, String label, String tip) {
+        final on = marking.mode == mode;
+        return Tooltip(
+          message: tip,
+          child: Pressable(
+            selected: on,
+            semanticLabel: label,
+            onPressed: () => unawaited(marking.use(on ? null : mode)),
+            builder: (context, state) => Container(
+              padding: const .symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: on
+                    ? c.background
+                    : state.hovered
+                    ? c.background.withValues(alpha: .5)
+                    : null,
+                borderRadius: .circular(t.radiusMd - 2),
+                border: Border.all(color: on ? c.border : const Color(0x00000000)),
+              ),
+              child: Row(
+                mainAxisSize: .min,
+                spacing: 6,
+                children: [
+                  AshlarIcon(icon, size: 14, color: on ? c.foreground : c.mutedForeground),
+                  Text(
+                    label,
+                    style: t.text.xs.copyWith(
+                      fontWeight: .w500,
+                      color: on ? c.foreground : c.mutedForeground,
+                    ),
                   ),
-                ),
-                Button(
-                  size: .xs,
-                  onPressed: marking.marks.isEmpty ? null : onAdd,
-                  leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
-                  child: const Text('Add to message'),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (marking.marks.isEmpty)
-              Text(
-                marking.mode == null
-                    ? 'Choose how to mark the page.'
-                    : 'Mark what you mean; each mark takes a note here.',
-                style: muted,
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 168),
-                child: SingleChildScrollView(
-                  child: Column(
-                    spacing: 4,
-                    children: [
-                      for (final m in marking.marks)
-                        Row(
-                          spacing: 6,
-                          children: [
-                            Container(
-                              width: 20,
-                              height: 20,
-                              alignment: Alignment.center,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF2563EB),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                '${m.n}',
-                                style: t.text.xs.copyWith(
-                                  color: const Color(0xFFFFFFFF),
-                                  fontWeight: .w600,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Input(
-                                controller: marking.notes[m.n],
-                                size: .sm,
-                                placeholder: 'A note on ${m.summary}',
-                                semanticLabel: 'Note on mark ${m.n}, ${m.summary}',
-                              ),
-                            ),
-                            Tooltip(
-                              message: 'Remove mark ${m.n}',
-                              child: Button(
-                                variant: .ghost,
-                                size: .iconXs,
-                                semanticLabel: 'Remove mark ${m.n}',
-                                onPressed: () => unawaited(marking.remove(m.n)),
-                                child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 14),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+          ),
+        );
+      }
+
+      return Padding(
+        padding: const .fromLTRB(8, 0, 8, 8),
+        child: Row(
+          spacing: 8,
+          children: [
+            Container(
+              padding: const .all(2),
+              decoration: BoxDecoration(color: c.muted, borderRadius: .circular(t.radiusMd)),
+              child: Row(
+                mainAxisSize: .min,
+                spacing: 2,
+                children: [
+                  way(
+                    'pick',
+                    AshlarIconsRoundedStroke.mousePointerClick,
+                    'Element',
+                    'Click an element, or Tab to it and press Enter',
                   ),
+                  way(
+                    'region',
+                    AshlarIconsRoundedStroke.squareDashed,
+                    'Region',
+                    'Drag over a region',
+                  ),
+                  way('draw', AshlarIconsRoundedStroke.pencil, 'Draw', 'Draw on the page'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Text(
+                count == 0
+                    ? 'Mark what you mean; a note opens beside each mark.'
+                    : '$count mark${count == 1 ? '' : 's'}',
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: t.text.xs.copyWith(color: c.mutedForeground),
+              ),
+            ),
+            if (count > 0)
+              Tooltip(
+                message: 'Undo the last mark',
+                child: Button(
+                  variant: .ghost,
+                  size: .iconXs,
+                  semanticLabel: 'Undo the last mark',
+                  onPressed: () => unawaited(marking.undo()),
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14),
                 ),
               ),
+            Button(
+              size: .xs,
+              onPressed: count == 0 ? null : onAdd,
+              leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
+              child: const Text('Add to message'),
+            ),
+            Button(variant: .ghost, size: .xs, onPressed: onDone, child: const Text('Done')),
           ],
         ),
       );

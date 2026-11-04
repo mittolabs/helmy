@@ -214,6 +214,7 @@ void main() {
       );
     });
     vm.preview(Uri.file(file).toString());
+    final markKey = GlobalKey();
     await tester.pumpWidget(
       AshlarApp(
         theme: appTheme,
@@ -221,7 +222,10 @@ void main() {
         themeMode: .dark,
         home: Align(
           alignment: .topLeft,
-          child: SizedBox(width: 600, height: 600, child: PreviewPanel(vm: vm)),
+          child: RepaintBoundary(
+            key: markKey,
+            child: SizedBox(width: 600, height: 600, child: PreviewPanel(vm: vm)),
+          ),
         ),
       ),
     );
@@ -244,19 +248,30 @@ void main() {
     // Click the button on the page: a mark, numbered 1, with a note to type.
     final view = tester.getRect(find.byType(ChromiumView));
     await tester.tapAt(view.topLeft + const Offset(180, 130));
-    await wait(
-      () => find.bySemanticsLabel(RegExp('Note on mark 1')).evaluate().isNotEmpty,
-      seconds: 8,
-    );
-    expect(find.bySemanticsLabel(RegExp('Note on mark 1, button')), findsOneWidget);
-    await tester.enterText(find.byType(EditableText).last, 'make it bigger');
+    await wait(() => find.text('1 mark').evaluate().isNotEmpty, seconds: 8);
+    expect(find.text('1 mark'), findsOneWidget);
+    // Its note opens on the page beside it; typing goes there.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+    for (final ch in 'bigger'.split('')) {
+      await tester.sendKeyEvent(LogicalKeyboardKey(ch.codeUnitAt(0)), character: ch);
+    }
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
+    await tester.pump();
+    if (shot.isNotEmpty) {
+      final boundary = markKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final png = await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        return image.toByteData(format: ui.ImageByteFormat.png);
+      });
+      File(shot.replaceAll('.png', '-marks.png')).writeAsBytesSync(png!.buffer.asUint8List());
+    }
     await tester.tap(find.text('Add to message'));
     await wait(() => vm.attachments.length >= 2, seconds: 10);
     expect(vm.attachments.where((p) => p.endsWith('.png')), hasLength(1));
     final md = vm.attachments.firstWhere((p) => p.endsWith('.md'));
     final text = await tester.runAsync(() => File(md).readAsString());
     expect(text, contains('# Marks on Shop'));
-    expect(text, contains('Note: make it bigger'));
+    expect(text, contains('Note: bigger'));
     expect(text, contains('Selector: `#buy`'));
     expect(text, contains('"Buy now"'));
     await tester.pumpWidget(const SizedBox());
