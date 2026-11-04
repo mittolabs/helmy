@@ -491,6 +491,7 @@ class _Scripted implements EngineRouter {
     required List<EngineInfo> candidates,
     required String? current,
     Set<Capability> needs = const {},
+    bool warm = false,
   }) {
     final ids = [for (final c in candidates) c.id];
     while (_next < order.length) {

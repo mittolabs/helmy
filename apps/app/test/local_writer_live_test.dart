@@ -11,8 +11,13 @@ void main() {
     final items = <ChatItem>[
       UserMessage('I want to plan my November budget. Income is 3,400 after tax.'),
       AssistantText('a:0', 'Rent 1,100, food 450, transport 180. That leaves 1,670.'),
-      UserMessage('Put 1,000 to the car loan and keep the rest as savings, but I am not sure about the car insurance yet.'),
-      AssistantText('b:0', 'Done: 1,000 to the car loan, 670 to savings. Car insurance is still to decide; quotes come next week.'),
+      UserMessage(
+        'Put 1,000 to the car loan and keep the rest as savings, but I am not sure about the car insurance yet.',
+      ),
+      AssistantText(
+        'b:0',
+        'Done: 1,000 to the car loan, 670 to savings. Car insurance is still to decide; quotes come next week.',
+      ),
     ];
     final text = ChatKeeper.transcript(items);
     for (final model in ['qwen3:0.6b', 'qwen3:8b-16k']) {
@@ -29,8 +34,10 @@ void main() {
         "Write the updated brief: lines starting 'Decided:' or 'Open:', at most 8 lines, each under 25 words. Keep what still holds from the current brief, add what this conversation decided or left open, drop what it settled. Only facts from the text. Output only the lines.",
       );
       // ignore: avoid_print
-      print('--- $model (${watch.elapsedMilliseconds} ms, tokens ${s?.promptTokens}+${s?.outputTokens}, ${b?.promptTokens}+${b?.outputTokens})\n'
-          'summary: ${s == null ? null : ChatKeeper.summaryFrom(s.text)}\nbrief:\n${b == null ? null : ChatKeeper.briefFrom(b.text)}');
+      print(
+        '--- $model (${watch.elapsedMilliseconds} ms, tokens ${s?.promptTokens}+${s?.outputTokens}, ${b?.promptTokens}+${b?.outputTokens})\n'
+        'summary: ${s == null ? null : ChatKeeper.summaryFrom(s.text)}\nbrief:\n${b == null ? null : ChatKeeper.briefFrom(b.text)}',
+      );
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
 }

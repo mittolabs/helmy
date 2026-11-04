@@ -190,4 +190,70 @@ void usageFreshness() {
     meter.report('a', const Usage(used: .06), now: t0.add(const Duration(minutes: 50)));
     expect(meter.usageOf('a')!.reportedAt, t0.add(const Duration(minutes: 50)));
   });
+
+  group('threads rarely move (decision 0014)', () {
+    late UsageMeter meter;
+    late HeadroomRouter router;
+    final now = DateTime(2026, 11, 4, 12);
+    List<EngineInfo> e(List<String> ids) => [for (final id in ids) EngineInfo(id: id, name: id)];
+    setUp(() {
+      meter = UsageMeter();
+      router = HeadroomRouter(meter, now: () => now);
+    });
+
+    test('a warm thread stays, though another has much more room', () {
+      meter
+        ..report('claude', const Usage(used: .60))
+        ..report('codex', const Usage(used: .05));
+      expect(
+        router.choose(candidates: e(['claude', 'codex']), current: 'claude', warm: true),
+        'claude',
+      );
+      expect(
+        router.choose(candidates: e(['claude', 'codex']), current: 'claude'),
+        'codex',
+        reason: 'cold: it may',
+      );
+    });
+
+    test('a forced move keeps the same kind of engine where one has room', () {
+      meter
+        ..report('claude', const Usage(used: .97))
+        ..report('claude-work', const Usage(used: .50))
+        ..report('codex', const Usage(used: .10));
+      expect(
+        router.choose(
+          candidates: e(['claude', 'claude-work', 'codex']),
+          current: 'claude',
+          warm: true,
+        ),
+        'claude-work',
+      );
+    });
+
+    test('a new thread does not start where it would soon have to move from', () {
+      meter
+        ..report('a', Usage(used: .85, resetsAt: now.add(const Duration(hours: 4))))
+        ..report('b', const Usage(used: .86));
+      // Both are close to their limit; only b's is unknown and a's far off: neither is
+      // open, so the roomiest of all is taken rather than nothing.
+      expect(router.choose(candidates: e(['a', 'b']), current: null), 'a');
+      meter.report('c', Usage(used: .90, resetsAt: now.add(const Duration(minutes: 20))));
+      expect(
+        router.choose(candidates: e(['a', 'b', 'c']), current: null),
+        'c',
+        reason: 'fullest, but its reset is minutes off: it will have room',
+      );
+    });
+  });
+
+  test("a hand-off starts with the thread's summary, then its latest turns", () {
+    final h = handoff([
+      UserMessage('Set the budget'),
+      AssistantText('a:0', 'Set at 2,000.'),
+    ], summary: 'November budget, set');
+    expect(h, contains('In short, so far: November budget, set'));
+    expect(h.indexOf('In short'), lessThan(h.indexOf('Set the budget')));
+    expect(handoff([UserMessage('x')]), isNot(contains('In short')));
+  });
 }

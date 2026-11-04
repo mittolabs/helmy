@@ -5,7 +5,15 @@ import '../../../domain/models/chat_item.dart';
 /// what was asked, the final reply (trimmed) and the files changed. Tool output
 /// is left out; the files are on disk for the engine to read if it needs them.
 /// Empty when it missed nothing.
-String handoff(List<ChatItem> missed, {int maxAsk = 600, int maxReply = 500, int maxChars = 4000}) {
+/// [summary], the thread's own line on what it is about, goes first: the
+/// whole thread at a glance, however many turns the budget leaves out.
+String handoff(
+  List<ChatItem> missed, {
+  int maxAsk = 600,
+  int maxReply = 500,
+  int maxChars = 4000,
+  String? summary,
+}) {
   final turns = <String>[];
   String? ask;
   String? reply;
@@ -78,6 +86,7 @@ String handoff(List<ChatItem> missed, {int maxAsk = 600, int maxReply = 500, int
   return '<earlier_conversation>\n'
       'Another assistant handled part of this conversation in this folder. '
       'What happened since you last took part:\n'
+      '${summary == null || summary.isEmpty ? '' : 'In short, so far: $summary\n'}'
       '${dropped > 0 ? '($dropped earlier turns left out)\n' : ''}'
       '${kept.join('\n\n')}\n'
       '</earlier_conversation>\n\n';

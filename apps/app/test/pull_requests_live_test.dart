@@ -24,7 +24,7 @@ void main() {
     for (final p in r.prs.take(6)) {
       // ignore: avoid_print
       print(
-        '  ${p.repo}#${p.number} ${p.checks.name} review=${p.review} draft=${p.draft} labels=${p.labels.length}',
+        '  ${p.repo}#${p.number} ${p.checks?.name} review=${p.review} draft=${p.draft} labels=${p.labels.length}',
       );
     }
   });

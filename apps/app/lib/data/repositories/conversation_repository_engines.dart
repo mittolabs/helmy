@@ -316,10 +316,13 @@ class ConversationRepositoryEngines extends ConversationRepository {
             ..addAll(owners);
         }
       }
+      final ended = _lastTurnEnd[session.id];
       final id = _router.choose(
         candidates: eligible(candidates, turn.needs),
         current: session.lastEngineId,
         needs: turn.needs,
+        // Its connection still holds it in cache: within minutes of its last turn.
+        warm: ended != null && DateTime.now().difference(ended) < cacheLife,
       );
       if (id == null) {
         c
@@ -363,7 +366,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
       // Everything since this engine last took part, up to the new message.
       final from = thread.seen.clamp(0, turn.start - 1);
       final missed = c.items.sublist(from, turn.start - 1);
-      run.send('${handoff(missed)}${turn.text}', attachments: turn.attachments);
+      run.send(
+        '${handoff(missed, summary: session.summary)}${turn.text}',
+        attachments: turn.attachments,
+      );
       return;
     }
   }
@@ -455,7 +461,16 @@ class ConversationRepositoryEngines extends ConversationRepository {
     notifyListeners();
   }
 
+  /// How long a provider keeps a thread in its cache, about: minutes, not
+  /// hours (decision `0014`). Past it, a thread is read afresh wherever it
+  /// goes, so moving it costs no more than staying.
+  static const cacheLife = Duration(minutes: 5);
+
+  /// When each thread's last turn ended, while Helmy has been open.
+  final _lastTurnEnd = <String, DateTime>{};
+
   void _finish(String sessionId, String engineId, EngineRun run) {
+    _lastTurnEnd[sessionId] = DateTime.now();
     final c = of(sessionId)
       ..busy = false
       ..thinking = false;

@@ -175,4 +175,27 @@ void main() {
       expect(chats.byId(sessions.byId(other.id)!.chatId!)!.brief, isEmpty);
     },
   );
+
+  test('a thread kept busy is kept every fifth turn, its summary ready for a hand-off', () async {
+    final s = await talk('Plan the November budget', 'Set at 2,000.');
+    final writer = _Writer(List.filled(20, 'Budget, being set'));
+    final keeper = ChatKeeper(
+      sessions: sessions,
+      conversations: repo,
+      chats: chats,
+      writer: writer,
+      log: log,
+      quiet: const Duration(hours: 1),
+    );
+    addTearDown(keeper.dispose);
+    final c = repo.of(s.id);
+    for (var i = 0; i < 5; i++) {
+      c.busy = true;
+      repo.notifyListeners();
+      c.busy = false;
+      repo.notifyListeners();
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(sessions.byId(s.id)!.summary, 'Budget, being set');
+  });
 }

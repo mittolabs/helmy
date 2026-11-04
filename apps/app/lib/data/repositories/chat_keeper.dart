@@ -35,6 +35,11 @@ class ChatKeeper {
 
   final _busy = <String>{};
   final _timers = <String, Timer>{};
+  final _turns = <String, int>{};
+
+  /// A thread that keeps busy is kept every this many turns too, so its
+  /// summary is ready for a hand-off before its connection runs out.
+  static const every = 5;
 
   /// A thread that stopped working is kept once it has been quiet a while;
   /// one that starts again is not.
@@ -45,7 +50,12 @@ class ChatKeeper {
         _busy.add(s.id);
         _timers.remove(s.id)?.cancel();
       } else if (_busy.remove(s.id)) {
-        _timers[s.id] = Timer(quiet, () => unawaited(keep(s.id)));
+        final n = _turns[s.id] = (_turns[s.id] ?? 0) + 1;
+        if (n % every == 0) {
+          unawaited(keep(s.id));
+        } else {
+          _timers[s.id] = Timer(quiet, () => unawaited(keep(s.id)));
+        }
       }
     }
   }
