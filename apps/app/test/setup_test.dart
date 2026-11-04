@@ -7,11 +7,12 @@ import 'package:helmy/data/repositories/settings_repository.dart';
 import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/connections_setup.dart';
 import 'package:helmy/data/services/desktop_service.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/ui/core/ashlar/app.dart';
 import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/ui/setup/setup_screen.dart';
 import 'package:provider/provider.dart';
+
+import 'support/storage.dart';
 
 /// Setup that installs and signs in nothing real.
 class _Pretend extends ConnectionsSetup {
@@ -54,7 +55,7 @@ void main() {
       late SettingsRepository settings;
       await tester.runAsync(() async {
         root = await Directory.systemTemp.createTemp('setup');
-        settings = SettingsRepositoryLocal(StorageService(root: () async => root));
+        settings = SettingsRepositoryLocal(storageAt(root));
       });
       final setup = _Pretend()..states['ollama'] = SetupState.signedOut;
       final router = GoRouter(

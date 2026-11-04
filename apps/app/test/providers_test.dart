@@ -15,8 +15,9 @@ import 'package:helmy/data/repositories/chat_repository.dart';
 import 'package:helmy/data/repositories/settings_repository.dart';
 import 'package:helmy/data/repositories/ship_repository.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:provider/provider.dart';
+
+import 'support/storage.dart';
 
 void main() {
   testWidgets('the app provides every repository under the type screens ask for', (tester) async {
@@ -27,7 +28,7 @@ void main() {
       const MethodChannel('plugins.flutter.io/path_provider'),
       (call) async => dir,
     );
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final loaded = (
       storage: storage,

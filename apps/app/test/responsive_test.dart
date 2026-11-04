@@ -16,7 +16,6 @@ import 'package:helmy/data/services/engines/agent_engine.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/memory.dart';
@@ -32,6 +31,8 @@ import 'package:helmy/ui/shell/view_models/sidebar_view_model.dart';
 import 'package:helmy/ui/shell/widgets/shell_screen.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:provider/provider.dart';
+
+import 'support/storage.dart';
 
 /// An engine that is only a name in settings: nothing runs.
 class _Named implements AgentEngine {
@@ -98,7 +99,7 @@ void main() {
         const MethodChannel('plugins.flutter.io/path_provider'),
         (call) async => dir,
       );
-      final storage = StorageService(root: () async => root);
+      final storage = storageAt(root);
       sessions = SessionRepositoryLocal(storage);
       settings = SettingsRepositoryLocal(storage);
       meter = UsageMeter();

@@ -9,13 +9,14 @@ import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/local_writer.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/data/services/turn_log.dart';
 import 'package:helmy/domain/identity.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/utils/result.dart';
+
+import 'support/storage.dart';
 
 /// The model on this Mac, as given: or none.
 class _Writer extends LocalWriter {
@@ -47,7 +48,7 @@ void main() {
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('keeper');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
     chats = ChatRepository(storage, sessions);
     await chats.load();

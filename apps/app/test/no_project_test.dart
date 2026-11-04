@@ -6,11 +6,12 @@ import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/utils/format.dart';
 import 'package:helmy/utils/result.dart';
+
+import 'support/storage.dart';
 
 void main() {
   late Directory root;
@@ -30,7 +31,7 @@ void main() {
   });
 
   test('a session starts without a project in a folder of its own, gone with it', () async {
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

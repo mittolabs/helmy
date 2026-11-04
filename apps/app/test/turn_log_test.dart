@@ -5,13 +5,14 @@ import 'package:helmy/data/repositories/chat_repository.dart';
 import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/claude/claude_reducer.dart';
 import 'package:helmy/data/services/engines/codex/codex_reducer.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/data/services/turn_log.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chats/chat_page_view_model.dart';
 import 'package:helmy/utils/result.dart';
+
+import 'support/storage.dart';
 
 Map<String, Object?> codexUsage({
   required Map<String, int> total,
@@ -142,7 +143,7 @@ void main() {
   });
 
   test("a chat's page: threads moved and briefs rewritten are logged as corrections", () async {
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final chats = ChatRepository(storage, sessions);
     addTearDown(chats.dispose);

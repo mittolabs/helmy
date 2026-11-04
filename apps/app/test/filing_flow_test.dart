@@ -7,12 +7,13 @@ import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/data/services/turn_log.dart';
 import 'package:helmy/domain/filing.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/utils/result.dart';
+
+import 'support/storage.dart';
 
 void main() {
   late Directory root;
@@ -26,7 +27,7 @@ void main() {
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('filing');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
     chats = ChatRepository(storage, sessions);
     await chats.load();

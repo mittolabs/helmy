@@ -11,7 +11,6 @@ import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/identity.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
@@ -26,6 +25,8 @@ import 'package:helmy/ui/shell/widgets/shell_screen.dart';
 import 'package:helmy/utils/platform.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:provider/provider.dart';
+
+import 'support/storage.dart';
 
 /// Words that belong to a Mac alone.
 final _macWords = RegExp(
@@ -73,7 +74,7 @@ void main() {
           const MethodChannel('plugins.flutter.io/path_provider'),
           (call) async => dir,
         );
-        final storage = StorageService(root: () async => root);
+        final storage = storageAt(root);
         sessions = SessionRepositoryLocal(storage);
         settings = SettingsRepositoryLocal(storage);
         repo = ConversationRepositoryEngines(

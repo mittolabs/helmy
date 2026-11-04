@@ -17,6 +17,8 @@ import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/utils/result.dart';
 
+import 'support/storage.dart';
+
 /// An engine that answers every message with [reply], or (for a plain engine
 /// that finds it needs tools) with the needs-tools signal.
 class _Engine implements AgentEngine {
@@ -124,7 +126,7 @@ void main() {
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('decide');
-    storage = StorageService(root: () async => root);
+    storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
   });
   tearDown(() async {
@@ -270,7 +272,7 @@ class _SteeredRun extends _SlowRun {
 void steering() {
   test('sending now redirects: the turn under way stops and the message goes at once', () async {
     final root = await Directory.systemTemp.createTemp('steer');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final engine = _SlowEngine(
@@ -306,7 +308,7 @@ void steering() {
 
   test('where the agent can take it, sending now joins the turn under way', () async {
     final root = await Directory.systemTemp.createTemp('steer');
-    final storage = StorageService(root: () async => root);
+    final storage = storageAt(root);
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final engine = _SlowEngine(
@@ -351,7 +353,7 @@ void moving() {
     () async {
       final root = await Directory.systemTemp.createTemp('move');
       final there = await Directory('${root.path}/elsewhere').create();
-      final storage = StorageService(root: () async => root);
+      final storage = storageAt(root);
       final sessions = SessionRepositoryLocal(storage);
       final meter = UsageMeter();
       final engine = _Engine(

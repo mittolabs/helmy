@@ -17,12 +17,14 @@ import 'package:helmy/ui/shell/view_models/sidebar_view_model.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:flutter/widgets.dart';
 
+import 'support/storage.dart';
+
 void main() {
   test(
     'working sessions come first in a section of their own, and an archive can be undone',
     () async {
       final root = await Directory.systemTemp.createTemp('triage');
-      final storage = StorageService(root: () async => root);
+      final storage = storageAt(root);
       final sessions = SessionRepositoryLocal(storage);
       final meter = UsageMeter();
       final repo = ConversationRepositoryEngines(
@@ -71,7 +73,7 @@ void main() {
     late Session a, b;
     await tester.runAsync(() async {
       root = await Directory.systemTemp.createTemp('snooze');
-      storage = StorageService(root: () async => root);
+      storage = storageAt(root);
       sessions = SessionRepositoryLocal(storage);
       final meter = UsageMeter();
       repo = ConversationRepositoryEngines(

@@ -7,18 +7,24 @@ import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/utils/result.dart';
 
+import 'support/storage.dart';
+
 void main() {
   late Directory root;
   late StorageService storage;
   late SessionRepositoryLocal sessions;
   late ChatRepository chats;
 
+  // A failed save says why, not just that a cast failed.
   Future<Session> thread(String title, {String cwd = '/w/site', String? sideOf}) async =>
-      (await sessions.create(cwd: cwd, title: title, sideOf: sideOf) as Ok).value as Session;
+      switch (await sessions.create(cwd: cwd, title: title, sideOf: sideOf)) {
+        Ok(:final value) => value,
+        Error(:final error) => throw StateError('create failed: $error'),
+      };
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('chats');
-    storage = StorageService(root: () async => root);
+    storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
     chats = ChatRepository(storage, sessions);
   });
