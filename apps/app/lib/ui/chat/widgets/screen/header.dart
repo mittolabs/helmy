@@ -167,6 +167,18 @@ class _Header extends StatelessWidget {
                 ProjectRunButton(vm: vm, compact: MediaQuery.sizeOf(context).width < 820),
                 ProjectMenu(vm: vm),
               ],
+              // The terminal under the conversation, shown or hidden.
+              Tooltip(
+                message:
+                    '${vm.bottomOpen ? 'Hide' : 'Show'} the terminal (${Desktop.current.keys('⌘J')})',
+                child: Button(
+                  variant: vm.bottomOpen ? .secondary : .ghost,
+                  size: .icon,
+                  semanticLabel: vm.bottomOpen ? 'Hide the terminal' : 'Show the terminal',
+                  onPressed: vm.toggleBottom,
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.panelBottom, size: 16),
+                ),
+              ),
               // The panel beside the conversation, shown or hidden, its tabs kept.
               Tooltip(
                 message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',

@@ -476,6 +476,45 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     }
   }
 
+  // The terminal under the conversation, as an editor's bottom panel.
+
+  /// The terminals in it, side by side, by id; empty until first shown.
+  final List<int> bottomTerminals = [];
+  static var _nextTerminal = 0;
+
+  /// Shown; hidden, its terminals keep running.
+  bool bottomOpen = false;
+
+  /// How tall it is, as last dragged.
+  double bottomHeight = 260;
+
+  /// Shows the terminal under the conversation (one is started the first
+  /// time), or hides it.
+  void toggleBottom() {
+    if (!bottomOpen && bottomTerminals.isEmpty) bottomTerminals.add(_nextTerminal++);
+    bottomOpen = !bottomOpen;
+    notifyListeners();
+  }
+
+  /// Another terminal beside the others.
+  void splitBottom() {
+    bottomTerminals.add(_nextTerminal++);
+    bottomOpen = true;
+    notifyListeners();
+  }
+
+  /// Ends terminal [id]; with none left, the panel hides.
+  void closeBottom(int id) {
+    bottomTerminals.remove(id);
+    if (bottomTerminals.isEmpty) bottomOpen = false;
+    notifyListeners();
+  }
+
+  void resizeBottom(double height) {
+    bottomHeight = height;
+    notifyListeners();
+  }
+
   /// The open panel over the whole page, the conversation set aside.
   bool panelExpanded = false;
 

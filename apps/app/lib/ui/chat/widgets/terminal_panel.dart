@@ -29,6 +29,7 @@ class TerminalPanel extends StatefulWidget {
     this.onOutput,
     this.onExit,
     this.onRunAgain,
+    this.onClosed,
   });
   final String cwd;
 
@@ -45,6 +46,10 @@ class TerminalPanel extends StatefulWidget {
   final ValueChanged<String>? onOutput;
   final ValueChanged<int>? onExit;
   final VoidCallback? onRunAgain;
+
+  /// Where a shell that ends goes away with it (the bottom panel's): told
+  /// instead of offering to start it again.
+  final VoidCallback? onClosed;
 
   @override
   State<TerminalPanel> createState() => _TerminalPanelState();
@@ -102,6 +107,7 @@ class _TerminalPanelState extends State<TerminalPanel> {
       pty.exitCode.then((code) {
         // A run replaced by a newer one says nothing.
         if (!mounted || _pty != pty) return;
+        if (command == null && widget.onClosed != null) return widget.onClosed!();
         // Nothing more to type into: the cursor goes.
         if (command != null) _terminal.write('\x1B[?25l');
         setState(() => _exit = code);

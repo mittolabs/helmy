@@ -40,6 +40,7 @@ import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
+import 'bottom_terminal.dart';
 import 'files_panel.dart';
 import 'side_chat_panel.dart';
 import 'preview_panel.dart';
@@ -330,6 +331,8 @@ class _ChatScreenState extends State<ChatScreen> {
           if (actionToRun(vm) case final a?) vm.run(a);
         },
         Desktop.current.shortcut(LogicalKeyboardKey.keyO, shift: true): () => vm.openIn(),
+        // The terminal under the conversation, as in an editor.
+        Desktop.current.shortcut(LogicalKeyboardKey.keyJ): vm.toggleBottom,
         // ⌘⌥1 to ⌘⌥9: the actions in the project menu's order.
         for (final (i, key) in actionKeys.indexed)
           SingleActivator(
@@ -486,6 +489,12 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     ),
+                    // The terminal under the conversation: hidden, it keeps running.
+                    if (widget.bar == null && vm.bottomTerminals.isNotEmpty)
+                      Offstage(
+                        offstage: !vm.bottomOpen,
+                        child: BottomTerminal(vm: vm),
+                      ),
                   ],
                 ),
               ),
