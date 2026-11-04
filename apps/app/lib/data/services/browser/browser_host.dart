@@ -37,6 +37,18 @@ class BrowserHost {
   final _openers = <String, void Function(String url)>{};
   final _attached = StreamController<String>.broadcast();
   final _background = <String, PageDriver>{};
+  final _devices = <String, void Function()>{};
+
+  /// How a session shows its Device panel, while its conversation is on screen.
+  void deviceOpener(String session, void Function()? open) =>
+      open == null ? _devices.remove(session) : _devices[session] = open;
+
+  /// Shows the session's Device panel; false when its conversation is not on screen.
+  bool showDevice(String? session) {
+    final open = session == null ? _devices.values.lastOrNull : _devices[session];
+    open?.call();
+    return open != null;
+  }
 
   /// A session's Preview panel shows a page the agent can work.
   void attach(String session, PageDriver page) {

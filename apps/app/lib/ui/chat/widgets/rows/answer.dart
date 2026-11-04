@@ -1,7 +1,9 @@
 part of '../chat_items.dart';
 
-/// Copy, and Retry on the latest answer, at the end of each answer.
-class _AnswerActions extends StatelessWidget {
+/// Copy, and Retry on the latest answer, at the end of each answer: shown
+/// while the answer is under the mouse, or one of them has the keyboard, and
+/// kept in the layout while hidden so nothing below moves.
+class _AnswerActions extends StatefulWidget {
   const new(this.ask, this.latest, this.vm, {this.sentAt, this.endedAt});
 
   /// When the message went and when the answer finished: how long it took.
@@ -13,7 +15,37 @@ class _AnswerActions extends StatelessWidget {
   final ChatViewModel vm;
 
   @override
-  Widget build(BuildContext context) => Row(
+  State<_AnswerActions> createState() => _AnswerActionsState();
+}
+
+class _AnswerActionsState extends State<_AnswerActions> {
+  bool _focused = false;
+
+  int get ask => widget.ask;
+  bool get latest => widget.latest;
+  ChatViewModel get vm => widget.vm;
+  DateTime? get sentAt => widget.sentAt;
+  DateTime? get endedAt => widget.endedAt;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: _hoveredAnswer,
+    builder: (context, hovered, row) => AnimatedOpacity(
+      opacity: hovered == ask || _focused ? 1 : 0,
+      duration: const Duration(milliseconds: 120),
+      // Still there for a screen reader and the keyboard.
+      alwaysIncludeSemantics: true,
+      child: row,
+    ),
+    child: Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (on) => setState(() => _focused = on),
+      child: _row(context),
+    ),
+  );
+
+  Widget _row(BuildContext context) => Row(
     children: [
       _IconAction(
         icon: AshlarIconsRoundedStroke.copy,

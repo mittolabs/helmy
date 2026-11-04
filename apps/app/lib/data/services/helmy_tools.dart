@@ -13,10 +13,13 @@ import 'watch_service.dart';
 /// MCP's plain JSON over HTTP. Its tools: watch a video, and see and use a
 /// simulator or emulator.
 class HelmyTools {
-  HelmyTools(this._watch, [this._devices, this._browser]);
+  HelmyTools(this._watch, [this._devices, this._browser, this._showDevice]);
   final WatchService _watch;
   final DeviceService? _devices;
   final BrowserTools? _browser;
+
+  /// Shows a session's Device panel; true when it could.
+  final bool Function(String? session)? _showDevice;
 
   HttpServer? _server;
   final _secret = List.generate(24, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
@@ -149,7 +152,7 @@ class HelmyTools {
       return _browser.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (deviceTools.contains(name) && _devices != null) {
-      return _device(name, (params['arguments'] as Map?) ?? const {}, says);
+      return _device(name, (params['arguments'] as Map?) ?? const {}, says, session);
     }
     if (name != 'watch_video') return says('No such tool.', error: true);
     var path = '${(params['arguments'] as Map?)?['path'] ?? ''}'.trim();
@@ -265,8 +268,9 @@ class HelmyTools {
   Future<Map<String, Object?>> _device(
     String name,
     Map args,
-    Map<String, Object?> Function(String, {bool error}) says,
-  ) async {
+    Map<String, Object?> Function(String, {bool error}) says, [
+    String? session,
+  ]) async {
     final devices = _devices!;
     final all = await devices.list();
     if (name == 'device_list') {
@@ -293,6 +297,8 @@ class HelmyTools {
       if (!await devices.boot(d)) return says("${d.name} didn't start.", error: true);
       d = Device(id: d.id, name: d.name, ios: d.ios, booted: true, runtime: d.runtime);
     }
+    // The user sees what the agent does: the device in the session's panel.
+    final shown = _showDevice?.call(session) ?? false;
     if (d.ios && name != 'device_screen' && !await devices.iosInput()) {
       return says(
         'Taps and typing on iOS simulators need AXe, which is not installed. Tell the user, '
@@ -314,10 +320,15 @@ class HelmyTools {
           'content': [
             {
               'type': 'text',
-              'text': size == null
-                  ? '${d.name} now.'
-                  : '${d.name} now: ${size.$1 ~/ scale} by ${size.$2 ~/ scale} '
-                        '${d.ios ? 'points' : 'pixels'}, the units device_tap takes.',
+              'text':
+                  (size == null
+                      ? '${d.name} now.'
+                      : '${d.name} now: ${size.$1 ~/ scale} by ${size.$2 ~/ scale} '
+                            '${d.ios ? 'points' : 'pixels'}, the units device_tap takes.') +
+                  (shown
+                      ? ' It shows live in the Device panel beside the conversation.'
+                      : ' The Device panel is not on screen, so the user does not see it; '
+                            'show them this picture if it matters.'),
             },
             {
               'type': 'image',
@@ -337,7 +348,10 @@ class HelmyTools {
         ok = await devices.home(d);
     }
     return ok
-        ? says('Done. device_screen shows what it did.')
+        ? says(
+            'Done. device_screen shows what it did.'
+            '${shown ? ' The user sees it live in the Device panel.' : ''}',
+          )
         : says("It didn't work.", error: true);
   }
 }

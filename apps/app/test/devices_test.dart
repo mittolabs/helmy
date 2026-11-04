@@ -152,5 +152,22 @@ void main() {
       expect(r['isError'], isTrue);
       expect(text(r), contains('helmy://fix/install-device-input'));
     });
+
+    test('show the device in the session panel, and say whether the user sees it', () async {
+      final shownFor = <String?>[];
+      final tools = HelmyTools(WatchService(CliLocator()), FakeDevices(), null, (s) {
+        shownFor.add(s);
+        return s == 'on-screen';
+      });
+      Future<Map> screen(String session) async =>
+          (await tools.answer('tools/call', {
+                'name': 'device_screen',
+                'arguments': {},
+              }, session: session))['result']!
+              as Map;
+      expect(text(await screen('on-screen')), contains('shows live in the Device panel'));
+      expect(text(await screen('elsewhere')), contains('user does not see it'));
+      expect(shownFor, ['on-screen', 'elsewhere']);
+    });
   });
 }

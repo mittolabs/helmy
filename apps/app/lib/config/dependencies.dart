@@ -79,6 +79,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       context.read(),
       context.read<DeviceService>(),
       BrowserTools(context.read<BrowserHost>()),
+      context.read<BrowserHost>().showDevice,
     ),
     dispose: (_, tools) => unawaited(tools.close()),
   ),

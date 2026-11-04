@@ -197,6 +197,8 @@ void main() {
     await shoot('chat', ChatScreen(viewModel: chat), selected: session.id);
     // A panel beside the conversation, then over the page.
     chat.toggle(.device);
+    chat.add(.preview);
+    chat.show(.device);
     await shoot('panel', ChatScreen(viewModel: chat), selected: session.id);
     chat.toggleExpanded();
     await shoot('panel-expanded', ChatScreen(viewModel: chat), selected: session.id);

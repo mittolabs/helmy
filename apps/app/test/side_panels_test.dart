@@ -13,7 +13,7 @@ import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/utils/result.dart';
 
 void main() {
-  test('the header offers a panel only when the session has something for it', () async {
+  test('the panel holds tabs, and the header says what wants you while it is hidden', () async {
     final root = await Directory.systemTemp.createTemp('panels');
     final storage = StorageService(root: () async => root);
     final sessions = SessionRepositoryLocal(storage);
@@ -29,7 +29,7 @@ void main() {
     repo.of(created.id).loaded = true;
     final vm = ChatViewModel(sessionId: created.id, sessions: sessions, conversations: repo);
     await vm.countChanges();
-    expect(vm.panels, isEmpty, reason: 'nothing changed, nothing running');
+    expect(vm.notices, isEmpty, reason: 'nothing changed, nothing running');
 
     // An agent edits a file (no git here: its own report is what is known).
     repo
@@ -44,33 +44,63 @@ void main() {
         );
     await vm.countChanges();
     expect(vm.changedFiles, 1);
-    expect(vm.panels, [SidePanel.changes]);
+    expect(vm.notices, [SidePanel.changes]);
 
     // Work goes to the background: offered while it runs.
     final bg = ToolCall(id: 'b', name: 'Bash', input: {'command': 'sleep 60'})
       ..result = 'running'
       ..background = BackgroundTask('t1');
     repo.of(created.id).items.add(bg);
-    expect(vm.panels, [SidePanel.changes, SidePanel.background]);
+    expect(vm.notices, [SidePanel.changes, SidePanel.background]);
     bg.background!.status = .completed;
-    expect(vm.panels, [SidePanel.changes]);
+    expect(vm.notices, [SidePanel.changes]);
 
-    // One panel at a time: a button shows its view, replacing the other, and
-    // closes it when it is already showing. An open one stays offered.
-    vm.toggle(.changes);
+    // A notice opens its tab; tabs gather, one showing at a time.
+    vm.show(.changes);
+    expect((vm.panel, vm.tabs.length), (SidePanel.changes, 1));
+    expect(vm.notices, isEmpty, reason: 'the panel is open');
+    vm.show(.background);
+    expect((vm.panel, vm.tabs.length), (SidePanel.background, 2));
+    vm.show(.changes);
+    expect((vm.panel, vm.tabs.length), (SidePanel.changes, 2), reason: 'the open tab, not another');
+
+    // Hidden, the tabs stay; shown again, as they were.
+    vm.togglePanel();
+    expect((vm.panel, vm.tabs.length), (null, 2));
+    vm.togglePanel();
     expect(vm.panel, SidePanel.changes);
-    vm.toggle(.background);
-    expect(vm.panel, SidePanel.background);
-    expect(vm.panels, contains(SidePanel.background));
-    vm.toggle(.background);
-    expect(vm.panel, isNull);
+
+    // A page goes to the browser tab showing; + adds another beside it.
+    vm.preview('https://example.com/a');
+    vm.preview('https://example.com/b');
+    expect(vm.tabs.where((t) => t.kind == SidePanel.preview), hasLength(1));
+    expect(vm.previewUrl, 'https://example.com/b');
+    final second = vm.add(SidePanel.preview);
+    expect(vm.tabs.where((t) => t.kind == SidePanel.preview), hasLength(2));
+    expect(vm.active, second);
+
+    // Closing the one showing shows the one to its right, as browsers do;
+    // closing all hides the panel.
+    expect(vm.tabs.map((t) => t.kind), [
+      SidePanel.changes,
+      SidePanel.preview,
+      SidePanel.preview,
+      SidePanel.background,
+    ]);
+    vm.closeTab(second);
+    expect(vm.active?.kind, SidePanel.background);
+    for (final tab in [...vm.tabs]) {
+      vm.closeTab(tab);
+    }
+    expect(vm.tabs, isEmpty);
+    expect(vm.panelOpen, isFalse);
 
     // Dragged widths are kept within reason.
     vm.resize(2000);
     expect(vm.panelWidth, 900);
 
     // Expanded, the panel has the page; closing it ends that too.
-    vm.toggle(.changes);
+    vm.show(.changes);
     expect(vm.panel, SidePanel.changes);
     vm.toggleExpanded();
     expect(vm.panelExpanded, isTrue);

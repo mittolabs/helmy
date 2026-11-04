@@ -1,9 +1,10 @@
 part of '../chat_screen.dart';
 
-/// The conversation, and beside it the one open panel, as wide as it was
-/// last dragged. The conversation keeps room to read: in a narrow window the
-/// panel gives way first, and steps aside when even that is too little.
-class _SidePanels extends StatelessWidget {
+/// The conversation, and beside it the panel of tabs, as wide as it was last
+/// dragged. The conversation keeps room to read: in a narrow window the panel
+/// gives way first, and steps aside when even that is too little. Every tab
+/// stays alive while another shows, the panel is hidden, or it is expanded.
+class _SidePanels extends StatefulWidget {
   const new({required this.vm, required this.chat});
   final ChatViewModel vm;
   final Widget chat;
@@ -11,40 +12,72 @@ class _SidePanels extends StatelessWidget {
   static const _chatMin = 420.0;
 
   @override
+  State<_SidePanels> createState() => _SidePanelsState();
+}
+
+class _SidePanelsState extends State<_SidePanels> {
+  // The one panel, moved whole between beside, expanded and hidden.
+  final _panel = GlobalKey();
+
+  @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final p = vm.panel;
+      final vm = widget.vm;
+      final panel = vm.tabs.isEmpty ? null : _Panel(key: _panel, vm: vm);
       // Expanded: the panel has the page, the conversation a press away.
-      if (p != null && vm.panelExpanded) return _Panel(vm: vm, panel: p);
+      if (panel != null && vm.panelOpen && vm.panelExpanded) return panel;
       // No room left beside the conversation (a narrow window): no panel.
-      final room = box.maxWidth - _chatMin - _Divider.width;
+      final room = box.maxWidth - _SidePanels._chatMin - _Divider.width;
       final width = room <= 0 ? 0.0 : vm.panelWidth.clamp(0.0, room);
+      final shown = panel != null && vm.panelOpen && width >= 260;
       return Row(
         crossAxisAlignment: .stretch,
         children: [
-          Expanded(child: chat),
-          if (p != null && width >= 260) ...[
+          Expanded(child: widget.chat),
+          if (shown) ...[
             _Divider(onDrag: (dx) => vm.resize(width - dx)),
-            SizedBox(
-              width: width,
-              child: _Panel(vm: vm, panel: p),
+            SizedBox(width: width, child: panel),
+          ] else if (panel != null)
+            // Hidden, its tabs stay as they were.
+            Offstage(
+              child: SizedBox(width: vm.panelWidth, child: panel),
             ),
-          ],
         ],
       );
     },
   );
 }
 
-/// One panel, under a bar that names it and can expand or close it.
+/// A tab kind's name and icon.
+(String, IconData) _kindOf(SidePanel kind) => switch (kind) {
+  .preview => ('Browser', AshlarIconsRoundedStroke.globe),
+  .changes => ('Changes', AshlarIconsRoundedStroke.fileDiff),
+  .ship => ('Pull request', AshlarIconsRoundedStroke.gitPullRequest),
+  .device => ('Device', AshlarIconsRoundedStroke.smartphone),
+  .background => ('Background', AshlarIconsRoundedStroke.loader),
+};
+
+/// The panel: its tabs along the top, with + to add one, and the tab showing.
 class _Panel extends StatelessWidget {
-  const new({required this.vm, required this.panel});
+  const _Panel({super.key, required this.vm});
   final ChatViewModel vm;
-  final SidePanel panel;
+
+  String _label(PanelTab tab) => switch (tab.kind) {
+    .preview => switch (Uri.tryParse(tab.url ?? '')) {
+      final u? when u.host.isNotEmpty => u.host.replaceFirst('www.', ''),
+      final u? when u.scheme == 'file' => u.pathSegments.lastOrNull ?? 'Page',
+      _ => 'New page',
+    },
+    .changes =>
+      vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
+    .device => vm.device?.device?.name ?? 'Device',
+    _ => _kindOf(tab.kind).$1,
+  };
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
+    final c = t.colors;
     final expanded = vm.panelExpanded;
     Widget tool(String label, IconData icon, VoidCallback onPressed) => Tooltip(
       message: label,
@@ -56,6 +89,7 @@ class _Panel extends StatelessWidget {
         child: AshlarIcon(icon, size: 14),
       ),
     );
+    final active = vm.active;
     return Column(
       crossAxisAlignment: .stretch,
       children: [
@@ -64,24 +98,40 @@ class _Panel extends StatelessWidget {
           margin: .only(top: titleLine - 16),
           // Expanded, the bar starts past the window's buttons, as the header does.
           padding: .only(
-            left: expanded && !sidebarBeside(context) ? titleRowStart + 40 : 14,
-            right: 12,
+            left: expanded && !sidebarBeside(context) ? titleRowStart + 40 : 6,
+            right: 8,
           ),
           child: Row(
             spacing: 2,
             children: [
               Expanded(
-                child: Text(
-                  switch (panel) {
-                    .changes => 'Changes',
-                    .background => 'Background',
-                    .preview => 'Preview',
-                    .ship => 'Ship',
-                    .device => 'Device',
-                  },
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                child: SingleChildScrollView(
+                  scrollDirection: .horizontal,
+                  child: Row(
+                    spacing: 2,
+                    children: [
+                      for (final tab in vm.tabs)
+                        _TabChip(
+                          label: _label(tab),
+                          icon: _kindOf(tab.kind).$2,
+                          on: tab == active,
+                          onPressed: () => vm.focus(tab),
+                          onClose: () => vm.closeTab(tab),
+                        ),
+                      DropdownMenu(
+                        items: [
+                          for (final kind in vm.addable)
+                            MenuItem(
+                              leading: AshlarIcon(_kindOf(kind).$2, size: 16),
+                              onPressed: () => kind == .preview ? vm.add(.preview) : vm.show(kind),
+                              child: Text(_kindOf(kind).$1),
+                            ),
+                        ],
+                        builder: (context, menu) =>
+                            tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               tool(
@@ -91,20 +141,111 @@ class _Panel extends StatelessWidget {
                     : AshlarIconsRoundedStroke.arrowsMaximize,
                 vm.toggleExpanded,
               ),
-              tool('Close', AshlarIconsRoundedStroke.x, vm.closePanel),
+              tool('Hide the panel', AshlarIconsRoundedStroke.x, vm.closePanel),
             ],
           ),
         ),
+        Container(height: 1, color: c.border),
         Expanded(
-          child: switch (panel) {
-            .changes => ChangesPanel(vm: vm),
-            .background => BackgroundPanel(vm: vm),
-            .preview => PreviewPanel(vm: vm),
-            .ship => ShipPanel(vm: vm),
-            .device => DevicePanel(vm: vm),
-          },
+          child: IndexedStack(
+            index: active == null ? 0 : vm.tabs.indexOf(active),
+            children: [
+              for (final tab in vm.tabs)
+                KeyedSubtree(
+                  key: ValueKey(tab.id),
+                  child: switch (tab.kind) {
+                    .changes => ChangesPanel(vm: vm),
+                    .background => BackgroundPanel(vm: vm),
+                    .preview => PreviewPanel(
+                      vm: vm,
+                      tab: tab,
+                      active: tab == active && vm.panelOpen,
+                    ),
+                    .ship => ShipPanel(vm: vm),
+                    .device => DevicePanel(vm: vm),
+                  },
+                ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// A tab along the panel's top: its icon and name, and a way to close it.
+class _TabChip extends StatelessWidget {
+  const _TabChip({
+    required this.label,
+    required this.icon,
+    required this.on,
+    required this.onPressed,
+    required this.onClose,
+  });
+  final String label;
+  final IconData icon;
+  final bool on;
+  final VoidCallback onPressed;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Pressable(
+      onPressed: onPressed,
+      selected: on,
+      semanticLabel: label,
+      builder: (context, state) => Container(
+        height: 26,
+        padding: const .only(left: 8, right: 4),
+        decoration: BoxDecoration(
+          color: on
+              ? c.accent
+              : state.hovered
+              ? c.accent.withValues(alpha: .5)
+              : null,
+          borderRadius: .circular(t.radiusMd - 2),
+        ),
+        child: Row(
+          mainAxisSize: .min,
+          spacing: 6,
+          children: [
+            AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: t.text.xs.copyWith(
+                  fontWeight: .w500,
+                  color: on ? c.foreground : c.mutedForeground,
+                ),
+              ),
+            ),
+            // Closing shows on the tab showing, or under the mouse.
+            Opacity(
+              opacity: on || state.hovered ? 1 : 0,
+              child: Tooltip(
+                message: 'Close the tab',
+                child: Pressable(
+                  onPressed: onClose,
+                  semanticLabel: 'Close $label',
+                  builder: (context, s) => Padding(
+                    padding: const .all(2),
+                    child: AshlarIcon(
+                      AshlarIconsRoundedStroke.x,
+                      size: 12,
+                      color: s.hovered ? c.foreground : c.mutedForeground,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

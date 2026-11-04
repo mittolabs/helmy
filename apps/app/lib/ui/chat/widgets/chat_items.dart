@@ -181,7 +181,42 @@ List<ChatRow> buildRows(ChatViewModel vm) {
     }
   }
   flush();
-  return rows;
+  // Each answer's rows tell which answer is under the mouse, so its actions
+  // show while any part of it is.
+  final out = <ChatRow>[];
+  int? owner;
+  for (final r in rows) {
+    if (r.child is _User) {
+      owner = r.id as int;
+      out.add(r);
+    } else {
+      out.add((
+        id: r.id,
+        anchor: r.anchor,
+        child: owner == null ? r.child : _AnswerHover(owner, r.child),
+      ));
+    }
+  }
+  return out;
+}
+
+/// The answer under the mouse, by the message it answers.
+final _hoveredAnswer = ValueNotifier<int?>(null);
+
+/// A row of an answer: under the mouse, its answer shows its actions.
+class _AnswerHover extends StatelessWidget {
+  const _AnswerHover(this.ask, this.child);
+  final int ask;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => _hoveredAnswer.value = ask,
+    onExit: (_) {
+      if (_hoveredAnswer.value == ask) _hoveredAnswer.value = null;
+    },
+    child: child,
+  );
 }
 
 /// Puts [text] on the clipboard and says so.

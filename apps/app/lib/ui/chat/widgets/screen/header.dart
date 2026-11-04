@@ -124,43 +124,47 @@ class _Header extends StatelessWidget {
                   'Compact from the menu to free some.',
               child: Text('Context ${(ctx.fraction * 100).round()}%', style: muted),
             ),
-          for (final p in vm.panels)
+          // While the panel is hidden: what in it wants you, a press away.
+          for (final p in vm.notices)
             Tooltip(
               message: switch (p) {
                 .changes => 'What this session changed in the folder',
                 .background => 'Work running in the background',
-                .preview => 'The page or document an answer pointed at',
-                .ship => 'From these changes to a merged pull request',
-                .device => 'A simulator or emulator, live, to use beside the conversation',
+                _ => '',
               },
               child: Button(
-                variant: vm.isOpen(p) ? .secondary : .ghost,
+                variant: .ghost,
                 size: .sm,
-                semanticLabel: switch (p) {
-                  .changes => 'Changes',
-                  .background => 'Background',
-                  .preview => 'Preview',
-                  .ship => 'Ship',
-                  .device => 'Device',
-                },
-                onPressed: () => vm.toggle(p),
+                onPressed: () => vm.show(p),
                 leading: AshlarIcon(switch (p) {
-                  .changes => AshlarIconsRoundedStroke.fileDiff,
                   .background => AshlarIconsRoundedStroke.loader,
-                  .preview => AshlarIconsRoundedStroke.appWindow,
-                  .ship => AshlarIconsRoundedStroke.gitPullRequest,
-                  .device => AshlarIconsRoundedStroke.smartphone,
+                  _ => AshlarIconsRoundedStroke.fileDiff,
                 }, size: 14),
                 child: Text(switch (p) {
-                  .changes => 'Changes ${vm.changedFiles ?? ''}'.trim(),
                   .background =>
                     '${vm.backgroundSteps.where((c) => c.background!.status == .running).length} running',
-                  .preview => 'Preview',
-                  .ship => 'Ship',
-                  .device => 'Device',
+                  _ => '${vm.changedFiles} change${vm.changedFiles == 1 ? '' : 's'}',
                 }),
               ),
             ),
+          // The panel beside the conversation, shown or hidden, its tabs kept.
+          Tooltip(
+            message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+            child: Button(
+              variant: vm.panelOpen ? .secondary : .ghost,
+              size: .icon,
+              semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+              onPressed: () {
+                if (vm.tabs.isEmpty) {
+                  // Nothing in it yet: a page to start from.
+                  webViewHere ? vm.add(.preview) : vm.show(.changes);
+                } else {
+                  vm.togglePanel();
+                }
+              },
+              child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+            ),
+          ),
           _SessionMenu(vm: vm),
         ],
       ),

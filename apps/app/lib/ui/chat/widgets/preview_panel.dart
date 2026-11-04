@@ -42,8 +42,14 @@ String addressFor(String typed) {
 /// The address can be typed into; the menu has the page's inspector, a reload
 /// past the cache, its zoom and appearance, and clearing what it stored.
 class PreviewPanel extends StatefulWidget {
-  const PreviewPanel({super.key, required this.vm});
+  const PreviewPanel({super.key, required this.vm, this.tab, this.active = true});
   final ChatViewModel vm;
+
+  /// The browser tab this is; null for the session's one page (older use).
+  final PanelTab? tab;
+
+  /// The tab showing: the page the session's agent works.
+  final bool active;
 
   @override
   State<PreviewPanel> createState() => _PreviewPanelState();
@@ -240,13 +246,15 @@ class _PreviewPanelState extends State<PreviewPanel> {
       _c.addJavaScriptChannel('Helmy', onMessageReceived: (m) => _marking.fromPage(m.message)),
     );
     widget.vm.addListener(_follow);
-    widget.vm.browser?.attach(widget.vm.sessionId, _driver);
+    if (widget.active) widget.vm.browser?.attach(widget.vm.sessionId, _driver);
     if (_chromium) unawaited(_startChromium());
     _follow();
   }
 
   void _moved(String url) {
     if (!mounted) return;
+    widget.tab?.url = url;
+    _loaded = url;
     // Another page: the marks were on the last one.
     if (Uri.tryParse(url)?.removeFragment() != Uri.tryParse(_at)?.removeFragment()) {
       _marking.pageMoved();
@@ -260,7 +268,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
 
   /// Loads what the session last asked to preview, when that changes.
   void _follow() {
-    final url = widget.vm.previewUrl;
+    final url = widget.tab == null ? widget.vm.previewUrl : widget.tab!.url;
     if (url == null || url == _loaded) return;
     _loaded = url;
     _go(url);
@@ -452,6 +460,13 @@ class _PreviewPanelState extends State<PreviewPanel> {
     } else {
       _fitWebZoom();
     }
+  }
+
+  @override
+  void didUpdateWidget(PreviewPanel old) {
+    super.didUpdateWidget(old);
+    // Shown, this tab is the page the agent works.
+    if (widget.active && !old.active) widget.vm.browser?.attach(widget.vm.sessionId, _driver);
   }
 
   @override

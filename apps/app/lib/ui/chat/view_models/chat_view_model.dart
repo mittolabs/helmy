@@ -38,6 +38,18 @@ import '../../../domain/models/settings.dart';
 /// joins here with the condition under which it is offered.
 enum SidePanel { changes, background, preview, ship, device }
 
+/// One tab in the panel beside the conversation: what it shows, and for a
+/// browser tab, where it is.
+class PanelTab {
+  PanelTab(this.kind, {this.url}) : id = '${kind.name}-${_next++}';
+  static var _next = 0;
+  final String id;
+  final SidePanel kind;
+
+  /// A browser tab's address.
+  String? url;
+}
+
 class ChatViewModel extends ChangeNotifier implements MediaActions {
   new({
     required this.sessionId,
@@ -56,6 +68,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     _attention?.viewing = sessionId;
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
+    // The agent's device tools show the device here, in the Device panel.
+    if (device != null) browser?.deviceOpener(sessionId, () => show(.device));
     _sessions.addListener(notifyListeners);
     _sessions.addListener(_findRepoLater);
     _conversations.addListener(notifyListeners);
@@ -237,9 +251,17 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   // Panels beside the conversation, offered only while they have something
   // to show for this session.
 
-  /// The one panel beside the conversation, if any. Each header button shows
-  /// its own view there, or closes it when it is already showing.
-  SidePanel? panel;
+  /// The tabs in the panel beside the conversation, in their order.
+  final tabs = <PanelTab>[];
+
+  /// The tab showing; null when there are none.
+  PanelTab? active;
+
+  /// Whether the panel shows. Its tabs stay while it is hidden.
+  bool panelOpen = false;
+
+  /// What the panel shows now; null when it is hidden or has no tabs.
+  SidePanel? get panel => panelOpen ? active?.kind : null;
 
   /// How wide the panel is, as last dragged.
   double panelWidth = 380;
@@ -248,10 +270,59 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   bool get changesOpen => isOpen(.changes);
 
-  void toggle(SidePanel p) {
-    panel = panel == p ? null : p;
-    if (panel == null) panelExpanded = false;
+  /// Shows [tab] in the panel.
+  void focus(PanelTab tab) {
+    active = tab;
+    panelOpen = true;
     notifyListeners();
+  }
+
+  /// A tab of [kind] shown: the open one, or a new one.
+  PanelTab show(SidePanel kind) {
+    final tab =
+        (active?.kind == kind ? active : null) ??
+        tabs.where((t) => t.kind == kind).firstOrNull ??
+        add(kind, focus: false);
+    focus(tab);
+    return tab;
+  }
+
+  /// A new tab of [kind], shown unless [focus] is false.
+  PanelTab add(SidePanel kind, {String? url, bool focus = true}) {
+    final tab = PanelTab(kind, url: url);
+    final at = active == null ? tabs.length : tabs.indexOf(active!) + 1;
+    tabs.insert(at, tab);
+    if (focus) this.focus(tab);
+    return tab;
+  }
+
+  /// Closes [tab]; the one beside it shows, and with none left the panel hides.
+  void closeTab(PanelTab tab) {
+    final at = tabs.indexOf(tab);
+    if (at < 0) return;
+    tabs.removeAt(at);
+    if (active == tab) active = tabs.isEmpty ? null : tabs[at.clamp(0, tabs.length - 1)];
+    if (tabs.isEmpty) {
+      panelOpen = false;
+      panelExpanded = false;
+    }
+    notifyListeners();
+  }
+
+  /// The panel shown or hidden, its tabs kept.
+  void togglePanel() {
+    panelOpen = !panelOpen;
+    if (!panelOpen) panelExpanded = false;
+    notifyListeners();
+  }
+
+  /// A tab of [p] shown, or the panel hidden when it is already what shows.
+  void toggle(SidePanel p) {
+    if (panel == p) {
+      togglePanel();
+    } else {
+      show(p);
+    }
   }
 
   /// The open panel over the whole page, the conversation set aside.
@@ -262,8 +333,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  /// Hides the panel; its tabs stay.
   void closePanel() {
-    panel = null;
+    panelOpen = false;
     panelExpanded = false;
     notifyListeners();
   }
@@ -329,26 +401,39 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// What the Preview panel shows: a web page, a running app on this Mac
   /// (http://localhost:3000), or a file such as a PDF. Set when an answer
   /// points at one and you open it.
-  String? previewUrl;
+  String? get previewUrl =>
+      (active?.kind == .preview ? active : tabs.where((t) => t.kind == .preview).lastOrNull)?.url;
 
-  /// Shows [url] in the Preview panel beside the conversation.
+  /// Shows [url] in a browser tab beside the conversation: the one showing,
+  /// else the last one, else a new one.
   @override
   void preview(String url) {
-    previewUrl = url;
-    panel = .preview;
-    notifyListeners();
+    final tab =
+        (active?.kind == .preview ? active : null) ??
+        tabs.where((t) => t.kind == .preview).lastOrNull ??
+        add(.preview, focus: false);
+    tab.url = url;
+    focus(tab);
   }
 
-  /// The panels worth offering now, in the header's order. An open one stays.
-  List<SidePanel> get panels => [
+  /// The kinds of tab that can be added now, in the menu's order.
+  List<SidePanel> get addable => [
     // (Only where there is a web view to show it in.)
-    if (previewUrl != null && webViewHere) .preview,
+    if (webViewHere) .preview,
+    .changes,
     if (inRepo) .ship,
-    if (device != null && (mobile || isOpen(.device))) .device,
-    if ((changedFiles ?? 0) > 0 || isOpen(.changes)) .changes,
-    if (backgroundSteps.any((c) => c.background!.status == .running) || isOpen(.background))
-      .background,
+    if (device != null) .device,
+    if (backgroundSteps.isNotEmpty) .background,
   ];
+
+  /// What wants the user while the panel is hidden, for the header to say:
+  /// changes made, work running in the background.
+  List<SidePanel> get notices => panelOpen
+      ? const []
+      : [
+          if ((changedFiles ?? 0) > 0) .changes,
+          if (backgroundSteps.any((c) => c.background!.status == .running)) .background,
+        ];
 
   /// What the Changes panel shows: the whole session (null), or the turn
   /// that the message at this index started.
@@ -356,8 +441,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   void showChanges({int? from}) {
     changesScope = from;
-    panel = .changes;
-    notifyListeners();
+    show(.changes);
   }
 
   void setChangesScope(int? from) {
@@ -710,6 +794,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   void dispose() {
     _attention?.viewing = null;
     browser?.opener(sessionId, null);
+    browser?.deviceOpener(sessionId, null);
     device?.dispose();
     focusRequests.dispose();
     _sessions.removeListener(notifyListeners);
