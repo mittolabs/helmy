@@ -96,7 +96,7 @@ final class Splash {
   func show(then: @escaping () -> Void) {
     done = then
     let dark = Splash.isDark()
-    let size = NSSize(width: 320, height: 380)
+    let size = NSSize(width: 320, height: 440)
     let w = NSWindow(
       contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless],
       backing: .buffered, defer: false)
@@ -115,7 +115,7 @@ final class Splash {
 
     let side: CGFloat = 220
     let picture = NSImageView(
-      frame: NSRect(x: (size.width - side) / 2, y: 120, width: side, height: side))
+      frame: NSRect(x: (size.width - side) / 2, y: 178, width: side, height: side))
     picture.image = NSImage(named: "SplashHelmy")
     picture.imageScaling = .scaleProportionallyUpOrDown
     picture.wantsLayer = true
@@ -126,15 +126,46 @@ final class Splash {
     name.font = .systemFont(ofSize: 22, weight: .semibold)
     name.textColor = ink
     name.alignment = .center
-    name.frame = NSRect(x: 0, y: 70, width: size.width, height: 30)
+    name.frame = NSRect(x: 0, y: 128, width: size.width, height: 30)
     card.addSubview(name)
 
     let tagline = NSTextField(labelWithString: "Dream it, do it.")
     tagline.font = .systemFont(ofSize: 13)
     tagline.textColor = ink.withAlphaComponent(0.55)
     tagline.alignment = .center
-    tagline.frame = NSRect(x: 0, y: 46, width: size.width, height: 20)
+    tagline.frame = NSRect(x: 0, y: 104, width: size.width, height: 20)
     card.addSubview(tagline)
+
+    // At the foot, as the sites have it: the mark, "Powered by Mittolabs",
+    // then the notice, small and quiet.
+    let mark = NSImageView()
+    mark.image = NSImage(named: dark ? "MittolabsWhite" : "Mittolabs")
+    mark.imageScaling = .scaleProportionallyUpOrDown
+    let powered = NSTextField(labelWithAttributedString: {
+      let s = NSMutableAttributedString(
+        string: "Powered by ",
+        attributes: [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: ink.withAlphaComponent(0.55)])
+      s.append(NSAttributedString(
+        string: "Mittolabs",
+        attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: ink]))
+      return s
+    }())
+    powered.sizeToFit()
+    let markSide: CGFloat = 16
+    let rowWidth = markSide + 6 + powered.frame.width
+    let rowX = (size.width - rowWidth) / 2
+    mark.frame = NSRect(x: rowX, y: 44, width: markSide, height: markSide * 87 / 96)
+    powered.frame.origin = NSPoint(x: rowX + markSide + 6, y: 42)
+    card.addSubview(mark)
+    card.addSubview(powered)
+
+    let year = Calendar.current.component(.year, from: Date())
+    let notice = NSTextField(labelWithString: "© \(year) Mittolabs · BSD license")
+    notice.font = .systemFont(ofSize: 11)
+    notice.textColor = ink.withAlphaComponent(0.4)
+    notice.alignment = .center
+    notice.frame = NSRect(x: 0, y: 20, width: size.width, height: 16)
+    card.addSubview(notice)
 
     w.contentView = card
     w.center()
