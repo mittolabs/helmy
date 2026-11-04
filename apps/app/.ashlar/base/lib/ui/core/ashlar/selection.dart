@@ -8,7 +8,11 @@ import 'package:flutter/widgets.dart';
 import 'theme.dart';
 
 /// Selection handles for touch: a small dot on a stem at each end of the selection.
-class AshlarSelectionControls extends TextSelectionControls {
+/// The menu is left to the region's or field's `contextMenuBuilder`
+/// ([TextSelectionHandleControls]); without it, a right-click on selected text
+/// asks [buildToolbar] for the menu, and no menu opens.
+class AshlarSelectionControls extends TextSelectionControls
+    with TextSelectionHandleControls {
   AshlarSelectionControls(this.color);
 
   /// The selection handles' colour.
@@ -58,19 +62,6 @@ class AshlarSelectionControls extends TextSelectionControls {
   };
 
   Size _sizeFor(double textLineHeight) => Size(_size, _size + textLineHeight);
-
-  // The menu is built by contextMenuBuilder; this older hook is not used.
-  @override
-  Widget buildToolbar(
-    BuildContext context,
-    Rect globalEditableRegion,
-    double textLineHeight,
-    Offset selectionMidpoint,
-    List<TextSelectionPoint> endpoints,
-    TextSelectionDelegate delegate,
-    ValueListenable<ClipboardStatus>? clipboardStatus,
-    Offset? lastSecondaryTapDownPosition,
-  ) => const SizedBox.shrink();
 }
 
 class _HandlePainter extends CustomPainter {
