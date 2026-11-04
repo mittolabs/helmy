@@ -183,13 +183,21 @@ class SettingsViewModel extends ChangeNotifier {
         k,
   ];
 
+  /// Counts each reading of a kind's version and each update: a check that
+  /// was asked before an update and answers after it would put back the old
+  /// version, so only the latest of them writes (seen as "Update all" leaving
+  /// a connection listed as behind, 2026-11-05).
+  final _versionReads = <String, int>{};
+
   Future<void> checkVersions() async {
     final s = setup;
     if (s == null) return;
     await Future.wait([
       for (final k in kinds)
         () async {
+          final read = _versionReads[k] = (_versionReads[k] ?? 0) + 1;
           final (i, l) = await (s.installedVersion(k), s.latestVersion(k)).wait;
+          if (_versionReads[k] != read) return;
           versions[k] = (installed: i, latest: l);
           notifyListeners();
         }(),
@@ -202,8 +210,12 @@ class SettingsViewModel extends ChangeNotifier {
     if (s == null || !updating.add(kind)) return false;
     notifyListeners();
     final ok = await s.update(kind);
+    // Any check still on its way read the version from before this update.
+    final read = _versionReads[kind] = (_versionReads[kind] ?? 0) + 1;
     final now = await s.installedVersion(kind);
-    versions[kind] = (installed: now, latest: versions[kind]?.latest);
+    if (_versionReads[kind] == read) {
+      versions[kind] = (installed: now, latest: versions[kind]?.latest);
+    }
     updating.remove(kind);
     notifyListeners();
     return ok;
@@ -447,9 +459,18 @@ class SettingsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _settings.removeListener(notifyListeners);
     _meter.removeListener(notifyListeners);
     super.dispose();
+  }
+
+  // Checks and loads started on opening can answer after Settings closed.
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
   }
 }
 

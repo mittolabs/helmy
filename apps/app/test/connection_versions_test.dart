@@ -18,8 +18,16 @@ class _Setup extends ConnectionsSetup {
   final newest = <String, String?>{'claude': '2.1.318', 'codex': '0.166.0'};
   final updated = <String>[];
 
+  /// How long a reading takes; what it reads is what was installed when asked.
+  Duration slow = Duration.zero;
+
   @override
-  Future<String?> installedVersion(String kind) async => installed[kind];
+  Future<String?> installedVersion(String kind) async {
+    final now = installed[kind];
+    await Future<void>.delayed(slow);
+    return now;
+  }
+
   @override
   Future<String?> latestVersion(String kind) async => newest[kind];
   @override
@@ -78,6 +86,28 @@ void main() {
     setup.newest['claude'] = null;
     await vm.checkVersions();
     expect(vm.versions['claude']?.latest, isNull);
+    expect(vm.outdated, isEmpty);
+  });
+
+  test('a check that answers after an update does not put the old version back', () async {
+    final setup = _Setup();
+    final engines = EngineRegistry([CodexEngine(CliLocator())]);
+    final vm = SettingsViewModel(
+      settings: FakeSettingsRepository(),
+      engines: engines,
+      meter: UsageMeter(),
+      memory: MemoryRepositoryEngines(engines),
+    )..setup = setup;
+    addTearDown(vm.dispose);
+    await vm.checkVersions();
+    expect(vm.outdated, ['codex']);
+    // A check under way, slow, having read the version before the update.
+    setup.slow = const Duration(milliseconds: 200);
+    final late = vm.checkVersions();
+    setup.slow = Duration.zero;
+    expect(await vm.updateAll(), 1);
+    await late;
+    expect(vm.versions['codex']?.installed, '0.166.0');
     expect(vm.outdated, isEmpty);
   });
 }
