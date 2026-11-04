@@ -32,6 +32,9 @@ String inHelmysWords(String? raw) {
 /// `mcp__claude_ai_Gmail__search_threads` or `gmail.search_threads`, reads
 /// "Gmail: search threads"; other names are left as they are.
 String toolLabel(String name) {
+  // Helmy's own tools, and a connection's look-up of one, in plain words.
+  if (name.endsWith('watch_video')) return 'Watched a video';
+  if (name == 'ToolSearch') return 'Found a tool';
   String words(String s) => s.replaceAll(RegExp(r'[_-]+'), ' ').trim();
   // "notion" reads "Notion"; "Google_Drive" stays "Google Drive".
   String service(String s) =>

@@ -8,6 +8,7 @@ import '../../../../domain/identity.dart';
 import '../../../../domain/models/memory.dart';
 import '../agent_engine.dart';
 import '../codex/codex_engine.dart';
+import 'ollama_doctor.dart';
 
 /// What a plain answer says, alone, when it needed tools after all.
 const needsToolsMarker = 'NEEDS_TOOLS';
@@ -62,6 +63,8 @@ class OllamaChatEngine implements AgentEngine {
 
   @override
   Future<String?> unavailableReason() async {
+    // Stuck unloading a model, it would never answer: restarted first.
+    await OllamaDoctor.ensure();
     final models = await CodexEngine.ollamaModels();
     if (models == null) return 'Ollama is not running.';
     if (models.isEmpty) return 'Ollama has no model yet.';

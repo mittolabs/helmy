@@ -48,6 +48,8 @@ void main() {
     expect(toolLabel('mcp__claude_ai_Google_Drive__read_file'), 'Google Drive: read file');
     expect(toolLabel('notion.query_database'), 'Notion: query database');
     expect(toolLabel('Bash'), 'Bash');
+    expect(toolLabel('mcp__helmy__watch_video'), 'Watched a video');
+    expect(toolLabel('helmy.watch_video'), 'Watched a video');
     expect(stepResult('[Request interrupted by user for tool use]'), 'Stopped.');
     expect(
       stepResult("The user doesn't want to proceed with this tool use."),

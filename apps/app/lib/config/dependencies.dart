@@ -25,6 +25,12 @@ import '../data/services/notify_service.dart';
 import '../data/services/snapshots.dart';
 import '../data/services/storage_service.dart';
 import '../utils/platform.dart';
+import '../data/services/helmy_tools.dart';
+import '../data/services/watch_service.dart';
+import '../data/services/worktrees.dart';
+import '../data/services/connections_setup.dart';
+import '../data/repositories/ship_repository.dart';
+import '../data/services/shipping.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -48,6 +54,13 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.settings),
   ChangeNotifierProvider.value(value: loaded.meter),
   Provider(create: (_) => CliLocator()),
+  Provider(create: (context) => WatchService(context.read())),
+  // Helmy's own tools (watching a video), served to every connection.
+  Provider(
+    lazy: false,
+    create: (context) => HelmyTools.current = HelmyTools(context.read()),
+    dispose: (_, tools) => unawaited(tools.close()),
+  ),
   // Add an engine here and the router starts using it. The order breaks ties
   // before any engine has reported its usage.
   Provider(
@@ -78,6 +91,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         enabled: (id) => !loaded.settings.settings.disabledEngines.contains(id),
         rules: () => loaded.settings.settings.rules,
         snapshots: Snapshots(),
+        worktrees: Worktrees(),
+        ownCopies: (repo) => loaded.settings.settings.ownCopiesIn(repo),
         decider: Decider(model: () => loaded.settings.settings.ollamaModel),
       );
       // Known from launch, and again whenever connections are turned on or off.
@@ -89,6 +104,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => NotifyService()),
   Provider(create: (context) => ChatExport(context.read(), context.read())),
   Provider(create: (_) => DesktopService()),
+  // Getting the connections ready: after what it uses.
+  Provider(create: (context) => ConnectionsSetup(context.read(), context.read())),
   // Not lazy: tasks run on time whether or not their page was opened.
   ChangeNotifierProvider(
     lazy: false,
@@ -105,6 +122,16 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       conversations: context.read(),
       sessions: context.read(),
       settings: context.read(),
+      notify: context.read(),
+    ),
+  ),
+  // Not lazy either: watched checks are followed from launch.
+  ChangeNotifierProvider(
+    lazy: false,
+    create: (context) => ShipRepository(
+      shipping: Shipping(context.read()),
+      sessions: context.read(),
+      conversations: context.read(),
       notify: context.read(),
     ),
   ),

@@ -29,6 +29,9 @@ class CliLocator {
     return env;
   }
 
+  /// Looks for [name] afresh next time: it may have just been installed.
+  void forget(String name) => _binaries.remove(name);
+
   /// The absolute path of [name], or null if it is not installed.
   Future<String?> find(String name) async {
     if (_binaries.containsKey(name)) return _binaries[name];

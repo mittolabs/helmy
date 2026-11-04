@@ -22,6 +22,8 @@ import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/domain/models/permission_rule.dart';
 import 'package:helmy/utils/result.dart';
+import 'package:helmy/data/services/watch_service.dart';
+import 'package:helmy/data/services/helmy_tools.dart';
 
 /// Drives the real CLIs through the repository, the way the app does. Spends a
 /// few cents. Run with: fvm flutter test --tags live --run-skipped
@@ -215,6 +217,28 @@ void main() {
         there.resolveSymbolicLinksSync(),
       );
       expect(text, isNot(contains('HELMY_FOLDER')));
+      await h.close();
+    }, timeout: const Timeout(Duration(minutes: 4)));
+  }
+
+  for (final engine in [claude, codex]) {
+    test('${engine.info.name}: watches a video with Helmy\'s own tool', () async {
+      HelmyTools.current ??= HelmyTools(WatchService(CliLocator()));
+      final h = await _Live.make([engine], _Scripted([engine.info.id]));
+      await Process.run('ffmpeg', [
+        '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=320x180:d=3', //
+        '-f', 'lavfi', '-i', 'color=c=blue:s=320x180:d=3',
+        '-filter_complex', '[0][1]concat=n=2:v=1', '-pix_fmt', 'yuv420p',
+        '${h.work.path}/clip.mp4',
+      ]);
+      await h.say('Watch clip.mp4 in this folder. Which colors fill the screen, in order?');
+      final text = h.items.whereType<AssistantText>().map((t) => t.text).join('\n');
+      final steps = h.items.whereType<ToolCall>().map((c) => c.name).toList();
+      // ignore: avoid_print
+      print('${engine.info.id}: $steps -> ${text.replaceAll('\n', ' ')}');
+      expect(steps.any((n) => n.contains('watch_video')), isTrue, reason: 'used the tool');
+      final lower = text.toLowerCase();
+      expect(lower.indexOf('red'), allOf(isNonNegative, lessThan(lower.indexOf('blue'))));
       await h.close();
     }, timeout: const Timeout(Duration(minutes: 4)));
   }

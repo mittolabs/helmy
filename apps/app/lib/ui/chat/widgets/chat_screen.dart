@@ -40,6 +40,7 @@ import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
 import 'preview_panel.dart';
+import 'ship_panel.dart';
 import 'chat_items.dart';
 import 'composer.dart';
 import 'saved_toast.dart';
@@ -702,6 +703,7 @@ class _SidePanels extends StatelessWidget {
                 .changes => ChangesPanel(vm: vm),
                 .background => BackgroundPanel(vm: vm),
                 .preview => PreviewPanel(vm: vm),
+                .ship => ShipPanel(vm: vm),
               },
             ),
           ],
@@ -920,9 +922,34 @@ class _Header extends StatelessWidget {
                         overflow: .ellipsis,
                       ),
                     ),
+                    // In its own copy: the repository it is a copy of, and its branch.
                     Flexible(
-                      child: _FolderButton(vm: vm, cwd: session.cwd, style: muted),
+                      child: _FolderButton(
+                        vm: vm,
+                        cwd: session.ownCopy ? session.repo! : session.cwd,
+                        style: muted,
+                      ),
                     ),
+                    if (session.branch case final branch?)
+                      Flexible(
+                        child: Tooltip(
+                          message: 'Its own branch, in its own copy: other sessions here are not disturbed',
+                          child: Row(
+                            mainAxisSize: .min,
+                            spacing: 4,
+                            children: [
+                              AshlarIcon(
+                                AshlarIconsRoundedStroke.gitBranch,
+                                size: 12,
+                                color: muted.color,
+                              ),
+                              Flexible(
+                                child: Text(branch, maxLines: 1, overflow: .ellipsis, style: muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -941,6 +968,7 @@ class _Header extends StatelessWidget {
                 .changes => 'What this session changed in the folder',
                 .background => 'Work running in the background',
                 .preview => 'The page or document an answer pointed at',
+                .ship => 'From these changes to a merged pull request',
               },
               child: Button(
                 variant: vm.isOpen(p) ? .secondary : .ghost,
@@ -949,18 +977,21 @@ class _Header extends StatelessWidget {
                   .changes => 'Changes',
                   .background => 'Background',
                   .preview => 'Preview',
+                  .ship => 'Ship',
                 },
                 onPressed: () => vm.toggle(p),
                 leading: AshlarIcon(switch (p) {
                   .changes => AshlarIconsRoundedStroke.fileDiff,
                   .background => AshlarIconsRoundedStroke.loader,
                   .preview => AshlarIconsRoundedStroke.appWindow,
+                  .ship => AshlarIconsRoundedStroke.gitPullRequest,
                 }, size: 14),
                 child: Text(switch (p) {
                   .changes => 'Changes ${vm.changedFiles ?? ''}'.trim(),
                   .background =>
                     '${vm.backgroundSteps.where((c) => c.background!.status == .running).length} running',
                   .preview => 'Preview',
+                  .ship => 'Ship',
                 }),
               ),
             ),

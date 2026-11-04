@@ -37,5 +37,7 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Helmy listens to a video's sound when you ask it to watch one, so it can tell you what is said. On this Mac when it can.</string>
 </dict>
 </plist>

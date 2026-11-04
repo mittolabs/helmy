@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'config/dependencies.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/services/desktop_service.dart';
+import 'data/services/error_reports.dart';
 import 'data/services/notify_service.dart';
 import 'routing/router.dart';
 import 'routing/nav_history.dart';
@@ -14,21 +16,44 @@ import 'ui/core/ashlar/app.dart';
 import 'ui/core/ashlar/app_theme.dart';
 import 'ui/core/ashlar/markdown.dart';
 import 'ui/core/code_highlight.dart';
+import 'ui/chat/widgets/floating_player.dart';
 import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A window opened as a floating player runs that, and nothing else.
+  if (await _floatingPlayer() case (final window, final args)) {
+    return runFloatingPlayer(window, args);
+  }
   final loaded = await load();
+  // Helmy's own errors, to Mittolabs, when this build names where and the
+  // setting allows; in step with the setting from then on.
+  await ErrorReports.start(
+    allowed: loaded.settings.settings.sendErrors,
+    release: const String.fromEnvironment('HELMY_VERSION', defaultValue: 'dev'),
+  );
+  loaded.settings.addListener(() => ErrorReports.allow(loaded.settings.settings.sendErrors));
   final last = loaded.sessions.sessions.firstOrNull;
   // The splash window shows until the first frame is drawn.
   WidgetsBinding.instance.addPostFrameCallback((_) => NotifyService.ready());
+  // HELMY_FLOAT opens a video in a floating player, for looking at one while
+  // developing.
+  if (Platform.environment['HELMY_FLOAT'] case final video?) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => FloatingPlayers.openForLook(video));
+  }
   runApp(
     MultiProvider(
       providers: providers(loaded),
       // HELMY_OPEN picks the first page, for looking at one while developing.
       child: HelmyApp(
+        // First run: setup first.
         initialLocation:
-            Platform.environment['HELMY_OPEN'] ?? (last == null ? '/' : '/s/${last.id}'),
+            Platform.environment['HELMY_OPEN'] ??
+            (!loaded.settings.settings.setupDone
+                ? '/setup'
+                : last == null
+                ? '/'
+                : '/s/${last.id}'),
       ),
     ),
   );
@@ -105,5 +130,17 @@ class _HelmyAppState extends State<HelmyApp> {
       ),
       routerConfig: _router,
     );
+  }
+}
+
+/// This window and its player, when it was opened as a floating player.
+Future<(WindowController, FloatingArgs)?> _floatingPlayer() async {
+  if (!FloatingPlayers.here) return null;
+  try {
+    final window = await WindowController.fromCurrentEngine();
+    final args = FloatingArgs.decode(window.arguments);
+    return args == null ? null : (window, args);
+  } on Object {
+    return null;
   }
 }

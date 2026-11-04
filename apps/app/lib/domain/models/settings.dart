@@ -59,6 +59,27 @@ enum Recency {
 
 enum SortSessions { recent, name }
 
+/// What is set for one project (a git repository, by its top folder), over
+/// the settings for everything. Null means "as everywhere else".
+class const ProjectSettings({
+  /// Each session on its own branch, in its own working copy (a git
+  /// worktree), so sessions in one repository do not collide.
+  final bool? ownCopies,
+
+  /// What Helmy may do without asking, in sessions here.
+  final PermissionLevel? level,
+}) {
+  ProjectSettings copyWith({bool? ownCopies, PermissionLevel? level}) =>
+      ProjectSettings(ownCopies: ownCopies ?? this.ownCopies, level: level ?? this.level);
+
+  Map<String, Object?> toJson() => {'ownCopies': ?ownCopies, 'level': ?level?.id};
+
+  static ProjectSettings fromJson(Map<String, Object?> json) => ProjectSettings(
+    ownCopies: json['ownCopies'] as bool?,
+    level: json['level'] == null ? null : PermissionLevel.fromId(json['level'] as String?),
+  );
+}
+
 /// Everything the user can set, kept in one file.
 class const AppSettings({
   final PermissionLevel defaultLevel = .ask,
@@ -90,7 +111,27 @@ class const AppSettings({
 
   /// Ask before a session is deleted.
   final bool confirmDelete = true,
+
+  /// Each session in a git repository on its own branch, in its own working
+  /// copy, unless the project says otherwise.
+  final bool ownCopies = false,
+
+  /// Per project, by the repository's top folder.
+  final Map<String, ProjectSettings> projects = const {},
+
+  /// Send reports of Helmy's own errors and crashes to Mittolabs, with no
+  /// conversation, file or path in them.
+  final bool sendErrors = true,
+
+  /// First-run setup has been finished or skipped.
+  final bool setupDone = false,
 }) {
+  /// The settings for the project at [repo] (a repository's top folder).
+  ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
+
+  /// Whether sessions in [repo] each get their own working copy.
+  bool ownCopiesIn(String repo) => project(repo).ownCopies ?? ownCopies;
+
   AppSettings copyWith({
     PermissionLevel? defaultLevel,
     FolderMode? folderMode,
@@ -113,6 +154,10 @@ class const AppSettings({
     bool? sendWithEnter,
     bool? stepsOpen,
     bool? confirmDelete,
+    bool? ownCopies,
+    Map<String, ProjectSettings>? projects,
+    bool? sendErrors,
+    bool? setupDone,
   }) => AppSettings(
     defaultLevel: defaultLevel ?? this.defaultLevel,
     folderMode: folderMode ?? this.folderMode,
@@ -135,6 +180,10 @@ class const AppSettings({
     sendWithEnter: sendWithEnter ?? this.sendWithEnter,
     stepsOpen: stepsOpen ?? this.stepsOpen,
     confirmDelete: confirmDelete ?? this.confirmDelete,
+    ownCopies: ownCopies ?? this.ownCopies,
+    projects: projects ?? this.projects,
+    sendErrors: sendErrors ?? this.sendErrors,
+    setupDone: setupDone ?? this.setupDone,
   );
 
   Map<String, Object?> toJson() => {
@@ -159,6 +208,10 @@ class const AppSettings({
     'sendWithEnter': sendWithEnter,
     'stepsOpen': stepsOpen,
     'confirmDelete': confirmDelete,
+    'ownCopies': ownCopies,
+    'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
+    'sendErrors': sendErrors,
+    'setupDone': setupDone,
   };
 
   static AppSettings fromJson(Map<String, Object?> json) => AppSettings(
@@ -186,5 +239,13 @@ class const AppSettings({
     sendWithEnter: json['sendWithEnter'] as bool? ?? true,
     stepsOpen: json['stepsOpen'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
+    ownCopies: json['ownCopies'] as bool? ?? false,
+    projects: {
+      for (final e in ((json['projects'] as Map?) ?? const {}).entries)
+        '${e.key}': ProjectSettings.fromJson((e.value as Map).cast()),
+    },
+    sendErrors: json['sendErrors'] as bool? ?? true,
+    // Someone who used Helmy before setup existed has set it up already.
+    setupDone: json['setupDone'] as bool? ?? json.containsKey('disabledEngines'),
   );
 }

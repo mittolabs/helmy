@@ -41,7 +41,19 @@ class const Session({
 
   /// Out of the list until then, when it comes back as needing you.
   final DateTime? snoozedUntil,
+
+  /// Working in its own copy of a repository: the repository's top folder,
+  /// and the branch [cwd] is on. Null otherwise.
+  final String? repo,
+  final String? branch,
+
+  /// Its pull request's checks are followed: a failure goes to the agent to
+  /// fix, a pass to the user.
+  final bool watchChecks = false,
 }) {
+  /// In its own working copy, on its own branch.
+  bool get ownCopy => repo != null && branch != null;
+
   /// Snoozed, and not yet due back.
   bool get snoozed => snoozedUntil != null && snoozedUntil!.isAfter(DateTime.now());
 
@@ -57,6 +69,9 @@ class const Session({
     Snapshot? baseline,
     DateTime? snoozedUntil,
     bool wake = false,
+    String? repo,
+    String? branch,
+    bool? watchChecks,
 
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
@@ -75,6 +90,9 @@ class const Session({
     baseline: rebase ? null : baseline ?? this.baseline,
     taskId: taskId,
     snoozedUntil: wake ? null : snoozedUntil ?? this.snoozedUntil,
+    repo: repo ?? this.repo,
+    branch: branch ?? this.branch,
+    watchChecks: watchChecks ?? this.watchChecks,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -94,6 +112,9 @@ class const Session({
     if (baseline != null) 'baseline': baseline!.toJson(),
     'taskId': ?taskId,
     if (snoozedUntil != null) 'snoozedUntil': snoozedUntil!.toIso8601String(),
+    'repo': ?repo,
+    'branch': ?branch,
+    if (watchChecks) 'watchChecks': true,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -123,6 +144,9 @@ class const Session({
       baseline: Snapshot.fromJson(json['baseline']),
       taskId: json['taskId'] as String?,
       snoozedUntil: DateTime.tryParse('${json['snoozedUntil'] ?? ''}'),
+      repo: json['repo'] as String?,
+      branch: json['branch'] as String?,
+      watchChecks: json['watchChecks'] == true,
     );
   }
 }

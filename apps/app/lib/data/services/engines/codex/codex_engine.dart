@@ -17,6 +17,8 @@ import '../attachments.dart';
 import 'codex_reducer.dart';
 import 'codex_rpc.dart';
 import '../../../../utils/platform.dart';
+import '../../helmy_tools.dart';
+import '../ollama/ollama_doctor.dart';
 
 /// Codex, driven through `codex app-server`: one thread per session, approvals
 /// answered from the app.
@@ -322,6 +324,7 @@ class CodexEngine implements AgentEngine {
       return 'Could not find the codex command. Install Codex CLI first.';
     }
     if (_local == null) return null;
+    await OllamaDoctor.ensure();
     final models = await ollamaModels();
     if (models == null) return 'Ollama is not running. Install it from ollama.com and start it.';
     if (models.isEmpty && _busy) return 'Ollama is busy. Try again in a moment.';
@@ -393,7 +396,15 @@ class _CodexRun implements EngineRun {
         'capabilities': null,
       });
       _rpc.notify('initialized', {});
+      final tools = await HelmyTools.current?.url;
       final settings = {
+        // Helmy's own tools, as an MCP server it runs.
+        if (tools != null)
+          'config': {
+            'mcp_servers': {
+              'helmy': {'url': tools},
+            },
+          },
         'cwd': launch.cwd,
         'approvalPolicy': approval,
         'sandbox': sandbox,

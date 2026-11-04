@@ -22,6 +22,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     required this._notify,
   }) {
     _conversations.addListener(_check);
+    _inSightChanges = _notify.inSight.listen(_onInSight);
     _sessions.addListener(_planWake);
     WidgetsBinding.instance.addObserver(this);
     _planWake();
@@ -46,6 +47,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   bool _active = true;
   String? _face;
   Timer? _dozing;
+  StreamSubscription<bool>? _inSightChanges;
   Timer? _wake;
   DateTime? _wakeAt;
 
@@ -56,9 +58,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   bool isUnread(String sessionId) => _unread.contains(sessionId);
 
   /// Clears [sessionId]'s unread mark without opening it.
-  void markRead(String sessionId) {
-    if (_unread.remove(sessionId)) _changed();
-  }
+  void markRead(String sessionId) => _seen(sessionId);
 
   /// Wakes snoozed sessions that are due, as needing you, and sets a timer
   /// for the next one.
@@ -90,13 +90,28 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   /// The session on screen, or null.
   set viewing(String? sessionId) {
     _viewing = sessionId;
-    if (sessionId != null && _unread.remove(sessionId)) _changed();
+    if (sessionId != null) _seen(sessionId);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _active = state == AppLifecycleState.resumed;
-    if (_active && _viewing != null && _unread.remove(_viewing)) _changed();
+    if (_active && _viewing != null) _seen(_viewing!);
+  }
+
+  /// The window came into sight (or went out of it): the session on screen
+  /// is seen. Hiding and showing the window may never change whether the app
+  /// is the active one, so this, not the app's state, is what counts.
+  void _onInSight(bool inSight) {
+    _active = inSight;
+    if (inSight && _viewing != null) _seen(_viewing!);
+  }
+
+  /// [sessionId] is seen: no longer unread, out of the count, and its
+  /// notification gone from the system's list.
+  void _seen(String sessionId) {
+    unawaited(_notify.clearNotification(sessionId));
+    if (_unread.remove(sessionId)) _changed();
   }
 
   void _check() {
@@ -216,6 +231,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    unawaited(_inSightChanges?.cancel());
     _dozing?.cancel();
     _wakingUp?.cancel();
     _wake?.cancel();

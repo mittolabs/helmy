@@ -11,11 +11,20 @@ class NotifyService {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'open' && call.arguments is String) _opened.add(call.arguments as String);
       if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
+      if (call.method == 'inSight') _inSight.add(call.arguments == true);
     });
   }
 
   static const _channel = MethodChannel('helmy/notify');
   final _opened = StreamController<String>.broadcast();
+  final _inSight = StreamController<bool>.broadcast();
+
+  /// The window coming into sight (focused, showing) or going out of it.
+  Stream<bool> get inSight => _inSight.stream;
+
+  /// Takes [sessionId]'s notification out of the system's list, once seen.
+  Future<void> clearNotification(String sessionId) =>
+      _call('clearNotification', {'sessionId': sessionId});
 
   /// Sessions whose notification was clicked.
   Stream<String> get opened => _opened.stream;

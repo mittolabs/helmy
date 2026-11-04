@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.1.0 # x-release-please-version
 
 environment:
   sdk: ^3.13.4
@@ -43,6 +43,15 @@ dependencies:
   re_highlight: ^0.0.3
   video_player: ^2.14.1
   webview_flutter: ^4.14.1
+  desktop_multi_window: ^0.3.1
+  # The fork desktop_multi_window names: window control inside its extra
+  # windows (the floating player), on macOS, Windows and Linux.
+  window_manager:
+    git:
+      url: https://github.com/boyan01/window_manager.git
+      path: packages/window_manager
+      ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
+  sentry: ^10.3.0
 dev_dependencies:
   integration_test:
     sdk: flutter

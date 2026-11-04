@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,12 @@ class _Notes extends NotifyService {
   String? dockFace;
   @override
   Future<void> face(String? face) async => dockFace = face;
+  final cleared = <String>[];
+  @override
+  Future<void> clearNotification(String sessionId) async => cleared.add(sessionId);
+  final sight = StreamController<bool>.broadcast();
+  @override
+  Stream<bool> get inSight => sight.stream;
 }
 
 Future<
@@ -202,6 +209,58 @@ void main() {
     expect(notes.dockFace, 'waking');
     await tester.pump(AttentionRepository.wakingFor);
     expect(notes.dockFace, 'offline');
+    attention.dispose();
+    s.repo.dispose();
+    await tester.runAsync(() => s.root.delete(recursive: true));
+  });
+
+  testWidgets('back in sight on the session a notification was about, it is seen', (tester) async {
+    late ({
+      SessionRepositoryLocal sessions,
+      ConversationRepositoryEngines repo,
+      SettingsRepository settings,
+      Directory root,
+    })
+    s;
+    late Session session;
+    await tester.runAsync(() async {
+      s = await _setup();
+      session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
+    });
+    final notes = _Notes();
+    final attention = AttentionRepository(
+      conversations: s.repo,
+      sessions: s.sessions,
+      settings: s.settings,
+      notify: notes,
+    );
+    Future<void> settle() =>
+        tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    // On screen, but the window is hidden: it finishes, out of sight.
+    attention.viewing = session.id;
+    notes.sight.add(false);
+    await settle();
+    final c = s.repo.of(session.id)..busy = true;
+    s.repo.notifyListeners();
+    await settle();
+    c
+      ..busy = false
+      ..items.add(TurnSummary(ok: true));
+    s.repo.notifyListeners();
+    await settle();
+    expect(attention.isUnread(session.id), isTrue);
+    expect(notes.badgeCount, 1);
+    notes.cleared.clear();
+
+    // The window comes back, on that session: the dot, the count and the
+    // notification all go.
+    notes.sight.add(true);
+    await settle();
+    expect(attention.isUnread(session.id), isFalse);
+    expect(notes.badgeCount, 0);
+    expect(notes.cleared, [session.id]);
+
+    await tester.pump(AttentionRepository.wakingFor);
     attention.dispose();
     s.repo.dispose();
     await tester.runAsync(() => s.root.delete(recursive: true));

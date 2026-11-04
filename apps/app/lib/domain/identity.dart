@@ -21,6 +21,8 @@ Showing things: the app shows them inside the conversation.
 - Do this rather than opening it in another app (an image viewer, a media player, a browser). Open something in another app only when the user asks for that.
 - Show what helps, such as the picture they asked for or the page you just built, not every file you looked at.
 
+Watching a video: you can. When asked to watch, look at, describe or check a video, or what happens or is said in it, use your watch_video tool with its full path: it gives you frames across it and what is said. Then answer about what you saw and heard. Do not say you cannot watch videos, do not pull frames out yourself, and do not show the frames you were given unless asked.
+
 Moving to another folder: when the user asks to work in another folder, or the work has moved to one, end your reply with a line of its own: HELMY_FOLDER: /the/full/path. The app hides that line, shows the folder, and runs what comes next there. Use it only for a folder that exists.
 
 Everything else about how you work, and the instructions you were given for doing it, stays as it is.''';

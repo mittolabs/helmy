@@ -18,6 +18,7 @@ import '../services/engines/handoff.dart';
 import '../services/engines/needs.dart';
 import '../services/engines/usage_meter.dart';
 import '../services/snapshots.dart';
+import '../services/worktrees.dart';
 import '../services/storage_service.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
@@ -58,11 +59,19 @@ class ConversationRepositoryEngines extends ConversationRepository {
     List<PermissionRule> Function()? rules,
     this._snapshots,
     this._decider,
-  }) : _enabled = enabled ?? ((_) => true),
+    this._worktrees,
+    bool Function(String repo)? ownCopies,
+  }) : _ownCopies = ownCopies ?? ((_) => false),
+       _enabled = enabled ?? ((_) => true),
        _rules = rules ?? (() => const []);
 
   /// Takes the folder's state before each message, when it is a git repository.
   final Snapshots? _snapshots;
+
+  /// Gives a session its own working copy of a repository, where the
+  /// project asks for that ([_ownCopies]).
+  final Worktrees? _worktrees;
+  final bool Function(String repo) _ownCopies;
 
   /// The model on this Mac, asked what a message needs before it is routed.
   final Decider? _decider;
@@ -143,6 +152,24 @@ class ConversationRepositoryEngines extends ConversationRepository {
     // Busy from here, before anything is awaited: a message sent meanwhile waits.
     c.busy = true;
     notifyListeners();
+    // A session's first message, in a repository that gives each session its
+    // own copy: the copy is made now, on a branch named from the message.
+    String? copied;
+    if (c.items.whereType<UserMessage>().isEmpty && !session.ownCopy && _worktrees != null) {
+      final repo = await _worktrees.repoOf(session.cwd);
+      if (repo != null && _ownCopies(repo)) {
+        final made = await _worktrees.create(repo, text);
+        if (made.path != null) {
+          session = session.copyWith(cwd: made.path, repo: repo, branch: made.branch);
+          await _sessions.save(session);
+          copied =
+              'Working on my own branch, ${made.branch}, in a copy of ${folderName(repo)}: '
+              'other sessions here are not disturbed.';
+        } else {
+          copied = "I couldn't make a separate copy, so I'm working in the folder itself.";
+        }
+      }
+    }
     // The folder as it is before this message, and before the session's first.
     final checkpoint = await _snapshots?.take(session.cwd);
     if (checkpoint != null && session.baseline == null) {
@@ -158,6 +185,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
         ..checkpoint = checkpoint
         ..branches = _branching.remove(session.id),
     );
+    if (copied != null) c.items.add(Notice(copied));
     c.busy = true;
     notifyListeners();
 

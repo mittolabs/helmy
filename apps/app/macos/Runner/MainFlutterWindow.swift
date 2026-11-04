@@ -1,6 +1,8 @@
 import Cocoa
 import FlutterMacOS
+import desktop_multi_window
 import ServiceManagement
+import Speech
 import UserNotifications
 
 class MainFlutterWindow: NSWindow {
@@ -19,7 +21,27 @@ class MainFlutterWindow: NSWindow {
     self.isMovableByWindowBackground = true
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    // Each extra window (the floating player) is its own Flutter engine,
+    // and gets the same plugins: the player, window control.
+    FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
+      RegisterGeneratedPlugins(registry: controller)
+      // A floating window is rarely the focused one: it still sees the
+      // pointer, so its controls show when the pointer is over it.
+      controller.mouseTrackingMode = .always
+    }
     Notifier.shared.attach(to: flutterViewController.engine.binaryMessenger)
+
+    // In sight or not: focused (on top, being looked at), or not focused or
+    // in the Dock. What a notification was about is seen once it is in sight.
+    for (name, seen) in [
+      (NSWindow.didBecomeKeyNotification, true),
+      (NSWindow.didResignKeyNotification, false),
+      (NSWindow.didMiniaturizeNotification, false),
+    ] {
+      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
+        Notifier.shared.tell("inSight", seen)
+      }
+    }
 
     // Full screen hides the window's buttons; the app's title row moves left
     // into their place.
@@ -241,11 +263,26 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         AppDelegate.keepRunning = args["on"] as? Bool ?? true
         result(nil)
       case "isActive":
-        result(NSApp.isActive)
+        // In front and showing: a hidden or minimized window is not in sight,
+        // though the app may still be the active one.
+        let window = NSApp.windows.first { $0 is MainFlutterWindow }
+        result(NSApp.isActive && (window?.isVisible ?? false) && !(window?.isMiniaturized ?? true))
+      case "clearNotification":
+        // A session's notification, gone from Notification Center once seen.
+        let id = args["sessionId"] as? String ?? ""
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [id])
+        result(nil)
       case "badge":
         let count = args["count"] as? Int ?? 0
         NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
         result(nil)
+      case "transcribe":
+        // A sound file's words, recognized on this Mac.
+        Transcriber.transcribe(path: args["path"] as? String ?? "") { text, error in
+          if let text { result(text) } else {
+            result(FlutterError(code: "transcribe", message: error, details: nil))
+          }
+        }
       case "titleBarDoubleClick":
         // What a double-click on a title bar does, as set in Desktop & Dock.
         let window = NSApp.mainWindow ?? NSApp.windows.first { $0 is MainFlutterWindow }
@@ -382,5 +419,42 @@ final class DockFace {
       return true
     }
     NSApp.applicationIconImage = icon
+  }
+}
+
+/// Speech in a sound file, as text, by macOS's own recognizer: on this Mac
+/// when it can (the sound never leaves it), in the user's language. Asks the
+/// user's permission the first time.
+enum Transcriber {
+  static func transcribe(path: String, done: @escaping (String?, String?) -> Void) {
+    let finish = { (text: String?, error: String?) in
+      DispatchQueue.main.async { done(text, error) }
+    }
+    SFSpeechRecognizer.requestAuthorization { status in
+      guard status == .authorized else {
+        return finish(nil, "Speech recognition is not allowed for Helmy.")
+      }
+      guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+        return finish(nil, "Speech recognition is not available.")
+      }
+      let request = SFSpeechURLRecognitionRequest(url: URL(fileURLWithPath: path))
+      request.shouldReportPartialResults = false
+      // Names it would not know, spelled as they are.
+      request.contextualStrings = ["Helmy", "Mittolabs"]
+      if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
+      var answered = false
+      recognizer.recognitionTask(with: request) { result, error in
+        if answered { return }
+        if let result, result.isFinal {
+          answered = true
+          finish(result.bestTranscription.formattedString, nil)
+        } else if let error {
+          answered = true
+          // No speech in it is an empty transcript, not a failure.
+          let nsError = error as NSError
+          if nsError.code == 1110 { finish("", nil) } else { finish(nil, error.localizedDescription) }
+        }
+      }
+    }
   }
 }

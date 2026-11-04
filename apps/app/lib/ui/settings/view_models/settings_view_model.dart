@@ -18,8 +18,12 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
 import '../../../utils/platform.dart';
+import '../../../utils/format.dart';
+import '../../../domain/models/session.dart';
+import '../../../data/services/worktrees.dart';
+import '../../../data/repositories/session_repository.dart';
 
-enum SettingsSection { general, agents, tools, memory, data, keyboard }
+enum SettingsSection { general, projects, agents, tools, memory, data, keyboard }
 
 /// One engine as settings shows it: what it is, whether it can run, and what
 /// it last said about its usage.
@@ -62,6 +66,42 @@ class SettingsViewModel extends ChangeNotifier {
 
   AppSettings get settings => _settings.settings;
   Future<void> update(AppSettings s) => _settings.save(s);
+
+  // Projects.
+
+  /// The sessions, for the projects they work in; set where the page is made.
+  SessionRepository? sessions;
+
+  /// Every repository a session has worked in, and every one set before,
+  /// by its top folder, sorted by name.
+  Future<List<String>> projects() async {
+    final git = Worktrees();
+    final found = <String>{...settings.projects.keys};
+    for (final s in sessions?.sessions ?? const <Session>[]) {
+      if (s.repo case final repo?) {
+        found.add(repo);
+      } else if (await git.repoOf(s.cwd) case final repo?) {
+        found.add(repo);
+      }
+    }
+    return found.toList()..sort((a, b) => folderName(a).compareTo(folderName(b)));
+  }
+
+  /// Sets [repo]'s own settings; null for a field leaves it as everywhere.
+  Future<void> setProject(
+    String repo, {
+    bool? ownCopies,
+    PermissionLevel? level,
+    bool clearOwn = false,
+    bool clearLevel = false,
+  }) {
+    final now = settings.project(repo);
+    final next = ProjectSettings(
+      ownCopies: clearOwn ? null : ownCopies ?? now.ownCopies,
+      level: clearLevel ? null : level ?? now.level,
+    );
+    return update(settings.copyWith(projects: {...settings.projects, repo: next}));
+  }
 
   // Agents.
 

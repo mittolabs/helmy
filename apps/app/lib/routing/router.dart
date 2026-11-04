@@ -11,6 +11,7 @@ import '../ui/settings/widgets/settings_screen.dart';
 import '../ui/shell/view_models/sidebar_view_model.dart';
 import '../ui/shell/widgets/empty_screen.dart';
 import '../ui/shell/widgets/shell_screen.dart';
+import '../ui/setup/setup_screen.dart';
 
 GoRouter router(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
@@ -36,6 +37,7 @@ GoRouter router(String initialLocation) => GoRouter(
       ),
       routes: [
         GoRoute(path: '/', builder: (context, state) => const EmptyScreen()),
+        GoRoute(path: '/setup', builder: (context, state) => const SetupScreen()),
         GoRoute(
           path: '/settings',
           builder: (context, state) => _Kept(
@@ -47,6 +49,7 @@ GoRouter router(String initialLocation) => GoRouter(
                     memory: context.read(),
                   )
                   ..desktop = context.read()
+                  ..sessions = context.read()
                   ..section =
                       SettingsSection.values.asNameMap()[state.uri.queryParameters['section']] ??
                       .general,

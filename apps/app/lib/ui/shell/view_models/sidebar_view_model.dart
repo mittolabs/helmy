@@ -9,6 +9,7 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
 import '../../../utils/platform.dart';
+import '../../../data/services/worktrees.dart';
 
 enum SessionActivity { idle, working, needsYou, unread }
 
@@ -24,7 +25,8 @@ class SidebarViewModel extends ChangeNotifier {
     _settings.addListener(notifyListeners);
     _conversations.addListener(_onConversations);
     create = Command0(
-      () => _sessions.create(cwd: defaultFolder, level: _settings.settings.defaultLevel),
+      () async =>
+          _sessions.create(cwd: defaultFolder, level: await _settings.levelFor(defaultFolder)),
     );
     delete = Command1(_delete);
   }
@@ -204,7 +206,13 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   Future<Result<void>> _delete(String id) async {
+    final session = _sessions.byId(id);
     await _conversations.forget(id);
+    // Its own working copy goes with it, unless it holds uncommitted work;
+    // its branch stays either way.
+    if (session != null && session.ownCopy) {
+      await Worktrees().remove(session.repo!, session.cwd);
+    }
     return _sessions.delete(id);
   }
 

@@ -24,6 +24,7 @@ import 'command_palette.dart';
 import 'new_session.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
+import '../../chat/widgets/player.dart';
 
 /// The sessions down the side, the open one beside them.
 class ShellScreen extends StatelessWidget {
@@ -326,11 +327,14 @@ class ShellScreen extends StatelessWidget {
           ],
           // Hidden, its button sits beside the window's own buttons, over the page.
           // (The view model's settings, as this screen is given no provider.)
+          // A video popped out of a conversation plays over the page's corner,
+          // whatever page is showing.
           child: viewModel.settings.sidebarOpen && MediaQuery.sizeOf(context).width >= narrowWindow
-              ? child
+              ? Stack(children: [child, const CornerPlayer()])
               : Stack(
                   children: [
                     child,
+                    const CornerPlayer(),
                     // In line with the window's buttons, just after them,
                     // as a Mac app's sidebar button sits.
                     // (At the edge in full screen, where the window's buttons hide.)

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -21,10 +22,11 @@ import '../../../utils/project_files.dart';
 import '../../../utils/result.dart';
 import '../../../utils/transcript_markdown.dart';
 import '../../../utils/platform.dart';
+import '../../../data/services/worktrees.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview }
+enum SidePanel { changes, background, preview, ship }
 
 class ChatViewModel extends ChangeNotifier {
   new({
@@ -36,10 +38,30 @@ class ChatViewModel extends ChangeNotifier {
   }) {
     _attention?.viewing = sessionId;
     _sessions.addListener(notifyListeners);
+    _sessions.addListener(_findRepoLater);
     _conversations.addListener(notifyListeners);
     _conversations.addListener(_onConversation);
     send = Command1(_send);
     _conversations.load(sessionId).then((_) => countChanges());
+    unawaited(_findRepo());
+  }
+
+  void _findRepoLater() => unawaited(_findRepo());
+
+  /// Whether the session's folder is in a git repository, so its work can
+  /// go on to a pull request; asked once, and again when the folder changes.
+  bool inRepo = false;
+  String? _askedFor;
+
+  Future<void> _findRepo() async {
+    final cwd = session?.cwd;
+    if (cwd == null || cwd == _askedFor) return;
+    _askedFor = cwd;
+    final found = await Worktrees().repoOf(cwd) != null;
+    if (found != inRepo) {
+      inRepo = found;
+      notifyListeners();
+    }
   }
 
   final String sessionId;
@@ -201,6 +223,7 @@ class ChatViewModel extends ChangeNotifier {
   List<SidePanel> get panels => [
     // (Only where there is a web view to show it in.)
     if (previewUrl != null && webViewHere) .preview,
+    if (inRepo) .ship,
     if ((changedFiles ?? 0) > 0 || isOpen(.changes)) .changes,
     if (backgroundSteps.any((c) => c.background!.status == .running) || isOpen(.background))
       .background,
@@ -545,7 +568,10 @@ class ChatViewModel extends ChangeNotifier {
     final s = session;
     if (s == null || s.cwd == cwd || busy) return;
     await _conversations.stop(sessionId);
-    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}));
+    // Before its first message, a session takes on its new project's level.
+    final fresh = !items.any((i) => i is UserMessage);
+    final level = fresh ? await _settings?.levelFor(cwd) : null;
+    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level));
   }
 
   @override
@@ -553,6 +579,7 @@ class ChatViewModel extends ChangeNotifier {
     _attention?.viewing = null;
     focusRequests.dispose();
     _sessions.removeListener(notifyListeners);
+    _sessions.removeListener(_findRepoLater);
     _conversations.removeListener(notifyListeners);
     _conversations.removeListener(_onConversation);
     super.dispose();
