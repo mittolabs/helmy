@@ -17,8 +17,12 @@ import 'support/storage.dart';
 void main() {
   test('the device floats out of the panel, and back into it', () async {
     final root = await Directory.systemTemp.createTemp('float');
-    addTearDown(() => root.delete(recursive: true));
     final storage = storageAt(root);
+    // Saves on their way land before the folder goes.
+    addTearDown(() async {
+      await storage.flush();
+      await root.delete(recursive: true);
+    });
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

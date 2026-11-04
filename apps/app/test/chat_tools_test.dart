@@ -22,8 +22,12 @@ void main() {
     "an agent looks into its chat's other threads, cheapest first, each lookup logged",
     () async {
       final root = await Directory.systemTemp.createTemp('chattools');
-      addTearDown(() => root.delete(recursive: true));
       final storage = StorageService(root: () async => root);
+      // Saves on their way land before the folder goes.
+      addTearDown(() async {
+        await storage.flush();
+        await root.delete(recursive: true);
+      });
       final sessions = SessionRepositoryLocal(storage);
       final chats = ChatRepository(storage, sessions);
       addTearDown(chats.dispose);

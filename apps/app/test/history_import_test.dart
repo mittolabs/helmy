@@ -198,8 +198,12 @@ void main() {
 
   test('brought in, each is a session that goes on in its own thread, once', () async {
     final root = await Directory.systemTemp.createTemp('helmy');
-    addTearDown(() => root.delete(recursive: true));
     final storage = StorageService(root: () async => root);
+    // Saves on their way land before the folder goes.
+    addTearDown(() async {
+      await storage.flush();
+      await root.delete(recursive: true);
+    });
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

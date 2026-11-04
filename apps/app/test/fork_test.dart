@@ -15,8 +15,12 @@ import 'package:helmy/utils/result.dart';
 void main() {
   test('a fork takes the conversation up to that answer, and goes its own way', () async {
     final root = await Directory.systemTemp.createTemp('fork');
-    addTearDown(() => root.delete(recursive: true));
     final storage = StorageService(root: () async => root);
+    // Saves on their way land before the folder goes.
+    addTearDown(() async {
+      await storage.flush();
+      await root.delete(recursive: true);
+    });
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

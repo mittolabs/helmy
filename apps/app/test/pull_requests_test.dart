@@ -110,8 +110,13 @@ void main() {
     'listed, sorted and narrowed; checks unknown until read; a session found and started',
     () async {
       final root = await Directory.systemTemp.createTemp('prs');
-      addTearDown(() => root.delete(recursive: true));
       final storage = StorageService(root: () async => root);
+      // Saves still on their way land before the folder goes: deleting under
+      // one failed with "Directory not empty" (2026-11-04, a loaded suite).
+      addTearDown(() async {
+        await storage.flush();
+        await root.delete(recursive: true);
+      });
       final sessions = SessionRepositoryLocal(storage);
       final meter = UsageMeter();
       final repo = ConversationRepositoryEngines(
