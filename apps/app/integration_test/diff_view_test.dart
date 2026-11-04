@@ -27,8 +27,12 @@ void main() {
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
     // A real change from this repository: the import list's date column.
-    final r = await Process.run('git', ['show', 'a45608c', '--', 'apps/app/lib/ui/chat/widgets/screen/empty.dart'],
-        workingDirectory: Directory.current.parent.parent.path);
+    final r = await Process.run('git', [
+      'show',
+      'a45608c',
+      '--',
+      'apps/app/lib/ui/chat/widgets/screen/empty.dart',
+    ], workingDirectory: Directory.current.parent.parent.path);
     final text = '${r.stdout}';
     final diff = parseUnified('empty.dart', text.substring(text.indexOf('@@')));
     final settings = FakeSettingsRepository();
@@ -48,7 +52,10 @@ void main() {
                 alignment: Alignment.topLeft,
                 child: SizedBox(
                   width: width,
-                  child: Padding(padding: const EdgeInsets.all(12), child: DiffView(diff: diff, maxRows: 26)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: DiffView(diff: diff, maxRows: 26),
+                  ),
                 ),
               ),
             ),

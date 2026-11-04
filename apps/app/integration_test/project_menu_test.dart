@@ -58,7 +58,9 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
     }
     // ignore: avoid_print
-    print('apps: ${[for (final e in vm.editors) '${e.name} (${e.lastUsed})']}; opens in ${vm.editor?.name}');
+    print(
+      'apps: ${[for (final e in vm.editors) '${e.name} (${e.lastUsed})']}; opens in ${vm.editor?.name}',
+    );
     // ignore: avoid_print
     print('actions: ${[for (final a in vm.actions) '${a.name}: ${a.command}']}');
     expect(vm.actions, isNotEmpty);
@@ -81,7 +83,10 @@ void main() {
                   child: Row(
                     mainAxisAlignment: .end,
                     spacing: 2,
-                    children: [ProjectRunButton(vm: vm), ProjectMenu(vm: vm)],
+                    children: [
+                      ProjectRunButton(vm: vm),
+                      ProjectMenu(vm: vm),
+                    ],
                   ),
                 ),
                 Expanded(

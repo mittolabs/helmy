@@ -34,8 +34,14 @@ void main() {
       ],
     });
     // ignore: avoid_print
-    print('read: $readMs ms; act + read: ${watch.elapsedMilliseconds} ms\n${after.split('\n').take(6).join('\n')}');
-    expect(after, isNot(contains('Button "Settings"')), reason: 'Settings opened, the home screen left');
+    print(
+      'read: $readMs ms; act + read: ${watch.elapsedMilliseconds} ms\n${after.split('\n').take(6).join('\n')}',
+    );
+    expect(
+      after,
+      isNot(contains('Button "Settings"')),
+      reason: 'Settings opened, the home screen left',
+    );
     expect(after, contains('now:\n[d1]'), reason: 'and Settings was read: $after');
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

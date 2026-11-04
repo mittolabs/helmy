@@ -47,12 +47,16 @@ void main() {
       storage: storage,
       sessions: sessions,
     );
-    final main = (await sessions.create(cwd: root.path, title: 'Build the site') as Ok).value as Session;
+    final main =
+        (await sessions.create(cwd: root.path, title: 'Build the site') as Ok).value as Session;
     repo.of(main.id)
       ..loaded = true
       ..items.addAll([
         UserMessage('Make the home page, dark, with the logo in blue.'),
-        AssistantText('a:0', 'Made it: a dark page with the logo in blue, and a short line under it.'),
+        AssistantText(
+          'a:0',
+          'Made it: a dark page with the logo in blue, and a short line under it.',
+        ),
       ]);
     final vm = ChatViewModel(sessionId: main.id, sessions: sessions, conversations: repo);
     await vm.sideChat();

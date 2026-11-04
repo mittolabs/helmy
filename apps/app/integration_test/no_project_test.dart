@@ -15,7 +15,6 @@ import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/storage_service.dart';
-import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/ui/chat/widgets/chat_screen.dart';

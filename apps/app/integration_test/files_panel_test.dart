@@ -54,7 +54,11 @@ void main() {
             darkTheme: appDarkTheme,
             themeMode: .dark,
             home: Center(
-              child: SizedBox(width: width, height: 640, child: FilesPanel(vm: vm)),
+              child: SizedBox(
+                width: width,
+                height: 640,
+                child: FilesPanel(vm: vm),
+              ),
             ),
           ),
         ),

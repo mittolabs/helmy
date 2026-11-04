@@ -21,11 +21,14 @@ void main() {
     expect(helmy, isNotNull, reason: 'Helmy is open');
     final shot = await snaps.take(helmy!);
     // ignore: avoid_print
-    print('picture: ${shot?.picture != null ? File(shot!.picture).lengthSync() : null} bytes, '
-        'text: ${shot?.text == null ? 'none' : File(shot!.text!).readAsLinesSync().length} lines');
+    print(
+      'picture: ${shot?.picture != null ? File(shot!.picture).lengthSync() : null} bytes, '
+      'text: ${shot?.text == null ? 'none' : File(shot!.text!).readAsLinesSync().length} lines',
+    );
     if (shot != null) {
       File(shot.picture).copySync('${Platform.environment['SHOT'] ?? dir.path}/snap.png');
-      if (shot.text != null) File(shot.text!).copySync('${Platform.environment['SHOT'] ?? dir.path}/snap.md');
+      if (shot.text != null)
+        File(shot.text!).copySync('${Platform.environment['SHOT'] ?? dir.path}/snap.md');
     }
     expect(shot, isNotNull);
   });

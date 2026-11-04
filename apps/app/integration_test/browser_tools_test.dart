@@ -114,7 +114,6 @@ void main() {
     print('UA: ${text(ua)}  modern google: ${text(modern)}');
     expect(text(modern), 'true', reason: 'Google sends its modern page');
 
-
     final shot = await call('browser_screenshot', {});
     expect(((shot['content'] as List).first as Map)['type'], 'image');
     await tester.pumpWidget(const SizedBox());
