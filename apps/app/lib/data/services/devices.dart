@@ -74,14 +74,33 @@ class DeviceService {
         }
       }
     }
+    // Android: the emulators running (adb), named by their virtual device,
+    // then the virtual devices not running, to start.
+    final running = <String>{};
     final android = await _run('adb', ['devices']);
     if (android != null && android.exitCode == 0) {
       for (final line in '${android.stdout}'.split('\n').skip(1)) {
         final parts = line.trim().split(RegExp(r'\s+'));
         if (parts.length == 2 && parts[1] == 'device') {
-          out.add(Device(id: parts[0], name: parts[0], ios: false, booted: true));
+          final avd = parts[0].startsWith('emulator-') ? await _avdOf(parts[0]) : null;
+          if (avd != null) running.add(avd);
+          out.add(
+            Device(
+              id: parts[0],
+              name: avd == null ? parts[0] : _avdName(avd),
+              ios: false,
+              booted: true,
+              runtime: 'Android',
+            ),
+          );
         }
       }
+    }
+    for (final avd in await _avds()) {
+      if (running.contains(avd)) continue;
+      out.add(
+        Device(id: 'avd:$avd', name: _avdName(avd), ios: false, booted: false, runtime: 'Android'),
+      );
     }
     out.sort((a, b) => a.booted == b.booted ? a.name.compareTo(b.name) : (a.booted ? -1 : 1));
     return out;
@@ -89,9 +108,87 @@ class DeviceService {
 
   /// Starts [d] (an iOS simulator) and waits until it is up.
   Future<bool> boot(Device d) async {
+    if (!d.ios && d.id.startsWith('avd:')) return _bootAvd(d.id.substring(4));
     if (!d.ios || d.booted) return true;
     await _run('xcrun', ['simctl', 'boot', d.id]);
     return (await _run('xcrun', ['simctl', 'bootstatus', d.id, '-b']))?.exitCode == 0;
+  }
+
+  /// The Android emulator program: where Android Studio, Homebrew or the
+  /// environment put it; null when it is not installed.
+  Future<String?> _emulator() async {
+    final env = await _locator.environment();
+    final home = env['HOME'] ?? Platform.environment['HOME'] ?? '';
+    final roots = [
+      env['ANDROID_HOME'],
+      env['ANDROID_SDK_ROOT'],
+      '$home/Library/Android/sdk',
+      '$home/Android/Sdk',
+      '/opt/homebrew/share/android-commandlinetools',
+      '/usr/local/share/android-commandlinetools',
+    ].nonNulls;
+    for (final r in roots) {
+      final exe = '$r/emulator/emulator${Platform.isWindows ? '.exe' : ''}';
+      if (File(exe).existsSync()) return exe;
+    }
+    return _locator.find('emulator');
+  }
+
+  /// The Android virtual devices made on this computer.
+  Future<List<String>> _avds() async {
+    final exe = await _emulator();
+    if (exe == null) return const [];
+    try {
+      final r = await Process.run(exe, ['-list-avds'], environment: await _locator.environment());
+      if (r.exitCode != 0) return const [];
+      return [
+        for (final l in '${r.stdout}'.split('\n'))
+          if (l.trim().isNotEmpty && !l.startsWith('INFO') && !l.contains(' ')) l.trim(),
+      ];
+    } on ProcessException {
+      return const [];
+    }
+  }
+
+  /// The virtual device a running emulator is.
+  Future<String?> _avdOf(String serial) async {
+    final r = await _run('adb', ['-s', serial, 'emu', 'avd', 'name']);
+    if (r == null || r.exitCode != 0) return null;
+    final name = '${r.stdout}'.split('\n').first.trim();
+    return name.isEmpty ? null : name;
+  }
+
+  /// "sat_docs_demo" reads "sat docs demo".
+  static String _avdName(String avd) => avd.replaceAll('_', ' ');
+
+  /// Starts the virtual device [avd] (its window kept out of sight: it shows
+  /// in the panel) and waits until Android has started.
+  Future<bool> _bootAvd(String avd) async {
+    final exe = await _emulator();
+    if (exe == null) return false;
+    try {
+      await Process.start(
+        exe,
+        ['-avd', avd, '-no-window', '-no-boot-anim', '-no-snapshot-save'],
+        environment: await _locator.environment(),
+        mode: ProcessStartMode.detached,
+      );
+    } on ProcessException {
+      return false;
+    }
+    final until = DateTime.now().add(const Duration(minutes: 3));
+    while (DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      final adb = await _run('adb', ['devices']);
+      for (final line in '${adb?.stdout ?? ''}'.split('\n')) {
+        final serial = line.trim().split(RegExp(r'\s+')).first;
+        if (!serial.startsWith('emulator-') || !line.contains('device')) continue;
+        if (await _avdOf(serial) != avd) continue;
+        final up = await _run('adb', ['-s', serial, 'shell', 'getprop', 'sys.boot_completed']);
+        if ('${up?.stdout}'.trim() == '1') return true;
+      }
+    }
+    return false;
   }
 
   /// [d]'s screen now, as JPEG (iOS) or PNG (Android) bytes; null when it

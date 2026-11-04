@@ -68,7 +68,11 @@ class DeviceViewModel extends ChangeNotifier {
         return _changed();
       }
       devices = await _devices.list();
-      device = devices.where((x) => x.id == d.id).firstOrNull ?? d;
+      // Started, an Android virtual device has the running emulator's id.
+      device =
+          devices.where((x) => x.id == d.id).firstOrNull ??
+          devices.where((x) => x.booted && x.name == d.name && x.ios == d.ios).firstOrNull ??
+          d;
     }
     if (d.ios) dark = await _devices.isDark(device!) ?? dark;
     _poll?.cancel();
