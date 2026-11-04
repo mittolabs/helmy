@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'engine.dart';
 import 'permission_rule.dart';
 import 'project_action.dart';
@@ -301,4 +303,53 @@ class const AppSettings({
     // Someone who used Helmy before setup existed has set it up already.
     setupDone: json['setupDone'] as bool? ?? json.containsKey('disabledEngines'),
   );
+}
+
+/// The settings a person chooses, by the names Settings shows them under,
+/// with the fields each covers. What restoring the defaults puts back; not
+/// connections, projects, rules or the window's layout, which are what was
+/// set up rather than chosen.
+const restorableSettings = <String, List<String>>{
+  'Theme': ['theme'],
+  'Text size': ['textSize'],
+  'Conversation width': ['width'],
+  'Wrap long code blocks': ['wrapCode'],
+  'When a session needs you or finishes': ['notify'],
+  'Keep sessions running when the window closes': ['keepRunning'],
+  'Send with': ['sendWithEnter'],
+  'Each session on its own branch': ['ownCopies'],
+  'Send error reports': ['sendErrors'],
+  'Show steps open': ['stepsOpen'],
+  'Ask before deleting a session': ['confirmDelete'],
+  'Permissions': ['defaultLevel'],
+  'Start in': ['folderMode', 'fixedFolder'],
+  'Move to an agent with more room': ['switching'],
+  'Show pages with': ['previewWith'],
+  'Chromium browser': ['chromiumBrowser'],
+  'Editor projects open in': ['editor'],
+  'Session list': ['show', 'group', 'sort', 'recency'],
+};
+
+/// The names of the settings in [s] that differ from Helmy's own, in the
+/// order Settings shows them.
+List<String> changedSettings(AppSettings s) {
+  final now = s.toJson();
+  final defaults = const AppSettings().toJson();
+  return [
+    for (final MapEntry(key: label, value: fields) in restorableSettings.entries)
+      if (fields.any((f) => jsonEncode(now[f]) != jsonEncode(defaults[f]))) label,
+  ];
+}
+
+/// [s] with the settings named in [labels] (all that changed when null) as
+/// Helmy has them, everything else kept.
+AppSettings withDefaults(AppSettings s, [Iterable<String>? labels]) {
+  final json = s.toJson();
+  final defaults = const AppSettings().toJson();
+  for (final label in labels ?? changedSettings(s)) {
+    for (final f in restorableSettings[label] ?? const <String>[]) {
+      json[f] = defaults[f];
+    }
+  }
+  return AppSettings.fromJson(jsonDecode(jsonEncode(json)) as Map<String, Object?>);
 }

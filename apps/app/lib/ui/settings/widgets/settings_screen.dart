@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+
+import '../../../data/repositories/settings_repository.dart';
+
 import 'package:go_router/go_router.dart';
 
 import '../../../domain/models/engine.dart';
@@ -227,6 +230,7 @@ class _Crumb extends StatelessWidget {
               style: t.text.sm.copyWith(fontWeight: .w500),
             ),
           ),
+          _RestoreDefaults(vm: vm),
           Tooltip(
             message: 'Close (Esc)',
             child: Button(
@@ -423,6 +427,9 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
+    final settings = context.watch<SettingsRepository>();
+    // Changed from Helmy's own: a quiet way back beside its name.
+    final changed = changedSettings(settings.settings).contains(title);
     return Padding(
       padding: const .symmetric(horizontal: 18, vertical: 14),
       child: LayoutBuilder(
@@ -431,7 +438,29 @@ class _Row extends StatelessWidget {
             crossAxisAlignment: .start,
             spacing: 2,
             children: [
-              Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+              Row(
+                spacing: 4,
+                children: [
+                  Flexible(
+                    child: Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+                  ),
+                  if (changed)
+                    Tooltip(
+                      message: 'Back to how Helmy has it',
+                      child: Button(
+                        variant: .ghost,
+                        size: .iconXs,
+                        semanticLabel: 'Put $title back to how Helmy has it',
+                        onPressed: () => settings.save(withDefaults(settings.settings, [title])),
+                        child: AshlarIcon(
+                          AshlarIconsRoundedStroke.undo2,
+                          size: 12,
+                          color: t.colors.mutedForeground,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               if (description != null)
                 Text(
                   description!,
@@ -555,4 +584,47 @@ class _Choice<T> extends StatelessWidget {
       onChanged: onChanged,
     ),
   );
+}
+
+/// Every setting chosen put back to how Helmy has it, after saying which:
+/// connections, projects, rules and the window's layout stay. Pressable
+/// only when something has been changed.
+class _RestoreDefaults extends StatelessWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final changed = changedSettings(vm.settings);
+    // Narrow: the icon alone, its words in the tooltip.
+    final compact = MediaQuery.sizeOf(context).width < 640;
+    return Tooltip(
+      message: changed.isEmpty
+          ? 'Everything is as Helmy has it'
+          : 'Put what you changed back to how Helmy has it',
+      child: Button(
+        variant: .ghost,
+        size: compact ? .iconSm : .xs,
+        semanticLabel: 'Restore defaults',
+        onPressed: changed.isEmpty
+            ? null
+            : () async {
+                final sure = await confirm(
+                  context,
+                  title: 'Restore the defaults?',
+                  body:
+                      'This puts back: ${changed.join(', ')}. Connections, projects and '
+                      'permission rules stay as they are.',
+                  action: 'Restore',
+                  icon: AshlarIconsRoundedStroke.rotateCcw,
+                );
+                if (sure) await vm.update(withDefaults(vm.settings));
+              },
+        leading: compact ? null : const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14),
+        child: compact
+            ? const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14)
+            : const Text('Restore defaults'),
+      ),
+    );
+  }
 }
