@@ -292,6 +292,11 @@ class _SessionMenu extends StatelessWidget {
           onPressed: () => context.go('/c/$chatId'),
           child: const Text('Open its chat'),
         ),
+      MenuItem(
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.webhook, size: 16),
+        onPressed: () => showWebhook(context, vm),
+        child: Text(vm.session?.hasWebhook ?? false ? 'Webhook (on)...' : 'Webhook...'),
+      ),
       const MenuSeparator(),
       // A question beside the session, without adding to it ("/side" too).
       MenuItem(

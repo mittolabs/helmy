@@ -41,6 +41,7 @@ import 'device_view_model.dart';
 import '../../../data/services/browser/browser_host.dart';
 import '../../../data/services/chromium/chromium_service.dart';
 import '../../../domain/models/settings.dart';
+import '../../../data/services/webhooks.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
@@ -1198,6 +1199,15 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (text == null || s == null || text == (s.draft ?? '')) return;
     _draft = null;
     await _sessions.save(s.copyWith(draft: text));
+  }
+
+  /// Gives this thread a webhook address (a new secret), or takes it away:
+  /// an address turned off and on again is a new one.
+  Future<void> setWebhook(bool on) async {
+    final s = session;
+    if (s == null) return;
+    await _sessions.save(s.copyWith(webhook: on ? Webhooks.newSecret() : ''));
+    notifyListeners();
   }
 
   /// Comments on parts of the conversation: the words chosen, and what the

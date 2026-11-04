@@ -51,6 +51,7 @@ import '../data/services/shipping.dart';
 import '../data/services/fixes.dart';
 import '../ui/chat/widgets/player.dart' show PoppedOut;
 import '../data/repositories/project_repository.dart';
+import '../data/services/webhooks.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -186,6 +187,12 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       conversations: context.read(),
       log: context.read(),
     ),
+  ),
+  // Events from outside, into the threads given an address.
+  Provider(
+    lazy: false,
+    create: (context) => Webhooks(sessions: context.read(), conversations: context.read())..start(),
+    dispose: (_, w) => unawaited(w.stop()),
   ),
   // Chats kept current as threads go quiet, on the model on this Mac.
   Provider(create: (_) => LocalWriter(model: () => loaded.settings.settings.ollamaModel)),

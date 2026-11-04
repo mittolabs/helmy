@@ -49,8 +49,8 @@ class UserMessage extends ChatItem {
   /// When it was sent, as Helmy saw it; unknown for older messages.
   DateTime? sentAt;
 
-  /// Sent by the agent of another thread in its chat, not by the person:
-  /// that thread's title.
+  /// Sent by something other than the person, as said after "From": the
+  /// thread "Build it" (another thread's agent), a webhook.
   String? from;
 
   @override

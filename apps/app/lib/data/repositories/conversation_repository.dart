@@ -8,7 +8,7 @@ import '../services/engines/agent_engine.dart';
 
 /// What one session's conversation looks like right now.
 /// A message written while the agent was busy, sent when it is free.
-/// [from]: the title of the thread whose agent sent it, when one did.
+/// [from]: what sent it, when not the person (UserMessage.from).
 typedef Queued = ({String text, List<String> attachments, Set<Capability> needs, String? from});
 
 class Conversation {

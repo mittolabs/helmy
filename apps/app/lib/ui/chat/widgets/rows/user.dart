@@ -14,7 +14,7 @@ class _User extends StatefulWidget {
   });
   final String text;
 
-  /// Sent by another thread's agent: that thread's title.
+  /// Sent by something other than the person: what, after "From".
   final String? from;
 
   /// When it was sent; unknown for older messages.
@@ -227,7 +227,7 @@ class _UserState extends State<_User> {
                     ),
                     Flexible(
                       child: Text(
-                        'From the thread "$from"',
+                        'From $from',
                         maxLines: 1,
                         overflow: .ellipsis,
                         style: AshlarTheme.of(context).text.xs

@@ -66,7 +66,14 @@ class const Session({
 
   /// What the person was writing and has not sent; empty or null for none.
   final String? draft,
+
+  /// The secret in its webhook's address, while it has one; empty or null
+  /// for none.
+  final String? webhook,
 }) {
+  /// Events sent to its address arrive as messages.
+  bool get hasWebhook => webhook?.isNotEmpty ?? false;
+
   /// Something written and not sent.
   bool get hasDraft => draft?.trim().isNotEmpty ?? false;
 
@@ -98,6 +105,9 @@ class const Session({
     /// '' clears it.
     String? draft,
 
+    /// '' turns it off.
+    String? webhook,
+
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
     bool rebase = false,
@@ -123,6 +133,7 @@ class const Session({
     brief: brief ?? this.brief,
     summary: summary ?? this.summary,
     draft: draft ?? this.draft,
+    webhook: webhook ?? this.webhook,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -150,6 +161,7 @@ class const Session({
     'brief': ?brief,
     'summary': ?summary,
     if (hasDraft) 'draft': draft,
+    if (hasWebhook) 'webhook': webhook,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -187,6 +199,7 @@ class const Session({
       brief: json['brief'] as String?,
       summary: json['summary'] as String?,
       draft: json['draft'] as String?,
+      webhook: json['webhook'] as String?,
     );
   }
 }

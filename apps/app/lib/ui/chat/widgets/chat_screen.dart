@@ -55,6 +55,7 @@ import 'terminal_panel.dart';
 import 'chat_items.dart';
 import 'composer.dart';
 import 'saved_toast.dart';
+import 'webhook_dialog.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
 

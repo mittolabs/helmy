@@ -183,7 +183,7 @@ class ChatTools {
         );
       }
       await _conversations.load(id);
-      final sent = await _conversations.send(thread, message, from: me.title);
+      final sent = await _conversations.send(thread, message, from: 'the thread "${me.title}"');
       if (sent case Error(:final error)) return _says('It did not go: $error', error: true);
       await _log?.lookup(thread: me.id, chat: chatId, rung: 'message', size: message.length);
       final busy = _conversations.of(id).busy;
@@ -208,7 +208,7 @@ class ChatTools {
       final thread = (made as Ok<Session>).value;
       _allow(me.id, thread.id);
       _conversations.of(thread.id).loaded = true;
-      final sent = await _conversations.send(thread, message, from: me.title);
+      final sent = await _conversations.send(thread, message, from: 'the thread "${me.title}"');
       if (sent case Error(:final error)) {
         return _says('Started, but the message did not go: $error', error: true);
       }

@@ -10,7 +10,6 @@ import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/helmy_tools.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/data/services/turn_log.dart';
 import 'package:helmy/data/services/watch_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
@@ -24,12 +23,8 @@ void main() {
     "an agent looks into its chat's other threads, cheapest first, each lookup logged",
     () async {
       final root = await Directory.systemTemp.createTemp('chattools');
-      final storage = StorageService(root: () async => root);
-      // Saves on their way land before the folder goes.
-      addTearDown(() async {
-        await storage.flush();
-        await root.delete(recursive: true);
-      });
+      final storage = storageAt(root);
+      addTearDown(() => deleteFolder(root));
       final sessions = SessionRepositoryLocal(storage);
       final chats = ChatRepository(storage, sessions);
       addTearDown(chats.dispose);
@@ -129,7 +124,7 @@ void main() {
     final arrived = repo.of(design.id).items.whereType<UserMessage>().single;
     expect(
       (arrived.text, arrived.from),
-      ('Is the skip button on the last screen too?', 'Build it'),
+      ('Is the skip button on the last screen too?', 'the thread "Build it"'),
     );
 
     expect(
@@ -161,6 +156,6 @@ void main() {
     expect(started['isError'], isFalse, reason: text(started));
     final copy = sessions.sessions.firstWhere((s) => s.title == 'Write the copy');
     expect((copy.chatId, copy.cwd), (chatId, '/w'));
-    expect(repo.of(copy.id).items.whereType<UserMessage>().single.from, 'Build it');
+    expect(repo.of(copy.id).items.whereType<UserMessage>().single.from, 'the thread "Build it"');
   });
 }
