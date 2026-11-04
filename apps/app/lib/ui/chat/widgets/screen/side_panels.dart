@@ -109,12 +109,15 @@ class _Panel extends StatelessWidget {
   }
 }
 
-/// The edge between two columns: a hairline, and a wider strip to drag.
+/// The edge between the conversation and a panel: a hairline, and a strip to
+/// drag. The strip is a real column on the conversation's side of the line,
+/// since a page in the panel (a web view) takes the mouse on its own side,
+/// and it keeps the conversation's scrollbar clear of the edge.
 class _Divider extends StatefulWidget {
   const new({required this.onDrag});
   final ValueChanged<double> onDrag;
 
-  static const width = 1.0;
+  static const width = 11.0;
 
   @override
   State<_Divider> createState() => _DividerState();
@@ -128,20 +131,20 @@ class _DividerState extends State<_Divider> {
     final c = AshlarTheme.of(context).colors;
     return SizedBox(
       width: _Divider.width,
-      child: OverflowBox(
-        maxWidth: 9,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          onEnter: (_) => setState(() => _hot = true),
-          onExit: (_) => setState(() => _hot = false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onHorizontalDragUpdate: (d) => widget.onDrag(d.delta.dx),
-            child: Center(
-              child: Container(
-                width: _hot ? 2 : 1,
-                color: _hot ? c.foreground.withValues(alpha: .3) : c.border.withValues(alpha: .6),
-              ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        onEnter: (_) => setState(() => _hot = true),
+        onExit: (_) => setState(() => _hot = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // Follows the pointer from where it was pressed.
+          dragStartBehavior: DragStartBehavior.down,
+          onHorizontalDragUpdate: (d) => widget.onDrag(d.delta.dx),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              width: _hot ? 2 : 1,
+              color: _hot ? c.foreground.withValues(alpha: .3) : c.border.withValues(alpha: .6),
             ),
           ),
         ),

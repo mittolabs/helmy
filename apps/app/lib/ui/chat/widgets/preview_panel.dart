@@ -108,6 +108,8 @@ class _PreviewPanelState extends State<PreviewPanel> {
   /// offers Chrome for Testing, downloaded only when the user agrees.
   Future<void> _startChromium() async {
     final service = widget.vm.chromium!;
+    // Drawn as sharp as this screen.
+    service.scale = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
     setState(() => _chromiumState = 'Starting Chromium…');
     var browser = await service.pick(widget.vm.chromiumBrowser);
     if (browser == null) {
@@ -325,12 +327,12 @@ class _PreviewPanelState extends State<PreviewPanel> {
                     chromium
                         ? item(
                             AshlarIconsRoundedStroke.appWindow,
-                            "Draw with the system's web view",
+                            'Use the built-in browser',
                             () => unawaited(_useEngine(.system)),
                           )
                         : item(
                             AshlarIconsRoundedStroke.globe,
-                            'Draw with Chromium',
+                            'Use Chromium',
                             () => unawaited(_useEngine(.chromium)),
                           ),
                   if (native) ...[
@@ -346,11 +348,16 @@ class _PreviewPanelState extends State<PreviewPanel> {
                     for (final (mode, label, icon) in const [
                       ('light', 'Light mode', AshlarIconsRoundedStroke.sun),
                       ('dark', 'Dark mode', AshlarIconsRoundedStroke.moon),
-                      ('system', "The system's mode", AshlarIconsRoundedStroke.sunMoon),
+                      ('system', 'Match the system', AshlarIconsRoundedStroke.sunMoon),
                     ])
                       item(icon, label, () {
                         if (chromium) {
-                          unawaited(tab?.appearance(mode == 'system' ? null : mode));
+                          // Many sites choose their colors as they load.
+                          unawaited(
+                            tab
+                                ?.appearance(mode == 'system' ? null : mode)
+                                .then((_) => tab.reload()),
+                          );
                         } else {
                           unawaited(widget.vm.webPage('appearance', {'appearance': mode}));
                           unawaited(_c.reload());

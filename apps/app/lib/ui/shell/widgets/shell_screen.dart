@@ -3,6 +3,7 @@ import 'dart:ui' show AppExitType;
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -87,292 +88,302 @@ class ShellScreen extends StatelessWidget {
         },
         child: ListenableBuilder(
           listenable: viewModel,
-          builder: (context, _) => SidebarLayout(
-            rail: false,
-            // Hides off the side; its button or ⌘B brings it back.
-            collapse: .offcanvas,
-            narrow: narrowWindow,
-            open: viewModel.settings.sidebarOpen,
-            onOpenChanged: (open) =>
-                viewModel.updateSettings(viewModel.settings.copyWith(sidebarOpen: open)),
-            width: 272,
-            header: TitleBar(
-              child: Padding(
-                // Clears the window's buttons, which sit over the sidebar.
-                padding: const EdgeInsetsDirectional.only(start: 8, top: 30, end: 2),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      t.brightness == .dark
-                          ? 'assets/helmy/head-dark.png'
-                          : 'assets/helmy/head-light.png',
-                      width: 22,
-                      height: 22,
-                      semanticLabel: 'Helmy',
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
-                    ),
-                    Tooltip(
-                      message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
-                      child: const SidebarTrigger(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            footer: Padding(
-              padding: const .fromLTRB(0, 4, 0, 8),
-              child: Column(
-                mainAxisSize: .min,
-                crossAxisAlignment: .stretch,
-                children: [
-                  if (viewModel.notificationsBlocked) _NotificationsBlocked(viewModel: viewModel),
-                  _NavRow(
-                    icon: AshlarIconsRoundedStroke.settings,
-                    label: 'Settings',
-                    shortcut: Desktop.current.keys('⌘,'),
-                    onPressed: () => openSettings(GoRouter.of(context)),
+          builder: (context, _) => _SidebarWidth(
+            saved: viewModel.settings.sidebarWidth,
+            beside:
+                viewModel.settings.sidebarOpen && MediaQuery.sizeOf(context).width >= narrowWindow,
+            onSave: (w) => viewModel.updateSettings(viewModel.settings.copyWith(sidebarWidth: w)),
+            builder: (width) => SidebarLayout(
+              rail: false,
+              // Hides off the side; its button or ⌘B brings it back.
+              collapse: .offcanvas,
+              narrow: narrowWindow,
+              open: viewModel.settings.sidebarOpen,
+              onOpenChanged: (open) =>
+                  viewModel.updateSettings(viewModel.settings.copyWith(sidebarOpen: open)),
+              width: width,
+              header: TitleBar(
+                child: Padding(
+                  // Clears the window's buttons, which sit over the sidebar.
+                  padding: const EdgeInsetsDirectional.only(start: 8, top: 30, end: 2),
+                  child: Row(
+                    children: [
+                      Image.asset(
+                        t.brightness == .dark
+                            ? 'assets/helmy/head-dark.png'
+                            : 'assets/helmy/head-light.png',
+                        width: 22,
+                        height: 22,
+                        semanticLabel: 'Helmy',
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
+                      ),
+                      Tooltip(
+                        message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
+                        child: const SidebarTrigger(),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            groups: [
-              // What you do, as labelled rows, the way other chat apps lay it out.
-              SidebarGroup.custom(
-                Column(
+              footer: Padding(
+                padding: const .fromLTRB(0, 4, 0, 8),
+                child: Column(
+                  mainAxisSize: .min,
                   crossAxisAlignment: .stretch,
-                  spacing: 2,
                   children: [
+                    if (viewModel.notificationsBlocked) _NotificationsBlocked(viewModel: viewModel),
                     _NavRow(
-                      icon: AshlarIconsRoundedStroke.squarePen,
-                      label: 'New session',
-                      shortcut: Desktop.current.keys('⌘N'),
-                      onPressed: () => newSession(context, viewModel),
-                    ),
-                    _NavRow(
-                      icon: AshlarIconsRoundedStroke.search,
-                      label: 'Search',
-                      shortcut: Desktop.current.keys('⌘K'),
-                      onPressed: () => showPalette(context, viewModel),
-                    ),
-                    _NavRow(
-                      icon: AshlarIconsRoundedStroke.clock,
-                      label: 'Scheduled',
-                      selected: inSchedule,
-                      onPressed: () => context.go('/scheduled'),
+                      icon: AshlarIconsRoundedStroke.settings,
+                      label: 'Settings',
+                      shortcut: Desktop.current.keys('⌘,'),
+                      onPressed: () => openSettings(GoRouter.of(context)),
                     ),
                   ],
                 ),
               ),
-              SidebarGroup.custom(
-                Column(
-                  crossAxisAlignment: .stretch,
-                  children: [
-                    // The list's heading, with how it is shown at its end.
-                    Padding(
-                      padding: const .fromLTRB(10, 4, 0, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              switch (viewModel.settings.show) {
-                                .active => 'Sessions',
-                                .archived => 'Archived',
-                                .all => 'All sessions',
-                              },
-                              style: t.text.xs.copyWith(
-                                color: t.colors.mutedForeground,
-                                fontWeight: .w500,
+              groups: [
+                // What you do, as labelled rows, the way other chat apps lay it out.
+                SidebarGroup.custom(
+                  Column(
+                    crossAxisAlignment: .stretch,
+                    spacing: 2,
+                    children: [
+                      _NavRow(
+                        icon: AshlarIconsRoundedStroke.squarePen,
+                        label: 'New session',
+                        shortcut: Desktop.current.keys('⌘N'),
+                        onPressed: () => newSession(context, viewModel),
+                      ),
+                      _NavRow(
+                        icon: AshlarIconsRoundedStroke.search,
+                        label: 'Search',
+                        shortcut: Desktop.current.keys('⌘K'),
+                        onPressed: () => showPalette(context, viewModel),
+                      ),
+                      _NavRow(
+                        icon: AshlarIconsRoundedStroke.clock,
+                        label: 'Scheduled',
+                        selected: inSchedule,
+                        onPressed: () => context.go('/scheduled'),
+                      ),
+                    ],
+                  ),
+                ),
+                SidebarGroup.custom(
+                  Column(
+                    crossAxisAlignment: .stretch,
+                    children: [
+                      // The list's heading, with how it is shown at its end.
+                      Padding(
+                        padding: const .fromLTRB(10, 4, 0, 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                switch (viewModel.settings.show) {
+                                  .active => 'Sessions',
+                                  .archived => 'Archived',
+                                  .all => 'All sessions',
+                                },
+                                style: t.text.xs.copyWith(
+                                  color: t.colors.mutedForeground,
+                                  fontWeight: .w500,
+                                ),
                               ),
                             ),
-                          ),
-                          _ListMenu(viewModel: viewModel),
-                        ],
+                            _ListMenu(viewModel: viewModel),
+                          ],
+                        ),
                       ),
-                    ),
-                    viewModel.shown.isEmpty
-                        ? Padding(
-                            padding: const .symmetric(horizontal: 10, vertical: 4),
-                            child: Text(
-                              'Nothing yet.',
-                              style: t.text.sm.copyWith(color: t.colors.mutedForeground),
-                            ),
-                          )
-                        : Column(
-                            spacing: 2,
-                            crossAxisAlignment: .stretch,
-                            children: [
-                              for (final g in viewModel.groups) ...[
-                                if (g.label case final label?)
-                                  Padding(
-                                    padding: const .fromLTRB(10, 10, 10, 2),
-                                    child: Text(
-                                      label,
-                                      style: t.text.xs.copyWith(
-                                        color: t.colors.mutedForeground,
-                                        fontWeight: .w600,
+                      viewModel.shown.isEmpty
+                          ? Padding(
+                              padding: const .symmetric(horizontal: 10, vertical: 4),
+                              child: Text(
+                                'Nothing yet.',
+                                style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                              ),
+                            )
+                          : Column(
+                              spacing: 2,
+                              crossAxisAlignment: .stretch,
+                              children: [
+                                for (final g in viewModel.groups) ...[
+                                  if (g.label case final label?)
+                                    Padding(
+                                      padding: const .fromLTRB(10, 10, 10, 2),
+                                      child: Text(
+                                        label,
+                                        style: t.text.xs.copyWith(
+                                          color: t.colors.mutedForeground,
+                                          fontWeight: .w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                if (g.folder != null)
-                                  Padding(
-                                    padding: const .fromLTRB(10, 10, 10, 2),
-                                    child: Text(
-                                      tildePath(g.folder!),
-                                      maxLines: 1,
-                                      overflow: .ellipsis,
-                                      style: t.text.xs.copyWith(color: t.colors.mutedForeground),
-                                    ),
-                                  ),
-                                for (final s in g.sessions)
-                                  ContextMenu(
-                                    items: [
-                                      if (viewModel.isUnread(s.id))
-                                        MenuItem(
-                                          leading: const AshlarIcon(
-                                            AshlarIconsRoundedStroke.check,
-                                            size: 16,
-                                          ),
-                                          onPressed: () => viewModel.markRead(s.id),
-                                          child: const Text('Mark as read'),
-                                        ),
-                                      MenuItem(
-                                        leading: const AshlarIcon(
-                                          AshlarIconsRoundedStroke.pin,
-                                          size: 16,
-                                        ),
-                                        onPressed: () => viewModel.setPinned(s, !s.pinned),
-                                        child: Text(s.pinned ? 'Unpin' : 'Pin'),
+                                  if (g.folder != null)
+                                    Padding(
+                                      padding: const .fromLTRB(10, 10, 10, 2),
+                                      child: Text(
+                                        tildePath(g.folder!),
+                                        maxLines: 1,
+                                        overflow: .ellipsis,
+                                        style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                                       ),
-                                      if (s.snoozed)
+                                    ),
+                                  for (final s in g.sessions)
+                                    ContextMenu(
+                                      items: [
+                                        if (viewModel.isUnread(s.id))
+                                          MenuItem(
+                                            leading: const AshlarIcon(
+                                              AshlarIconsRoundedStroke.check,
+                                              size: 16,
+                                            ),
+                                            onPressed: () => viewModel.markRead(s.id),
+                                            child: const Text('Mark as read'),
+                                          ),
                                         MenuItem(
                                           leading: const AshlarIcon(
-                                            AshlarIconsRoundedStroke.clock,
+                                            AshlarIconsRoundedStroke.pin,
                                             size: 16,
                                           ),
-                                          onPressed: () => viewModel.wake(s),
-                                          child: const Text('Wake now'),
-                                        )
-                                      else ...[
-                                        for (final (label, until) in [
-                                          (
-                                            'Snooze for an hour',
-                                            DateTime.now().add(const Duration(hours: 1)),
-                                          ),
-                                          (
-                                            'Snooze until tomorrow',
-                                            SidebarViewModel.tomorrowMorning(),
-                                          ),
-                                        ])
+                                          onPressed: () => viewModel.setPinned(s, !s.pinned),
+                                          child: Text(s.pinned ? 'Unpin' : 'Pin'),
+                                        ),
+                                        if (s.snoozed)
                                           MenuItem(
                                             leading: const AshlarIcon(
                                               AshlarIconsRoundedStroke.clock,
                                               size: 16,
                                             ),
-                                            onPressed: () async {
-                                              await viewModel.snooze(s, until);
-                                              if (!context.mounted) return;
-                                              showToast(
-                                                context,
-                                                title: 'Snoozed "${s.title}" until ${_when(until)}',
-                                                action: Button(
-                                                  size: .sm,
-                                                  variant: .outline,
-                                                  onPressed: viewModel.undoSnooze,
-                                                  child: const Text('Undo'),
-                                                ),
-                                              );
-                                            },
-                                            child: Text(label),
-                                          ),
-                                      ],
-                                      MenuItem(
-                                        leading: const AshlarIcon(
-                                          AshlarIconsRoundedStroke.archive,
-                                          size: 16,
-                                        ),
-                                        onPressed: () async {
-                                          final archiving = !s.archived;
-                                          await viewModel.setArchived(s, archiving);
-                                          if (!archiving || !context.mounted) return;
-                                          showToast(
-                                            context,
-                                            title: 'Archived "${s.title}"',
-                                            action: Button(
-                                              size: .sm,
-                                              variant: .outline,
-                                              onPressed: viewModel.undoArchive,
-                                              child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+                                            onPressed: () => viewModel.wake(s),
+                                            child: const Text('Wake now'),
+                                          )
+                                        else ...[
+                                          for (final (label, until) in [
+                                            (
+                                              'Snooze for an hour',
+                                              DateTime.now().add(const Duration(hours: 1)),
                                             ),
-                                          );
-                                        },
-                                        child: Text(s.archived ? 'Unarchive' : 'Archive'),
-                                      ),
-                                      const MenuSeparator(),
-                                      MenuItem(
-                                        destructive: true,
-                                        leading: const AshlarIcon(
-                                          AshlarIconsRoundedStroke.trash,
-                                          size: 16,
+                                            (
+                                              'Snooze until tomorrow',
+                                              SidebarViewModel.tomorrowMorning(),
+                                            ),
+                                          ])
+                                            MenuItem(
+                                              leading: const AshlarIcon(
+                                                AshlarIconsRoundedStroke.clock,
+                                                size: 16,
+                                              ),
+                                              onPressed: () async {
+                                                await viewModel.snooze(s, until);
+                                                if (!context.mounted) return;
+                                                showToast(
+                                                  context,
+                                                  title:
+                                                      'Snoozed "${s.title}" until ${_when(until)}',
+                                                  action: Button(
+                                                    size: .sm,
+                                                    variant: .outline,
+                                                    onPressed: viewModel.undoSnooze,
+                                                    child: const Text('Undo'),
+                                                  ),
+                                                );
+                                              },
+                                              child: Text(label),
+                                            ),
+                                        ],
+                                        MenuItem(
+                                          leading: const AshlarIcon(
+                                            AshlarIconsRoundedStroke.archive,
+                                            size: 16,
+                                          ),
+                                          onPressed: () async {
+                                            final archiving = !s.archived;
+                                            await viewModel.setArchived(s, archiving);
+                                            if (!archiving || !context.mounted) return;
+                                            showToast(
+                                              context,
+                                              title: 'Archived "${s.title}"',
+                                              action: Button(
+                                                size: .sm,
+                                                variant: .outline,
+                                                onPressed: viewModel.undoArchive,
+                                                child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(s.archived ? 'Unarchive' : 'Archive'),
                                         ),
-                                        onPressed: () => _delete(context, s),
-                                        child: const Text('Delete'),
+                                        const MenuSeparator(),
+                                        MenuItem(
+                                          destructive: true,
+                                          leading: const AshlarIcon(
+                                            AshlarIconsRoundedStroke.trash,
+                                            size: 16,
+                                          ),
+                                          onPressed: () => _delete(context, s),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                      child: _SessionRow(
+                                        session: s,
+                                        activity: viewModel.activityOf(s.id),
+                                        selected: s.id == selectedId,
+                                        onOpen: () => context.go('/s/${s.id}'),
+                                        onDelete: () => _delete(context, s),
                                       ),
-                                    ],
-                                    child: _SessionRow(
-                                      session: s,
-                                      activity: viewModel.activityOf(s.id),
-                                      selected: s.id == selectedId,
-                                      onOpen: () => context.go('/s/${s.id}'),
-                                      onDelete: () => _delete(context, s),
                                     ),
-                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                  ],
+                            ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-            // Hidden, its button sits beside the window's own buttons, over the page.
-            // (The view model's settings, as this screen is given no provider.)
-            // A video popped out of a conversation plays over the page's corner,
-            // whatever page is showing.
-            child:
-                viewModel.settings.sidebarOpen && MediaQuery.sizeOf(context).width >= narrowWindow
-                ? Stack(children: [child, const CornerPlayer()])
-                : Stack(
-                    children: [
-                      child,
-                      const CornerPlayer(),
-                      // In line with the window's buttons, just after them,
-                      // as a Mac app's sidebar button sits.
-                      // (At the edge in full screen, where the window's buttons hide.)
-                      ListenableBuilder(
-                        listenable: windowFullScreen,
-                        builder: (context, button) => PositionedDirectional(
-                          start: titleRowStart,
-                          top: titleLine - 16,
-                          child: button!,
-                        ),
-                        child: Tooltip(
-                          message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
-                          child: Builder(
-                            builder: (context) => Button(
-                              variant: .ghost,
-                              size: .iconSm,
-                              semanticLabel: 'Show sidebar',
-                              onPressed: () => SidebarLayout.of(context).toggle(),
-                              // The title's size, so the two read as one line.
-                              child: const AshlarIcon(AshlarIconsRoundedStroke.panelLeft, size: 16),
+              ],
+              // Hidden, its button sits beside the window's own buttons, over the page.
+              // (The view model's settings, as this screen is given no provider.)
+              // A video popped out of a conversation plays over the page's corner,
+              // whatever page is showing.
+              child:
+                  viewModel.settings.sidebarOpen && MediaQuery.sizeOf(context).width >= narrowWindow
+                  ? Stack(children: [child, const CornerPlayer()])
+                  : Stack(
+                      children: [
+                        child,
+                        const CornerPlayer(),
+                        // In line with the window's buttons, just after them,
+                        // as a Mac app's sidebar button sits.
+                        // (At the edge in full screen, where the window's buttons hide.)
+                        ListenableBuilder(
+                          listenable: windowFullScreen,
+                          builder: (context, button) => PositionedDirectional(
+                            start: titleRowStart,
+                            top: titleLine - 16,
+                            child: button!,
+                          ),
+                          child: Tooltip(
+                            message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
+                            child: Builder(
+                              builder: (context) => Button(
+                                variant: .ghost,
+                                size: .iconSm,
+                                semanticLabel: 'Show sidebar',
+                                onPressed: () => SidebarLayout.of(context).toggle(),
+                                // The title's size, so the two read as one line.
+                                child: const AshlarIcon(
+                                  AshlarIconsRoundedStroke.panelLeft,
+                                  size: 16,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -724,4 +735,81 @@ class _InAppNotesState extends State<_InAppNotes> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// The sidebar at the width last dragged to: its edge, while it sits beside
+/// the page, drags it wider or narrower, and the width is kept when let go.
+class _SidebarWidth extends StatefulWidget {
+  const _SidebarWidth({
+    required this.saved,
+    required this.beside,
+    required this.onSave,
+    required this.builder,
+  });
+  final double saved;
+  final bool beside;
+  final ValueChanged<double> onSave;
+  final Widget Function(double width) builder;
+
+  static const min = 220.0, max = 480.0;
+
+  @override
+  State<_SidebarWidth> createState() => _SidebarWidthState();
+}
+
+class _SidebarWidthState extends State<_SidebarWidth> {
+  double? _dragging;
+  bool _hot = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AshlarTheme.of(context).colors;
+    final width = (_dragging ?? widget.saved).clamp(_SidebarWidth.min, _SidebarWidth.max);
+    return Stack(
+      children: [
+        widget.builder(width),
+        if (widget.beside)
+          Positioned(
+            // On the page's side of the edge, clear of the sidebar's own scrollbar.
+            left: width - 2,
+            top: 0,
+            bottom: 0,
+            width: 10,
+            child: Semantics(
+              label: 'Sidebar width',
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                onEnter: (_) => setState(() => _hot = true),
+                onExit: (_) => setState(() => _hot = false),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // Follows the pointer from where it was pressed.
+                  dragStartBehavior: DragStartBehavior.down,
+                  onHorizontalDragUpdate: (d) =>
+                      setState(() => _dragging = (_dragging ?? width) + d.delta.dx),
+                  onHorizontalDragEnd: (_) {
+                    // The width now, not as of the last frame.
+                    widget.onSave(
+                      (_dragging ?? widget.saved).clamp(_SidebarWidth.min, _SidebarWidth.max),
+                    );
+                    setState(() => _dragging = null);
+                  },
+                  // Double-click: back to its usual width.
+                  onDoubleTap: () => widget.onSave(272),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 2,
+                      color: _hot || _dragging != null
+                          ? c.foreground.withValues(alpha: .3)
+                          : const Color(0x00000000),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

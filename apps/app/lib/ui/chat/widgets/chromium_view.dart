@@ -151,8 +151,8 @@ class _ChromiumViewState extends State<ChromiumView> {
       return Semantics(
         // A picture to a screen reader: said plainly, with the way back.
         label:
-            'A web page drawn by ${widget.browserName}. A screen reader cannot read it here; '
-            "choose the system's web view in the page menu to read it.",
+            'A web page shown by ${widget.browserName}. A screen reader cannot read it here; '
+            'choose Use the built-in browser in the page menu to read it.',
         child: Focus(
           focusNode: _focus,
           onKeyEvent: _key,

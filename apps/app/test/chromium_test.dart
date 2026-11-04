@@ -26,8 +26,11 @@ void main() {
       environment: const {'HOME': '/Users/me'},
     );
     final found = await service.installed();
-    expect([for (final b in found) b.name], ['Brave Browser', 'Google Chrome'],
-        reason: 'by where each is looked for, then the order Helmy prefers; no Safari');
+    expect(
+      [for (final b in found) b.name],
+      ['Brave Browser', 'Google Chrome'],
+      reason: 'by where each is looked for, then the order Helmy prefers; no Safari',
+    );
     expect((await service.pick(null))?.name, 'Brave Browser');
     expect(
       (await service.pick('/Users/me/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'))

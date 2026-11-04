@@ -99,6 +99,9 @@ class const AppSettings({
   final GroupSessions group = .none,
   final SortSessions sort = .recent,
   final bool sidebarOpen = true,
+
+  /// How wide the sidebar is, as last dragged.
+  final double sidebarWidth = 272,
   final List<PermissionRule> rules = const [],
   final String? ollamaModel,
   final bool wrapCode = false,
@@ -157,6 +160,7 @@ class const AppSettings({
     GroupSessions? group,
     SortSessions? sort,
     bool? sidebarOpen,
+    double? sidebarWidth,
     List<PermissionRule>? rules,
     String? ollamaModel,
     bool? wrapCode,
@@ -185,6 +189,7 @@ class const AppSettings({
     group: group ?? this.group,
     sort: sort ?? this.sort,
     sidebarOpen: sidebarOpen ?? this.sidebarOpen,
+    sidebarWidth: sidebarWidth ?? this.sidebarWidth,
     rules: rules ?? this.rules,
     ollamaModel: ollamaModel ?? this.ollamaModel,
     wrapCode: wrapCode ?? this.wrapCode,
@@ -215,6 +220,7 @@ class const AppSettings({
     'group': group.name,
     'sort': sort.name,
     'sidebarOpen': sidebarOpen,
+    'sidebarWidth': sidebarWidth,
     'rules': [for (final r in rules) r.toJson()],
     'ollamaModel': ollamaModel,
     'wrapCode': wrapCode,
@@ -245,6 +251,7 @@ class const AppSettings({
     group: GroupSessions.values.asNameMap()[json['group']] ?? .none,
     sort: SortSessions.values.asNameMap()[json['sort']] ?? .recent,
     sidebarOpen: json['sidebarOpen'] as bool? ?? true,
+    sidebarWidth: (json['sidebarWidth'] as num?)?.toDouble() ?? 272,
     rules: [
       for (final r in (json['rules'] as List? ?? const []).whereType<Map>())
         PermissionRule.fromJson(r.cast()),

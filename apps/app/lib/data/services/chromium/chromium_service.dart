@@ -273,12 +273,18 @@ class ChromiumService {
     return _starting = _start(browser);
   }
 
+  /// Pixels a point on the screen pages show on; set by the app.
+  double scale = 2;
+
   Future<Cdp> _start(ChromiumBrowser browser) async {
     // Its own profile per browser: they cannot share one, and the user's
     // own browsing, tabs and logins are never touched.
     final profile = await _dir('profiles/${browser.name.replaceAll(RegExp(r'\W+'), '-')}');
     final p = _process = await Process.start(browser.executable, [
       '--headless=new',
+      // As sharp as the screen it shows on: a hidden browser draws at one
+      // pixel a point otherwise, whatever the page is told.
+      '--force-device-scale-factor=$scale',
       '--remote-debugging-port=0',
       '--remote-allow-origins=*',
       '--user-data-dir=${profile.path}',

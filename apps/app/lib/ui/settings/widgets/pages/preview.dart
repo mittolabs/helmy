@@ -20,18 +20,18 @@ class _Preview extends StatelessWidget {
           children: [
             const _Heading('Pages in the Preview panel', first: true),
             _Row(
-              title: 'Draw pages with',
+              title: 'Show pages with',
               description: s.previewWith == .system
-                  ? "The system's own web view: screen readers, typing in any language and "
+                  ? 'The built-in browser: screen readers, typing in any language and '
                         "zoom all work as in the system's apps."
                   : 'A Chromium browser on ${Desktop.current.thisComputer}, for Chrome\'s developer '
                         'tools on the live page. Pages show as a picture, so a screen reader '
                         'cannot read them.',
               control: _Choice<PreviewEngine>(
                 value: s.previewWith,
-                label: 'Draw pages with',
+                label: 'Show pages with',
                 options: const {
-                  PreviewEngine.system: "System's web view",
+                  PreviewEngine.system: 'Built-in browser',
                   PreviewEngine.chromium: 'Chromium',
                 },
                 onChanged: (v) => vm.update(s.copyWith(previewWith: v)),

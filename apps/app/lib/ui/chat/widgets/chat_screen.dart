@@ -5,6 +5,7 @@ import '../../../domain/helmy_voice.dart';
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
