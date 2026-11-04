@@ -102,6 +102,19 @@ void main() {
     expect(acted['isError'], isFalse, reason: text(acted));
     expect(text(acted), contains('Hello, Tito!'));
 
+    // It says it is Safari, so sites send their usual pages.
+    final ua = await call('browser_eval', {'script': 'navigator.userAgent'});
+    expect(text(ua), contains('Safari/'), reason: text(ua));
+    final google = await call('browser_open', {'url': 'https://www.google.com/'});
+    expect(google['isError'], isFalse, reason: text(google));
+    final modern = await call('browser_eval', {
+      'script': '!!document.querySelector("textarea[name=q]")',
+    });
+    // ignore: avoid_print
+    print('UA: ${text(ua)}  modern google: ${text(modern)}');
+    expect(text(modern), 'true', reason: 'Google sends its modern page');
+
+
     final shot = await call('browser_screenshot', {});
     expect(((shot['content'] as List).first as Map)['type'], 'image');
     await tester.pumpWidget(const SizedBox());

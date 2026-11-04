@@ -207,6 +207,14 @@ class BrowserTools {
       if (name == 'browser_open') {
         final url = '${args['url'] ?? ''}'.trim();
         if (url.isEmpty) return _says('Give the address to open.', error: true);
+        // Where the page was, to wait until it has really moved on: asked
+        // for a new address, a page keeps answering as the old one a moment.
+        String? before;
+        try {
+          before = '${await _host.pageFor(session)?.eval('location.href')}';
+        } on Object {
+          before = null;
+        }
         final page = await _host.open(session, url);
         if (page == null) {
           return _says(
@@ -215,6 +223,18 @@ class BrowserTools {
             'user to open this session in Helmy.',
             error: true,
           );
+        }
+        if (before != null) {
+          final until = DateTime.now().add(const Duration(seconds: 10));
+          while (DateTime.now().isBefore(until)) {
+            try {
+              if ('${await page.eval('location.href')}' != before) break;
+            } on Object {
+              // Mid-navigation the page does not answer: it is moving.
+              break;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
         }
         await _settle(page);
         return _says(await _read(page));

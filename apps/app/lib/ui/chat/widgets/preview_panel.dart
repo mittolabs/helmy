@@ -232,6 +232,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
   void initState() {
     super.initState();
     unawaited(_c.setJavaScriptMode(JavaScriptMode.unrestricted));
+    unawaited(_saySafari());
     unawaited(
       _c.setNavigationDelegate(
         NavigationDelegate(
@@ -253,6 +254,25 @@ class _PreviewPanelState extends State<PreviewPanel> {
     if (widget.active) widget.vm.browser?.attach(widget.vm.sessionId, _driver);
     if (_chromium) unawaited(_startChromium());
     _follow();
+  }
+
+  /// The built-in browser says it is Safari, as Safari does: WebKit alone
+  /// leaves that part off, and sites (Google) then send an old, basic page.
+  Future<void> _saySafari() async {
+    if (!Platform.isMacOS) return;
+    try {
+      final own = await _c.getUserAgent();
+      if (own == null || own.contains('Safari/')) return;
+      final r = await Process.run('/usr/bin/plutil', [
+        '-extract', 'CFBundleShortVersionString', 'raw', //
+        '/Applications/Safari.app/Contents/Info.plist',
+      ]);
+      final version = r.exitCode == 0 ? '${r.stdout}'.trim() : '';
+      final webkit = RegExp(r'AppleWebKit/([\d.]+)').firstMatch(own)?.group(1) ?? '605.1.15';
+      await _c.setUserAgent('$own${version.isEmpty ? '' : ' Version/$version'} Safari/$webkit');
+    } on Object {
+      // Its own identity, then.
+    }
   }
 
   /// The page's title and icon, for its tab.
@@ -879,7 +899,7 @@ class _PanelDriver implements PageDriver {
       );
       final text = r is String ? r : '$r';
       if (text.isNotEmpty && text != '""') {
-        unawaited(_s._c.runJavaScript("delete window.__hr['$id']"));
+        unawaited(_s._c.runJavaScript("delete window.__hr['$id']").catchError((Object _) {}));
         final value = jsonDecode(text);
         if (value is Map && value['__error'] != null) throw StateError('${value['__error']}');
         return value;
