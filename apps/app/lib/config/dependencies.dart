@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
@@ -12,6 +13,7 @@ import '../data/repositories/session_repository.dart';
 import '../data/repositories/session_repository_local.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/services/cli_locator.dart';
+import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
 import '../data/services/engines/claude/claude_engine.dart';
 import '../data/services/engines/codex/codex_engine.dart';
@@ -60,6 +62,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => CliLocator()),
   Provider(create: (context) => WatchService(context.read())),
   Provider(create: (context) => DeviceService(context.read())),
+  // A Chromium browser for Preview, once asked for; ended with the app.
+  Provider(
+    create: (_) => ChromiumService(appData: getApplicationSupportDirectory),
+    dispose: (_, c) => unawaited(c.stop()),
+  ),
   // Helmy's own tools (watching a video), served to every connection.
   Provider(
     lazy: false,

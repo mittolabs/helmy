@@ -30,6 +30,8 @@ import '../../../domain/problem.dart';
 import '../../core/file_actions.dart';
 import '../../../data/services/devices.dart';
 import 'device_view_model.dart';
+import '../../../data/services/chromium/chromium_service.dart';
+import '../../../domain/models/settings.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
@@ -47,6 +49,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this._watch,
     this._fixes,
     DeviceService? devices,
+    this.chromium,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
     _sessions.addListener(notifyListeners);
@@ -171,6 +174,22 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   @override
   Future<String?> documentPicture(String path) async => _desktop?.documentPicture(path);
+
+  /// Chromium browsers for Preview, when this computer can run them.
+  final ChromiumService? chromium;
+
+  /// What draws pages in Preview.
+  PreviewEngine get previewEngine => _settings?.settings.previewWith ?? .system;
+
+  /// The Chromium browser chosen in settings; null lets Helmy pick.
+  String? get chromiumBrowser => _settings?.settings.chromiumBrowser;
+
+  Future<void> setPreviewEngine(PreviewEngine engine, {String? browser}) async {
+    final s = _settings;
+    if (s == null) return;
+    await s.save(s.settings.copyWith(previewWith: engine, chromiumBrowser: browser));
+    notifyListeners();
+  }
 
   /// Does [action] to the page in the Preview panel; false where it cannot.
   Future<bool> webPage(String action, [Map<String, Object?> args = const {}]) async =>

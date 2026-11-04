@@ -11,6 +11,7 @@ import 'package:helmy/data/repositories/conversation_repository_engines.dart';
 import 'package:helmy/data/repositories/memory_repository.dart';
 import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/repositories/settings_repository.dart';
+import 'package:helmy/data/services/chromium/chromium_service.dart';
 import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/devices.dart';
@@ -207,7 +208,9 @@ void main() {
         engines: engines,
         meter: meter,
         memory: MemoryRepositoryEngines(engines),
-      )..section = section ?? .general;
+      )
+        ..chromium = ChromiumService(appData: () async => Directory.systemTemp)
+        ..section = section ?? .general;
       if (section == null) vm.search('notif');
       await shoot(
         'settings-${section?.name ?? 'search'}',

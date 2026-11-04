@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../domain/models/engine.dart';
 import '../../../domain/models/memory.dart';
+import '../../../data/services/chromium/chromium_service.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/app_theme.dart';
@@ -41,6 +42,7 @@ part 'pages/data.dart';
 part 'pages/general.dart';
 part 'pages/keyboard.dart';
 part 'pages/memory.dart';
+part 'pages/preview.dart';
 part 'pages/projects.dart';
 part 'pages/tools.dart';
 
@@ -114,6 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : switch (vm.section) {
                               .general => _General(vm: vm),
                               .appearance => _Appearance(vm: vm),
+                              .preview => _Preview(vm: vm),
                               .projects => _Projects(vm: vm),
                               .agents => _Agents(vm: vm),
                               .tools => _Tools(vm: vm),
@@ -245,6 +248,7 @@ class _Crumb extends StatelessWidget {
 const _sections = <SettingsSection, ({String label, IconData icon, String? group})>{
   .general: (label: 'General', icon: AshlarIconsRoundedStroke.settings, group: null),
   .appearance: (label: 'Appearance', icon: AshlarIconsRoundedStroke.palette, group: null),
+  .preview: (label: 'Preview panel', icon: AshlarIconsRoundedStroke.appWindow, group: null),
   .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedStroke.keyboard, group: null),
   .agents: (label: 'Connections and usage', icon: AshlarIconsRoundedStroke.bot, group: 'Assistant'),
   .tools: (label: 'Skills and tools', icon: AshlarIconsRoundedStroke.wrench, group: 'Assistant'),

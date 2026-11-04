@@ -62,6 +62,7 @@ GoRouter router(String initialLocation) => GoRouter(
               watch: context.read(),
               fixes: context.read(),
               devices: context.read(),
+              chromium: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),
@@ -97,6 +98,7 @@ GoRouter router(String initialLocation) => GoRouter(
                   memory: context.read(),
                 )
                 ..desktop = context.read()
+                ..chromium = context.read()
                 ..sessions = context.read()
                 ..projectsOf = context.read()
                 ..section =

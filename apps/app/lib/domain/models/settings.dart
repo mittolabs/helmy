@@ -19,6 +19,10 @@ enum Switching {
 
 enum ThemeChoice { system, light, dark }
 
+/// What draws pages in Preview: the system's own web view, or a Chromium
+/// browser on this computer (for Chrome's developer tools).
+enum PreviewEngine { system, chromium }
+
 /// How large text is, as a scale on the theme's sizes.
 enum TextSize {
   small('Small', .92),
@@ -125,6 +129,13 @@ class const AppSettings({
 
   /// First-run setup has been finished or skipped.
   final bool setupDone = false,
+
+  /// What draws pages in Preview.
+  final PreviewEngine previewWith = .system,
+
+  /// The Chromium browser Preview uses, by its program; null lets Helmy pick
+  /// one of those installed.
+  final String? chromiumBrowser,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -153,6 +164,8 @@ class const AppSettings({
     bool? keepRunning,
     bool? sendWithEnter,
     bool? stepsOpen,
+    PreviewEngine? previewWith,
+    String? chromiumBrowser,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -179,6 +192,8 @@ class const AppSettings({
     keepRunning: keepRunning ?? this.keepRunning,
     sendWithEnter: sendWithEnter ?? this.sendWithEnter,
     stepsOpen: stepsOpen ?? this.stepsOpen,
+    previewWith: previewWith ?? this.previewWith,
+    chromiumBrowser: chromiumBrowser ?? this.chromiumBrowser,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -207,6 +222,8 @@ class const AppSettings({
     'keepRunning': keepRunning,
     'sendWithEnter': sendWithEnter,
     'stepsOpen': stepsOpen,
+    'previewWith': previewWith.name,
+    'chromiumBrowser': chromiumBrowser,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -238,6 +255,8 @@ class const AppSettings({
     keepRunning: json['keepRunning'] as bool? ?? true,
     sendWithEnter: json['sendWithEnter'] as bool? ?? true,
     stepsOpen: json['stepsOpen'] as bool? ?? false,
+    previewWith: PreviewEngine.values.asNameMap()[json['previewWith']] ?? .system,
+    chromiumBrowser: json['chromiumBrowser'] as String?,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {

@@ -7,6 +7,7 @@ import '../../../data/repositories/settings_repository.dart';
 
 import 'dart:io';
 
+import '../../../data/services/chromium/chromium_service.dart';
 import '../../../data/services/desktop_service.dart';
 import '../../../data/services/engines/claude/claude_engine.dart';
 import '../../../data/services/engines/codex/codex_engine.dart';
@@ -24,7 +25,17 @@ import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../core/file_actions.dart';
 
-enum SettingsSection { general, appearance, projects, agents, tools, memory, data, keyboard }
+enum SettingsSection {
+  general,
+  appearance,
+  preview,
+  projects,
+  agents,
+  tools,
+  memory,
+  data,
+  keyboard,
+}
 
 /// One engine as settings shows it: what it is, whether it can run, and what
 /// it last said about its usage.
@@ -195,6 +206,14 @@ class SettingsViewModel extends ChangeNotifier {
     toolsLoaded = true;
     notifyListeners();
   }
+
+  // Preview: what draws its pages, and which Chromium browser.
+
+  /// Chromium browsers on this computer; set where the page is made.
+  ChromiumService? chromium;
+
+  /// The Chromium-based browsers installed, once asked.
+  Future<List<ChromiumBrowser>> chromiumBrowsers() async => await chromium?.installed() ?? const [];
 
   // Data and storage: where things are, how big, and clearing them out.
 

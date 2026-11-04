@@ -18,6 +18,10 @@ import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:integration_test/integration_test.dart';
 
+/// Seconds to keep the page open after, for looking at it from outside
+/// (Safari's Develop menu).
+const hold = int.fromEnvironment('HOLD');
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -83,6 +87,9 @@ void main() {
           await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 3)));
           await settle();
         }
+      }
+      if (hold > 0) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: hold)));
       }
       expect(results, {'zoom': true, 'appearance': true, 'hardReload': true, 'inspect': true});
     },
