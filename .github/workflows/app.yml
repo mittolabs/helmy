@@ -1,0 +1,30 @@
+name: app
+
+# The app's analysis and unit tests, on every change to it. Live tests (which
+# drive the real CLIs and cost real usage) and the macOS integration tests run
+# on a developer's machine, not here.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths: ["apps/app/**", ".github/workflows/app.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/app/**", ".github/workflows/app.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.5"
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze
+      - run: flutter test --exclude-tags live
