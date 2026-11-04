@@ -222,6 +222,7 @@ String stepTitle(ToolCall call, {required bool done}) {
     'Task' || 'Agent' => pick('Asked a helper', 'Asking a helper'),
     'TodoWrite' => pick('Updated the plan', 'Updating the plan'),
     'ImageGeneration' => pick('Made an image', 'Making an image'),
+    _ when ownStep(call.name) != null => pick(ownStep(call.name)!.$1, ownStep(call.name)!.$2),
     _ => pick('Used ${toolLabel(call.name)}', 'Using ${toolLabel(call.name)}'),
   };
 }

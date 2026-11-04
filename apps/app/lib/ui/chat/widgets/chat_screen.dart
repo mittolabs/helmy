@@ -42,6 +42,7 @@ import 'media.dart';
 import 'preview_panel.dart';
 import 'ship_panel.dart';
 import 'device_panel.dart';
+import 'terminal_panel.dart';
 import 'chat_items.dart';
 import 'composer.dart';
 import 'saved_toast.dart';

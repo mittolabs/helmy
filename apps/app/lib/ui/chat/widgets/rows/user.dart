@@ -112,61 +112,69 @@ class _UserState extends State<_User> {
     return Padding(
       padding: const .only(top: 12, bottom: 4),
       child: LayoutBuilder(
-        builder: (context, box) => Column(
-          crossAxisAlignment: .end,
-          spacing: 6,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(minWidth: 160, maxWidth: box.maxWidth * .8),
-              child: IntrinsicWidth(
-                child: Container(
-                  padding: const .symmetric(horizontal: 11, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: c.muted,
-                    borderRadius: .circular(t.radiusXl),
-                    border: Border.all(color: c.ring, width: 1.5),
-                  ),
-                  child: EditableText(
-                    controller: _edit,
-                    focusNode: _editFocus,
-                    autofocus: true,
-                    maxLines: null,
-                    style: t.text.sm.copyWith(color: c.foreground, height: 1.6),
-                    cursorColor: c.foreground,
-                    backgroundCursorColor: c.mutedForeground,
-                    selectionColor: c.foreground.withValues(alpha: .2),
-                    keyboardType: TextInputType.multiline,
+        // As wide as the row, so the message stays on the right where it was.
+        builder: (context, box) => SizedBox(
+          width: box.maxWidth,
+          child: Column(
+            crossAxisAlignment: .end,
+            spacing: 6,
+            children: [
+              ConstrainedBox(
+                // Room to type in, never wider than a message is.
+                constraints: BoxConstraints(
+                  minWidth: (box.maxWidth * .8).clamp(0, 360),
+                  maxWidth: box.maxWidth * .8,
+                ),
+                child: IntrinsicWidth(
+                  child: Container(
+                    padding: const .symmetric(horizontal: 11, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: c.muted,
+                      borderRadius: .circular(t.radiusXl),
+                      border: Border.all(color: c.ring, width: 1.5),
+                    ),
+                    child: EditableText(
+                      controller: _edit,
+                      focusNode: _editFocus,
+                      autofocus: true,
+                      maxLines: null,
+                      style: t.text.sm.copyWith(color: c.foreground, height: 1.6),
+                      cursorColor: c.foreground,
+                      backgroundCursorColor: c.mutedForeground,
+                      selectionColor: c.foreground.withValues(alpha: .2),
+                      keyboardType: TextInputType.multiline,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Row(
-              mainAxisSize: .min,
-              spacing: 4,
-              children: [
-                Tooltip(
-                  message: 'Saving sends it again. What came after stays as a version you can go back to; files are not changed.',
-                  child: AshlarIcon(
-                    AshlarIconsRoundedStroke.info,
-                    size: 14,
-                    color: c.mutedForeground,
+              Row(
+                mainAxisSize: .min,
+                spacing: 4,
+                children: [
+                  Tooltip(
+                    message: 'Saving sends it again. What came after stays as a version you can go back to; files are not changed.',
+                    child: AshlarIcon(
+                      AshlarIconsRoundedStroke.info,
+                      size: 14,
+                      color: c.mutedForeground,
+                    ),
                   ),
-                ),
-                Button(
-                  size: .sm,
-                  variant: .ghost,
-                  onPressed: _cancelEdit,
-                  child: const Text('Cancel'),
-                ),
-                Button(
-                  size: .sm,
-                  variant: .secondary,
-                  onPressed: changed ? _saveEdit : null,
-                  child: const Text('Save'),
-                ),
-              ],
-            ),
-          ],
+                  Button(
+                    size: .sm,
+                    variant: .ghost,
+                    onPressed: _cancelEdit,
+                    child: const Text('Cancel'),
+                  ),
+                  Button(
+                    size: .sm,
+                    variant: .secondary,
+                    onPressed: changed ? _saveEdit : null,
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

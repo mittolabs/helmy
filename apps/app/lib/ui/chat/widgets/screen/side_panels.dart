@@ -51,6 +51,7 @@ class _SidePanelsState extends State<_SidePanels> {
 /// A tab kind's name and icon.
 (String, IconData) _kindOf(SidePanel kind) => switch (kind) {
   .preview => ('Browser', AshlarIconsRoundedStroke.globe),
+  .terminal => ('Terminal', AshlarIconsRoundedStroke.squareTerminal),
   .changes => ('Changes', AshlarIconsRoundedStroke.fileDiff),
   .ship => ('Pull request', AshlarIconsRoundedStroke.gitPullRequest),
   .device => ('Device', AshlarIconsRoundedStroke.smartphone),
@@ -71,6 +72,7 @@ class _Panel extends StatelessWidget {
     .changes =>
       vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
     .device => vm.device?.device?.name ?? 'Device',
+    .terminal => 'Terminal ${vm.tabs.where((t) => t.kind == .terminal).toList().indexOf(tab) + 1}',
     _ => _kindOf(tab.kind).$1,
   };
 
@@ -123,7 +125,10 @@ class _Panel extends StatelessWidget {
                           for (final kind in vm.addable)
                             MenuItem(
                               leading: AshlarIcon(_kindOf(kind).$2, size: 16),
-                              onPressed: () => kind == .preview ? vm.add(.preview) : vm.show(kind),
+                              // Several pages and terminals; one of each other kind.
+                              onPressed: () => kind == .preview || kind == .terminal
+                                  ? vm.add(kind)
+                                  : vm.show(kind),
                               child: Text(_kindOf(kind).$1),
                             ),
                         ],
@@ -162,6 +167,10 @@ class _Panel extends StatelessWidget {
                       active: tab == active && vm.panelOpen,
                     ),
                     .ship => ShipPanel(vm: vm),
+                    .terminal => TerminalPanel(
+                      cwd: vm.session?.cwd ?? homeDir,
+                      active: tab == active && vm.panelOpen,
+                    ),
                     .device => DevicePanel(vm: vm),
                   },
                 ),

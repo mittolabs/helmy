@@ -9,28 +9,35 @@ import 'problem.dart';
 /// else said simply. The connection's own text never reaches the conversation.
 String inHelmysWords(String? raw) => diagnose(raw).what;
 
+/// Helmy's own tools as a step says them, done and while it runs; null for
+/// any other tool.
+(String, String)? ownStep(String name) {
+  for (final (tool, done, doing) in const [
+    ('watch_video', 'Watched a video', 'Watching a video'),
+    ('device_list', 'Looked for devices', 'Looking for devices'),
+    ('device_screen', "Looked at the device's screen", "Looking at the device's screen"),
+    ('device_tap', 'Tapped the device', 'Tapping the device'),
+    ('device_swipe', 'Swiped on the device', 'Swiping on the device'),
+    ('device_type', 'Typed on the device', 'Typing on the device'),
+    ('device_home', 'Pressed home', 'Pressing home'),
+    ('browser_open', 'Opened a page', 'Opening a page'),
+    ('browser_read', 'Read the page', 'Reading the page'),
+    ('browser_act', 'Used the page', 'Using the page'),
+    ('browser_screenshot', 'Looked at the page', 'Looking at the page'),
+    ('browser_logs', "Checked the page's errors", "Checking the page's errors"),
+    ('browser_eval', 'Ran a script in the page', 'Running a script in the page'),
+  ]) {
+    if (name.endsWith(tool)) return (done, doing);
+  }
+  return null;
+}
+
 /// A tool's name as Helmy says it: a connected service's tool,
 /// `mcp__claude_ai_Gmail__search_threads` or `gmail.search_threads`, reads
 /// "Gmail: search threads"; other names are left as they are.
 String toolLabel(String name) {
   // Helmy's own tools, and a connection's look-up of one, in plain words.
-  if (name.endsWith('watch_video')) return 'Watched a video';
-  for (final (tool, said) in const [
-    ('device_list', 'Looked for devices'),
-    ('device_screen', "Looked at the device's screen"),
-    ('device_tap', 'Tapped the device'),
-    ('device_swipe', 'Swiped on the device'),
-    ('device_type', 'Typed on the device'),
-    ('device_home', 'Pressed home'),
-    ('browser_open', 'Opened a page'),
-    ('browser_read', 'Read the page'),
-    ('browser_act', 'Used the page'),
-    ('browser_screenshot', 'Looked at the page'),
-    ('browser_logs', "Checked the page's errors"),
-    ('browser_eval', 'Ran a script in the page'),
-  ]) {
-    if (name.endsWith(tool)) return said;
-  }
+  if (ownStep(name) case (final done, _)) return done;
   if (name == 'ToolSearch') return 'Found a tool';
   String words(String s) => s.replaceAll(RegExp(r'[_-]+'), ' ').trim();
   // "notion" reads "Notion"; "Google_Drive" stays "Google Drive".

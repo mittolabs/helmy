@@ -52,6 +52,8 @@ dependencies:
       path: packages/window_manager
       ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
   sentry: ^10.3.0
+  xterm: ^4.0.0
+  flutter_pty: ^0.4.2
 dev_dependencies:
   integration_test:
     sdk: flutter

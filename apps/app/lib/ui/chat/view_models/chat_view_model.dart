@@ -36,7 +36,7 @@ import '../../../domain/models/settings.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview, ship, device }
+enum SidePanel { changes, background, preview, terminal, ship, device }
 
 /// One tab in the panel beside the conversation: what it shows, and for a
 /// browser tab, where it is.
@@ -420,6 +420,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   List<SidePanel> get addable => [
     // (Only where there is a web view to show it in.)
     if (webViewHere) .preview,
+    .terminal,
     .changes,
     if (inRepo) .ship,
     if (device != null) .device,

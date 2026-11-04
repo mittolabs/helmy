@@ -22,10 +22,14 @@ class DeviceViewModel extends ChangeNotifier {
   /// What is happening, when something is (starting, installing).
   String? doing;
 
+  /// How much of AXe has downloaded (0 to 1), while Homebrew says.
+  double? installShare;
+
   /// Why the screen is not showing, when it is not.
   String? trouble;
 
   Timer? _poll;
+  StreamSubscription<Uint8List>? _stream;
   bool _reading = false;
   bool _closed = false;
 
@@ -68,6 +72,19 @@ class DeviceViewModel extends ChangeNotifier {
     }
     if (d.ios) dark = await _devices.isDark(device!) ?? dark;
     _poll?.cancel();
+    await _stream?.cancel();
+    _stream = null;
+    // A stream of frames where the device gives one; else a picture asked
+    // for four times a second.
+    final frames = await _devices.stream(device!);
+    if (frames != null) {
+      _stream = frames.listen((f) {
+        screen = f;
+        trouble = null;
+        _changed();
+      });
+      return;
+    }
     _poll = Timer.periodic(const Duration(milliseconds: 250), (_) => unawaited(_read()));
     await _read();
   }
@@ -108,6 +125,35 @@ class DeviceViewModel extends ChangeNotifier {
     unawaited(_read());
   }
 
+  // Keys typed on the keyboard straight onto the screen, gathered for a moment
+  // and sent together: each send to the simulator takes a while.
+  final _keys = StringBuffer();
+  Timer? _keysTimer;
+
+  /// Return or Backspace pressed onto the screen: what was typed goes first.
+  Future<void> press(String key) async {
+    if (device == null || !canTouch) return;
+    _keysTimer?.cancel();
+    if (_keys.isNotEmpty) {
+      final text = _keys.toString();
+      _keys.clear();
+      await type(text);
+    }
+    await _devices.keyPress(device!, key);
+  }
+
+  /// A key typed onto the screen.
+  void key(String text) {
+    if (device == null || !canTouch) return;
+    _keys.write(text);
+    _keysTimer?.cancel();
+    _keysTimer = Timer(const Duration(milliseconds: 350), () {
+      final text = _keys.toString();
+      _keys.clear();
+      unawaited(type(text));
+    });
+  }
+
   Future<void> type(String text) async {
     if (device == null || !canTouch || text.isEmpty) return;
     await _devices.type(device!, text);
@@ -143,7 +189,15 @@ class DeviceViewModel extends ChangeNotifier {
   Future<void> installTouch() async {
     doing = 'Installing…';
     _changed();
-    final ok = await _devices.installIosInput();
+    final ok = await _devices.installIosInput(
+      progress: (step, share) {
+        // Homebrew's own figures; a step without one says only the step.
+        doing = share == null ? '$step…' : '$step… ${(share * 100).round()}%';
+        installShare = share;
+        _changed();
+      },
+    );
+    installShare = null;
     doing = null;
     canTouch = ok;
     if (!ok) trouble = "It didn't install. Homebrew is needed for it: brew.sh.";
@@ -158,12 +212,16 @@ class DeviceViewModel extends ChangeNotifier {
   void pause() {
     _poll?.cancel();
     _poll = null;
+    unawaited(_stream?.cancel());
+    _stream = null;
   }
 
   @override
   void dispose() {
     _closed = true;
     _poll?.cancel();
+    _keysTimer?.cancel();
+    unawaited(_stream?.cancel());
     super.dispose();
   }
 }

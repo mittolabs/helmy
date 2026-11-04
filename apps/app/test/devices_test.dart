@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/services/cli_locator.dart';
@@ -56,6 +57,10 @@ class FakeDevices extends DeviceService {
 
   @override
   Future<bool?> isDark(Device d) async => true;
+
+  // Pictures asked for, as where no stream is to be had.
+  @override
+  Future<Stream<Uint8List>?> stream(Device d) async => null;
 }
 
 void main() {

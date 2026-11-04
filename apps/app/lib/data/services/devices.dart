@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'cli_locator.dart';
 
@@ -108,6 +110,78 @@ class DeviceService {
     return bytes.isEmpty ? null : bytes;
   }
 
+  /// [d]'s screen as it changes (iOS, with AXe): JPEG frames at about 20 a
+  /// second, from one process, rather than a picture asked for each time.
+  /// Null when it cannot stream; cancelling the subscription ends it.
+  Future<Stream<Uint8List>?> stream(Device d) async {
+    if (!d.ios) return null;
+    final axe = await _locator.find('axe');
+    if (axe == null) return null;
+    final Process p;
+    try {
+      p = await Process.start(axe, [
+        'stream-video', '--udid', d.id, '--format', 'mjpeg', //
+        '--fps', '24', '--quality', '75', '--scale', '1.0',
+      ], environment: await _locator.environment());
+    } on ProcessException {
+      return null;
+    }
+    unawaited(p.stderr.drain<void>());
+    late final StreamController<Uint8List> out;
+    final buf = BytesBuilder(copy: false);
+    out = StreamController<Uint8List>(onCancel: () => p.kill());
+    // Each frame is a JPEG between its start (FF D8) and end (FF D9) marks.
+    var pending = Uint8List(0);
+    p.stdout.listen((chunk) {
+      buf
+        ..add(pending)
+        ..add(chunk);
+      pending = buf.takeBytes();
+      while (true) {
+        final start = _find(pending, 0xD8, 0);
+        if (start < 0) break;
+        final end = _find(pending, 0xD9, start + 2);
+        if (end < 0) {
+          pending = pending.sublist(start);
+          break;
+        }
+        out.add(pending.sublist(start, end + 2));
+        pending = pending.sublist(end + 2);
+      }
+    }, onDone: () => out.close());
+    return out.stream;
+  }
+
+  /// Where FF [mark] is in [b] from [from]; -1 when not there.
+  static int _find(Uint8List b, int mark, int from) {
+    for (var i = from; i < b.length - 1; i++) {
+      if (b[i] == 0xFF && b[i + 1] == mark) return i;
+    }
+    return -1;
+  }
+
+  /// Presses Return or Backspace on [d]'s keyboard.
+  Future<bool> keyPress(Device d, String key) async {
+    // USB HID usage codes: Return 40, Backspace 42.
+    final code = switch (key) {
+      'Enter' => '40',
+      'Backspace' => '42',
+      _ => null,
+    };
+    if (code == null) return false;
+    final r = d.ios
+        ? await _run('axe', ['key', code, '--udid', d.id])
+        : await _run('adb', [
+            '-s',
+            d.id,
+            'shell',
+            'input',
+            'keyevent',
+            key == 'Enter' ? '66' : '67',
+          ]);
+    return r?.exitCode == 0;
+  }
+
   /// Taps [d] at ([x], [y]) in its screen's points (iOS) or pixels (Android).
   Future<bool> tap(Device d, double x, double y) async {
     final r = d.ios
@@ -165,12 +239,50 @@ class DeviceService {
 
   /// Installs AXe, which carries taps and typing to iOS simulators, from its
   /// maker's Homebrew tap. True when it is installed after.
-  Future<bool> installIosInput() async {
+  ///
+  /// [progress] hears what is happening as Homebrew says it: its step, and
+  /// while downloading, the share done (0 to 1) it prints.
+  Future<bool> installIosInput({void Function(String step, double? share)? progress}) async {
     final brew = await _locator.find('brew');
     if (brew == null) return false;
+    progress?.call('Adding where AXe comes from', null);
     await _run('brew', ['tap', 'cameroncooke/axe']);
-    final r = await _run('brew', ['install', 'cameroncooke/axe/axe']);
+    progress?.call('Downloading AXe', null);
+    final ok = await _streamed(brew, ['install', 'cameroncooke/axe/axe'], (line) {
+      final pct = RegExp(r'(\d{1,3}(?:\.\d)?)%').allMatches(line).lastOrNull;
+      if (pct != null) {
+        progress?.call('Downloading AXe', (double.parse(pct[1]!) / 100).clamp(0.0, 1.0));
+      } else if (line.contains('Pouring') || line.contains('Installing')) {
+        progress?.call('Installing AXe', null);
+      }
+    });
     _locator.forget('axe');
-    return r?.exitCode == 0 && await iosInput();
+    return ok && await iosInput();
+  }
+
+  /// Runs [bin] as in a terminal (so it prints its progress), each line of
+  /// what it prints to [line]; true when it ends well.
+  Future<bool> _streamed(String bin, List<String> args, void Function(String) line) async {
+    try {
+      final p = Platform.isMacOS
+          ? await Process.start('/usr/bin/script', [
+              '-q',
+              '/dev/null',
+              bin,
+              ...args,
+            ], environment: await _locator.environment())
+          : await Process.start(bin, args, environment: await _locator.environment());
+      // Progress bars redraw with a carriage return: each redraw is a line.
+      void read(Stream<List<int>> s) => s
+          .transform(const SystemEncoding().decoder)
+          .expand((chunk) => chunk.split(RegExp(r'[\r\n]')))
+          .where((l) => l.trim().isNotEmpty)
+          .listen(line);
+      read(p.stdout);
+      read(p.stderr);
+      return await p.exitCode.timeout(const Duration(minutes: 10)) == 0;
+    } on Object {
+      return false;
+    }
   }
 }

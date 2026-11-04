@@ -78,10 +78,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(vm.editing, isNull);
 
-    // In place: the bubble becomes the text box. Esc cancels.
+    // In place: the bubble becomes the text box, on the right where the
+    // message was. Esc cancels.
+    final bubbleRight = tester.getRect(find.text('Hellodnd')).right;
     vm.startEdit(0);
     await tester.pumpAndSettle();
     expect(find.byType(EditableText), findsOneWidget);
+    final box = tester.getRect(find.byType(EditableText));
+    expect(box.right, greaterThan(bubbleRight - 20), reason: 'on the right, where it was');
+    expect(box.width, greaterThan(200), reason: 'room to type in');
     expect(find.text('Save'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

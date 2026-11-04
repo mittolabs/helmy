@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../data/services/helmy_tools.dart' show imageSize;
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/select.dart';
+import '../../core/ashlar/progress.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
@@ -31,6 +33,35 @@ class _DevicePanelState extends State<DevicePanel> {
   Offset? _down;
   Offset? _last;
 
+  /// The phone's screen, once clicked: keys typed go to the phone.
+  final _screenFocus = FocusNode();
+  bool _typing = false;
+
+  KeyEventResult _key(FocusNode _, KeyEvent e) {
+    if (e is KeyUpEvent) return KeyEventResult.handled;
+    // The app's shortcuts stay its own.
+    final k = HardwareKeyboard.instance;
+    if (k.isMetaPressed || k.isControlPressed) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.enter) {
+      unawaited(d.press('Enter'));
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.backspace) {
+      unawaited(d.press('Backspace'));
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.escape) {
+      _screenFocus.unfocus();
+      return KeyEventResult.handled;
+    }
+    final text = e.character;
+    if (text != null && text.isNotEmpty && !text.codeUnits.any((u) => u < 32)) {
+      d.key(text);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +70,7 @@ class _DevicePanelState extends State<DevicePanel> {
 
   @override
   void dispose() {
+    _screenFocus.dispose();
     d.pause();
     _typed.dispose();
     super.dispose();
@@ -163,7 +195,11 @@ class _DevicePanelState extends State<DevicePanel> {
           mainAxisSize: .min,
           spacing: 8,
           children: [
-            const Spinner(size: 16),
+            if (d.installShare case final share?)
+              // Homebrew's own figure, as a bar.
+              SizedBox(width: 160, child: Progress(value: share))
+            else
+              const Spinner(size: 16),
             Text(d.doing!, style: muted),
           ],
         ),
@@ -198,25 +234,40 @@ class _DevicePanelState extends State<DevicePanel> {
             return SizedBox(
               width: w,
               height: h,
-              child: ClipRRect(
-                // The rounded corners of a phone's screen.
-                borderRadius: .circular(w * .13),
-                child: MouseRegion(
-                  cursor: d.canTouch ? SystemMouseCursors.click : MouseCursor.defer,
-                  child: GestureDetector(
-                    onTapUp: (e) {
-                      final (x, y) = share(e.localPosition);
-                      unawaited(d.tap(x, y, picture));
-                    },
-                    onPanStart: (e) => _down = _last = e.localPosition,
-                    onPanUpdate: (e) => _last = e.localPosition,
-                    onPanEnd: (_) {
-                      final (from, to) = (_down, _last);
-                      _down = _last = null;
-                      if (from == null || to == null) return;
-                      unawaited(d.swipe(share(from), share(to), picture));
-                    },
-                    child: image,
+              child: Container(
+                foregroundDecoration: _typing
+                    ? BoxDecoration(
+                        border: Border.all(color: t.colors.ring, width: 2),
+                        borderRadius: .circular(w * .13),
+                      )
+                    : null,
+                child: ClipRRect(
+                  // The rounded corners of a phone's screen.
+                  borderRadius: .circular(w * .13),
+                  child: MouseRegion(
+                    cursor: d.canTouch ? SystemMouseCursors.click : MouseCursor.defer,
+                    child: Focus(
+                      focusNode: _screenFocus,
+                      onKeyEvent: _key,
+                      onFocusChange: (on) => setState(() => _typing = on),
+                      child: GestureDetector(
+                        onTapUp: (e) {
+                          // Clicked, the screen takes the keyboard.
+                          if (d.canTouch) _screenFocus.requestFocus();
+                          final (x, y) = share(e.localPosition);
+                          unawaited(d.tap(x, y, picture));
+                        },
+                        onPanStart: (e) => _down = _last = e.localPosition,
+                        onPanUpdate: (e) => _last = e.localPosition,
+                        onPanEnd: (_) {
+                          final (from, to) = (_down, _last);
+                          _down = _last = null;
+                          if (from == null || to == null) return;
+                          unawaited(d.swipe(share(from), share(to), picture));
+                        },
+                        child: image,
+                      ),
+                    ),
                   ),
                 ),
               ),
