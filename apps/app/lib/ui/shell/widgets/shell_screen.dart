@@ -1,3 +1,5 @@
+import 'dart:ui' show AppExitType;
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -20,6 +22,8 @@ import '../../core/ashlar/tooltip.dart';
 import '../view_models/sidebar_view_model.dart';
 import 'command_palette.dart';
 import 'new_session.dart';
+import '../../core/window_layout.dart';
+import '../../../utils/platform.dart';
 
 /// The sessions down the side, the open one beside them.
 class ShellScreen extends StatelessWidget {
@@ -45,11 +49,9 @@ class ShellScreen extends StatelessWidget {
     return CallbackShortcuts(
       // Keys reach here from wherever focus is in the window.
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
-            showPalette(context, viewModel),
-        const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
-            newSession(context, viewModel),
-        const SingleActivator(LogicalKeyboardKey.comma, meta: true): () => context.go('/settings'),
+        Desktop.current.shortcut(LogicalKeyboardKey.keyK): () => showPalette(context, viewModel),
+        Desktop.current.shortcut(LogicalKeyboardKey.keyN): () => newSession(context, viewModel),
+        Desktop.current.shortcut(LogicalKeyboardKey.comma): () => context.go('/settings'),
         // ⌘1 to ⌘9: the sessions in the order the list shows them.
         for (final (i, key) in const [
           LogicalKeyboardKey.digit1,
@@ -62,17 +64,20 @@ class ShellScreen extends StatelessWidget {
           LogicalKeyboardKey.digit8,
           LogicalKeyboardKey.digit9,
         ].indexed)
-          SingleActivator(key, meta: true): () {
+          Desktop.current.shortcut(key): () {
             final list = viewModel.inOrder;
             if (i < list.length) context.go('/s/${list[i].id}');
           },
         // Back and forward through where you have been.
-        const SingleActivator(LogicalKeyboardKey.bracketLeft, meta: true): () =>
-            NavHistory.current?.back(),
-        const SingleActivator(LogicalKeyboardKey.bracketRight, meta: true): () =>
+        Desktop.current.shortcut(LogicalKeyboardKey.bracketLeft): () => NavHistory.current?.back(),
+        Desktop.current.shortcut(LogicalKeyboardKey.bracketRight): () =>
             NavHistory.current?.forward(),
         // Undo the last archive (a text field's own undo comes first).
-        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): viewModel.undoArchive,
+        Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undoArchive,
+        // A Mac's menu quits with ⌘Q; elsewhere Ctrl+Q is the app's to give.
+        if (!Desktop.current.commandIsMeta)
+          Desktop.current.shortcut(LogicalKeyboardKey.keyQ): () =>
+              ServicesBinding.instance.exitApplication(AppExitType.required),
       },
       child: ListenableBuilder(
         listenable: viewModel,
@@ -80,20 +85,35 @@ class ShellScreen extends StatelessWidget {
           rail: false,
           // Hides off the side; its button or ⌘B brings it back.
           collapse: .offcanvas,
+          narrow: narrowWindow,
           open: viewModel.settings.sidebarOpen,
           onOpenChanged: (open) =>
               viewModel.updateSettings(viewModel.settings.copyWith(sidebarOpen: open)),
           width: 272,
-          header: Padding(
-            // Clears the window's buttons, which sit over the sidebar.
-            padding: const EdgeInsetsDirectional.only(start: 8, top: 30, end: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
-                ),
-                const Tooltip(message: 'Hide sidebar (⌘B)', child: SidebarTrigger()),
-              ],
+          header: TitleBar(
+            child: Padding(
+              // Clears the window's buttons, which sit over the sidebar.
+              padding: const EdgeInsetsDirectional.only(start: 8, top: 30, end: 2),
+              child: Row(
+                children: [
+                  Image.asset(
+                    t.brightness == .dark
+                        ? 'assets/helmy/head-dark.png'
+                        : 'assets/helmy/head-light.png',
+                    width: 22,
+                    height: 22,
+                    semanticLabel: 'Helmy',
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
+                  ),
+                  Tooltip(
+                    message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
+                    child: const SidebarTrigger(),
+                  ),
+                ],
+              ),
             ),
           ),
           footer: Padding(
@@ -101,7 +121,7 @@ class ShellScreen extends StatelessWidget {
             child: _NavRow(
               icon: AshlarIconsRoundedStroke.settings,
               label: 'Settings',
-              shortcut: '⌘,',
+              shortcut: Desktop.current.keys('⌘,'),
               selected: inSettings,
               onPressed: () => context.go('/settings'),
             ),
@@ -116,13 +136,13 @@ class ShellScreen extends StatelessWidget {
                   _NavRow(
                     icon: AshlarIconsRoundedStroke.squarePen,
                     label: 'New session',
-                    shortcut: '⌘N',
+                    shortcut: Desktop.current.keys('⌘N'),
                     onPressed: () => newSession(context, viewModel),
                   ),
                   _NavRow(
                     icon: AshlarIconsRoundedStroke.search,
                     label: 'Search',
-                    shortcut: '⌘K',
+                    shortcut: Desktop.current.keys('⌘K'),
                     onPressed: () => showPalette(context, viewModel),
                   ),
                   _NavRow(
@@ -214,6 +234,48 @@ class ShellScreen extends StatelessWidget {
                                       onPressed: () => viewModel.setPinned(s, !s.pinned),
                                       child: Text(s.pinned ? 'Unpin' : 'Pin'),
                                     ),
+                                    if (s.snoozed)
+                                      MenuItem(
+                                        leading: const AshlarIcon(
+                                          AshlarIconsRoundedStroke.clock,
+                                          size: 16,
+                                        ),
+                                        onPressed: () => viewModel.wake(s),
+                                        child: const Text('Wake now'),
+                                      )
+                                    else ...[
+                                      for (final (label, until) in [
+                                        (
+                                          'Snooze for an hour',
+                                          DateTime.now().add(const Duration(hours: 1)),
+                                        ),
+                                        (
+                                          'Snooze until tomorrow',
+                                          SidebarViewModel.tomorrowMorning(),
+                                        ),
+                                      ])
+                                        MenuItem(
+                                          leading: const AshlarIcon(
+                                            AshlarIconsRoundedStroke.clock,
+                                            size: 16,
+                                          ),
+                                          onPressed: () async {
+                                            await viewModel.snooze(s, until);
+                                            if (!context.mounted) return;
+                                            showToast(
+                                              context,
+                                              title: 'Snoozed "${s.title}" until ${_when(until)}',
+                                              action: Button(
+                                                size: .sm,
+                                                variant: .outline,
+                                                onPressed: viewModel.undoSnooze,
+                                                child: const Text('Undo'),
+                                              ),
+                                            );
+                                          },
+                                          child: Text(label),
+                                        ),
+                                    ],
                                     MenuItem(
                                       leading: const AshlarIcon(
                                         AshlarIconsRoundedStroke.archive,
@@ -230,7 +292,7 @@ class ShellScreen extends StatelessWidget {
                                             size: .sm,
                                             variant: .outline,
                                             onPressed: viewModel.undoArchive,
-                                            child: const Text('Undo (⌘Z)'),
+                                            child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
                                           ),
                                         );
                                       },
@@ -263,15 +325,35 @@ class ShellScreen extends StatelessWidget {
             ),
           ],
           // Hidden, its button sits beside the window's own buttons, over the page.
-          child: viewModel.settings.sidebarOpen
+          // (The view model's settings, as this screen is given no provider.)
+          child: viewModel.settings.sidebarOpen && MediaQuery.sizeOf(context).width >= narrowWindow
               ? child
               : Stack(
                   children: [
                     child,
-                    const PositionedDirectional(
-                      start: 76,
-                      top: 18,
-                      child: Tooltip(message: 'Show sidebar (⌘B)', child: SidebarTrigger()),
+                    // In line with the window's buttons, just after them,
+                    // as a Mac app's sidebar button sits.
+                    // (At the edge in full screen, where the window's buttons hide.)
+                    ListenableBuilder(
+                      listenable: windowFullScreen,
+                      builder: (context, button) => PositionedDirectional(
+                        start: titleRowStart,
+                        top: titleLine - 16,
+                        child: button!,
+                      ),
+                      child: Tooltip(
+                        message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
+                        child: Builder(
+                          builder: (context) => Button(
+                            variant: .ghost,
+                            size: .iconSm,
+                            semanticLabel: 'Show sidebar',
+                            onPressed: () => SidebarLayout.of(context).toggle(),
+                            // The title's size, so the two read as one line.
+                            child: const AshlarIcon(AshlarIconsRoundedStroke.panelLeft, size: 16),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -520,4 +602,18 @@ class _SessionRowState extends State<_SessionRow> {
       ),
     );
   }
+}
+
+/// A snooze's end as people say it: "6:40 PM", or "tomorrow at 9:00 AM".
+String _when(DateTime t) {
+  final now = DateTime.now();
+  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final time = '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(t.year, t.month, t.day).difference(today).inDays;
+  return switch (day) {
+    0 => time,
+    1 => 'tomorrow at $time',
+    _ => '${t.month}/${t.day} at $time',
+  };
 }

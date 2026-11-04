@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 
 import '../../../data/repositories/attention_repository.dart';
@@ -10,6 +8,7 @@ import '../../../domain/models/session.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
+import '../../../utils/platform.dart';
 
 enum SessionActivity { idle, working, needsYou, unread }
 
@@ -52,7 +51,9 @@ class SidebarViewModel extends ChangeNotifier {
     final list = _sessions.sessions
         .where(
           (x) => switch (s.show) {
-            .active => !x.archived,
+            // A snoozed session stays out until it is due, unless it wants you
+            // or is working before then.
+            .active => !x.archived && (!x.snoozed || _calling(x.id)),
             .archived => x.archived,
             .all => true,
           },
@@ -132,6 +133,36 @@ class SidebarViewModel extends ChangeNotifier {
     for (final s in _sessions.sessions) (s, await _conversations.searchText(s.id)),
   ];
 
+  /// Wants you or is working: back in the list even while snoozed.
+  bool _calling(String id) =>
+      const {SessionActivity.needsYou, SessionActivity.working}.contains(activityOf(id));
+
+  /// Out of the list until [until], then back as needing you.
+  Future<void> snooze(Session s, DateTime until) {
+    lastSnoozed = s;
+    return _sessions.save(s.copyWith(snoozedUntil: until, pinned: false));
+  }
+
+  /// The session last snoozed, for undo.
+  Session? lastSnoozed;
+
+  Future<void> undoSnooze() async {
+    final s = lastSnoozed;
+    if (s == null) return;
+    lastSnoozed = null;
+    final now = _sessions.byId(s.id);
+    if (now != null) await _sessions.save(now.copyWith(wake: true, pinned: s.pinned));
+  }
+
+  /// Back in the list now.
+  Future<void> wake(Session s) => _sessions.save(s.copyWith(wake: true));
+
+  /// When "until tomorrow" ends: 9 in the morning.
+  static DateTime tomorrowMorning([DateTime? from]) {
+    final now = from ?? DateTime.now();
+    return DateTime(now.year, now.month, now.day + 1, 9);
+  }
+
   Future<void> setPinned(Session s, bool pinned) => _sessions.save(s.copyWith(pinned: pinned));
 
   Future<void> setArchived(Session s, bool archived) {
@@ -144,7 +175,7 @@ class SidebarViewModel extends ChangeNotifier {
   /// nothing is asked up front.
   String get defaultFolder {
     final s = _settings.settings;
-    final home = Platform.environment['HOME'] ?? '/';
+    final home = homeDir;
     if (s.folderMode == .fixed && s.fixedFolder != null) return s.fixedFolder!;
     return _sessions.sessions.firstOrNull?.cwd ?? home;
   }

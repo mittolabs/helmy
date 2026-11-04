@@ -9,7 +9,8 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
     self.center()
-    self.minSize = NSSize(width: 760, height: 480)
+    // As narrow as a phone: the layout steps down to one column.
+    self.minSize = NSSize(width: 360, height: 480)
 
     // Content runs under a transparent title bar; the app pads its top rows.
     self.titleVisibility = .hidden
@@ -19,6 +20,17 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     Notifier.shared.attach(to: flutterViewController.engine.binaryMessenger)
+
+    // Full screen hides the window's buttons; the app's title row moves left
+    // into their place.
+    for (name, on) in [
+      (NSWindow.willEnterFullScreenNotification, true),
+      (NSWindow.willExitFullScreenNotification, false),
+    ] {
+      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
+        Notifier.shared.tell("fullScreen", on)
+      }
+    }
 
     // Hidden behind the splash until Flutter has drawn its first frame.
     self.alphaValue = 0
@@ -164,6 +176,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
   static let shared = Notifier()
   private var channel: FlutterMethodChannel?
 
+  /// Tells the Dart side something about the window.
+  func tell(_ method: String, _ arguments: Any?) {
+    channel?.invokeMethod(method, arguments: arguments)
+  }
+
   func attach(to messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: "helmy/notify", binaryMessenger: messenger)
     self.channel = channel
@@ -178,7 +195,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         self?.post(
           title: args["title"] as? String ?? "",
           body: args["body"] as? String ?? "",
-          sessionId: args["sessionId"] as? String ?? "")
+          sessionId: args["sessionId"] as? String ?? "",
+          thumbsUp: args["thumbsUp"] as? Bool ?? false)
         result(nil)
       case "copyImage":
         // Flutter's clipboard holds text only; a picture goes through AppKit.
@@ -228,13 +246,41 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let count = args["count"] as? Int ?? 0
         NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
         result(nil)
+      case "titleBarDoubleClick":
+        // What a double-click on a title bar does, as set in Desktop & Dock.
+        let window = NSApp.mainWindow ?? NSApp.windows.first { $0 is MainFlutterWindow }
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": window?.performMiniaturize(nil)
+        case "None": break
+        default: window?.performZoom(nil)
+        }
+        result(nil)
+      case "face":
+        DockFace.shared.show(args["face"] as? String)
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
   }
 
-  private func post(title: String, body: String, sessionId: String) {
+  /// Helmy's thumbs up as a notification picture. macOS moves an attachment's
+  /// file into its own store, so each notification gets a fresh copy.
+  private static func thumbsUp() -> UNNotificationAttachment? {
+    guard let image = NSImage(named: "ThumbsUp"), let tiff = image.tiffRepresentation,
+          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+    else { return nil }
+    let file = FileManager.default.temporaryDirectory
+      .appendingPathComponent("thumbs-up-\(UUID().uuidString).png")
+    do {
+      try png.write(to: file)
+      return try UNNotificationAttachment(identifier: "thumbs-up", url: file)
+    } catch {
+      return nil
+    }
+  }
+
+  private func post(title: String, body: String, sessionId: String, thumbsUp: Bool) {
     let center = UNUserNotificationCenter.current()
     center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
       guard granted else { return }
@@ -243,6 +289,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       content.body = body
       content.sound = .default
       content.userInfo = ["sessionId": sessionId]
+      if thumbsUp, let picture = Notifier.thumbsUp() {
+        content.attachments = [picture]
+      }
       // One notification per session: a newer one replaces the older.
       center.add(UNNotificationRequest(identifier: sessionId, content: content, trigger: nil))
     }
@@ -269,5 +318,69 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       if let sessionId { self.channel?.invokeMethod("open", arguments: sessionId) }
     }
     completionHandler()
+  }
+}
+
+/// Helmy's face in the Dock, changed with what it is doing: waking up,
+/// thinking,
+/// answering, needs you, working in the background, done, went wrong,
+/// offline, dozing.
+/// Drawn exactly as macOS draws the app icon (the same tile, the head at the
+/// same size and place, white or black by the Mac's icon style), so only the
+/// face changes. No face is the app icon itself.
+final class DockFace {
+  static let shared = DockFace()
+  private var face: String?
+  private var watching: NSKeyValueObservation?
+
+  func show(_ name: String?) {
+    if watching == nil {
+      // Redrawn when the Mac switches between light and dark.
+      watching = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+        DispatchQueue.main.async { self?.draw() }
+      }
+    }
+    guard name != face else { return }
+    face = name
+    draw()
+  }
+
+  /// The Dock's icons follow "Icon & widget style" in System Settings, not
+  /// the light or dark appearance: they stay light unless that says dark.
+  private var darkIcons: Bool {
+    let style = UserDefaults.standard.string(forKey: "AppleIconAppearanceTheme") ?? ""
+    if style.contains("Dark") { return true }
+    if style.contains("Automatic") {
+      return NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+    return false
+  }
+
+  private func draw() {
+    guard let name = face, let head = NSImage(named: "Face-\(name)") else {
+      NSApp.applicationIconImage = nil
+      return
+    }
+    let dark = darkIcons
+    let size: CGFloat = 1024
+    let icon = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
+      // macOS's icon grid: an 824-point rounded square, centered.
+      let shape = NSBezierPath(
+        roundedRect: NSRect(x: 100, y: 100, width: 824, height: 824), xRadius: 185, yRadius: 185)
+      (dark ? NSColor.black : NSColor.white).setFill()
+      shape.fill()
+      shape.addClip()
+      // Where macOS puts the app icon's head (measured from its own render
+      // of the icon), so the face lands on it exactly; the tile trims the ear
+      // pieces the same way.
+      // On black, the face whose ear pieces are lifted to read against it.
+      NSAppearance(named: dark ? .darkAqua : .aqua)!.performAsCurrentDrawingAppearance {
+        head.draw(
+          in: NSRect(x: 18, y: 9, width: 988, height: 988), from: .zero, operation: .sourceOver,
+          fraction: 1)
+      }
+      return true
+    }
+    NSApp.applicationIconImage = icon
   }
 }

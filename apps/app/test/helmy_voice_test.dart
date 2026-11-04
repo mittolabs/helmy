@@ -63,7 +63,8 @@ void main() {
   test('the identity names Helmy and its maker, and no product behind it as itself', () {
     expect(helmyIdentity, contains('You are Helmy'));
     expect(helmyIdentity, contains('Mittolabs'));
-    expect(helmyIdentity, contains('do not deny it'));
+    expect(helmyIdentity, contains('never claim there is none'));
+    expect(helmyIdentity, isNot(contains('keep the supplier private')));
   });
 
   testWidgets('a conversation full of what connections say shows none of their names', (

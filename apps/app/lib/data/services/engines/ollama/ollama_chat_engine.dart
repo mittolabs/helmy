@@ -31,7 +31,7 @@ class OllamaChatEngine implements AgentEngine {
   @override
   final info = const EngineInfo(
     id: 'ollama-chat',
-    name: 'Ollama on this Mac (answers only)',
+    name: 'Ollama on this computer (answers only)',
     localOnly: true,
   );
 
@@ -137,6 +137,8 @@ class OllamaChatRun implements EngineRun {
     var shown = false;
     final buffer = StringBuffer();
     String? error;
+    // The model has said all it will: a Stop pressed after this cut nothing.
+    var finished = false;
     status.thinking = true;
     _changes.add(false);
     try {
@@ -160,6 +162,7 @@ class OllamaChatRun implements EngineRun {
         if (line.trim().isEmpty) continue;
         final chunk = jsonDecode(line) as Map;
         if (chunk['error'] != null) throw HttpException('${chunk['error']}');
+        if (chunk['done'] == true) finished = true;
         buffer.write((chunk['message'] as Map?)?['content'] ?? '');
         final sofar = buffer.toString();
         // Held back until it cannot be the marker, so the marker never shows.
@@ -176,16 +179,20 @@ class OllamaChatRun implements EngineRun {
         }
       }
     } on Object catch (e) {
-      error = '$e';
+      // Once the answer is whole, a connection closed under it lost nothing.
+      if (!finished) error = '$e';
     } finally {
       client.close(force: true);
       if (identical(_client, client)) _client = null;
     }
     status.thinking = false;
     final text = buffer.toString().trim();
-    if (_stopped) {
+    if (_stopped && !finished) {
       if (shown) {
-        _history.add({'role': 'assistant', 'content': reply.text});
+        _history
+          ..add({'role': 'assistant', 'content': reply.text})
+          // So Helmy knows, if asked, that this answer was cut off.
+          ..add({'role': 'system', 'content': 'The user stopped your answer above at this point.'});
       } else {
         _history.removeLast();
       }
@@ -206,6 +213,11 @@ class OllamaChatRun implements EngineRun {
     }
     _changes.add(true);
   }
+
+  /// Answers take seconds and use no tools: there is no next step to take a
+  /// message in at, so a message waits or the answer is stopped for it.
+  @override
+  Future<bool> steer(String text, {List<String> attachments = const []}) async => false;
 
   /// Stops the answer where it is.
   @override

@@ -26,9 +26,13 @@ class _Notes extends NotifyService {
     required String sessionId,
     required String title,
     required String body,
+    bool thumbsUp = false,
   }) async => sent.add('$title: $body');
   @override
   Future<void> badge(int count) async => badgeCount = count;
+  String? dockFace;
+  @override
+  Future<void> face(String? face) async => dockFace = face;
 }
 
 Future<
@@ -113,20 +117,31 @@ void main() {
 
     // Busy, then done, while another session is on screen.
     attention.viewing = 'another';
+    // Just opened: waking up, then the app icon.
+    expect(notes.dockFace, 'waking');
+    await tester.pump(AttentionRepository.wakingFor);
+    expect(notes.dockFace, isNull);
     c.busy = true;
+    c.thinking = true;
     s.repo.notifyListeners();
     await settle();
+    expect(notes.dockFace, 'thinking');
+    c.thinking = false;
+    s.repo.notifyListeners();
+    expect(notes.dockFace, 'answering');
     c.busy = false;
     c.items.add(TurnSummary(ok: true));
     s.repo.notifyListeners();
     await settle();
     expect(notes.sent, ['${session.title}: Finished']);
+    expect(notes.dockFace, 'done');
     expect(attention.isUnread(session.id), isTrue);
     expect(notes.badgeCount, 1);
 
     // Opening it clears it.
     attention.viewing = session.id;
     expect(attention.isUnread(session.id), isFalse);
+    expect(notes.dockFace, isNull);
 
     // Waiting for an approval while on screen: no notification.
     c.items.add(
@@ -135,6 +150,7 @@ void main() {
     s.repo.notifyListeners();
     await settle();
     expect(notes.sent, hasLength(1));
+    expect(notes.dockFace, 'needs-you');
 
     // Turned off in settings: nothing, and no count.
     await tester.runAsync(() => s.settings.save(s.settings.settings.copyWith(notify: false)));
@@ -147,6 +163,45 @@ void main() {
     await settle();
     expect(notes.sent, hasLength(1));
     expect(notes.badgeCount, 0);
+    attention.dispose();
+    s.repo.dispose();
+    await tester.runAsync(() => s.root.delete(recursive: true));
+  });
+
+  testWidgets('idle with only this Mac to answer, the Dock shows Helmy offline', (tester) async {
+    late ({
+      SessionRepositoryLocal sessions,
+      ConversationRepositoryEngines repo,
+      SettingsRepository settings,
+      Directory root,
+    })
+    s;
+    late Session session;
+    await tester.runAsync(() async {
+      s = await _setup();
+      session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
+    });
+    final notes = _Notes();
+    final attention = AttentionRepository(
+      conversations: s.repo,
+      sessions: s.sessions,
+      settings: s.settings,
+      notify: notes,
+    );
+    // Unknown until a message has been routed: the app icon.
+    expect(s.repo.onlyThisMac, isNull);
+    // Checked at launch: no connection is on, so only this Mac can answer.
+    expect(await tester.runAsync(s.repo.checkReach), isTrue);
+    await tester.runAsync(() async {
+      await s.repo.send(session, 'hello');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    expect(s.repo.onlyThisMac, isTrue);
+    attention.viewing = session.id;
+    s.repo.notifyListeners();
+    expect(notes.dockFace, 'waking');
+    await tester.pump(AttentionRepository.wakingFor);
+    expect(notes.dockFace, 'offline');
     attention.dispose();
     s.repo.dispose();
     await tester.runAsync(() => s.root.delete(recursive: true));

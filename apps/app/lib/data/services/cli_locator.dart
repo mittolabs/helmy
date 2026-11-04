@@ -13,6 +13,8 @@ class CliLocator {
 
   Future<Map<String, String>> _loadEnvironment() async {
     final env = Map<String, String>.of(Platform.environment);
+    // Windows apps get the user's PATH as it is; there is no login shell.
+    if (Platform.isWindows) return env;
     try {
       final out = await Process.run(env['SHELL'] ?? '/bin/zsh', [
         '-ilc',
@@ -31,18 +33,26 @@ class CliLocator {
   Future<String?> find(String name) async {
     if (_binaries.containsKey(name)) return _binaries[name];
     final env = await environment();
-    final home = env['HOME'] ?? '';
+    final windows = Platform.isWindows;
+    final home = env['HOME'] ?? env['USERPROFILE'] ?? '';
+    final sep = windows ? r'\' : '/';
     final dirs = [
-      ...(env['PATH'] ?? '').split(':'),
-      '$home/.local/bin',
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
+      ...(env['PATH'] ?? '').split(windows ? ';' : ':'),
+      '$home$sep.local${sep}bin',
+      if (windows) ...[
+        // Where npm puts the commands it installs.
+        if (env['APPDATA'] case final appData?) '$appData${sep}npm',
+      ] else ...[
+        '/opt/homebrew/bin',
+        '/usr/local/bin',
+      ],
     ];
-    final found = dirs
-        .where((d) => d.isNotEmpty)
-        .map((d) => '$d/$name')
-        .where((p) => File(p).existsSync())
-        .firstOrNull;
+    // On Windows a command is a file with one of these endings.
+    final names = windows ? ['$name.exe', '$name.cmd', '$name.bat', name] : [name];
+    final found = [
+      for (final d in dirs.where((d) => d.isNotEmpty))
+        for (final n in names) '$d$sep$n',
+    ].where((p) => File(p).existsSync()).firstOrNull;
     return _binaries[name] = found;
   }
 }

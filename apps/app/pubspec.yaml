@@ -41,7 +41,11 @@ dependencies:
   ashlar_icons: ^0.3.0
   desktop_drop: ^0.8.4
   re_highlight: ^0.0.3
+  video_player: ^2.14.1
+  webview_flutter: ^4.14.1
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
 
@@ -57,6 +61,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - assets/helmy/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

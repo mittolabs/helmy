@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../domain/helmy_voice.dart';
+import '../../../domain/folder_move.dart';
 
 import 'dart:io';
 
@@ -39,6 +40,7 @@ import 'step_input.dart';
 import '../../../utils/result.dart';
 import '../view_models/chat_view_model.dart';
 import 'saved_toast.dart';
+import '../../../utils/platform.dart';
 
 typedef ChatRow = ({Object id, bool anchor, Widget child});
 
@@ -92,9 +94,11 @@ List<ChatRow> buildRows(ChatViewModel vm) {
           ),
         ));
       case AssistantText(:final text):
-        if (text.isEmpty) continue;
         final streaming = vm.busy && i == items.length - 1;
-        rows.add((id: i, anchor: false, child: Markdown(text, streaming: streaming)));
+        // A folder move is Helmy's to act on, not the user's to read.
+        final shown = withoutFolderLines(text, streaming: streaming);
+        if (shown.isEmpty) continue;
+        rows.add((id: i, anchor: false, child: Markdown(shown, streaming: streaming)));
       case ToolCall call when call.name == 'ExitPlanMode':
         rows.add((id: i, anchor: false, child: _PlanApproval(call, p, vm)));
       case ToolCall call:
@@ -209,7 +213,11 @@ class _Diff extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    final base = t.text.xs.copyWith(fontFamily: 'Menlo', height: 1.5);
+    final base = t.text.xs.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: monoFonts,
+      height: 1.5,
+    );
     final shown = diff.lines.take(_maxLines).toList();
     return Container(
       decoration: BoxDecoration(
@@ -1110,7 +1118,11 @@ class _Step extends StatelessWidget {
               if (diffsOf(call) case final ds when ds.isNotEmpty)
                 Text(
                   '+${ds.fold(0, (n, d) => n + d.added)} -${ds.fold(0, (n, d) => n + d.removed)}',
-                  style: muted.copyWith(fontFamily: 'Menlo', fontSize: 12),
+                  style: muted.copyWith(
+                    fontFamily: 'monospace',
+                    fontFamilyFallback: monoFonts,
+                    fontSize: 12,
+                  ),
                 ),
               if (detail.isNotEmpty && detail != title)
                 Flexible(
@@ -1254,7 +1266,11 @@ class _ExplainState extends State<_Explain> {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final muted = t.text.xs.copyWith(color: c.mutedForeground, height: 1.5);
-    final mono = t.text.xs.copyWith(fontFamily: 'Menlo', height: 1.5);
+    final mono = t.text.xs.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: monoFonts,
+      height: 1.5,
+    );
     final call = widget.call;
     if (!_open) {
       return Align(
@@ -1460,7 +1476,8 @@ class _Code extends StatelessWidget {
       child: Text(
         shown.length > 6000 ? '${shown.substring(0, 6000)}\n...' : shown,
         style: t.text.xs.copyWith(
-          fontFamily: 'Menlo',
+          fontFamily: 'monospace',
+          fontFamilyFallback: monoFonts,
           height: 1.5,
           color: error ? t.colors.destructive : t.colors.foreground,
         ),
@@ -1618,12 +1635,12 @@ class _Image extends StatelessWidget {
             ),
             _IconAction(
               icon: AshlarIconsRoundedStroke.externalLink,
-              label: 'Open in Preview',
+              label: 'Open',
               onPressed: () => desktop.open(image.path),
             ),
             _IconAction(
               icon: AshlarIconsRoundedStroke.folderOpen,
-              label: 'Show in Finder: ${tildePath(image.path)}',
+              label: 'Show in ${Desktop.current.fileManager}: ${tildePath(image.path)}',
               onPressed: () => desktop.reveal(image.path),
             ),
           ],

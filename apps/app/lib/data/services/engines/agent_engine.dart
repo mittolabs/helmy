@@ -84,6 +84,12 @@ abstract class EngineRun {
   /// Sends a message, with files by path: pictures as images where the engine
   /// takes them, anything else named for the agent to read.
   void send(String text, {List<String> attachments = const []});
+
+  /// Adds a message to the turn under way, without stopping it: the agent
+  /// takes it in at its next step. False when this run cannot, and then
+  /// nothing was sent.
+  Future<bool> steer(String text, {List<String> attachments = const []});
+
   void interrupt();
   void answer(PermissionPrompt prompt, PermissionAnswer answer);
 

@@ -1,14 +1,15 @@
-import 'dart:io';
+import 'platform.dart';
 
 /// `/Users/me/code/app` as `~/code/app`.
 String tildePath(String path) {
-  final home = Platform.environment['HOME'];
-  if (home == null || home.isEmpty || !path.startsWith(home)) return path;
+  final home = homeDir;
+  if (home.isEmpty || !path.startsWith(home)) return path;
   return '~${path.substring(home.length)}';
 }
 
-/// The last folder of a path.
-String folderName(String path) => path.split('/').where((p) => p.isNotEmpty).lastOrNull ?? path;
+/// The last folder of a path, with / or Windows' \ between its parts.
+String folderName(String path) =>
+    path.split(RegExp(r'[/\\]')).where((p) => p.isNotEmpty).lastOrNull ?? path;
 
 /// "now", "5m", "3h", "2d", then a date: how long ago something was used.
 String ago(DateTime then, {DateTime? now}) {

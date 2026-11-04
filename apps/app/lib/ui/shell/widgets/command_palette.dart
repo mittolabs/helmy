@@ -6,6 +6,7 @@ import '../../../utils/format.dart';
 import '../../core/ashlar/command.dart';
 import '../view_models/sidebar_view_model.dart';
 import 'new_session.dart';
+import '../../../utils/platform.dart';
 
 /// ⌘K: find a session by its name, its folder or anything said in it, or run
 /// an action.
@@ -21,13 +22,13 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
         CommandItem(
           'New session',
           leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
-          shortcut: '⌘N',
+          shortcut: Desktop.current.keys('⌘N'),
           onSelected: () => newSession(context, vm),
         ),
         CommandItem(
           'Settings',
           leading: const AshlarIcon(AshlarIconsRoundedStroke.settings, size: 16),
-          shortcut: '⌘,',
+          shortcut: Desktop.current.keys('⌘,'),
           onSelected: () => router.go('/settings'),
         ),
         CommandItem(

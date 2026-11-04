@@ -27,8 +27,15 @@ class _Engine implements AgentEngine {
   bool asksForTools = false;
   final sent = <String>[];
 
+  /// The folder each run started in.
+  final startedIn = <String>[];
+
   @override
-  Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async => _Run(this, items);
+  Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
+    startedIn.add(launch.cwd);
+    return _Run(this, items);
+  }
+
   @override
   Future<String?> unavailableReason() async => null;
   @override
@@ -74,6 +81,8 @@ class _Run implements EngineRun {
   }
 
   @override
+  Future<bool> steer(String text, {List<String> attachments = const []}) async => false;
+  @override
   void interrupt() {}
   @override
   void answer(PermissionPrompt prompt, PermissionAnswer answer) {}
@@ -108,6 +117,7 @@ class _Decider implements Decider {
 
 void main() {
   steering();
+  moving();
   late Directory root;
   late SessionRepositoryLocal sessions;
   late StorageService storage;
@@ -226,9 +236,35 @@ class _SlowRun extends _Run {
 }
 
 class _SlowEngine extends _Engine {
-  _SlowEngine(super.info, super.reply);
+  _SlowEngine(super.info, super.reply, {this.steers = false});
+  final bool steers;
   @override
-  Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async => _SlowRun(this, items);
+  Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async =>
+      steers ? _SteeredRun(this, items) : _SlowRun(this, items);
+}
+
+/// A turn that keeps going until a message joins it, then answers that.
+class _SteeredRun extends _SlowRun {
+  _SteeredRun(super.engine, super.items);
+  var interrupted = false;
+
+  @override
+  Future<bool> steer(String text, {List<String> attachments = const []}) async {
+    engine.sent.add('(joined) $text');
+    scheduleMicrotask(() {
+      items
+        ..add(AssistantText('steered', engine.reply))
+        ..add(TurnSummary(ok: true));
+      _changes.add(true);
+    });
+    return true;
+  }
+
+  @override
+  void interrupt() {
+    interrupted = true;
+    super.interrupt();
+  }
 }
 
 void steering() {
@@ -267,4 +303,96 @@ void steering() {
     await storage.flush();
     await root.delete(recursive: true);
   });
+
+  test('where the agent can take it, sending now joins the turn under way', () async {
+    final root = await Directory.systemTemp.createTemp('steer');
+    final storage = StorageService(root: () async => root);
+    final sessions = SessionRepositoryLocal(storage);
+    final meter = UsageMeter();
+    final engine = _SlowEngine(
+      const EngineInfo(id: 'claude', name: 'agent', capabilities: {Capability.tools}),
+      'renamed it instead',
+      steers: true,
+    );
+    final repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([engine]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
+    repo.of(s.id).loaded = true;
+
+    await repo.send(sessions.byId(s.id)!, 'refactor the whole app');
+    await repo.send(sessions.byId(s.id)!, 'stop, just rename one file instead');
+    repo.steer(s.id, 0);
+    for (var i = 0; i < 50 && (repo.of(s.id).busy || repo.of(s.id).queue.isNotEmpty); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    final items = repo.of(s.id).items;
+    expect(engine.sent, ['refactor the whole app', '(joined) stop, just rename one file instead']);
+    expect(items.whereType<Notice>(), isEmpty, reason: 'nothing was stopped');
+    expect(items.whereType<UserMessage>().map((m) => m.text), [
+      'refactor the whole app',
+      'stop, just rename one file instead',
+    ]);
+    expect(items.whereType<TurnSummary>(), hasLength(1), reason: 'one turn, joined');
+    expect(items.whereType<AssistantText>().last.text, 'renamed it instead');
+    repo.dispose();
+    await storage.flush();
+    await root.delete(recursive: true);
+  });
+}
+
+void moving() {
+  test(
+    'an answer that ends naming a folder moves the session there, and the line never shows',
+    () async {
+      final root = await Directory.systemTemp.createTemp('move');
+      final there = await Directory('${root.path}/elsewhere').create();
+      final storage = StorageService(root: () async => root);
+      final sessions = SessionRepositoryLocal(storage);
+      final meter = UsageMeter();
+      final engine = _Engine(
+        const EngineInfo(id: 'claude', name: 'agent', capabilities: {Capability.tools}),
+        "I'm in elsewhere now.\nHELMY_FOLDER: ${there.path}/",
+      );
+      final repo = ConversationRepositoryEngines(
+        engines: EngineRegistry([engine]),
+        router: HeadroomRouter(meter),
+        meter: meter,
+        storage: storage,
+        sessions: sessions,
+      );
+      final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
+      repo.of(s.id).loaded = true;
+
+      Future<void> settle() async {
+        for (var i = 0; i < 100 && repo.of(s.id).busy; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      }
+
+      await repo.send(sessions.byId(s.id)!, "let's work in elsewhere");
+      await settle();
+      final moved = sessions.byId(s.id)!;
+      expect(moved.cwd, there.path);
+      expect(moved.threads, isEmpty, reason: 'every connection starts afresh there');
+      final items = repo.of(s.id).items;
+      expect(items.whereType<AssistantText>().single.text, "I'm in elsewhere now.");
+      expect(items.whereType<Notice>().single.text, contains('elsewhere'));
+      expect(items.last, isA<TurnSummary>(), reason: 'the turn still reads as done');
+
+      // The next message runs there.
+      await repo.send(sessions.byId(s.id)!, 'list the files');
+      await settle();
+      expect(engine.startedIn, [root.path, there.path]);
+
+      repo.dispose();
+      await storage.flush();
+      await root.delete(recursive: true);
+    },
+  );
 }

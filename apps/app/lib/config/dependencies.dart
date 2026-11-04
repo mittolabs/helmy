@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -24,6 +24,7 @@ import '../data/services/desktop_service.dart';
 import '../data/services/notify_service.dart';
 import '../data/services/snapshots.dart';
 import '../data/services/storage_service.dart';
+import '../utils/platform.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -52,7 +53,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(
     create: (context) => EngineRegistry([
       // Every Claude Code account on the machine, each with its own limits.
-      ...ClaudeEngine.discover(context.read(), Platform.environment['HOME'] ?? ''),
+      ...ClaudeEngine.discover(context.read(), homeDir),
       CodexEngine(context.read()),
       // A model on this Mac, for when nothing online can answer: directly for a
       // message that needs no tools, through Codex's agent for one that does.
@@ -67,17 +68,23 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (context) => MemoryRepository(context.read())),
   ChangeNotifierProvider<SessionRepository>.value(value: loaded.sessions),
   ChangeNotifierProvider<ConversationRepository>(
-    create: (context) => ConversationRepositoryEngines(
-      engines: context.read(),
-      router: context.read(),
-      meter: context.read(),
-      storage: context.read(),
-      sessions: context.read(),
-      enabled: (id) => !loaded.settings.settings.disabledEngines.contains(id),
-      rules: () => loaded.settings.settings.rules,
-      snapshots: Snapshots(),
-      decider: Decider(model: () => loaded.settings.settings.ollamaModel),
-    ),
+    create: (context) {
+      final repo = ConversationRepositoryEngines(
+        engines: context.read(),
+        router: context.read(),
+        meter: context.read(),
+        storage: context.read(),
+        sessions: context.read(),
+        enabled: (id) => !loaded.settings.settings.disabledEngines.contains(id),
+        rules: () => loaded.settings.settings.rules,
+        snapshots: Snapshots(),
+        decider: Decider(model: () => loaded.settings.settings.ollamaModel),
+      );
+      // Known from launch, and again whenever connections are turned on or off.
+      unawaited(repo.checkReach());
+      loaded.settings.addListener(() => unawaited(repo.checkReach()));
+      return repo;
+    },
   ),
   Provider(create: (_) => NotifyService()),
   Provider(create: (context) => ChatExport(context.read(), context.read())),

@@ -25,6 +25,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/ashlar/attachment.dart';
 import '../../core/ashlar/button.dart';
+import '../../core/ashlar/markdown.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/toast.dart';
 import '../../core/ashlar/dropdown_menu.dart';
@@ -37,9 +38,13 @@ import '../view_models/chat_view_model.dart';
 import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
+import 'media.dart';
+import 'preview_panel.dart';
 import 'chat_items.dart';
 import 'composer.dart';
 import 'saved_toast.dart';
+import '../../core/window_layout.dart';
+import '../../../utils/platform.dart';
 
 class ChatScreen extends StatefulWidget {
   const new({super.key, required this.viewModel});
@@ -170,7 +175,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // ⇧⌘Enter while the agent works: send now, redirecting it.
     if (key == LogicalKeyboardKey.enter &&
         vm.busy &&
-        HardwareKeyboard.instance.isMetaPressed &&
+        Desktop.current.commandHeld &&
         HardwareKeyboard.instance.isShiftPressed) {
       final text = _text.text;
       if (text.trim().isEmpty && vm.attachments.isEmpty) return .handled;
@@ -184,7 +189,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (Composer.handleEnter(e, () => _submit(_text.text), withMeta: withMeta) == .handled) {
       return .handled;
     }
-    final meta = HardwareKeyboard.instance.isMetaPressed;
+    final meta = Desktop.current.commandHeld;
     if (key == LogicalKeyboardKey.tab && _suggestions.isNotEmpty) {
       _take(_suggestions.first);
       return .handled;
@@ -272,7 +277,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
     return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _openFind},
+      bindings: {Desktop.current.shortcut(LogicalKeyboardKey.keyF): _openFind},
       child: ColoredBox(
         color: t.colors.background,
         child: ListenableBuilder(
@@ -289,7 +294,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 vm: vm,
                 chat: Column(
                   children: [
-                    _Header(vm: vm, session: session),
+                    TitleBar(
+                      // Redrawn into or out of full screen, where its start moves.
+                      child: ListenableBuilder(
+                        listenable: windowFullScreen,
+                        builder: (context, _) => _Header(vm: vm, session: session),
+                      ),
+                    ),
                     if (_finding)
                       _FindBar(
                         controller: _find,
@@ -305,58 +316,71 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPrevious: () => _go(-1),
                         onClose: _closeFind,
                       ),
-                    Expanded(
-                      // As AshlarPageRoute does; go_router pages do not get it by themselves.
-                      child: _FadeUnderHeader(
-                        child: SelectableRegion(
-                          selectionControls: AshlarSelectionControls(t.colors.foreground),
-                          contextMenuBuilder: (context, state) => AshlarSelectionMenu(
-                            anchors: state.contextMenuAnchors,
-                            items: state.contextMenuButtonItems,
+                    if (vm.items.isEmpty && !vm.busy && !_finding)
+                      Expanded(child: _Hello(offline: vm.onlyThisMac))
+                    else
+                      Expanded(
+                        // As AshlarPageRoute does; go_router pages do not get it by themselves.
+                        // What answers show (`![words](where)`): pictures,
+                        // players, documents, pages.
+                        child: MarkdownMedia(
+                          show: (where, words) => Media(
+                            where: where,
+                            words: words,
+                            cwd: session.cwd,
+                            onPreview: vm.preview,
                           ),
-                          child: MessageScroller(
-                            controller: _scroller,
-                            busy: vm.busy,
-                            gap: 14,
-                            padding: const .fromLTRB(32, 8, 32, 32),
-                            semanticLabel: 'Conversation',
-                            items: [
-                              for (final r in rows)
-                                MessageScrollerItem(
-                                  id: r.id,
-                                  anchor: r.anchor,
-                                  child: inColumn(
-                                    Container(
-                                      decoration: _isHit(r.id)
-                                          ? BoxDecoration(
-                                              color: t.colors.foreground.withValues(alpha: .06),
-                                              borderRadius: .circular(t.radiusLg),
-                                            )
-                                          : null,
-                                      child: Align(
-                                        alignment: AlignmentDirectional.centerStart,
-                                        child: r.child,
+                          child: _FadeUnderHeader(
+                            child: SelectableRegion(
+                              selectionControls: AshlarSelectionControls(t.colors.foreground),
+                              contextMenuBuilder: (context, state) => AshlarSelectionMenu(
+                                anchors: state.contextMenuAnchors,
+                                items: state.contextMenuButtonItems,
+                              ),
+                              child: MessageScroller(
+                                controller: _scroller,
+                                busy: vm.busy,
+                                gap: 14,
+                                padding: .fromLTRB(sideMargin(context), 8, sideMargin(context), 32),
+                                semanticLabel: 'Conversation',
+                                items: [
+                                  for (final r in rows)
+                                    MessageScrollerItem(
+                                      id: r.id,
+                                      anchor: r.anchor,
+                                      child: inColumn(
+                                        Container(
+                                          decoration: _isHit(r.id)
+                                              ? BoxDecoration(
+                                                  color: t.colors.foreground.withValues(alpha: .06),
+                                                  borderRadius: .circular(t.radiusLg),
+                                                )
+                                              : null,
+                                          child: Align(
+                                            alignment: AlignmentDirectional.centerStart,
+                                            child: r.child,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              if (vm.busy)
-                                MessageScrollerItem(
-                                  id: 'working',
-                                  child: inColumn(_Working(vm: vm)),
-                                ),
-                            ],
+                                  if (vm.busy)
+                                    MessageScrollerItem(
+                                      id: 'working',
+                                      child: inColumn(_Working(vm: vm)),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                     if (vm.queue.isNotEmpty) inColumn(_Queue(vm: vm)),
                     if (_suggestions.isNotEmpty)
                       inColumn(_SuggestionList(items: _suggestions, onPick: _take))
                     else if (vm.items.isEmpty && !vm.busy)
                       inColumn(_Starters(vm: vm, text: _text, onSend: _sendStarter)),
                     Padding(
-                      padding: const .fromLTRB(32, 0, 32, 20),
+                      padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 20),
                       child: inColumn(
                         Composer(
                           controller: _text,
@@ -366,7 +390,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ? 'Describe the change to this image'
                               : 'Type / for commands, @ for files',
                           status: vm.busy
-                              ? 'Working. What you send waits its turn; ⇧⌘Enter sends it now instead.'
+                              ? 'Working. What you send waits its turn; ${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
                               : null,
                           attachments: [
                             for (final path in vm.attachments) _Attached(path: path, vm: vm),
@@ -418,7 +442,7 @@ class _Queue extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Padding(
-      padding: const .fromLTRB(32, 0, 32, 8),
+      padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 8),
       child: Column(
         crossAxisAlignment: .stretch,
         spacing: 4,
@@ -451,7 +475,8 @@ class _Queue extends StatelessWidget {
                     style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                   ),
                   Tooltip(
-                    message: 'Send now: Helmy stops and takes this up instead (⇧⌘Enter)',
+                    message:
+                        'Send now: Helmy takes this up straight away (${Desktop.current.keys('⇧⌘Enter')})',
                     child: Button(
                       variant: .ghost,
                       size: .sm,
@@ -476,6 +501,53 @@ class _Queue extends StatelessWidget {
   }
 }
 
+/// An empty session's welcome: Helmy waving, or rubbing its eyes when only
+/// the model on this Mac can answer.
+class _Hello extends StatelessWidget {
+  const new({required this.offline});
+  final bool offline;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const .all(24),
+        child: Column(
+          mainAxisSize: .min,
+          spacing: 12,
+          children: [
+            Image.asset(
+              offline ? 'assets/helmy/offline.png' : 'assets/helmy/hello.png',
+              width: 132,
+              height: 132,
+              semanticLabel: 'Helmy',
+            ),
+            Text(
+              offline
+                  ? "I'm working on ${Desktop.current.thisComputer} only"
+                  : 'What should we get done?',
+              style: t.text.lg.copyWith(fontWeight: .w600),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Text(
+                offline
+                    ? "Nothing online is available right now, so I'm slower, and "
+                          "your accounts are out of reach. Your folders aren't."
+                    : 'Dream it, do it: tell me what you want, in this folder or '
+                          'in your accounts.',
+                textAlign: .center,
+                style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// An empty session's suggestions, from what its folder holds: one press
 /// sends one. Gone once you start typing.
 class _Starters extends StatelessWidget {
@@ -494,7 +566,7 @@ class _Starters extends StatelessWidget {
           : FutureBuilder(
               future: vm.starters(),
               builder: (context, snap) => Padding(
-                padding: const .fromLTRB(32, 0, 32, 8),
+                padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 8),
                 child: Column(
                   crossAxisAlignment: .stretch,
                   children: [
@@ -548,7 +620,7 @@ class _SuggestionList extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Padding(
-      padding: const .fromLTRB(32, 0, 32, 6),
+      padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 6),
       child: Container(
         padding: const .all(4),
         decoration: BoxDecoration(
@@ -572,7 +644,13 @@ class _SuggestionList extends StatelessWidget {
                   child: Row(
                     spacing: 12,
                     children: [
-                      Text(s.label, style: t.text.sm.copyWith(fontFamily: 'Menlo')),
+                      Text(
+                        s.label,
+                        style: t.text.sm.copyWith(
+                          fontFamily: 'monospace',
+                          fontFamilyFallback: monoFonts,
+                        ),
+                      ),
                       if (s.detail.isNotEmpty)
                         Expanded(
                           child: Text(
@@ -609,7 +687,9 @@ class _SidePanels extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final p = vm.panel;
-      final width = vm.panelWidth.clamp(0.0, box.maxWidth - _chatMin - _Divider.width);
+      // No room left beside the conversation (a narrow window): no panel.
+      final room = box.maxWidth - _chatMin - _Divider.width;
+      final width = room <= 0 ? 0.0 : vm.panelWidth.clamp(0.0, room);
       return Row(
         crossAxisAlignment: .stretch,
         children: [
@@ -621,6 +701,7 @@ class _SidePanels extends StatelessWidget {
               child: switch (p) {
                 .changes => ChangesPanel(vm: vm),
                 .background => BackgroundPanel(vm: vm),
+                .preview => PreviewPanel(vm: vm),
               },
             ),
           ],
@@ -807,28 +888,44 @@ class _Header extends StatelessWidget {
     final c = t.colors;
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
     return Container(
-      padding: .fromLTRB(
-        context.watch<SettingsRepository>().settings.sidebarOpen ? 24 : 124,
-        14,
-        20,
-        12,
-      ),
+      // The title on the window buttons' line; past the sidebar's button
+      // when the sidebar is not beside the page.
+      // One row, centered on the window buttons' line, as a Mac title bar is:
+      // the title, its folder, and the controls.
+      padding: .fromLTRB(sidebarBeside(context) ? 24 : titleRowStart + 40, titleLine - 16, 20, 8),
       child: Row(
         spacing: 16,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 2,
-              children: [
-                Text(
-                  session.title,
-                  style: t.text.sm.copyWith(fontWeight: .w600),
-                  maxLines: 1,
-                  overflow: .ellipsis,
+            child: SizedBox(
+              height: 32,
+              // Text keeps room under its letters for descenders, so centered it
+              // reads low: lifted, its capitals center on the line the window's
+              // buttons and the sidebar's share (measured: 1.5 points low).
+              child: Transform.translate(
+                offset: const Offset(0, -1.5),
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    Flexible(
+                      flex: 3,
+                      child: Text(
+                        session.title,
+                        style: t.text.sm.copyWith(
+                          fontWeight: .w600,
+                          height: 1,
+                          leadingDistribution: .even,
+                        ),
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                      ),
+                    ),
+                    Flexible(
+                      child: _FolderButton(vm: vm, cwd: session.cwd, style: muted),
+                    ),
+                  ],
                 ),
-                _FolderButton(vm: vm, cwd: session.cwd, style: muted),
-              ],
+              ),
             ),
           ),
           if (vm.context case final ctx?)
@@ -843,6 +940,7 @@ class _Header extends StatelessWidget {
               message: switch (p) {
                 .changes => 'What this session changed in the folder',
                 .background => 'Work running in the background',
+                .preview => 'The page or document an answer pointed at',
               },
               child: Button(
                 variant: vm.isOpen(p) ? .secondary : .ghost,
@@ -850,16 +948,19 @@ class _Header extends StatelessWidget {
                 semanticLabel: switch (p) {
                   .changes => 'Changes',
                   .background => 'Background',
+                  .preview => 'Preview',
                 },
                 onPressed: () => vm.toggle(p),
                 leading: AshlarIcon(switch (p) {
                   .changes => AshlarIconsRoundedStroke.fileDiff,
                   .background => AshlarIconsRoundedStroke.loader,
+                  .preview => AshlarIconsRoundedStroke.appWindow,
                 }, size: 14),
                 child: Text(switch (p) {
                   .changes => 'Changes ${vm.changedFiles ?? ''}'.trim(),
                   .background =>
                     '${vm.backgroundSteps.where((c) => c.background!.status == .running).length} running',
+                  .preview => 'Preview',
                 }),
               ),
             ),

@@ -16,6 +16,7 @@ import '../agent_engine.dart';
 import '../attachments.dart';
 import 'codex_reducer.dart';
 import 'codex_rpc.dart';
+import '../../../../utils/platform.dart';
 
 /// Codex, driven through `codex app-server`: one thread per session, approvals
 /// answered from the app.
@@ -35,7 +36,7 @@ class CodexEngine implements AgentEngine {
   new local(this._locator, {required String? Function() model})
     : info = const EngineInfo(
         id: 'ollama',
-        name: 'Codex on Ollama (this Mac)',
+        name: 'Codex on Ollama (this computer)',
         localOnly: true,
         capabilities: {Capability.tools},
       ),
@@ -83,9 +84,7 @@ class CodexEngine implements AgentEngine {
   /// The models pulled to this Mac, from Ollama's manifests on disk:
   /// `.../manifests/registry.ollama.ai/library/gpt-oss/20b` is gpt-oss:20b.
   static List<String> pulledModels({String? home}) {
-    final root = Directory(
-      '${home ?? Platform.environment['HOME'] ?? ''}/.ollama/models/manifests/registry.ollama.ai',
-    );
+    final root = Directory('${home ?? homeDir}/.ollama/models/manifests/registry.ollama.ai');
     if (!root.existsSync()) return const [];
     return [
       for (final f in root.listSync(recursive: true).whereType<File>())
@@ -122,7 +121,7 @@ class CodexEngine implements AgentEngine {
   @override
   final EngineInfo info;
 
-  String get _home => '${Platform.environment['HOME']}/.codex';
+  String get _home => '$homeDir/.codex';
 
   /// Its global AGENTS.md, which it reads in every project.
   @override
@@ -153,7 +152,7 @@ class CodexEngine implements AgentEngine {
         engineId: info.id,
         text:
             'Codex also keeps $count memories it learned from past conversations, in its own '
-            'database (${db.path.replaceFirst(Platform.environment['HOME'] ?? '', '~')}). '
+            'database (${db.path.replaceFirst(homeDir, '~')}). '
             'Codex manages those itself, so they are shown here but not edited.',
       ),
     ];
@@ -481,6 +480,35 @@ class _CodexRun implements EngineRun {
         ..add(Notice(inHelmysWords('$e')))
         ..add(TurnSummary(ok: false, error: '$e')..endedAt = DateTime.now());
       _changes.add(true);
+    }
+  }
+
+  /// `turn/steer`, held to the turn under way: if that turn has just
+  /// ended, nothing is added and the message is sent as its own.
+  @override
+  Future<bool> steer(String text, {List<String> attachments = const []}) async {
+    final threadId = _threadId, turnId = _reducer.turnId;
+    if (threadId == null || turnId == null) return false;
+    try {
+      await _rpc.request('turn/steer', {
+        'threadId': threadId,
+        'expectedTurnId': turnId,
+        'input': [
+          {
+            'type': 'text',
+            'text': withFiles(text, [
+              for (final a in attachments)
+                if (imageType(a) == null) a,
+            ]),
+            'text_elements': <Object>[],
+          },
+          for (final a in attachments)
+            if (imageType(a) != null) {'type': 'localImage', 'path': a},
+        ],
+      });
+      return true;
+    } on Object {
+      return false;
     }
   }
 

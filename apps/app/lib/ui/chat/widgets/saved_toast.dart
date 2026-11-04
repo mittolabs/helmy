@@ -5,6 +5,7 @@ import '../../../data/services/desktop_service.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/toast.dart';
+import '../../../utils/platform.dart';
 
 /// "Saved", with the place it went and a way to open it or find it.
 void showSavedToast(BuildContext context, String path, {String title = 'Saved'}) {
@@ -30,7 +31,7 @@ void showSavedToast(BuildContext context, String path, {String title = 'Saved'})
         desktop.reveal(path);
         toast.dismiss();
       },
-      child: const Text('Show in Finder'),
+      child: Text('Show in ${Desktop.current.fileManager}'),
     ),
   );
 }

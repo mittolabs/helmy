@@ -20,10 +20,11 @@ import '../../../utils/diffs.dart';
 import '../../../utils/project_files.dart';
 import '../../../utils/result.dart';
 import '../../../utils/transcript_markdown.dart';
+import '../../../utils/platform.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background }
+enum SidePanel { changes, background, preview }
 
 class ChatViewModel extends ChangeNotifier {
   new({
@@ -53,6 +54,9 @@ class ChatViewModel extends ChangeNotifier {
   Conversation get _c => _conversations.of(sessionId);
   List<ChatItem> get items => _c.items;
   bool get busy => _c.busy;
+
+  /// Only the model on this Mac could answer the last message sent.
+  bool get onlyThisMac => _conversations.onlyThisMac ?? false;
   bool get thinking => _c.thinking;
 
   // Composing: commands, files, history, the queue, the context.
@@ -181,8 +185,22 @@ class ChatViewModel extends ChangeNotifier {
     return out.reversed.toList();
   }
 
+  /// What the Preview panel shows: a web page, a running app on this Mac
+  /// (http://localhost:3000), or a file such as a PDF. Set when an answer
+  /// points at one and you open it.
+  String? previewUrl;
+
+  /// Shows [url] in the Preview panel beside the conversation.
+  void preview(String url) {
+    previewUrl = url;
+    panel = .preview;
+    notifyListeners();
+  }
+
   /// The panels worth offering now, in the header's order. An open one stays.
   List<SidePanel> get panels => [
+    // (Only where there is a web view to show it in.)
+    if (previewUrl != null && webViewHere) .preview,
     if ((changedFiles ?? 0) > 0 || isOpen(.changes)) .changes,
     if (backgroundSteps.any((c) => c.background!.status == .running) || isOpen(.background))
       .background,

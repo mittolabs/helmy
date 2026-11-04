@@ -7,7 +7,6 @@ import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/models/engine.dart';
 import '../../../domain/models/memory.dart';
 import '../../../domain/models/settings.dart';
@@ -28,6 +27,8 @@ import '../../core/markdown_preview.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/settings_view_model.dart';
+import '../../core/window_layout.dart';
+import '../../../utils/platform.dart';
 
 class SettingsScreen extends StatelessWidget {
   const new({super.key, required this.viewModel});
@@ -43,31 +44,45 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, _) => Column(
           crossAxisAlignment: .stretch,
           children: [
-            Padding(
-              padding: .fromLTRB(
-                context.watch<SettingsRepository>().settings.sidebarOpen ? 32 : 124,
-                28,
-                32,
-                16,
+            TitleBar(
+              child: Padding(
+                // Below the window's buttons, so in line with the page either way.
+                padding: const .fromLTRB(32, 40, 32, 16),
+                child: Text('Settings', style: t.text.xl.copyWith(fontWeight: .w600)),
               ),
-              child: Text('Settings', style: t.text.xl.copyWith(fontWeight: .w600)),
             ),
             Expanded(
-              child: Row(
-                crossAxisAlignment: .start,
-                children: [
-                  _Nav(vm: viewModel),
-                  Expanded(
-                    child: switch (viewModel.section) {
-                      .general => _General(vm: viewModel),
-                      .agents => _Agents(vm: viewModel),
-                      .tools => _Tools(vm: viewModel),
-                      .memory => _Memory(vm: viewModel),
-                      .data => _Data(vm: viewModel),
-                      .keyboard => const _Keyboard(),
-                    },
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final page = switch (viewModel.section) {
+                    .general => _General(vm: viewModel),
+                    .agents => _Agents(vm: viewModel),
+                    .tools => _Tools(vm: viewModel),
+                    .memory => _Memory(vm: viewModel),
+                    .data => _Data(vm: viewModel),
+                    .keyboard => const _Keyboard(),
+                  };
+                  // Narrow: the sections as a row of tabs above the page.
+                  if (box.maxWidth < _Nav.besideFrom) {
+                    return Column(
+                      crossAxisAlignment: .stretch,
+                      children: [
+                        _Nav(vm: viewModel, across: true),
+                        // In line with the tabs.
+                        Expanded(
+                          child: Padding(padding: const .only(left: 16), child: page),
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: .start,
+                    children: [
+                      _Nav(vm: viewModel),
+                      Expanded(child: page),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -77,9 +92,15 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
+/// The sections: a list beside the page, or a row of tabs above it when
+/// [across] (a narrow window).
 class _Nav extends StatelessWidget {
-  const new({required this.vm});
+  const new({required this.vm, this.across = false});
   final SettingsViewModel vm;
+  final bool across;
+
+  /// Below this width the list moves above the page.
+  static const besideFrom = 640.0;
 
   @override
   Widget build(BuildContext context) {
@@ -100,29 +121,42 @@ class _Nav extends StatelessWidget {
         ),
         child: Row(
           spacing: 10,
+          mainAxisSize: across ? .min : .max,
           children: [
             AshlarIcon(icon, size: 16, color: t.colors.foreground),
-            Text(label, style: t.text.sm),
+            if (across)
+              Text(label, style: t.text.sm)
+            else
+              Flexible(
+                child: Text(label, style: t.text.sm, maxLines: 1, overflow: .ellipsis),
+              ),
           ],
         ),
       ),
     );
+    final items = [
+      item(.general, AshlarIconsRoundedStroke.settings, 'General'),
+      item(.agents, AshlarIconsRoundedStroke.bot, 'Connections and usage'),
+      item(.tools, AshlarIconsRoundedStroke.wrench, 'Skills and tools'),
+      item(.memory, AshlarIconsRoundedStroke.brain, 'Memory'),
+      item(.data, AshlarIconsRoundedStroke.database, 'Data and storage'),
+      item(.keyboard, AshlarIconsRoundedStroke.keyboard, 'Keyboard'),
+    ];
+    if (across) {
+      return Padding(
+        padding: const .only(bottom: 12),
+        child: SingleChildScrollView(
+          scrollDirection: .horizontal,
+          padding: const .symmetric(horizontal: 24),
+          child: Row(spacing: 4, children: items),
+        ),
+      );
+    }
     return SizedBox(
-      width: 224,
+      width: 248,
       child: Padding(
         padding: const .fromLTRB(24, 0, 16, 0),
-        child: Column(
-          spacing: 2,
-          crossAxisAlignment: .stretch,
-          children: [
-            item(.general, AshlarIconsRoundedStroke.settings, 'General'),
-            item(.agents, AshlarIconsRoundedStroke.bot, 'Connections and usage'),
-            item(.tools, AshlarIconsRoundedStroke.wrench, 'Skills and tools'),
-            item(.memory, AshlarIconsRoundedStroke.brain, 'Memory'),
-            item(.data, AshlarIconsRoundedStroke.database, 'Data and storage'),
-            item(.keyboard, AshlarIconsRoundedStroke.keyboard, 'Keyboard'),
-          ],
-        ),
+        child: Column(spacing: 2, crossAxisAlignment: .stretch, children: items),
       ),
     );
   }
@@ -143,22 +177,29 @@ class _Row extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: t.colors.border)),
       ),
-      child: Row(
-        spacing: 24,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 2,
-              children: [
-                Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
-                if (description != null)
-                  Text(description!, style: t.text.sm.copyWith(color: t.colors.mutedForeground)),
-              ],
-            ),
-          ),
-          control,
-        ],
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final words = Column(
+            crossAxisAlignment: .start,
+            spacing: 2,
+            children: [
+              Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+              if (description != null)
+                Text(description!, style: t.text.sm.copyWith(color: t.colors.mutedForeground)),
+            ],
+          );
+          // Narrow: the control under the words, rather than squeezing them.
+          if (box.maxWidth < 440) {
+            return Column(crossAxisAlignment: .start, spacing: 10, children: [words, control]);
+          }
+          return Row(
+            spacing: 24,
+            children: [
+              Expanded(child: words),
+              control,
+            ],
+          );
+        },
       ),
     );
   }
@@ -210,8 +251,9 @@ class _General extends StatelessWidget {
         const _Heading('Appearance', first: true),
         _Row(
           title: 'Theme',
-          control: Row(
+          control: Wrap(
             spacing: 12,
+            runSpacing: 12,
             children: [
               for (final choice in ThemeChoice.values)
                 _ThemeCard(
@@ -254,7 +296,7 @@ class _General extends StatelessWidget {
           title: 'When a session needs you or finishes',
           description:
               'A notification when a session in the background finishes or waits for '
-              'your approval, and a count on the dock icon.',
+              'your approval, and a count on Helmy\'s icon.',
           control: Switch(
             value: s.notify,
             semanticLabel: 'Notifications',
@@ -265,8 +307,9 @@ class _General extends StatelessWidget {
         _Row(
           title: 'Keep sessions running when the window closes',
           description:
-              'Closing the window hides it and sessions keep working. Click Helmy in the Dock '
-              'to bring it back; Quit (⌘Q) ends them. Off, closing the window quits.',
+              'Closing the window hides it and sessions keep working. Click Helmy in '
+              '${Desktop.current.appBar} to bring it back; Quit (${Desktop.current.keys('⌘Q')}) ends them. Off, '
+              'closing the window quits.',
           control: Switch(
             value: s.keepRunning,
             semanticLabel: 'Keep sessions running when the window closes',
@@ -277,11 +320,11 @@ class _General extends StatelessWidget {
           title: 'Send with',
           description: s.sendWithEnter
               ? 'Enter sends; Shift+Enter starts a new line.'
-              : '⌘Enter sends; Enter starts a new line, for writing long messages.',
+              : '${Desktop.current.keys('⌘Enter')} sends; Enter starts a new line, for writing long messages.',
           control: _Choice<bool>(
             value: s.sendWithEnter,
             label: 'Send with',
-            options: const {true: 'Enter', false: '⌘Enter'},
+            options: {true: 'Enter', false: Desktop.current.keys('⌘Enter')},
             onChanged: (v) => vm.update(s.copyWith(sendWithEnter: v)),
           ),
         ),
@@ -297,7 +340,7 @@ class _General extends StatelessWidget {
         _Row(
           title: 'Open at login',
           description: vm.openAtLogin == null
-              ? 'This version of macOS cannot be asked.'
+              ? 'This system cannot be asked.'
               : 'Helmy opens when you log in, so sessions are there to pick up.',
           control: vm.openAtLogin == null
               ? const SizedBox.shrink()
@@ -578,7 +621,7 @@ class _DataState extends State<_Data> {
                     size: .sm,
                     variant: .outline,
                     onPressed: () => vm.reveal(p.path),
-                    child: const Text('Show in Finder'),
+                    child: Text('Show in ${Desktop.current.fileManager}'),
                   ),
               ],
             ),
@@ -602,7 +645,7 @@ class _DataState extends State<_Data> {
             child: const Text('Export...'),
           ),
         ),
-        const _Heading('What leaves this Mac'),
+        _Heading('What leaves ${Desktop.current.thisComputer}'),
         Text(
           'Each message goes to the company behind the agent that answers it (Anthropic for '
           'Claude Code, OpenAI for Codex), with the files and command output that agent reads to '
@@ -627,7 +670,11 @@ class _ToolsState extends State<_Tools> {
   @override
   void initState() {
     super.initState();
-    if (!widget.vm.toolsLoaded) widget.vm.loadTools();
+    // After this frame: with nothing to ask (no connection online), loading
+    // finishes at once, and would tell the page while it is being built.
+    if (!widget.vm.toolsLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.vm.loadTools());
+    }
   }
 
   @override
@@ -697,7 +744,13 @@ class _ToolsState extends State<_Tools> {
                         border: Border.all(color: t.colors.border),
                         borderRadius: .circular(t.radiusMd),
                       ),
-                      child: Text('/${c.name}', style: t.text.xs.copyWith(fontFamily: 'Menlo')),
+                      child: Text(
+                        '/${c.name}',
+                        style: t.text.xs.copyWith(
+                          fontFamily: 'monospace',
+                          fontFamilyFallback: monoFonts,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -743,7 +796,7 @@ class _Keyboard extends StatelessWidget {
         const _Heading('Keyboard', first: true),
         for (final (key, what) in _keys)
           _Row(
-            title: what,
+            title: Desktop.current.keys(what),
             control: Container(
               padding: const .symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -751,7 +804,10 @@ class _Keyboard extends StatelessWidget {
                 borderRadius: .circular(t.radiusMd),
                 border: Border.all(color: t.colors.border),
               ),
-              child: Text(key, style: t.text.xs.copyWith(fontFamily: 'Menlo')),
+              child: Text(
+                Desktop.current.keys(key),
+                style: t.text.xs.copyWith(fontFamily: 'monospace', fontFamilyFallback: monoFonts),
+              ),
             ),
           ),
       ],
@@ -816,7 +872,7 @@ class _Agents extends StatelessWidget {
         _Row(
           title: 'Ollama model',
           description: vm.localModels == null
-              ? 'Ollama is not running on this Mac. With it running and a model pulled, '
+              ? 'Ollama is not running on ${Desktop.current.thisComputer}. With it running and a model pulled, '
                     'sessions keep working with no internet, on that model.'
               : vm.localModels!.isEmpty
               ? 'Ollama is running but has no model. Pull one, for example: ollama pull gpt-oss:20b'
@@ -923,7 +979,7 @@ class _AgentCard extends StatelessWidget {
             ],
           ),
           if (row.info.localOnly)
-            Text('No usage limit: it runs on this Mac.', style: muted)
+            Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
           else if (usage == null)
             Text('No usage reported yet. It reports with its first answer.', style: muted)
           else ...[
@@ -964,25 +1020,57 @@ class _Memory extends StatelessWidget {
     if (vm.loadingMemory) return const Center(child: Spinner(size: 18));
     return Padding(
       padding: const .fromLTRB(8, 0, 32, 24),
-      child: Row(
-        crossAxisAlignment: .stretch,
-        spacing: 20,
-        children: [
-          SizedBox(width: 300, child: _MemoryList(vm: vm)),
-          Expanded(
-            child: vm.selected == null
-                ? Center(
-                    child: Text(
-                      'Choose a file to read or change it.',
-                      style: t.text.sm.copyWith(color: t.colors.mutedForeground),
-                    ),
-                  )
-                : _MemoryEditor(key: ValueKey(vm.selected!.path), vm: vm),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // Narrow: the list, or the file chosen from it with a way back.
+          if (box.maxWidth < 560) {
+            if (vm.selected == null) return _MemoryList(vm: vm);
+            return Column(
+              crossAxisAlignment: .start,
+              spacing: 8,
+              children: [
+                Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: vm.closeFile,
+                  child: const Row(
+                    mainAxisSize: .min,
+                    spacing: 6,
+                    children: [
+                      AshlarIcon(AshlarIconsRoundedStroke.arrowLeft, size: 14),
+                      Text('All files'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _MemoryEditor(key: ValueKey(vm.selected!.path), vm: vm),
+                ),
+              ],
+            );
+          }
+          return _memoryBeside(t);
+        },
       ),
     );
   }
+
+  Widget _memoryBeside(AshlarThemeData t) => Row(
+    crossAxisAlignment: .stretch,
+    spacing: 20,
+    children: [
+      SizedBox(width: 300, child: _MemoryList(vm: vm)),
+      Expanded(
+        child: vm.selected == null
+            ? Center(
+                child: Text(
+                  'Choose a file to read or change it.',
+                  style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                ),
+              )
+            : _MemoryEditor(key: ValueKey(vm.selected!.path), vm: vm),
+      ),
+    ],
+  );
 }
 
 class _MemoryList extends StatelessWidget {

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../../utils/platform.dart';
+
 /// What the desktop does with a file: copy a picture, open it in its app,
 /// show it in Finder.
 class DesktopService {
@@ -60,11 +62,22 @@ class DesktopService {
     }
   }
 
-  /// Opens [path] in the app macOS uses for it.
-  Future<void> open(String path) => Process.run('/usr/bin/open', [path]);
+  /// Opens [path] (a file or a web address) in the app the computer uses
+  /// for it.
+  Future<void> open(String path) => switch (Desktop.current) {
+    .mac => Process.run('/usr/bin/open', [path]),
+    // `start` treats its first quoted argument as a window title.
+    .windows => Process.run('cmd', ['/c', 'start', '', path]),
+    .linux => Process.run('xdg-open', [path]),
+  };
 
-  /// Shows [path] selected in a Finder window.
-  Future<void> reveal(String path) => Process.run('/usr/bin/open', ['-R', path]);
+  /// Shows [path] selected in the file manager (Finder, File Explorer); on
+  /// Linux, whose file managers differ, its folder opens.
+  Future<void> reveal(String path) => switch (Desktop.current) {
+    .mac => Process.run('/usr/bin/open', ['-R', path]),
+    .windows => Process.run('explorer', ['/select,', path]),
+    .linux => Process.run('xdg-open', [File(path).parent.path]),
+  };
 }
 
 extension on int {

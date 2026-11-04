@@ -148,7 +148,8 @@ final _heading = RegExp(r'^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$');
 final _rule = RegExp(r'^ {0,3}([-*_])(\s*\1){2,}\s*$');
 final _bullet = RegExp(r'^( *)([-*+])\s+(.*)$');
 final _numbered = RegExp(r'^( *)(\d{1,9})[.)]\s+(.*)$');
-final _image = RegExp(r'^\s*!\[([^\]]*)\]\(([^)\s]+)[^)]*\)\s*$');
+// The address may be in <angle brackets>, and may hold spaces (a file name).
+final _image = RegExp(r'^\s*!\[([^\]]*)\]\((?:<([^>]+)>|([^)]+?))(?:\s+"[^"]*")?\)\s*$');
 final _tableSep = RegExp(r'^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$');
 
 /// Reads [text] into blocks. What is not closed at the end is taken as closed there.
@@ -201,7 +202,7 @@ List<MdBlock> _blocks(List<String> lines) {
       continue;
     }
     if (_image.firstMatch(l) case final m?) {
-      out.add(MdImage(m[2]!, m[1]!));
+      out.add(MdImage((m[2] ?? m[3]!).trim(), m[1]!));
       i++;
       continue;
     }
@@ -630,6 +631,8 @@ class _BlockView extends StatelessWidget {
           child: Container(height: 1, color: c.border),
         );
       case MdImage(:final url, :final alt):
+        // What the app shows for it, when it says (a file, a video, a page).
+        if (MarkdownMedia.of(context)?.call(url, alt) case final shown?) return shown;
         return Semantics(
           image: true,
           label: alt,
@@ -964,6 +967,19 @@ class MarkdownHighlight extends InheritedWidget {
 
   @override
   bool updateShouldNotify(MarkdownHighlight old) => old.highlight != highlight;
+}
+
+/// Shows an image line's target (`![alt](url)`) below: given its address and
+/// words, the widget for it; null leaves it to the plain image.
+class MarkdownMedia extends InheritedWidget {
+  const MarkdownMedia({super.key, required this.show, required super.child});
+  final Widget? Function(String url, String alt) show;
+
+  static Widget? Function(String, String)? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MarkdownMedia>()?.show;
+
+  @override
+  bool updateShouldNotify(MarkdownMedia old) => old.show != show;
 }
 
 /// Whether code blocks below wrap long lines rather than scroll sideways.

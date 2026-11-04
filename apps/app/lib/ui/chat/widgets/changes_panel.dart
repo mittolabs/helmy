@@ -13,6 +13,7 @@ import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/chat_view_model.dart';
+import '../../../utils/platform.dart';
 
 /// Beside the conversation: every file the session changed, each opening to
 /// its diff. In a git repository that is everything changed since the session
@@ -282,7 +283,11 @@ class _FileRowState extends State<_FileRow> {
               ),
               Text(
                 '+${ch.added} -${ch.removed}',
-                style: t.text.xs.copyWith(fontFamily: 'Menlo', color: c.mutedForeground),
+                style: t.text.xs.copyWith(
+                  fontFamily: 'monospace',
+                  fontFamilyFallback: monoFonts,
+                  color: c.mutedForeground,
+                ),
               ),
             ],
           ),
@@ -310,7 +315,11 @@ class _PanelDiff extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    final base = t.text.xs.copyWith(fontFamily: 'Menlo', height: 1.45);
+    final base = t.text.xs.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: monoFonts,
+      height: 1.45,
+    );
     final lines = diff.lines.where((l) => !l.startsWith('\\')).take(_maxLines).toList();
     return Container(
       decoration: BoxDecoration(

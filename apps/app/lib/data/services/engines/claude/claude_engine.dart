@@ -11,6 +11,7 @@ import '../agent_engine.dart';
 import '../attachments.dart';
 import 'claude_process.dart';
 import 'claude_reducer.dart';
+import '../../../../utils/platform.dart';
 
 /// Claude Code, driven as `claude -p` over stream-json with approvals routed
 /// to us: the protocol the Agent SDK uses.
@@ -62,7 +63,7 @@ class ClaudeEngine implements AgentEngine {
     .full => 'bypassPermissions',
   };
 
-  String get _home => configDir ?? '${Platform.environment['HOME']}/.claude';
+  String get _home => configDir ?? '$homeDir/.claude';
 
   /// The account's own CLAUDE.md, and the memory notes Claude Code writes for
   /// each project under `projects/<folder>/memory`.
@@ -338,6 +339,15 @@ class _ClaudeRun implements EngineRun {
       ..usage = _reducer.usage ?? status.usage
       ..context = _reducer.context ?? status.context;
     _changes.add(ended);
+  }
+
+  /// A message written mid-turn is taken in after the current step, within
+  /// the same turn.
+  @override
+  Future<bool> steer(String text, {List<String> attachments = const []}) async {
+    if (!_inTurn) return false;
+    send(text, attachments: attachments);
+    return true;
   }
 
   @override

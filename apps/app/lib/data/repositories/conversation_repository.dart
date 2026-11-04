@@ -67,6 +67,10 @@ abstract class ConversationRepository extends ChangeNotifier {
 
   void interrupt(String sessionId);
 
+  /// Whether only the model on this Mac could answer the last message (no
+  /// connection online was on and reachable), or null before any was sent.
+  bool? get onlyThisMac => null;
+
   /// Every engine's slash commands for [session], each once, by name.
   Future<List<SlashCommand>> commands(Session session);
 

@@ -8,7 +8,9 @@ import '../../domain/models/session.dart';
 import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
+import '../../domain/folder_move.dart';
 import '../../domain/identity.dart';
+import '../../utils/format.dart';
 import '../services/engines/engine_registry.dart';
 import '../services/engines/ollama/ollama_chat_engine.dart';
 import '../services/engines/engine_router.dart';
@@ -19,6 +21,7 @@ import '../services/snapshots.dart';
 import '../services/storage_service.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
+import '../../utils/platform.dart';
 
 /// A message on its way: which engine has it, where its output starts, and
 /// which engines already failed it.
@@ -180,12 +183,15 @@ class ConversationRepositoryEngines extends ConversationRepository {
   /// only for the services it needs, added to what the word rules found.
   /// Offline, also whether a plain answer will do; unless it is sure, the
   /// message needs tools. Commands and shell lines are not asked about.
-  Future<void> _decide(_Turn turn) async {
-    turn.decided = true;
-    if (turn.text.startsWith('/') || turn.attachments.isNotEmpty) {
-      turn.needs.add(Capability.tools);
-      return;
-    }
+  bool? _onlyThisMac;
+
+  @override
+  bool? get onlyThisMac => _onlyThisMac;
+
+  /// Checks whether any connection online is on and reachable, and returns
+  /// true when none is: only the model on this Mac can answer. Run at launch,
+  /// when connections change, and before each message is routed.
+  Future<bool> checkReach() async {
     var offline = true;
     for (final e in _engines.engines) {
       if (e.info.localOnly || !_enabled(e.info.id) || _meter.isDown(e.info.id)) continue;
@@ -194,6 +200,20 @@ class ConversationRepositoryEngines extends ConversationRepository {
         break;
       }
     }
+    if (_onlyThisMac != offline) {
+      _onlyThisMac = offline;
+      notifyListeners();
+    }
+    return offline;
+  }
+
+  Future<void> _decide(_Turn turn) async {
+    turn.decided = true;
+    if (turn.text.startsWith('/') || turn.attachments.isNotEmpty) {
+      turn.needs.add(Capability.tools);
+      return;
+    }
+    final offline = await checkReach();
     final d = await _decider?.decide(
       turn.text,
       route: offline,
@@ -384,6 +404,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       if (p.decision == .pending) p.decision = .cancelled;
     }
     final session = _sessions.byId(sessionId);
+    final moveTo = turn == null ? null : _takeFolderMove(c, turn.start, session?.cwd);
     if (session != null) {
       final thread = EngineThread(resumeId: run.status.resumeId, seen: c.items.length);
       // A detour for a capability leaves the session on its own engine, which
@@ -392,14 +413,56 @@ class ConversationRepositoryEngines extends ConversationRepository {
           turn != null &&
           (turn.needs.any((n) => n != Capability.tools) || turn.unasked) &&
           session.lastEngineId != null;
-      _sessions.save(
-        detour
-            ? session.withThread(engineId, thread)
-            : session.withThread(engineId, thread).copyWith(lastEngineId: engineId),
-      );
+      final saved = detour
+          ? session.withThread(engineId, thread)
+          : session.withThread(engineId, thread).copyWith(lastEngineId: engineId);
+      if (moveTo != null) {
+        // Another folder: every connection starts afresh there, handed the
+        // conversation so far, as after a switch between them.
+        // Before the turn's summary, so the turn still reads as done, not stopped.
+        final end = c.items.lastIndexWhere((i) => i is TurnSummary);
+        c.items.insert(
+          end < 0 ? c.items.length : end,
+          Notice('Now working in ${tildePath(moveTo)}'),
+        );
+        _sessions.save(saved.copyWith(cwd: moveTo, threads: const {}, rebase: true));
+        _persist(sessionId);
+        unawaited(stop(sessionId).then((_) => _next(sessionId)));
+        return;
+      }
+      _sessions.save(saved);
     }
     _persist(sessionId);
     _next(sessionId);
+  }
+
+  /// The folder this turn's answer moves the session to, its line taken out
+  /// of the answer; null when it names none, names where the session already
+  /// is, or names a folder that is not there.
+  String? _takeFolderMove(Conversation c, int start, String? cwd) {
+    String? named;
+    for (final a in c.items.skip(start).whereType<AssistantText>()) {
+      final to = folderMoveIn(a.text);
+      if (to == null) continue;
+      named = to;
+      a.text = withoutFolderLines(a.text);
+    }
+    if (named == null) return null;
+    final home = homeDir;
+    var path = named.startsWith('~') ? '$home${named.substring(1)}' : named;
+    if (path.length > 1 && path.endsWith('/')) path = path.substring(0, path.length - 1);
+    if (!path.startsWith('/') || !Directory(path).existsSync()) return null;
+    // The same folder by another way in (a link) is no move.
+    String real(String p) {
+      try {
+        return Directory(p).resolveSymbolicLinksSync();
+      } on FileSystemException {
+        return p;
+      }
+    }
+
+    if (cwd != null && real(path) == real(cwd)) return null;
+    return path;
   }
 
   /// Sends the next message that waited for this turn, if any.
@@ -443,10 +506,12 @@ class ConversationRepositoryEngines extends ConversationRepository {
     c.busy = true;
     notifyListeners();
     try {
-      final r = await Process.run(Platform.environment['SHELL'] ?? '/bin/zsh', [
-        '-lc',
-        command,
-      ], workingDirectory: session.cwd).timeout(const Duration(minutes: 2));
+      final (shell, args) = shellFor(command);
+      final r = await Process.run(
+        shell,
+        args,
+        workingDirectory: session.cwd,
+      ).timeout(const Duration(minutes: 2));
       call
         ..result = '${r.stdout}${r.stderr}'.trimRight()
         ..isError = r.exitCode != 0;
@@ -479,11 +544,37 @@ class ConversationRepositoryEngines extends ConversationRepository {
     return all;
   }
 
+  /// Sends a waiting message now. While a turn is under way it joins that
+  /// turn, and the agent takes it in at its next step without losing its
+  /// place; where the agent cannot, or the message needs a service it may not
+  /// have, the turn is stopped and the message sent next.
   @override
   void steer(String sessionId, int index) {
     final c = of(sessionId);
     if (index < 0 || index >= c.queue.length) return;
-    c.queue.insert(0, c.queue.removeAt(index));
+    final q = c.queue[index];
+    if (!c.busy) {
+      c.queue.insert(0, c.queue.removeAt(index));
+      notifyListeners();
+      _next(sessionId);
+      return;
+    }
+    unawaited(_steer(sessionId, q));
+  }
+
+  Future<void> _steer(String sessionId, Queued q) async {
+    final c = of(sessionId);
+    final run = _active(sessionId);
+    final plain = q.needs.every((n) => n == Capability.tools);
+    if (run != null && plain && await run.steer(q.text, attachments: q.attachments)) {
+      c.queue.remove(q);
+      c.items.add(UserMessage(q.text, attachments: q.attachments)..sentAt = DateTime.now());
+      await _persist(sessionId);
+      notifyListeners();
+      return;
+    }
+    if (!c.queue.remove(q)) return;
+    c.queue.insert(0, q);
     notifyListeners();
     if (c.busy) {
       interrupt(sessionId);
@@ -665,7 +756,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     }
     return .error(
       Exception(
-        "I couldn't explain this right now. Check your connection, or set up a model on this Mac in Settings.",
+        "I couldn't explain this right now. Check your connection, or set up a model on ${Desktop.current.thisComputer} in Settings.",
       ),
     );
   }

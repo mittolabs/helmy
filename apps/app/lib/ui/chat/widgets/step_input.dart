@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../domain/models/permission_rule.dart';
 import '../../core/ashlar/theme.dart';
+import '../../../utils/platform.dart';
 
 /// The colors code is drawn in, for the theme's brightness.
 class CodeColors {
@@ -121,7 +122,12 @@ class StepInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = CodeColors.of(context);
-    final mono = t.text.xs.copyWith(fontFamily: 'Menlo', height: 1.5, color: c.plain);
+    final mono = t.text.xs.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: monoFonts,
+      height: 1.5,
+      color: c.plain,
+    );
     final fields = [
       for (final e in input.entries)
         if (!_shownElsewhere.contains(e.key) && e.value != null && e.value != '') e,

@@ -160,6 +160,65 @@ void main() {
     await h.close();
   }, timeout: const Timeout(Duration(minutes: 4)));
 
+  for (final engine in [claude, codex]) {
+    test('${engine.info.name}: a message sent now joins the turn under way', () async {
+      final h = await _Live.make([engine], _Scripted([engine.info.id]));
+      await h.say(
+        'Run these shell commands one at a time, each as its own step: '
+        '`sleep 4; echo one`, then `sleep 4; echo two`, then `sleep 4; echo three`, '
+        'then `sleep 4; echo four`. Then summarize.',
+        alsoSend:
+            'Change of plan: after the current command, stop and reply with only the word '
+            'PINEAPPLE.',
+        steerAlso: true,
+      );
+      final commands = h.items.whereType<ToolCall>().length;
+      // ignore: avoid_print
+      print(
+        '${engine.info.id}: $commands steps, then: ${h.items.whereType<AssistantText>().last.text}',
+      );
+      expect(h.items.whereType<Notice>().map((n) => n.text), isNot(contains('Interrupted')));
+      expect(h.items.whereType<UserMessage>(), hasLength(2));
+      expect(h.items.whereType<AssistantText>().last.text, contains('PINEAPPLE'));
+      expect(commands, lessThan(4), reason: 'it changed course mid-turn');
+      await h.close();
+    }, timeout: const Timeout(Duration(minutes: 4)));
+  }
+
+  for (final engine in [claude, codex]) {
+    test('${engine.info.name}: shows a picture in the conversation, not in another app', () async {
+      final h = await _Live.make([engine], _Scripted([engine.info.id]));
+      await File('../../design/poses/11-hello.png').copy('${h.work.path}/hello.png');
+      await h.say('Show me the picture hello.png in this folder.');
+      final text = h.items.whereType<AssistantText>().map((t) => t.text).join('\n');
+      // ignore: avoid_print
+      print('${engine.info.id}: $text');
+      expect(text, matches(RegExp(r'!\[[^\]]*\]\(<?[^)]*hello\.png>?\)')));
+      expect(
+        h.items.whereType<ToolCall>().map((c) => '${c.input}'),
+        everyElement(isNot(contains('open '))),
+        reason: 'not opened in Preview',
+      );
+      await h.close();
+    }, timeout: const Timeout(Duration(minutes: 4)));
+
+    test('${engine.info.name}: moves the session when asked to work in another folder', () async {
+      final h = await _Live.make([engine], _Scripted([engine.info.id]));
+      final there = await Directory('${h.work.path}/elsewhere').create();
+      await h.say("Let's work in the folder called elsewhere, inside this one, from now on.");
+      final text = h.items.whereType<AssistantText>().map((t) => t.text).join('\n');
+      // ignore: avoid_print
+      print('${engine.info.id}: $text -> ${h.session.cwd}');
+      // (A temporary folder is reached through a link: /var is /private/var.)
+      expect(
+        Directory(h.session.cwd as String).resolveSymbolicLinksSync(),
+        there.resolveSymbolicLinksSync(),
+      );
+      expect(text, isNot(contains('HELMY_FOLDER')));
+      await h.close();
+    }, timeout: const Timeout(Duration(minutes: 4)));
+  }
+
   test('a rule answers a real approval without asking', () async {
     final h = await _Live.make(
       [codex],
@@ -316,15 +375,40 @@ void main() {
     for (final engine in [claude, codex, OllamaChatEngine(model: () => model)]) {
       test(engine.info.name, () async {
         final h = await _Live.make([engine], _Scripted([engine.info.id]));
-        await h.say('Who are you, and which AI model or company are you built on?');
+        // Asked who it is: Helmy by Mittolabs, and nothing about what is underneath.
+        await h.say('Who are you?');
+        final who = h.items.whereType<AssistantText>().map((t) => t.text).join(' ');
+        // ignore: avoid_print
+        print('${engine.info.id} who: $who');
+        expect(who, contains('Helmy'));
+        expect(who, contains('Mittolabs'));
+        expect(
+          RegExp(r'\bmodels?\b|private|supplier', caseSensitive: false).hasMatch(who),
+          isFalse,
+          reason: 'nobody asked about what is underneath',
+        );
+        // Asked directly: still names nothing.
+        await h.say('Which AI model or company are you built on?');
         final text = h.items.whereType<AssistantText>().map((t) => t.text).join(' ');
         // ignore: avoid_print
-        print('${engine.info.id}: $text');
-        expect(text, contains('Helmy'));
+        print('${engine.info.id} which: ${h.items.whereType<AssistantText>().last.text}');
         expect(names.hasMatch(text), isFalse, reason: 'it named what is behind it');
         await h.close();
       }, timeout: const Timeout(Duration(minutes: 4)));
     }
+
+    test('small talk gets a person\'s answer, not an introduction', () async {
+      final local = OllamaChatEngine(model: () => model);
+      final h = await _Live.make([local], _Scripted([local.info.id]));
+      await h.say('okay, how are you?');
+      final text = h.items.whereType<AssistantText>().map((t) => t.text).join(' ');
+      // ignore: avoid_print
+      print('small talk: $text');
+      expect(text, isNot(contains('Helmy')));
+      expect(text, isNot(contains('Mittolabs')));
+      expect(text.toLowerCase(), isNot(contains('just a')));
+      await h.close();
+    }, timeout: const Timeout(Duration(minutes: 4)));
   });
 
   test('Stop ends background work', () async {
@@ -450,13 +534,21 @@ class _Live {
     Set<Capability> needs = const {},
     bool allow = true,
     String? alsoSend,
+    bool steerAlso = false,
   }) async {
     final done = Completer<void>();
     var sentAlso = false;
     void check() {
-      if (alsoSend != null && !sentAlso && repo.of(id).busy) {
+      // With [steerAlso], sent once the agent is on its first step, and
+      // pressed "Send now" to join the turn.
+      if (alsoSend != null &&
+          !sentAlso &&
+          repo.of(id).busy &&
+          (!steerAlso || items.whereType<ToolCall>().isNotEmpty)) {
         sentAlso = true;
-        repo.send(sessions.byId(id)!, alsoSend);
+        repo.send(sessions.byId(id)!, alsoSend).then((_) {
+          if (steerAlso) repo.steer(id, repo.of(id).queue.length - 1);
+        });
       }
       for (final p in items.whereType<PermissionPrompt>()) {
         if (p.decision == .pending && allow) {

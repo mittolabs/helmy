@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../../ui/core/window_layout.dart';
+
 /// System notifications and the dock badge, through the macOS runner
 /// (`MainFlutterWindow.swift`).
 class NotifyService {
   new() {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'open' && call.arguments is String) _opened.add(call.arguments as String);
+      if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
     });
   }
 
@@ -17,8 +20,14 @@ class NotifyService {
   /// Sessions whose notification was clicked.
   Stream<String> get opened => _opened.stream;
 
-  Future<void> notify({required String sessionId, required String title, required String body}) =>
-      _call('notify', {'sessionId': sessionId, 'title': title, 'body': body});
+  /// With [thumbsUp], Helmy giving a thumbs up rides along: work done well.
+  Future<void> notify({
+    required String sessionId,
+    required String title,
+    required String body,
+    bool thumbsUp = false,
+  }) =>
+      _call('notify', {'sessionId': sessionId, 'title': title, 'body': body, 'thumbsUp': thumbsUp});
 
   /// Whether the app is in front, as macOS says; null when it cannot be asked.
   Future<bool?> isActive() async {
@@ -32,6 +41,11 @@ class NotifyService {
   }
 
   Future<void> badge(int count) => _call('badge', {'count': count});
+
+  /// Shows Helmy's [face] in the Dock (`waking`, `thinking`, `answering`,
+  /// `needs-you`, `background`, `done`, `error`, `offline`, `dozing`), or the app
+  /// icon when null.
+  Future<void> face(String? face) => _call('face', {'face': face});
 
   /// Tells macOS the app has drawn its first frame, so the splash window
   /// hands over to the main one.

@@ -12,7 +12,8 @@ import 'settings_repository.dart';
 
 /// What needs the user: sessions waiting for an approval, and sessions that
 /// finished while the user was not looking. Sends a notification when either
-/// happens out of sight, and keeps the dock badge at their count.
+/// happens out of sight, keeps the dock badge at their count, and shows in
+/// the Dock the face that fits what Helmy is doing.
 class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   new({
     required this._conversations,
@@ -21,8 +22,17 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     required this._notify,
   }) {
     _conversations.addListener(_check);
+    _sessions.addListener(_planWake);
     WidgetsBinding.instance.addObserver(this);
+    _planWake();
+    // Just opened: Helmy waking up, unless something needs showing first.
+    _wakingUp = Timer(wakingFor, _showFace);
+    _showFace();
   }
+
+  /// How long the Dock shows Helmy waking up after the app opens.
+  static const wakingFor = Duration(seconds: 3);
+  Timer? _wakingUp;
 
   final ConversationRepository _conversations;
   final SessionRepository _sessions;
@@ -34,6 +44,13 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   final Set<String> _unread = {};
   String? _viewing;
   bool _active = true;
+  String? _face;
+  Timer? _dozing;
+  Timer? _wake;
+  DateTime? _wakeAt;
+
+  /// Nothing asked of Helmy for this long, and it dozes off in the Dock.
+  static const dozeAfter = Duration(minutes: 30);
 
   /// Finished while the user was elsewhere, and not opened since.
   bool isUnread(String sessionId) => _unread.contains(sessionId);
@@ -41,6 +58,33 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   /// Clears [sessionId]'s unread mark without opening it.
   void markRead(String sessionId) {
     if (_unread.remove(sessionId)) _changed();
+  }
+
+  /// Wakes snoozed sessions that are due, as needing you, and sets a timer
+  /// for the next one.
+  void _planWake() {
+    final now = DateTime.now();
+    DateTime? next;
+    for (final s in _sessions.sessions) {
+      final until = s.snoozedUntil;
+      if (until == null) continue;
+      if (!until.isAfter(now)) {
+        _unread.add(s.id);
+        unawaited(_sessions.save(s.copyWith(wake: true)));
+        _changed();
+      } else if (next == null || until.isBefore(next)) {
+        next = until;
+      }
+    }
+    if (next == _wakeAt) return;
+    _wake?.cancel();
+    _wakeAt = next;
+    _wake = next == null
+        ? null
+        : Timer(next.difference(now), () {
+            _wakeAt = null;
+            _planWake();
+          });
   }
 
   /// The session on screen, or null.
@@ -68,6 +112,51 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
       if (waiting > wasWaiting) unawaited(_waiting(s.id, s.title));
       if (wasBusy && !busy) unawaited(_finished(s.id, s.title));
     }
+    _showFace();
+  }
+
+  /// The face for the most pressing thing across every session: one waiting
+  /// on you, then work under way, then work left to read.
+  String? faceNow() {
+    final all = [for (final s in _sessions.sessions) _conversations.of(s.id)];
+    if (all.any((c) => c.pendingPrompts > 0)) return 'needs-you';
+    final busy = all.where((c) => c.busy);
+    if (busy.isNotEmpty) return busy.any((c) => !c.thinking) ? 'answering' : 'thinking';
+    final background = all.any(
+      (c) => c.items.whereType<ToolCall>().any((t) => t.background?.status == .running),
+    );
+    if (background) return 'background';
+    final unread = [for (final id in _unread) _conversations.of(id).items.lastOrNull];
+    if (unread.any((last) => last is TurnSummary && !last.ok || last is Notice)) return 'error';
+    if (unread.isNotEmpty) return 'done';
+    // Idle, and only the model on this Mac could answer the last message.
+    if (_conversations.onlyThisMac ?? false) return 'offline';
+    return null;
+  }
+
+  void _showFace() {
+    final idle = faceNow();
+    final face = idle == null || idle == 'offline'
+        ? (_wakingUp?.isActive ?? false ? 'waking' : idle)
+        : idle;
+    if (face != null && face != 'offline' && face != 'waking') {
+      _dozing?.cancel();
+      _dozing = null;
+      _setFace(face);
+    } else if (face == 'waking') {
+      _setFace(face);
+    } else if (_face != 'dozing') {
+      // Idle: the app icon (or offline), and dozing once nothing has been
+      // asked for a while.
+      _setFace(face);
+      _dozing ??= Timer(dozeAfter, () => _setFace('dozing'));
+    }
+  }
+
+  void _setFace(String? face) {
+    if (face == _face) return;
+    _face = face;
+    unawaited(_notify.face(face));
   }
 
   /// Flutter's own idea of whether the app is in front can be wrong (an app
@@ -99,7 +188,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     _unread.add(sessionId);
     final last = _conversations.of(sessionId).items.lastOrNull;
     final failed = last is TurnSummary && !last.ok || last is Notice;
-    _send(sessionId, title, failed ? 'Stopped: ${_short(last)}' : 'Finished');
+    _send(sessionId, title, failed ? 'Stopped: ${_short(last)}' : 'Finished', thumbsUp: !failed);
     _changed();
   }
 
@@ -112,20 +201,25 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     return text.length > 120 ? '${text.substring(0, 117)}...' : text;
   }
 
-  void _send(String sessionId, String title, String body) {
+  void _send(String sessionId, String title, String body, {bool thumbsUp = false}) {
     if (!_settings.settings.notify) return;
-    _notify.notify(sessionId: sessionId, title: title, body: body);
+    _notify.notify(sessionId: sessionId, title: title, body: body, thumbsUp: thumbsUp);
   }
 
   void _changed() {
     final waiting = _sessions.sessions.where((s) => _conversations.of(s.id).pendingPrompts > 0);
     final count = {..._unread, for (final s in waiting) s.id}.length;
     _notify.badge(_settings.settings.notify ? count : 0);
+    _showFace();
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _dozing?.cancel();
+    _wakingUp?.cancel();
+    _wake?.cancel();
+    _sessions.removeListener(_planWake);
     _conversations.removeListener(_check);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

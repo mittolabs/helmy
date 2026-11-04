@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 
 import '../../../data/repositories/schedule_repository.dart';
@@ -8,6 +6,7 @@ import '../../../domain/models/engine.dart';
 import '../../../domain/models/scheduled_task.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/result.dart';
+import '../../../utils/platform.dart';
 
 /// The scheduled tasks page: the tasks, their runs, and changing them.
 class ScheduleViewModel extends ChangeNotifier {
@@ -23,7 +22,7 @@ class ScheduleViewModel extends ChangeNotifier {
   List<Session> runsOf(String taskId) => _schedules.runsOf(taskId);
 
   /// Where a new task works unless you choose: the folder new sessions use.
-  String get defaultFolder => _settings.settings.fixedFolder ?? Platform.environment['HOME'] ?? '/';
+  String get defaultFolder => _settings.settings.fixedFolder ?? homeDir;
 
   Future<void> add({
     required String name,

@@ -207,6 +207,10 @@ class SidebarLayout extends StatefulWidget {
   /// that stays put ([SidebarCollapse.none]) to one that moves, when there is one, so a
   /// trigger beside a fixed sidebar works the one that moves.
   static SidebarLayoutState of(BuildContext context) {
+    // Slid in over the page (a narrow screen), the panel is not under its
+    // layout; it carries it.
+    final slid = context.dependOnInheritedWidgetOfExactType<_SlidIn>();
+    if (slid != null) return slid.layout;
     SidebarLayoutState? first, movable;
     context.visitAncestorElements((e) {
       if (e is StatefulElement && e.state is SidebarLayoutState) {
@@ -246,12 +250,16 @@ class SidebarLayoutState extends State<SidebarLayout> {
           alignment: end ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
           child: AshlarTheme(
             data: theme,
-            child: SizedBox(
-              width: 288,
-              child: _Panel(
-                layout: widget,
-                collapsed: false,
-                onPicked: () => Navigator.pop(context),
+            child: _SlidIn(
+              layout: this,
+              close: () => Navigator.pop(context),
+              child: SizedBox(
+                width: 288,
+                child: _Panel(
+                  layout: widget,
+                  collapsed: false,
+                  onPicked: () => Navigator.pop(context),
+                ),
               ),
             ),
           ),
@@ -733,7 +741,9 @@ class SidebarTrigger extends StatelessWidget {
       variant: ButtonVariant.ghost,
       size: ButtonSize.icon,
       semanticLabel: 'Toggle sidebar',
-      onPressed: () => SidebarLayout.of(context).toggle(),
+      onPressed:
+          context.dependOnInheritedWidgetOfExactType<_SlidIn>()?.close ??
+          () => SidebarLayout.of(context).toggle(),
       child: AshlarIcon(
         end != isRtl(context)
             ? AshlarIconsRoundedStroke.panelRight
@@ -741,4 +751,15 @@ class SidebarTrigger extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Around a panel slid in over the page: the layout it belongs to, and how to
+/// close it.
+class _SlidIn extends InheritedWidget {
+  const _SlidIn({required this.layout, required this.close, required super.child});
+  final SidebarLayoutState layout;
+  final VoidCallback close;
+
+  @override
+  bool updateShouldNotify(_SlidIn old) => layout != old.layout;
 }

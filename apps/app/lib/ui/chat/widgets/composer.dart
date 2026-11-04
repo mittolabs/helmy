@@ -7,6 +7,7 @@ import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/selection.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
+import '../../../utils/platform.dart';
 
 /// Where a message is written: one soft rounded box, the text on top and a
 /// single quiet row under it, the controls to the left and a round send button
@@ -48,7 +49,9 @@ class Composer extends StatelessWidget {
   static KeyEventResult handleEnter(KeyEvent e, VoidCallback send, {bool withMeta = false}) {
     if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.enter) return .ignored;
     final keys = HardwareKeyboard.instance;
-    final sends = withMeta ? keys.isMetaPressed : !keys.isShiftPressed && !keys.isMetaPressed;
+    final sends = withMeta
+        ? Desktop.current.commandHeld
+        : !keys.isShiftPressed && !Desktop.current.commandHeld;
     if (!sends) return .ignored;
     send();
     return .handled;
@@ -101,8 +104,13 @@ class Composer extends StatelessWidget {
           Row(
             spacing: 4,
             children: [
-              ...actions,
-              const Spacer(),
+              // When the box is narrow they scroll, so Send is always in reach.
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: .horizontal,
+                  child: Row(spacing: 4, children: actions),
+                ),
+              ),
               ...trailing,
               ListenableBuilder(
                 listenable: controller,

@@ -38,7 +38,13 @@ class const Session({
 
   /// The scheduled task this session is a run of, if any.
   final String? taskId,
+
+  /// Out of the list until then, when it comes back as needing you.
+  final DateTime? snoozedUntil,
 }) {
+  /// Snoozed, and not yet due back.
+  bool get snoozed => snoozedUntil != null && snoozedUntil!.isAfter(DateTime.now());
+
   Session copyWith({
     String? title,
     String? cwd,
@@ -49,6 +55,12 @@ class const Session({
     bool? pinned,
     bool? archived,
     Snapshot? baseline,
+    DateTime? snoozedUntil,
+    bool wake = false,
+
+    /// Drops [baseline], for a session moved to another folder: the next
+    /// message takes the new folder's.
+    bool rebase = false,
   }) => Session(
     id: id,
     title: title ?? this.title,
@@ -60,8 +72,9 @@ class const Session({
     lastEngineId: lastEngineId ?? this.lastEngineId,
     pinned: pinned ?? this.pinned,
     archived: archived ?? this.archived,
-    baseline: baseline ?? this.baseline,
+    baseline: rebase ? null : baseline ?? this.baseline,
     taskId: taskId,
+    snoozedUntil: wake ? null : snoozedUntil ?? this.snoozedUntil,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -80,6 +93,7 @@ class const Session({
     'archived': archived,
     if (baseline != null) 'baseline': baseline!.toJson(),
     'taskId': ?taskId,
+    if (snoozedUntil != null) 'snoozedUntil': snoozedUntil!.toIso8601String(),
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -108,6 +122,7 @@ class const Session({
       archived: json['archived'] == true,
       baseline: Snapshot.fromJson(json['baseline']),
       taskId: json['taskId'] as String?,
+      snoozedUntil: DateTime.tryParse('${json['snoozedUntil'] ?? ''}'),
     );
   }
 }

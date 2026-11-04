@@ -17,6 +17,7 @@ import '../../../domain/models/memory.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
+import '../../../utils/platform.dart';
 
 enum SettingsSection { general, agents, tools, memory, data, keyboard }
 
@@ -118,7 +119,7 @@ class SettingsViewModel extends ChangeNotifier {
   bool toolsLoaded = false;
 
   Future<void> loadTools() async {
-    final home = Platform.environment['HOME'] ?? '/';
+    final home = homeDir;
     for (final e in _engines.engines) {
       if (e.info.localOnly) continue;
       final both = await (e.commands(home), e.servers()).wait;
@@ -150,7 +151,7 @@ class SettingsViewModel extends ChangeNotifier {
   }
 
   Future<void> loadPlaces(String supportDir) async {
-    final home = Platform.environment['HOME'] ?? '';
+    final home = homeDir;
     final d = _desktop;
     if (d == null) return;
     final list = [
@@ -201,6 +202,13 @@ class SettingsViewModel extends ChangeNotifier {
     files = await _memory.files();
     notes = await _memory.notes();
     loadingMemory = false;
+    notifyListeners();
+  }
+
+  /// Back to the list of files, on a window too narrow to show both.
+  void closeFile() {
+    selected = null;
+    original = null;
     notifyListeners();
   }
 
