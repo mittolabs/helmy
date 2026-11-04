@@ -20,9 +20,22 @@ final _made = <String, List<StorageService>>{};
 /// running then (2026-11-04: `list_menu_test`, a loaded suite). A save a
 /// widget test started on its fake clock never lands in real time, so the
 /// wait is short: such a save does not run once the test is over.
+///
+/// A save can also start while the folder is being deleted (a listener
+/// reacting to the last change), leaving it "not empty": the delete is tried
+/// again, after another flush (2026-11-05: `pull_requests_test`).
 Future<void> deleteFolder(Directory dir) async {
-  for (final s in _made.remove(dir.path) ?? const <StorageService>[]) {
-    await Future.any([s.flush(), Future<void>.delayed(const Duration(milliseconds: 500))]);
+  final made = _made.remove(dir.path) ?? const <StorageService>[];
+  for (var attempt = 1; ; attempt++) {
+    for (final s in made) {
+      await Future.any([s.flush(), Future<void>.delayed(const Duration(milliseconds: 500))]);
+    }
+    try {
+      await dir.delete(recursive: true);
+      return;
+    } on FileSystemException {
+      if (attempt == 5 || !dir.existsSync()) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
-  await dir.delete(recursive: true);
 }

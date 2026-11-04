@@ -414,10 +414,7 @@ void holding() {
   setUpHeld(String name) async {
     final root = await Directory.systemTemp.createTemp(name);
     final storage = storageAt(root);
-    addTearDown(() async {
-      await storage.flush();
-      await root.delete(recursive: true);
-    });
+    addTearDown(() => deleteFolder(root));
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final engine = _Engine(

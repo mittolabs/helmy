@@ -36,10 +36,7 @@ void main() {
   test('a comment waits with the message, keeps its words, and can be taken back', () async {
     final root = await Directory.systemTemp.createTemp('comments');
     final storage = storageAt(root);
-    addTearDown(() async {
-      await storage.flush();
-      await root.delete(recursive: true);
-    });
+    addTearDown(() => deleteFolder(root));
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

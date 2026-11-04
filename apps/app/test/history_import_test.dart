@@ -8,9 +8,10 @@ import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/history_import.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/ui/import/history_import_view_model.dart';
+
+import 'support/storage.dart';
 
 void main() {
   late Directory home;
@@ -198,12 +199,8 @@ void main() {
 
   test('brought in, each is a session that goes on in its own thread, once', () async {
     final root = await Directory.systemTemp.createTemp('helmy');
-    final storage = StorageService(root: () async => root);
-    // Saves on their way land before the folder goes.
-    addTearDown(() async {
-      await storage.flush();
-      await root.delete(recursive: true);
-    });
+    final storage = storageAt(root);
+    addTearDown(() => deleteFolder(root));
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(

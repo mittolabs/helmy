@@ -6,21 +6,18 @@ import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
-import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/utils/result.dart';
 
+import 'support/storage.dart';
+
 void main() {
   test('a fork takes the conversation up to that answer, and goes its own way', () async {
     final root = await Directory.systemTemp.createTemp('fork');
-    final storage = StorageService(root: () async => root);
-    // Saves on their way land before the folder goes.
-    addTearDown(() async {
-      await storage.flush();
-      await root.delete(recursive: true);
-    });
+    final storage = storageAt(root);
+    addTearDown(() => deleteFolder(root));
     final sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     final repo = ConversationRepositoryEngines(
