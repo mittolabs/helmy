@@ -40,7 +40,7 @@ class BrowserTools {
     _tool(
       'browser_open',
       'Open a page',
-      'Opens an address in the Preview panel beside the conversation, where the user sees '
+      'Opens an address in the panel beside the conversation, where the user sees '
           'it, and answers with the page read as text (see browser_read). Use it, and the '
           "other browser tools, for any web page or a local app's page (http://localhost:3000). "
           'Faster than any other browser: no browser starts, and pages are read as text.',
@@ -114,7 +114,7 @@ class BrowserTools {
   };
 
   static const _noPage =
-      'No page is open. browser_open opens one in the Preview panel beside the conversation.';
+      'No page is open. browser_open opens one in the panel beside the conversation.';
 
   /// The reader and driver, in the page (again after the page has moved on).
   Future<void> _ready(PageDriver page) async {
