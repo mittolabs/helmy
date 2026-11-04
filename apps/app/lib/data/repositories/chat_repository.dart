@@ -121,11 +121,12 @@ class ChatRepository extends ChangeNotifier {
     await _persist();
   }
 
-  /// Puts [brief] as [chatId]'s brief: written by the person, it holds.
-  Future<void> setBrief(String chatId, String brief) async {
+  /// Puts [brief] as [chatId]'s brief. Written by the person ([byPerson]),
+  /// it holds: Helmy keeps its hands off it until let back.
+  Future<void> setBrief(String chatId, String brief, {bool byPerson = true}) async {
     final c = _chats[chatId];
     if (c == null) return;
-    _chats[chatId] = c.copyWith(brief: brief.trim());
+    _chats[chatId] = c.copyWith(brief: brief.trim(), briefByPerson: byPerson);
     notifyListeners();
     await _persist();
   }

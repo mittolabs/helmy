@@ -1,0 +1,178 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:helmy/data/repositories/chat_keeper.dart';
+import 'package:helmy/data/repositories/chat_repository.dart';
+import 'package:helmy/data/repositories/conversation_repository_engines.dart';
+import 'package:helmy/data/repositories/session_repository_local.dart';
+import 'package:helmy/data/services/engines/engine_registry.dart';
+import 'package:helmy/data/services/engines/engine_router.dart';
+import 'package:helmy/data/services/engines/usage_meter.dart';
+import 'package:helmy/data/services/local_writer.dart';
+import 'package:helmy/data/services/storage_service.dart';
+import 'package:helmy/data/services/turn_log.dart';
+import 'package:helmy/domain/identity.dart';
+import 'package:helmy/domain/models/chat_item.dart';
+import 'package:helmy/domain/models/session.dart';
+import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
+import 'package:helmy/utils/result.dart';
+
+/// The model on this Mac, as given: or none.
+class _Writer extends LocalWriter {
+  _Writer(this.answers) : super(model: () => null);
+  final List<String>? answers;
+  var asked = 0;
+
+  @override
+  Future<String?> model() async => answers == null ? null : 'qwen3:0.6b';
+
+  @override
+  Future<Written?> write(
+    String prompt, {
+    int maxTokens = 400,
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    final a = answers;
+    if (a == null || asked >= a.length) return null;
+    return (text: a[asked++], model: 'qwen3:0.6b', promptTokens: 300, outputTokens: 40);
+  }
+}
+
+void main() {
+  late Directory root;
+  late SessionRepositoryLocal sessions;
+  late ChatRepository chats;
+  late ConversationRepositoryEngines repo;
+  late TurnLog log;
+
+  setUp(() async {
+    root = await Directory.systemTemp.createTemp('keeper');
+    final storage = StorageService(root: () async => root);
+    sessions = SessionRepositoryLocal(storage);
+    chats = ChatRepository(storage, sessions);
+    await chats.load();
+    final meter = UsageMeter();
+    repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    log = TurnLog(appData: () async => root, now: () => DateTime.utc(2026, 11, 4));
+  });
+  tearDown(() async {
+    chats.dispose();
+    await root.delete(recursive: true);
+  });
+
+  Future<Session> talk(String said, String answered) async {
+    final s = (await sessions.create(cwd: '/w', title: said) as Ok).value as Session;
+    repo.of(s.id)
+      ..loaded = true
+      ..items.addAll([UserMessage(said), AssistantText('a:0', answered)]);
+    return s;
+  }
+
+  test("Helmy's instructions carry the chat's brief, or are as they were", () {
+    expect(identityWith(null), helmyIdentity);
+    expect(identityWith('  '), helmyIdentity);
+    final with_ = identityWith('Decided: a monthly budget.');
+    expect(with_, startsWith(helmyIdentity));
+    expect(with_, contains('Decided: a monthly budget.'));
+  });
+
+  test('a new thread begins with its chat brief, and keeps it', () async {
+    final first = await talk('Monthly budget', 'Done.');
+    final chatId = sessions.byId(first.id)!.chatId!;
+    await chats.setBrief(chatId, 'Decided: 2,000 a month.');
+    final t = (await sessions.create(cwd: '/w', chatId: chatId) as Ok).value as Session;
+    repo.of(t.id).loaded = true;
+    final vm = ChatViewModel(
+      sessionId: t.id,
+      sessions: sessions,
+      conversations: repo,
+      chats: chats,
+      log: log,
+    );
+    addTearDown(vm.dispose);
+    await vm.send.execute('How much is left?');
+    expect(sessions.byId(t.id)!.brief, 'Decided: 2,000 a month.');
+    // The chat's brief changes later: this thread keeps the one it began with.
+    await chats.setBrief(chatId, 'Decided: 2,500 a month.');
+    await vm.send.execute('And now?');
+    expect(sessions.byId(t.id)!.brief, 'Decided: 2,000 a month.');
+  });
+
+  test('only a brief in its shape is kept; a summary is one clean line', () {
+    expect(
+      ChatKeeper.briefFrom('Sure! Here it is:\n- Decided: budget\nOpen: car\nThanks'),
+      'Decided: budget\nOpen: car',
+    );
+    expect(ChatKeeper.briefFrom('I cannot help with that.'), isNull);
+    expect(
+      ChatKeeper.summaryFrom('"Budget for November, nearly settled"\nmore'),
+      'Budget for November, nearly settled',
+    );
+    expect(ChatKeeper.summaryFrom('x' * 200)!.length, 140);
+  });
+
+  test('a quiet thread gets its summary, and its chat its brief, on the model here', () async {
+    final s = await talk('Plan the November budget', 'Set at 2,000; the car loan is still open.');
+    final keeper = ChatKeeper(
+      sessions: sessions,
+      conversations: repo,
+      chats: chats,
+      writer: _Writer([
+        'November budget, set at 2,000',
+        'Decided: budget is 2,000\nOpen: the car loan',
+      ]),
+      log: log,
+    );
+    addTearDown(keeper.dispose);
+    await keeper.keep(s.id);
+    final now = sessions.byId(s.id)!;
+    expect(now.summary, 'November budget, set at 2,000');
+    expect(chats.byId(now.chatId!)!.brief, 'Decided: budget is 2,000\nOpen: the car loan');
+    expect(chats.byId(now.chatId!)!.briefByPerson, isFalse);
+    final upkeep = [
+      for (final l in await log.read('2026-11'))
+        if (l['kind'] == 'upkeep') '${l['what']}:${l['local']}',
+    ];
+    expect(upkeep, ['summary:true', 'brief:true']);
+  });
+
+  test(
+    "a brief the person wrote is left as it is; with no model, the thread's own words",
+    () async {
+      final s = await talk('Plan the November budget', 'Set at 2,000.');
+      final chatId = sessions.byId(s.id)!.chatId!;
+      await chats.setBrief(chatId, 'Mine: keep it simple.');
+      final writer = _Writer(['November budget', 'Decided: something else']);
+      final keeper = ChatKeeper(
+        sessions: sessions,
+        conversations: repo,
+        chats: chats,
+        writer: writer,
+        log: log,
+      );
+      addTearDown(keeper.dispose);
+      await keeper.keep(s.id);
+      expect(chats.byId(chatId)!.brief, 'Mine: keep it simple.');
+      expect(writer.asked, 1, reason: 'the brief is not even asked for');
+
+      final other = await talk('Book the Lisbon flights', 'Booked.');
+      final none = ChatKeeper(
+        sessions: sessions,
+        conversations: repo,
+        chats: chats,
+        writer: _Writer(null),
+        log: log,
+      );
+      addTearDown(none.dispose);
+      await none.keep(other.id);
+      expect(sessions.byId(other.id)!.summary, 'Book the Lisbon flights');
+      expect(chats.byId(sessions.byId(other.id)!.chatId!)!.brief, isEmpty);
+    },
+  );
+}

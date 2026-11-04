@@ -223,6 +223,21 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  /// Gives this thread its chat's brief as it stands now, to keep for good.
+  Future<void> _freezeBrief() async {
+    final s = session, chats = _chats;
+    if (s == null || chats == null || s.chatId == null) return;
+    final brief = chats.byId(s.chatId!)?.brief ?? '';
+    if ((s.brief ?? '') == brief) return;
+    await _sessions.save(s.copyWith(brief: brief));
+  }
+
+  /// A thread moved while it is new (one message in) takes its new chat's
+  /// brief; later it keeps the one it began with, which its cache is of.
+  Future<void> _rebrief() async {
+    if (items.whereType<UserMessage>().length <= 1) await _freezeBrief();
+  }
+
   /// Files this thread into [chatId] (an answer to Helmy's question, or a
   /// move): a correction, logged.
   Future<void> fileInto(String? chatId) async {
@@ -230,13 +245,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (chats == null || s == null) return;
     final from = s.chatId;
     final to = await chats.move(s, chatId);
-    unawaited(
-      _log?.correction(
-        what: filing?.kind == .ask ? 'answer' : 'move',
-        thread: s.id,
-        from: from,
-        to: to,
-      ),
+    await _rebrief();
+    await _log?.correction(
+      what: filing?.kind == .ask ? 'answer' : 'move',
+      thread: s.id,
+      from: from,
+      to: to,
     );
     filing = (kind: FilingKind.file, best: to, bestScore: 1, runnerUp: null, runnerUpScore: 0);
     notifyListeners();
@@ -248,6 +262,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (chats == null || s == null) return;
     final from = s.chatId;
     final to = await chats.move(s, null);
+    await _rebrief();
     await _log?.correction(what: 'undo', thread: s.id, from: from, to: to);
     filing = null;
     notifyListeners();
@@ -1102,10 +1117,13 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     final needs = {...pendingNeeds};
     attachments.clear();
     pendingNeeds.clear();
-    final first = !items.any((i) => i is UserMessage);
-    final sent = await _conversations.send(s, text.trim(), attachments: files, needs: needs);
-    if (first) unawaited(_file(text));
-    return sent;
+    // A thread's first message: filed first (local, at once), so it starts
+    // in its chat knowing the chat's brief, frozen for the thread.
+    if (!items.any((i) => i is UserMessage)) {
+      await _file(text);
+      await _freezeBrief();
+    }
+    return _conversations.send(session ?? s, text.trim(), attachments: files, needs: needs);
   }
 
   void interrupt() => _conversations.interrupt(sessionId);

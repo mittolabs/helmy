@@ -96,14 +96,17 @@ class OllamaChatEngine implements AgentEngine {
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
     final model = await _resolveModel();
     if (model == null) throw StateError((await unavailableReason())!);
-    return OllamaChatRun(host: host, model: model, items: items);
+    return OllamaChatRun(host: host, model: model, items: items, brief: launch.brief);
   }
 }
 
 /// One conversation with the model: it keeps the messages so far, and
 /// streams each answer into [items].
 class OllamaChatRun implements EngineRun {
-  new({required this.host, required this.model, required this.items});
+  new({required this.host, required this.model, required this.items, this.brief});
+
+  /// The chat's brief, frozen for the thread.
+  final String? brief;
 
   final String host;
   final String model;
@@ -154,7 +157,10 @@ class OllamaChatRun implements EngineRun {
           'stream': true,
           'options': {'num_predict': OllamaChatEngine.maxTokens},
           'messages': [
-            {'role': 'system', 'content': '$helmyIdentity\n\n${OllamaChatEngine.instructions}'},
+            {
+              'role': 'system',
+              'content': '${identityWith(brief)}\n\n${OllamaChatEngine.instructions}',
+            },
             ..._history,
           ],
         }),

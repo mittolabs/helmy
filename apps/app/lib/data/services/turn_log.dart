@@ -70,6 +70,26 @@ class TurnLog {
     'runnerUpScore': runnerUpScore,
   });
 
+  /// Helmy's own upkeep (a summary, a brief): which model, its tokens.
+  Future<void> upkeep({
+    required String what,
+    required String thread,
+    String? chat,
+    String? model,
+    int? promptTokens,
+    int? outputTokens,
+    bool kept = true,
+  }) => _write('upkeep', {
+    'what': what,
+    'thread': thread,
+    'chat': chat,
+    'model': model,
+    'local': model != null,
+    'promptTokens': promptTokens,
+    'outputTokens': outputTokens,
+    'kept': kept,
+  });
+
   /// The person moved a thread to another chat (or out into its own), or
   /// rewrote a chat's brief: what filing and briefs are tuned on.
   Future<void> correction({

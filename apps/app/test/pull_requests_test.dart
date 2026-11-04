@@ -144,7 +144,11 @@ void main() {
       addTearDown(vm.dispose);
       expect(vm.folders, ['/w/site']);
       final loading = vm.load();
-      await Future<void>.delayed(Duration.zero);
+      // The list, once read (not a tick: a cold run is slower than a warm one).
+      for (var i = 0; i < 100 && vm.all == null; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(vm.all, isNotNull);
       expect(vm.all!.every((p) => p.checks == null), isTrue, reason: 'unknown until read');
       prs.ready.complete();
       await loading;

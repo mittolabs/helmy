@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/repositories/session_repository.dart';
 import '../../data/services/turn_log.dart';
+import '../../data/services/local_writer.dart';
 import '../../domain/models/chat.dart';
 import '../../domain/models/session.dart';
 import '../../utils/result.dart';
@@ -15,8 +16,24 @@ class ChatPageViewModel extends ChangeNotifier {
     required this._chats,
     required this._sessions,
     this._log,
+    this._writer,
   }) {
     _chats.addListener(notifyListeners);
+    _writer?.model().then((m) {
+      localModel = m;
+      notifyListeners();
+    });
+  }
+
+  final LocalWriter? _writer;
+
+  /// The model on this Mac that keeps the brief; null when there is none.
+  String? localModel;
+
+  /// Lets Helmy keep the brief again, after the person wrote it.
+  Future<void> letHelmyKeep() async {
+    final c = chat;
+    if (c != null) await _chats.setBrief(chatId, c.brief, byPerson: false);
   }
 
   final String chatId;

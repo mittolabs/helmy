@@ -13,6 +13,10 @@ class const EngineLaunch({
   /// Helmy's session, so Helmy's own tools know which session asks (the
   /// page in its Preview panel).
   final String? sessionId,
+
+  /// The brief of the thread's chat, frozen when the thread began (decision
+  /// `0014`): sent with Helmy's instructions on every run of the thread.
+  final String? brief,
 });
 
 /// State an engine reports alongside the items it writes.

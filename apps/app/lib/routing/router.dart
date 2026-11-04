@@ -61,6 +61,7 @@ GoRouter router(String initialLocation) => GoRouter(
               chats: context.read(),
               sessions: context.read(),
               log: context.read(),
+              writer: context.read(),
             ),
             builder: (vm) => ChatPageScreen(viewModel: vm),
           ),

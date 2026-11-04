@@ -291,7 +291,7 @@ class ClaudeEngine implements AgentEngine {
       permissionMode: mode(launch.level),
       resume: launch.resumeId,
       // Whichever account answers, it answers as Helmy.
-      appendSystemPrompt: helmyIdentity,
+      appendSystemPrompt: identityWith(launch.brief),
       toolsUrl: await tools?.urlFor(launch.sessionId),
       allowedTools: HelmyTools.claudeTools,
     );

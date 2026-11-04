@@ -11,13 +11,17 @@ class const Chat({
   /// What the topic has come to: decisions and open questions, short. Written
   /// by hand for now; kept by Helmy as threads go on, later.
   final String brief = '',
+
+  /// The brief as the person wrote it: Helmy leaves it as it is.
+  final bool briefByPerson = false,
 }) {
-  Chat copyWith({String? title, bool? named, String? brief}) => Chat(
+  Chat copyWith({String? title, bool? named, String? brief, bool? briefByPerson}) => Chat(
     id: id,
     title: title ?? this.title,
     createdAt: createdAt,
     named: named ?? this.named,
     brief: brief ?? this.brief,
+    briefByPerson: briefByPerson ?? this.briefByPerson,
   );
 
   Map<String, Object?> toJson() => {
@@ -26,6 +30,7 @@ class const Chat({
     'createdAt': createdAt.toIso8601String(),
     if (named) 'named': true,
     if (brief.isNotEmpty) 'brief': brief,
+    if (briefByPerson) 'briefByPerson': true,
   };
 
   static Chat fromJson(Map<String, Object?> j) => Chat(
@@ -34,5 +39,6 @@ class const Chat({
     createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
     named: j['named'] == true,
     brief: '${j['brief'] ?? ''}',
+    briefByPerson: j['briefByPerson'] == true,
   );
 }

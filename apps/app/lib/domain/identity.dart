@@ -33,3 +33,17 @@ Web pages: you have your own browser tools (browser_open, browser_read, browser_
 Moving to another folder: when the user asks to work in another folder, or the work has moved to one, end your reply with a line of its own: HELMY_FOLDER: /the/full/path. The app hides that line, shows the folder, and runs what comes next there. Use it only for a folder that exists.
 
 Everything else about how you work, and the instructions you were given for doing it, stays as it is.''';
+
+/// Helmy's instructions for a thread in a chat (decision `0014`): with the
+/// chat's brief as it stood when the thread began. Frozen for the thread, so
+/// every run sends the same text and the provider's cache of it holds.
+String identityWith(String? brief) {
+  final b = brief?.trim() ?? '';
+  if (b.isEmpty) return helmyIdentity;
+  return '$helmyIdentity\n\n'
+      '## What this chat has come to\n\n'
+      'This conversation is one thread of a longer chat about the same topic. Here is '
+      'that chat\'s brief, as it stood when this thread began: what was decided, and what '
+      'is open. Take it as known; ask the user when you need what is not here.\n\n'
+      '$b';
+}

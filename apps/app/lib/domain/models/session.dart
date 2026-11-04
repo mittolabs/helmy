@@ -57,6 +57,12 @@ class const Session({
 
   /// The chat this thread is part of (decision `0014`).
   final String? chatId,
+
+  /// Its chat's brief as it stood when the thread began: frozen for it.
+  final String? brief,
+
+  /// One line of what the thread is about and where it stands, kept by Helmy.
+  final String? summary,
 }) {
   /// In its own working copy, on its own branch.
   bool get ownCopy => repo != null && branch != null;
@@ -80,6 +86,8 @@ class const Session({
     String? branch,
     bool? watchChecks,
     String? chatId,
+    String? brief,
+    String? summary,
 
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
@@ -103,6 +111,8 @@ class const Session({
     watchChecks: watchChecks ?? this.watchChecks,
     sideOf: sideOf,
     chatId: chatId ?? this.chatId,
+    brief: brief ?? this.brief,
+    summary: summary ?? this.summary,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -127,6 +137,8 @@ class const Session({
     if (watchChecks) 'watchChecks': true,
     'sideOf': ?sideOf,
     'chatId': ?chatId,
+    'brief': ?brief,
+    'summary': ?summary,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -161,6 +173,8 @@ class const Session({
       watchChecks: json['watchChecks'] == true,
       sideOf: json['sideOf'] as String?,
       chatId: json['chatId'] as String?,
+      brief: json['brief'] as String?,
+      summary: json['summary'] as String?,
     );
   }
 }

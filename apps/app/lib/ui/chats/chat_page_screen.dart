@@ -37,10 +37,19 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
     _briefFocus.addListener(() {
       if (!_briefFocus.hasFocus) vm.setBrief(_brief.text);
     });
+    vm.addListener(_sync);
+  }
+
+  /// The brief kept by Helmy while the page is open: shown, unless the person
+  /// is writing in it.
+  void _sync() {
+    final brief = vm.chat?.brief;
+    if (brief != null && !_briefFocus.hasFocus && _brief.text != brief) _brief.text = brief;
   }
 
   @override
   void dispose() {
+    vm.removeListener(_sync);
     _brief.dispose();
     _briefFocus.dispose();
     super.dispose();
@@ -137,7 +146,8 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
                       Text('Brief', style: t.text.sm.copyWith(fontWeight: .w600)),
                       const SizedBox(height: 4),
                       Text(
-                        'What this chat has come to: decisions, and what is still open.',
+                        'What this chat has come to: decisions, and what is still open. '
+                        'Each new thread here starts knowing it.',
                         style: muted,
                       ),
                       const SizedBox(height: 8),
@@ -147,6 +157,31 @@ class _ChatPageScreenState extends State<ChatPageScreen> {
                         minLines: 3,
                         maxLines: 10,
                         placeholder: 'Nothing yet. Write what every thread here should know.',
+                      ),
+                      const SizedBox(height: 6),
+                      // Who keeps it, said as it is.
+                      Row(
+                        spacing: 8,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              chat.briefByPerson
+                                  ? 'Written by you: Helmy leaves it as it is.'
+                                  : vm.localModel != null
+                                  ? 'Kept by Helmy as threads here go quiet, on the model on this Mac.'
+                                  : 'Helmy keeps this once a model runs on this Mac (Ollama). Until '
+                                        'then, write it here.',
+                              style: t.text.xs.copyWith(color: c.mutedForeground),
+                            ),
+                          ),
+                          if (chat.briefByPerson && vm.localModel != null)
+                            Button(
+                              variant: .ghost,
+                              size: .xs,
+                              onPressed: vm.letHelmyKeep,
+                              child: const Text('Let Helmy keep it'),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 28),
                       Text('Threads', style: t.text.sm.copyWith(fontWeight: .w600)),
@@ -204,6 +239,13 @@ class _ThreadRow extends StatelessWidget {
                     overflow: .ellipsis,
                     style: t.text.sm.copyWith(fontWeight: .w500),
                   ),
+                  if (thread.summary case final line? when line.isNotEmpty)
+                    Text(
+                      line,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: t.text.xs.copyWith(color: c.foreground.withValues(alpha: .8)),
+                    ),
                   Text(
                     '${projectName(thread.repo ?? thread.cwd)} · ${ago(thread.updatedAt)}',
                     style: muted,
