@@ -33,7 +33,12 @@ class UsageMeter extends ChangeNotifier {
     if (usage == null) return;
     final at = now ?? DateTime.now();
     final old = _usage[engineId];
-    _usage[engineId] = Usage(used: usage.used, resetsAt: usage.resetsAt, reportedAt: at);
+    _usage[engineId] = Usage(
+      used: usage.used,
+      resetsAt: usage.resetsAt,
+      reportedAt: at,
+      windows: usage.windows,
+    );
     final changed = old == null || old.used != usage.used || old.resetsAt != usage.resetsAt;
     // Streaming reports come many times a turn: the screen and the file only
     // need the number when it moves, and the time about once a minute.

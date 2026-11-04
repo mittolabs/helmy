@@ -42,18 +42,24 @@ class CodexReducer {
         }
       case 'account/rateLimits/updated':
         final limits = (params['rateLimits'] as Map?)?.cast<String, Object?>();
-        Usage? fullest;
+        final found = <UsageWindow>[];
         for (final key in const ['primary', 'secondary']) {
           final w = (limits?[key] as Map?)?.cast<String, Object?>();
           final used = (w?['usedPercent'] as num?)?.toDouble();
-          if (used == null || (fullest != null && fullest.used >= used / 100)) continue;
+          if (used == null) continue;
           final reset = (w?['resetsAt'] as num?)?.toInt();
-          fullest = Usage(
-            used: used / 100,
-            resetsAt: reset == null ? null : DateTime.fromMillisecondsSinceEpoch(reset * 1000),
+          final minutes = (w?['windowDurationMins'] as num?)?.toInt();
+          final named = minutes == null ? null : UsageWindow.named(minutes);
+          found.add(
+            UsageWindow(
+              name: named?.name ?? (key == 'primary' ? 'Session' : 'Weekly'),
+              used: used / 100,
+              length: named?.length,
+              resetsAt: reset == null ? null : DateTime.fromMillisecondsSinceEpoch(reset * 1000),
+            ),
           );
         }
-        usage = fullest ?? usage;
+        usage = Usage.ofWindows(found) ?? usage;
       case 'turn/plan/updated':
         final steps = (params['plan'] as List? ?? const []).whereType<Map>();
         final list = TaskList([

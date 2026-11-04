@@ -232,8 +232,17 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     return text.length > 120 ? '${text.substring(0, 117)}...' : text;
   }
 
-  void _send(String sessionId, String title, String body, {bool thumbsUp = false}) {
+  /// Said inside Helmy instead, when it is in front: a session other than
+  /// the one on screen finished or needs you.
+  Stream<({String sessionId, String title, String body})> get inApp => _inApp.stream;
+  final _inApp = StreamController<({String sessionId, String title, String body})>.broadcast();
+
+  Future<void> _send(String sessionId, String title, String body, {bool thumbsUp = false}) async {
     if (!_settings.settings.notify) return;
+    if (await _notify.isActive() ?? _active) {
+      _inApp.add((sessionId: sessionId, title: title, body: body));
+      return;
+    }
     _notify.notify(sessionId: sessionId, title: title, body: body, thumbsUp: thumbsUp);
   }
 
@@ -248,6 +257,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     unawaited(_inSightChanges?.cancel());
+    unawaited(_inApp.close());
     _dozing?.cancel();
     _wakingUp?.cancel();
     _wake?.cancel();

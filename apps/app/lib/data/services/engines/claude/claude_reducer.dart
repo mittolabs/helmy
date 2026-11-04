@@ -74,17 +74,35 @@ class ClaudeReducer {
       case 'rate_limit_event':
         final info = (m['rate_limit_info'] as Map?)?.cast<String, Object?>();
         final windows = (info?['unifiedWindows'] as Map?)?.cast<String, Object?>();
-        Usage? fullest;
-        for (final w in (windows ?? const {}).values.whereType<Map>()) {
+        // Each window by its name ("five_hour", "seven_day", "seven_day_opus").
+        final found = <UsageWindow>[];
+        for (final e in (windows ?? const {}).entries) {
+          final w = e.value;
+          if (w is! Map) continue;
           final used = (w['utilization'] as num?)?.toDouble();
-          if (used == null || (fullest != null && fullest.used >= used)) continue;
+          if (used == null) continue;
           final reset = (w['resetsAt'] as num?)?.toInt();
-          fullest = Usage(
-            used: used,
-            resetsAt: reset == null ? null : DateTime.fromMillisecondsSinceEpoch(reset * 1000),
+          final key = e.key;
+          final minutes = key.startsWith('five_hour')
+              ? 300
+              : key.startsWith('seven_day')
+              ? 7 * 24 * 60
+              : null;
+          final named = minutes == null ? null : UsageWindow.named(minutes);
+          final extra = key.replaceFirst(RegExp(r'^(five_hour|seven_day)_?'), '');
+          found.add(
+            UsageWindow(
+              name: [
+                named?.name ?? key.replaceAll('_', ' '),
+                if (extra.isNotEmpty) extra[0].toUpperCase() + extra.substring(1),
+              ].join(' · '),
+              used: used,
+              length: named?.length,
+              resetsAt: reset == null ? null : DateTime.fromMillisecondsSinceEpoch(reset * 1000),
+            ),
           );
         }
-        usage = fullest ?? usage;
+        usage = Usage.ofWindows(found) ?? usage;
       case 'result':
         thinking = false;
         _context(m);

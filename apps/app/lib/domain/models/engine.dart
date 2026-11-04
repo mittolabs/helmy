@@ -85,21 +85,77 @@ class const ContextUse({required final int used, required final int window}) {
   double get fraction => window == 0 ? 0 : used / window;
 }
 
-/// How much of an engine's usage limit is used, as it last reported.
+/// One of a connection's usage limits: a session's few hours, or a week.
+class const UsageWindow({
+  required final String name,
+  required final double used,
+  final DateTime? resetsAt,
+
+  /// How long the window is, when the connection says.
+  final Duration? length,
+}) {
+  /// How far through the window [now] is (0 to 1): where use "should" be if
+  /// it were spread evenly. Null when the window's length or end is unknown.
+  double? paceAt(DateTime now) {
+    final end = resetsAt, len = length;
+    if (end == null || len == null || len == Duration.zero) return null;
+    final left = end.difference(now);
+    return (1 - left.inSeconds / len.inSeconds).clamp(0.0, 1.0);
+  }
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'used': used,
+    'resetsAt': resetsAt?.toIso8601String(),
+    'length': length?.inMinutes,
+  };
+
+  static UsageWindow fromJson(Map<String, Object?> json) => UsageWindow(
+    name: '${json['name']}',
+    used: (json['used'] as num?)?.toDouble() ?? 0,
+    resetsAt: DateTime.tryParse('${json['resetsAt']}'),
+    length: json['length'] == null ? null : Duration(minutes: (json['length'] as num).toInt()),
+  );
+
+  /// A window's name and length from its length in minutes.
+  static ({String name, Duration length}) named(int minutes) {
+    final d = Duration(minutes: minutes);
+    if (minutes >= 7 * 24 * 60) return (name: 'Weekly', length: d);
+    if (minutes >= 24 * 60) return (name: 'Daily', length: d);
+    final h = minutes / 60;
+    return (name: 'Session (${h == h.roundToDouble() ? h.toInt() : h} hours)', length: d);
+  }
+}
+
+/// How much of an engine's usage limit is used, as it last reported: its
+/// fullest window, which routing goes by, and every window it reported.
 class const Usage({
   required final double used,
   final DateTime? resetsAt,
   final DateTime? reportedAt,
+  final List<UsageWindow> windows = const [],
 }) {
+  /// The fullest of [windows] as a whole Usage.
+  static Usage? ofWindows(List<UsageWindow> windows) {
+    if (windows.isEmpty) return null;
+    final fullest = windows.reduce((a, b) => b.used > a.used ? b : a);
+    return Usage(used: fullest.used, resetsAt: fullest.resetsAt, windows: windows);
+  }
+
   Map<String, Object?> toJson() => {
     'used': used,
     'resetsAt': resetsAt?.toIso8601String(),
     'reportedAt': reportedAt?.toIso8601String(),
+    if (windows.isNotEmpty) 'windows': [for (final w in windows) w.toJson()],
   };
 
   static Usage fromJson(Map<String, Object?> json) => Usage(
     used: (json['used']! as num).toDouble(),
     resetsAt: DateTime.tryParse('${json['resetsAt']}'),
     reportedAt: DateTime.tryParse('${json['reportedAt']}'),
+    windows: [
+      for (final w in (json['windows'] as List? ?? const []).whereType<Map>())
+        UsageWindow.fromJson(w.cast()),
+    ],
   );
 }

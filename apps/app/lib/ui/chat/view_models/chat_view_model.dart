@@ -191,6 +191,19 @@ class ChatViewModel extends ChangeNotifier {
   void _onConversation() {
     if (_wasBusy && !busy) countChanges();
     _wasBusy = busy;
+    _findServer();
+  }
+
+  /// Local servers already offered, so each opens once.
+  final Set<String> _servers = {};
+
+  /// A server on this computer that a step started (a dev server printing
+  /// "http://localhost:3000"): opened in Preview, the first time it shows.
+  void _findServer() {
+    if (!webViewHere) return;
+    final url = localServerIn(items);
+    if (url == null || !_servers.add(url)) return;
+    preview(url);
   }
 
   /// Steps an agent moved to the background, newest first.
@@ -584,4 +597,18 @@ class ChatViewModel extends ChangeNotifier {
     _conversations.removeListener(_onConversation);
     super.dispose();
   }
+}
+
+/// The newest address on this computer that a step's output gave, such as
+/// a dev server's "Local: http://localhost:5173/"; null when there is none.
+String? localServerIn(List<ChatItem> items) {
+  final local = RegExp(
+    r'''https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:/[^\s'"`<>)\]]*)?''',
+  );
+  for (final call in items.reversed.whereType<ToolCall>()) {
+    final out = call.result ?? '';
+    final found = local.allMatches(out).lastOrNull?[0];
+    if (found != null) return found.replaceFirst('0.0.0.0', 'localhost');
+  }
+  return null;
 }

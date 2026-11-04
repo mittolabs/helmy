@@ -262,6 +262,14 @@ void main() {
     final u = await codex.readUsage();
     expect(u, isNotNull);
     expect(u!.used, inInclusiveRange(0, 1));
+    // Every window it has, each with its length, so pace can be shown.
+    // ignore: avoid_print
+    print(
+      [for (final w in u.windows) '${w.name} ${(w.used * 100).round()}% resets ${w.resetsAt}']
+          .join('; '),
+    );
+    expect(u.windows, isNotEmpty);
+    expect(u.windows.every((w) => w.length != null), isTrue);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('each Claude account says which services it is connected to, without a message', () async {

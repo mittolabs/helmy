@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/domain/folder_move.dart';
+import 'package:helmy/domain/models/chat_item.dart';
+import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
 import 'package:helmy/ui/chat/widgets/media.dart';
 import 'package:helmy/ui/core/ashlar/app.dart';
 import 'package:helmy/ui/core/ashlar/app_theme.dart';
@@ -81,5 +83,18 @@ void main() {
     await tester.tap(find.text('Open beside'));
     expect(previewed, ['http://localhost:3000']);
     await tester.runAsync(() => dir.delete(recursive: true));
+  });
+
+  test('a dev server a step started is found, the newest first', () {
+    ToolCall run(String out) => ToolCall(id: out, name: 'Bash', input: const {})..result = out;
+    expect(
+      localServerIn([run('VITE ready\n  ➜  Local:   http://localhost:5173/')]),
+      'http://localhost:5173/',
+    );
+    expect(
+      localServerIn([run('Listening on http://0.0.0.0:8080'), run('nothing')]),
+      'http://localhost:8080',
+    );
+    expect(localServerIn([run('see https://example.com')]), isNull);
   });
 }

@@ -116,6 +116,10 @@ class SidebarViewModel extends ChangeNotifier {
 
   bool isUnread(String id) => _attention?.isUnread(id) == true;
 
+  /// Another session finished or needs you, while Helmy is in front.
+  Stream<({String sessionId, String title, String body})> get inApp =>
+      _attention?.inApp ?? const Stream.empty();
+
   /// Helmy's notifications are on, but the system blocks them.
   bool get notificationsBlocked => _attention?.notificationsBlocked ?? false;
 

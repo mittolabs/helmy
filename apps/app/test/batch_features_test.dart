@@ -122,8 +122,10 @@ void main() {
     Future<void> settle() =>
         tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
 
-    // Busy, then done, while another session is on screen.
+    // Busy, then done, while Helmy is behind other windows.
     attention.viewing = 'another';
+    notes.sight.add(false);
+    await settle();
     // Just opened: waking up, then the app icon.
     expect(notes.dockFace, 'waking');
     await tester.pump(AttentionRepository.wakingFor);
@@ -145,7 +147,9 @@ void main() {
     expect(attention.isUnread(session.id), isTrue);
     expect(notes.badgeCount, 1);
 
-    // Opening it clears it.
+    // Back in front, opening it clears it.
+    notes.sight.add(true);
+    await settle();
     attention.viewing = session.id;
     expect(attention.isUnread(session.id), isFalse);
     expect(notes.dockFace, isNull);
@@ -264,5 +268,37 @@ void main() {
     attention.dispose();
     s.repo.dispose();
     await tester.runAsync(() => s.root.delete(recursive: true));
+  });
+
+  test('in front, another session finishing is said inside Helmy, not by the system', () async {
+    final s = await _setup();
+    final session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
+    final notes = _Notes();
+    final attention = AttentionRepository(
+      conversations: s.repo,
+      sessions: s.sessions,
+      settings: s.settings,
+      notify: notes,
+    );
+    final said = <String>[];
+    final sub = attention.inApp.listen((n) => said.add('${n.title}: ${n.body}'));
+    Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));
+    attention.viewing = 'another';
+    notes.sight.add(true);
+    await settle();
+    final c = s.repo.of(session.id)..busy = true;
+    s.repo.notifyListeners();
+    await settle();
+    c
+      ..busy = false
+      ..items.add(TurnSummary(ok: true));
+    s.repo.notifyListeners();
+    await settle();
+    expect(said, ['${session.title}: Finished']);
+    expect(notes.sent, isEmpty, reason: 'no system notification while Helmy is in front');
+    await sub.cancel();
+    attention.dispose();
+    s.repo.dispose();
+    await s.root.delete(recursive: true);
   });
 }
