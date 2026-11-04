@@ -133,7 +133,10 @@ class _DeviceSizeBarState extends State<DeviceSizeBar> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 220),
               child: Select<String>(
-                value: s == null ? 'Responsive' : (s.name == 'Custom' ? 'Custom' : s.name),
+                // Dragged to a size, it is Responsive: free, at that size.
+                value: s == null || s.name == 'Responsive'
+                    ? 'Responsive'
+                    : (s.name == 'Custom' ? 'Custom' : s.name),
                 semanticLabel: 'Device size',
                 // Wide enough for each device's name and size in full.
                 menuWidth: 300,

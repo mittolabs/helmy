@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -124,7 +125,32 @@ class _PreviewPanelState extends State<PreviewPanel> {
     unawaited(widget.vm.webPage('zoom', {'zoom': want}));
   }
 
+  // While a grip is dragged: the size so far, unrounded.
+  Size? _dragging;
+
+  /// A grip dragged by [dx], [dy] on screen. The frame stays centered, so
+  /// each side moves by half the change: the size changes by twice the drag,
+  /// unshrunk. Dragged, the size is free: Responsive, at the size made.
+  void _dragSize(double dx, double dy) {
+    final d = _device;
+    if (d == null) return;
+    final from = _dragging ?? Size(d.width.toDouble(), d.height.toDouble());
+    final to = Size(
+      (from.width + 2 * dx / _fit).clamp(200, 4000),
+      (from.height + (dy == 0 ? 0 : 2 * dy / _fit)).clamp(200, 4000),
+    );
+    _dragging = to;
+    _useSize((
+      name: 'Responsive',
+      width: to.width.round(),
+      height: to.height.round(),
+      mobile: false,
+    ));
+  }
+
   void _useSize(DeviceSize? size) {
+    // Another size chosen: the next drag starts from it.
+    if (size?.name != 'Responsive') _dragging = null;
     setState(() => _device = size);
     final tab = _tab;
     if (tab != null) {
@@ -685,14 +711,29 @@ class _PreviewPanelState extends State<PreviewPanel> {
                         '${_fit < 1 ? '  ·  shown at ${(_fit * 100).round()}%' : ''}',
                         style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                       ),
-                      SizedBox(
-                        width: w * _fit,
-                        height: h * _fit,
-                        child: chromium
-                            ? FittedBox(
-                                child: SizedBox(width: w, height: h, child: page),
-                              )
-                            : page,
+                      // The frame, with a grip on each side and below to
+                      // drag it to any size.
+                      Column(
+                        mainAxisSize: .min,
+                        children: [
+                          Row(
+                            mainAxisSize: .min,
+                            children: [
+                              _Grip(axis: .horizontal, onDrag: (d) => _dragSize(-d, 0)),
+                              SizedBox(
+                                width: w * _fit,
+                                height: h * _fit,
+                                child: chromium
+                                    ? FittedBox(
+                                        child: SizedBox(width: w, height: h, child: page),
+                                      )
+                                    : page,
+                              ),
+                              _Grip(axis: .horizontal, onDrag: (d) => _dragSize(d, 0)),
+                            ],
+                          ),
+                          _Grip(axis: .vertical, onDrag: (d) => _dragSize(0, d)),
+                        ],
                       ),
                     ],
                   ),
@@ -815,5 +856,53 @@ class _PanelDriver implements PageDriver {
     final bytes = await File(saved).readAsBytes();
     unawaited(File(saved).delete());
     return bytes;
+  }
+}
+
+/// A grip on a side of the device frame, to drag it wider or taller.
+class _Grip extends StatefulWidget {
+  const _Grip({required this.axis, required this.onDrag});
+  final Axis axis;
+  final ValueChanged<double> onDrag;
+
+  @override
+  State<_Grip> createState() => _GripState();
+}
+
+class _GripState extends State<_Grip> {
+  bool _on = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AshlarTheme.of(context).colors;
+    final across = widget.axis == Axis.horizontal;
+    return Semantics(
+      label: across ? 'Drag to change the width' : 'Drag to change the height',
+      child: MouseRegion(
+        cursor: across ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          dragStartBehavior: DragStartBehavior.down,
+          onPanStart: (_) => setState(() => _on = true),
+          onPanEnd: (_) => setState(() => _on = false),
+          onPanCancel: () => setState(() => _on = false),
+          onPanUpdate: (d) => widget.onDrag(across ? d.delta.dx : d.delta.dy),
+          child: SizedBox(
+            width: across ? 14 : 48,
+            height: across ? 48 : 14,
+            child: Center(
+              child: Container(
+                width: across ? 3 : 28,
+                height: across ? 28 : 3,
+                decoration: BoxDecoration(
+                  color: _on ? c.foreground : c.mutedForeground.withValues(alpha: .6),
+                  borderRadius: .circular(2),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

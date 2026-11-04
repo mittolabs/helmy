@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -384,6 +385,22 @@ void main() {
     final shown = tester.getRect(find.byType(ChromiumView));
     final c = await colorAt(shown.center);
     expect(c.g > .5 && c.r < .3, isTrue, reason: 'laid out 375 wide: green, got $c');
+
+    // A grip dragged: the frame grows, and the size is Responsive at it.
+    await tester.drag(
+      find.bySemanticsLabel('Drag to change the width').last,
+      const Offset(40, 0),
+      kind: PointerDeviceKind.mouse,
+      touchSlopX: 0,
+    );
+    await tester.pump();
+    expect(find.textContaining('Responsive'), findsWidgets);
+    final label = find.textContaining('Responsive  ');
+    expect(label, findsOneWidget);
+    final m = RegExp(r'(\d+) × (\d+)').firstMatch((tester.widget(label) as Text).data!)!;
+    // At least twice the drag, more when the frame is shown shrunk.
+    expect(int.parse(m[1]!), greaterThanOrEqualTo(375 + 80));
+    expect(int.parse(m[2]!), 600, reason: 'the height as it was');
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(chromium.stop);
   });
