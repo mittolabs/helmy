@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
+import '../../../data/services/connections_setup.dart';
 
 import 'package:go_router/go_router.dart';
 

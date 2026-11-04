@@ -179,4 +179,85 @@ class ConnectionsSetup {
     await Directory(folder).delete(recursive: true);
     return true;
   }
+
+  /// A connection's kind, for its version: every Claude Code account is the
+  /// one program, as is every Codex; Ollama is its own.
+  static String? kindOf(String engineId) => engineId.startsWith('claude')
+      ? 'claude'
+      : engineId.startsWith('codex')
+      ? 'codex'
+      : engineId.contains('ollama')
+      ? 'ollama'
+      : null;
+
+  /// The version of [kind] installed here, as it says it; null when it is
+  /// not installed or would not say.
+  Future<String?> installedVersion(String kind) async {
+    final bin = await _find(kind);
+    if (bin == null) return null;
+    final r = await _run(bin, ['--version']);
+    return versionIn('${r?.stdout ?? ''}${r?.stderr ?? ''}');
+  }
+
+  /// The newest version of [kind] its maker has published; null when that
+  /// could not be found out (offline, say).
+  Future<String?> latestVersion(String kind) async {
+    final url = switch (kind) {
+      'claude' => 'https://registry.npmjs.org/@anthropic-ai/claude-code/latest',
+      'codex' => 'https://registry.npmjs.org/@openai/codex/latest',
+      'ollama' => 'https://api.github.com/repos/ollama/ollama/releases/latest',
+      _ => null,
+    };
+    if (url == null) return null;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      req.headers.set('User-Agent', 'Helmy');
+      final res = await req.close().timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return null;
+      final json = jsonDecode(await res.transform(utf8.decoder).join()) as Map;
+      return versionIn('${json['version'] ?? json['tag_name'] ?? ''}');
+    } on Object {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// Updates [kind] the way it was installed: Claude Code and Codex update
+  /// themselves; Ollama through Homebrew, else its download page opens.
+  /// True when an update ran and worked.
+  Future<bool> update(String kind) async {
+    switch (kind) {
+      case 'claude' || 'codex':
+        final bin = await _find(kind);
+        if (bin == null) return false;
+        return (await _run(bin, ['update']))?.exitCode == 0;
+      case 'ollama':
+        final bin = await _find('ollama');
+        final brew = await _find('brew');
+        if (bin != null &&
+            brew != null &&
+            (await File(bin).resolveSymbolicLinks()).contains('/Cellar/')) {
+          return (await _run(brew, ['upgrade', 'ollama']))?.exitCode == 0;
+        }
+        await _desktop.open('https://ollama.com/download');
+        return false;
+    }
+    return false;
+  }
+
+  /// The first version number in [text]: "codex-cli 0.162.1" is 0.162.1.
+  static String? versionIn(String text) => RegExp(r'\d+\.\d+(?:\.\d+)?').firstMatch(text)?[0];
+
+  /// Whether version [a] is newer than [b], part by part.
+  static bool newer(String a, String b) {
+    final x = [for (final p in a.split('.')) int.tryParse(p) ?? 0];
+    final y = [for (final p in b.split('.')) int.tryParse(p) ?? 0];
+    for (var i = 0; i < 3; i++) {
+      final l = i < x.length ? x[i] : 0, r = i < y.length ? y[i] : 0;
+      if (l != r) return l > r;
+    }
+    return false;
+  }
 }

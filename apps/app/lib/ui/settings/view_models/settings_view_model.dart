@@ -158,6 +158,64 @@ class SettingsViewModel extends ChangeNotifier {
     }
     checked = true;
     notifyListeners();
+    unawaited(checkVersions());
+  }
+
+  // Versions: what is installed of each connection, and whether its maker
+  // has a newer one.
+
+  /// By kind ('claude', 'codex', 'ollama'): installed and newest, either
+  /// null when it could not be found out. Absent until checked.
+  final versions = <String, ({String? installed, String? latest})>{};
+
+  /// The kinds being updated now.
+  final updating = <String>{};
+
+  /// The kinds of connection there are here, in the list's order.
+  List<String> get kinds =>
+      {for (final e in _engines.engines) ?ConnectionsSetup.kindOf(e.info.id)}.toList();
+
+  /// Kinds with a newer version than the one installed.
+  List<String> get outdated => [
+    for (final k in kinds)
+      if (versions[k] case (installed: final i?, latest: final l?)
+          when ConnectionsSetup.newer(l, i))
+        k,
+  ];
+
+  Future<void> checkVersions() async {
+    final s = setup;
+    if (s == null) return;
+    await Future.wait([
+      for (final k in kinds)
+        () async {
+          final (i, l) = await (s.installedVersion(k), s.latestVersion(k)).wait;
+          versions[k] = (installed: i, latest: l);
+          notifyListeners();
+        }(),
+    ]);
+  }
+
+  /// Updates [kind]; false when the update did not run or failed.
+  Future<bool> updateConnection(String kind) async {
+    final s = setup;
+    if (s == null || !updating.add(kind)) return false;
+    notifyListeners();
+    final ok = await s.update(kind);
+    final now = await s.installedVersion(kind);
+    versions[kind] = (installed: now, latest: versions[kind]?.latest);
+    updating.remove(kind);
+    notifyListeners();
+    return ok;
+  }
+
+  /// Updates every connection with a newer version; how many did.
+  Future<int> updateAll() async {
+    var n = 0;
+    for (final k in outdated) {
+      if (await updateConnection(k)) n++;
+    }
+    return n;
   }
 
   List<AgentRow> get agents => [

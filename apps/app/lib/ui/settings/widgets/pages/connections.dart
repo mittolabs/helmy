@@ -85,9 +85,53 @@ class _Connections extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final chosen = vm.chosen;
+    final outdated = vm.outdated;
+    String nameOf(String k) => switch (k) {
+      'claude' => 'Claude Code',
+      'codex' => 'Codex',
+      _ => 'Ollama',
+    };
     final list = Column(
       crossAxisAlignment: .stretch,
       children: [
+        // Newer versions out: all of them a press away, as T3 Code has it.
+        if (outdated.isNotEmpty)
+          Container(
+            padding: const .fromLTRB(16, 10, 10, 10),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: c.border)),
+            ),
+            child: Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Updates for ${[for (final k in outdated) nameOf(k)].join(', ')}',
+                    style: t.text.xs.copyWith(color: c.mutedForeground),
+                  ),
+                ),
+                Button(
+                  size: .xs,
+                  onPressed: vm.updating.isNotEmpty
+                      ? null
+                      : () async {
+                          final wanted = outdated.length;
+                          final done = await vm.updateAll();
+                          if (!context.mounted) return;
+                          showToast(
+                            context,
+                            title: done == wanted ? 'Up to date' : 'Not every update went',
+                            description: done == wanted
+                                ? 'Each connection is on its newest version.'
+                                : 'Choose the one still behind to see why, and update it there.',
+                            type: done == wanted ? .success : .error,
+                          );
+                        },
+                  child: Text(vm.updating.isNotEmpty ? 'Updating...' : 'Update all'),
+                ),
+              ],
+            ),
+          ),
         for (final a in vm.agents)
           _ConnectionItem(
             row: a,
@@ -290,6 +334,7 @@ class _AgentCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (ConnectionsSetup.kindOf(row.info.id) case final kind?) _Version(vm: vm, kind: kind),
           if (row.info.localOnly)
             Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
           else if (usage == null)
@@ -450,6 +495,58 @@ class _Window extends StatelessWidget {
             'and I lean on your other connections.',
             style: t.text.xs.copyWith(color: t.colors.mutedForeground),
           ),
+      ],
+    );
+  }
+}
+
+/// Which version of a connection is installed, and whether a newer one is
+/// out, with the update a press away. Unknown is said as unknown.
+class _Version extends StatelessWidget {
+  const _Version({required this.vm, required this.kind});
+  final SettingsViewModel vm;
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
+    final v = vm.versions[kind];
+    if (v == null) return Text('Checking its version...', style: muted);
+    final installed = v.installed;
+    if (installed == null) return const SizedBox.shrink();
+    final latest = v.latest;
+    if (latest == null) {
+      return Text("Version $installed. Couldn't check for a newer one.", style: muted);
+    }
+    if (!ConnectionsSetup.newer(latest, installed)) {
+      return Text('Version $installed, the newest.', style: muted);
+    }
+    final busy = vm.updating.contains(kind);
+    return Row(
+      spacing: 10,
+      children: [
+        Expanded(child: Text('Version $installed. $latest is out.', style: muted)),
+        Button(
+          variant: .outline,
+          size: .sm,
+          onPressed: busy
+              ? null
+              : () async {
+                  final ok = await vm.updateConnection(kind);
+                  if (!context.mounted || ok) return;
+                  showToast(
+                    context,
+                    title: "The update didn't finish",
+                    description: kind == 'ollama'
+                        ? 'Its download page is open: install the newest from there.'
+                        : 'Try again in a moment. If it keeps failing, reinstall it in setup.',
+                    type: .error,
+                  );
+                },
+          leading: busy ? const Spinner(size: 14) : null,
+          child: Text(busy ? 'Updating...' : 'Update to $latest'),
+        ),
       ],
     );
   }
