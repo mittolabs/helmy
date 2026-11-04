@@ -411,6 +411,20 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   String? get previewUrl =>
       (active?.kind == .preview ? active : tabs.where((t) => t.kind == .preview).lastOrNull)?.url;
 
+  /// A new session from this one, up to the answer that ends at item
+  /// [upTo]: the same folder and permissions, the conversation so far, and
+  /// a note of where it came from. Its id, or null when it could not be made.
+  Future<String?> fork(int upTo) async {
+    final s = session;
+    if (s == null) return null;
+    final made = await _sessions.create(cwd: s.cwd, level: s.level, title: '${s.title} fork');
+    if (made case Ok(:final value)) {
+      await _conversations.copy(s.id, value.id, upTo: upTo, note: 'Forked from "${s.title}"');
+      return value.id;
+    }
+    return null;
+  }
+
   /// An attached file shown: beside the conversation where there is a web
   /// view (pictures, PDFs and text show there), else in its own app.
   void showFile(String path) {

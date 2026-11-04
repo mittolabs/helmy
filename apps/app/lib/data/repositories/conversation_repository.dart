@@ -38,6 +38,11 @@ abstract class ConversationRepository extends ChangeNotifier {
   /// onto the screen.
   Future<String> searchText(String sessionId);
 
+  /// Copies [from]'s conversation up to item [upTo] (included) into [to],
+  /// then a note of where it came from: a fork. Its connections hear what
+  /// was said with the first message sent there.
+  Future<void> copy(String from, String to, {required int upTo, required String note});
+
   /// [needs] adds what the caller knows the message needs to what its words
   /// say: "make the collar red" from an image's Refine button needs a picture
   /// made, though it never says so.

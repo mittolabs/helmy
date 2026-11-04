@@ -4,7 +4,10 @@ part of '../chat_items.dart';
 /// while the answer is under the mouse, or one of them has the keyboard, and
 /// kept in the layout while hidden so nothing below moves.
 class _AnswerActions extends StatefulWidget {
-  const new(this.ask, this.latest, this.vm, {this.sentAt, this.endedAt});
+  const new(this.ask, this.latest, this.vm, {this.sentAt, this.endedAt, this.end});
+
+  /// Where the answer ends, to fork the conversation from.
+  final int? end;
 
   /// When the message went and when the answer finished: how long it took.
   final DateTime? sentAt, endedAt;
@@ -52,6 +55,15 @@ class _AnswerActionsState extends State<_AnswerActions> {
         label: 'Copy answer',
         onPressed: () => copyWithToast(context, vm, vm.answerAfter(ask)),
       ),
+      if (widget.end case final end?)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.gitFork,
+          label: 'Fork: a new session from here',
+          onPressed: () async {
+            final id = await vm.fork(end);
+            if (id != null && context.mounted) context.go('/s/$id');
+          },
+        ),
       if (latest)
         _IconAction(
           icon: AshlarIconsRoundedStroke.refreshCw,

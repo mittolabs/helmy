@@ -795,6 +795,22 @@ class ConversationRepositoryEngines extends ConversationRepository {
     _conversations.remove(sessionId);
   }
 
+  @override
+  Future<void> copy(String from, String to, {required int upTo, required String note}) async {
+    await load(from);
+    final source = of(from).items;
+    final target = of(to)
+      ..loaded = true
+      ..items.clear();
+    // Copies, not the same items: the two conversations go their own ways.
+    for (final i in source.take((upTo + 1).clamp(0, source.length))) {
+      target.items.add(ChatItem.fromJson(i.toJson()));
+    }
+    target.items.add(Notice(note));
+    await _persist(to);
+    if (!_disposed) notifyListeners();
+  }
+
   Future<void> _persist(String sessionId) => _storage.write(
     'transcripts/$sessionId.json',
     of(sessionId).items.map((i) => i.toJson()).toList(),
