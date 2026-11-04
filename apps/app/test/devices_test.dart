@@ -78,6 +78,12 @@ class FakeDevices extends DeviceService {
   @override
   Future<bool?> isDark(Device d) async => true;
 
+  /// What its screen says, as AXe describes it.
+  String? description = File('test/fixtures/axe_describe_ui.json').readAsStringSync();
+
+  @override
+  Future<String?> describe(Device d) async => description;
+
   // Pictures asked for, as where no stream is to be had.
   @override
   Future<Stream<Uint8List>?> stream(Device d) async => null;
@@ -224,6 +230,54 @@ void main() {
       expect(text(await screen('on-screen')), contains('shows live in the Device panel'));
       expect(text(await screen('elsewhere')), contains('user does not see it'));
       expect(shownFor, ['on-screen', 'elsewhere']);
+    });
+  });
+
+  group('reading and using a device by text', () {
+    Future<String> call(HelmyTools tools, String name, [Map args = const {}]) async {
+      final r = await tools.answer('tools/call', {'name': name, 'arguments': args});
+      return (((r['result']! as Map)['content'] as List).first as Map)['text'] as String;
+    }
+
+    test('the screen read as text, with refs; a step by ref taps its middle', () async {
+      final devices = FakeDevices();
+      final tools = HelmyTools(WatchService(CliLocator()), devices);
+      final read = await call(tools, 'device_read');
+      expect(read, startsWith('iPhone 17 Pro now:'));
+      final photos = RegExp(r'\[(d\d+)\] Button "Photos"').firstMatch(read)![1]!;
+      final done = await call(tools, 'device_act', {
+        'steps': [
+          {'do': 'tap', 'ref': photos},
+          {'do': 'tap', 'x': 10, 'y': 20},
+        ],
+      });
+      expect(done, startsWith('iPhone 17 Pro now:'));
+      expect(devices.taps.length, 2);
+      expect(devices.taps.last, (10.0, 20.0));
+    });
+
+    test('a ref not on the screen read last stops there, saying so, with the screen now', () async {
+      final devices = FakeDevices();
+      final tools = HelmyTools(WatchService(CliLocator()), devices);
+      await call(tools, 'device_read');
+      final r = await tools.answer('tools/call', {
+        'name': 'device_act',
+        'arguments': {
+          'steps': [
+            {'do': 'tap', 'ref': 'd999'},
+          ],
+        },
+      });
+      final text = (((r['result']! as Map)['content'] as List).first as Map)['text'] as String;
+      expect(text, startsWith('Step 1 (tap) did not go: no d999 on the screen read last'));
+      expect(text, contains('iPhone 17 Pro now:'));
+      expect(devices.taps, isEmpty);
+    });
+
+    test('a screen that cannot be read as text says where to look instead', () async {
+      final devices = FakeDevices()..description = null;
+      final tools = HelmyTools(WatchService(CliLocator()), devices);
+      expect(await call(tools, 'device_read'), contains('device_screen'));
     });
   });
 }

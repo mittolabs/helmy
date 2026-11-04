@@ -7,6 +7,7 @@ import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
 import 'chat_tools.dart';
 import 'devices.dart';
+import '../../domain/device_outline.dart';
 import 'watch_service.dart';
 
 /// Helmy's own tools, given to every connection: a small MCP server on this
@@ -52,6 +53,8 @@ class HelmyTools {
 
   static const deviceTools = [
     'device_list',
+    'device_read',
+    'device_act',
     'device_screen',
     'device_tap',
     'device_swipe',
@@ -237,6 +240,32 @@ class HelmyTools {
       readOnly: true,
     ),
     _tool(
+      'device_read',
+      "Read a device's screen",
+      "What is on the device's screen, as text: each button, field and label with a ref "
+          'like [d4] to act on with device_act. Faster and far cheaper than a picture: read '
+          'rather than look, unless how it looks matters. Starts the device if it is not running.',
+      readOnly: true,
+    ),
+    _tool(
+      'device_act',
+      'Use a device',
+      'Does several steps in order, then answers with the screen read again. Put every step '
+          'you already know in one call. Steps: {"do":"tap","ref":"d4"} or {"do":"tap","x":..,'
+          '"y":..}, {"do":"type","text":"…"} (into what has focus; tap the field first), '
+          '{"do":"press","key":"Enter"} (Enter, Backspace, Home), {"do":"swipe","dir":"up"} '
+          '(up, down, left, right: a screen\'s worth), {"do":"wait","ms":800}. Refs come from '
+          'the last device_read or device_act.',
+      properties: {
+        'steps': {
+          'type': 'array',
+          'items': {'type': 'object'},
+          'description': 'The steps, in order.',
+        },
+      },
+      required: ['steps'],
+    ),
+    _tool(
       'device_screen',
       "See a device's screen",
       "A picture of the device's screen now, with its size in the units device_tap takes. "
@@ -273,6 +302,83 @@ class HelmyTools {
     ),
     _tool('device_home', 'Press home', "Presses the device's home button."),
   ];
+
+  /// Each device's elements by ref, from its last reading.
+  final _refs = <String, Map<String, ScreenElement>>{};
+
+  /// [d]'s screen read as text, its refs kept for device_act.
+  Future<Map<String, Object?>> _read(
+    DeviceService devices,
+    Device d,
+    Map<String, Object?> Function(String, {bool error}) says,
+    bool shown,
+  ) async {
+    final raw = await devices.describe(d);
+    if (raw == null) {
+      return says(
+        "${d.name}'s screen can't be read as text now. device_screen shows it.",
+        error: true,
+      );
+    }
+    final elements = d.ios ? iosElements(raw) : androidElements(raw);
+    _refs[d.id] = {for (final e in elements) e.ref: e};
+    return says(
+      '${outline(d.name, elements)}'
+      '${shown ? '\n\nThe user sees it live in the Device panel.' : ''}',
+    );
+  }
+
+  /// One step of device_act; null when it went, else what went wrong.
+  Future<String?> _step(
+    DeviceService devices,
+    Device d,
+    Map step,
+    Map<String, ScreenElement> refs,
+  ) async {
+    double? n(String k) => (step[k] as num?)?.toDouble();
+    switch ('${step['do']}') {
+      case 'tap':
+        final ref = step['ref'] as String?;
+        final (double, double)? at = ref != null
+            ? (refs[ref] == null ? null : centerOf(refs[ref]!))
+            : (n('x') != null && n('y') != null ? (n('x')!, n('y')!) : null);
+        if (at == null) {
+          return ref == null ? 'give a ref, or x and y' : 'no $ref on the screen read last';
+        }
+        return await devices.tap(d, at.$1, at.$2) ? null : 'the tap did not reach the device';
+      case 'type':
+        return await devices.type(d, '${step['text'] ?? ''}')
+            ? null
+            : 'the typing did not reach it';
+      case 'press':
+        final key = '${step['key'] ?? 'Enter'}';
+        if (key == 'Home') return await devices.home(d) ? null : 'home did not reach it';
+        return await devices.keyPress(d, key) ? null : 'only Enter, Backspace and Home are pressed';
+      case 'swipe':
+        // A screen's worth, from the middle, measured on the screen read last.
+        final all = refs.values;
+        final w = all.isEmpty
+            ? (d.ios ? 400.0 : 1080.0)
+            : all.map((e) => e.x + e.width).reduce((a, b) => a > b ? a : b);
+        final h = all.isEmpty
+            ? (d.ios ? 870.0 : 2400.0)
+            : all.map((e) => e.y + e.height).reduce((a, b) => a > b ? a : b);
+        final (cx, cy) = (w / 2, h / 2);
+        final to = switch ('${step['dir'] ?? 'up'}') {
+          'down' => (cx, cy + h * .35),
+          'left' => (cx - w * .35, cy),
+          'right' => (cx + w * .35, cy),
+          _ => (cx, cy - h * .35),
+        };
+        return await devices.swipe(d, (cx, cy), to) ? null : 'the swipe did not reach it';
+      case 'wait':
+        await Future<void>.delayed(
+          Duration(milliseconds: (n('ms') ?? 500).clamp(0, 10000).toInt()),
+        );
+        return null;
+    }
+    return 'unknown step "${step['do']}"';
+  }
 
   Future<Map<String, Object?>> _device(
     String name,
@@ -347,6 +453,27 @@ class HelmyTools {
           ],
           'isError': false,
         };
+      case 'device_read':
+        return _read(devices, d, says, shown);
+      case 'device_act':
+        final steps = (args['steps'] as List?)?.whereType<Map>().toList() ?? const [];
+        if (steps.isEmpty) return says('Give the steps to do.', error: true);
+        final refs = _refs[d.id] ?? const {};
+        for (final (i, step) in steps.indexed) {
+          final wrong = await _step(devices, d, step, refs);
+          if (wrong != null) {
+            final now = await _read(devices, d, says, shown);
+            final text = ((now['content']! as List).first as Map)['text'];
+            return says(
+              'Step ${i + 1} (${step['do']}) did not go: $wrong'
+              '${i > 0 ? ' The steps before it were done.' : ''}\n\n$text',
+              error: true,
+            );
+          }
+        }
+        // A moment for the screen to settle before it is read.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        return _read(devices, d, says, shown);
       case 'device_tap':
         ok = await devices.tap(d, n('x'), n('y'));
       case 'device_swipe':

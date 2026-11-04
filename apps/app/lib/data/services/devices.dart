@@ -341,6 +341,42 @@ class DeviceService {
     return r?.exitCode == 0;
   }
 
+  /// The simulators whose apps have been made readable.
+  final _readableSims = <String>{};
+
+  /// A simulator's apps show their accessibility only when it is on, which a
+  /// new simulator has off: only the home screen reads until then (measured,
+  /// iOS 26: Settings gave nothing, then 43 labelled elements, without
+  /// relaunching). Turned on once per simulator.
+  Future<void> _readable(Device d) async {
+    if (!_readableSims.add(d.id)) return;
+    for (final key in ['AccessibilityEnabled', 'ApplicationAccessibilityEnabled']) {
+      await _run('xcrun', [
+        'simctl',
+        'spawn',
+        d.id,
+        'defaults',
+        'write',
+        'com.apple.Accessibility',
+        key,
+        '-bool',
+        'true',
+      ]);
+    }
+  }
+
+  /// What is on [d]'s screen, as its accessibility says (AXe's JSON on iOS,
+  /// uiautomator's XML on Android); null when it cannot be read.
+  Future<String?> describe(Device d) async {
+    if (d.ios) await _readable(d);
+    final r = d.ios
+        ? await _run('axe', ['describe-ui', '--udid', d.id])
+        : await _run('adb', ['-s', d.id, 'exec-out', 'uiautomator', 'dump', '/dev/tty']);
+    if (r == null || r.exitCode != 0) return null;
+    final out = '${r.stdout}';
+    return out.trim().isEmpty ? null : out;
+  }
+
   /// Taps [d] at ([x], [y]) in its screen's points (iOS) or pixels (Android).
   Future<bool> tap(Device d, double x, double y) async {
     if (d.ios) {
