@@ -336,23 +336,29 @@ class _DevicePanelState extends State<DevicePanel> {
             final ratio = picture.width / picture.height;
             // The picture's rectangle within the space, to turn a click
             // into a share of the device's screen.
-            final w = box.maxWidth / box.maxHeight > ratio ? box.maxHeight * ratio : box.maxWidth;
+            // Room for the phone's body around its screen: a bezel a twenty-fifth
+            // of its width, and its side buttons beyond.
+            final room = Size(box.maxWidth / 1.12, box.maxHeight / 1.09);
+            final w = room.width / room.height > ratio ? room.height * ratio : room.width;
             final h = w / ratio;
+            final bezel = w * .04;
+            final corner = w * (d.device?.ios == true ? .13 : .09);
             (double, double) share(Offset p) =>
                 ((p.dx / w).clamp(0.0, 1.0), (p.dy / h).clamp(0.0, 1.0));
-            return SizedBox(
-              width: w,
-              height: h,
+            return _Body(
+              screen: Size(w, h),
+              bezel: bezel,
+              corner: corner,
               child: Container(
                 foregroundDecoration: _typing
                     ? BoxDecoration(
                         border: Border.all(color: t.colors.ring, width: 2),
-                        borderRadius: .circular(w * .13),
+                        borderRadius: .circular(corner),
                       )
                     : null,
                 child: ClipRRect(
                   // The rounded corners of a phone's screen.
-                  borderRadius: .circular(w * .13),
+                  borderRadius: .circular(corner),
                   child: MouseRegion(
                     cursor: d.canTouch ? SystemMouseCursors.click : MouseCursor.defer,
                     child: Focus(
@@ -556,6 +562,63 @@ class _DeviceSettings extends StatelessWidget {
           },
           child: const AshlarIcon(AshlarIconsRoundedStroke.slidersHorizontal, size: 16),
         ),
+      ),
+    );
+  }
+}
+
+/// A phone's body around its screen: a dark bezel with a faint edge, the
+/// screen's own rounded corners inside, and its side buttons. Taps go to the
+/// screen within it, measured as before.
+class _Body extends StatelessWidget {
+  const _Body({
+    required this.screen,
+    required this.bezel,
+    required this.corner,
+    required this.child,
+  });
+  final Size screen;
+  final double bezel, corner;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    const body = Color(0xFF0D0D0F), edge = Color(0xFF3A3A3E);
+    Widget button(double top, double height, {required bool left}) => Positioned(
+      top: top,
+      left: left ? -2.5 : null,
+      right: left ? null : -2.5,
+      child: Container(
+        width: 3,
+        height: height,
+        decoration: BoxDecoration(color: edge, borderRadius: BorderRadius.circular(1.5)),
+      ),
+    );
+    final outer = Size(screen.width + bezel * 2, screen.height + bezel * 2);
+    return SizedBox(
+      width: outer.width,
+      height: outer.height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Volume and side buttons, by the share of the body's height.
+          button(outer.height * .17, outer.height * .06, left: true),
+          button(outer.height * .25, outer.height * .09, left: true),
+          button(outer.height * .36, outer.height * .09, left: true),
+          button(outer.height * .25, outer.height * .13, left: false),
+          Container(
+            padding: EdgeInsets.all(bezel),
+            decoration: BoxDecoration(
+              color: body,
+              borderRadius: BorderRadius.circular(corner + bezel),
+              border: Border.all(color: edge, width: 1.2),
+              boxShadow: const [
+                BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 10)),
+              ],
+            ),
+            child: SizedBox(width: screen.width, height: screen.height, child: child),
+          ),
+        ],
       ),
     );
   }
