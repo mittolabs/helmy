@@ -377,6 +377,53 @@ class DeviceService {
     return out.trim().isEmpty ? null : out;
   }
 
+  /// [d]'s recent log lines, newest last: the last [minutes], of [app] (a
+  /// process or package name) when given, else of installed apps on iOS (not
+  /// the system's thousands) and warnings and errors on Android; with [find],
+  /// only lines holding it; at most [max]. Null when it cannot be read.
+  Future<List<String>?> logs(
+    Device d, {
+    String? app,
+    String? find,
+    int minutes = 2,
+    int max = 150,
+  }) async {
+    final ProcessResult? r;
+    if (d.ios) {
+      final name = (app ?? '').replaceAll('"', '');
+      final who = name.isEmpty
+          ? 'processImagePath CONTAINS "/Containers/Bundle/Application/"'
+          : 'process == "$name" OR subsystem CONTAINS "$name"';
+      r = await _run('xcrun', [
+        'simctl', 'spawn', d.id, 'log', 'show', '--last', '${minutes}m', //
+        '--style', 'compact', '--predicate', who,
+      ]);
+    } else {
+      String? pid;
+      if (app != null && app.isNotEmpty) {
+        final out = await _run('adb', ['-s', d.id, 'shell', 'pidof', app]);
+        pid = '${out?.stdout ?? ''}'.trim().split(' ').first;
+        if (pid.isEmpty) return ['$app is not running on ${d.name}.'];
+      }
+      final since = DateTime.now().subtract(Duration(minutes: minutes)).toString().substring(5, 23);
+      r = await _run('adb', [
+        '-s', d.id, 'logcat', '-d', '-v', 'time', '-T', since, //
+        if (pid != null) '--pid=$pid' else '*:W',
+      ]);
+    }
+    if (r == null || r.exitCode != 0) return null;
+    final want = find?.toLowerCase();
+    final lines = [
+      for (final l in '${r.stdout}'.split('\n'))
+        if (l.trim().isNotEmpty &&
+            !l.startsWith('Timestamp') &&
+            !l.startsWith('---------') &&
+            (want == null || want.isEmpty || l.toLowerCase().contains(want)))
+          l,
+    ];
+    return lines.length <= max ? lines : lines.sublist(lines.length - max);
+  }
+
   /// Taps [d] at ([x], [y]) in its screen's points (iOS) or pixels (Android).
   Future<bool> tap(Device d, double x, double y) async {
     if (d.ios) {

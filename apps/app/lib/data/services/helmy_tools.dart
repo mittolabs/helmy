@@ -55,6 +55,7 @@ class HelmyTools {
     'device_list',
     'device_read',
     'device_act',
+    'device_logs',
     'device_screen',
     'device_tap',
     'device_swipe',
@@ -266,6 +267,20 @@ class HelmyTools {
       required: ['steps'],
     ),
     _tool(
+      'device_logs',
+      "A device's logs",
+      'Recent log lines from the device, newest last: what an app printed and the errors it '
+          "hit. Without app, every installed app's (iOS) or warnings and errors (Android); "
+          'with app (its process or package name), only its own; with find, only lines '
+          'holding those words. Check here when something in the app does not work.',
+      properties: {
+        'app': {'type': 'string', 'description': 'The process (iOS) or package (Android) name.'},
+        'find': {'type': 'string', 'description': 'Words the lines must hold.'},
+        'minutes': {'type': 'number', 'description': 'How far back; 2 to start with.'},
+      },
+      readOnly: true,
+    ),
+    _tool(
       'device_screen',
       "See a device's screen",
       "A picture of the device's screen now, with its size in the units device_tap takes. "
@@ -453,6 +468,21 @@ class HelmyTools {
           ],
           'isError': false,
         };
+      case 'device_logs':
+        final minutes = ((args['minutes'] as num?) ?? 2).clamp(1, 30).toInt();
+        final find = args['find'] as String?;
+        final lines = await devices.logs(
+          d,
+          app: args['app'] as String?,
+          find: find,
+          minutes: minutes,
+        );
+        if (lines == null) return says("${d.name}'s logs can't be read now.", error: true);
+        if (lines.isEmpty) {
+          final holding = find == null ? '' : ' holding "$find"';
+          return says('Nothing in the last $minutes minutes$holding.');
+        }
+        return says(lines.join('\n'));
       case 'device_read':
         return _read(devices, d, says, shown);
       case 'device_act':
