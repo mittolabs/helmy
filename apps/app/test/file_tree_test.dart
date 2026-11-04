@@ -12,9 +12,9 @@ void main() {
     'Makefile',
   ];
 
-  String show(List<FileRow> rows) => [
-    for (final r in rows) '${'  ' * r.depth}${r.name}${r.folder ? (r.open ? '/ v' : '/') : ''}',
-  ].join('\n');
+  String show(List<FileRow> rows) =>
+      [for (final r in rows) '${'  ' * r.depth}${r.name}${r.folder ? (r.open ? '/ v' : '/') : ''}']
+          .join('\n');
 
   test('folders first, then files, by name with case aside', () {
     expect(show(visibleRows(files, {})), 'apps/app/\nlib/\nMakefile\nREADME.md');

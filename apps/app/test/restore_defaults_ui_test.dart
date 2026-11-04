@@ -46,7 +46,10 @@ void main() {
 
     // Two rows changed, each with its way back; the others without.
     expect(find.bySemanticsLabel('Put Theme back to how Helmy has it'), findsOneWidget);
-    expect(find.bySemanticsLabel('Put Wrap long code blocks back to how Helmy has it'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Put Wrap long code blocks back to how Helmy has it'),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel('Put Text size back to how Helmy has it'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('Put Theme back to how Helmy has it'));

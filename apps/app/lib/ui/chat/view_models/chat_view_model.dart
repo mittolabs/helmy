@@ -121,6 +121,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<void> _findRepo() async {
     final cwd = session?.cwd;
     if (cwd == null || cwd == _askedFor) return;
+    // Its own copy, tidied away (archived, merged): back on its branch.
+    if (session case final s? when s.ownCopy && !Directory(cwd).existsSync()) {
+      await _projects?.restoreCopy(s);
+    }
     // The session moved into its own copy while open here (its first
     // message made it): what is to run in each new copy runs there now.
     final intoCopy = _askedFor != null && (session?.ownCopy ?? false);
@@ -1158,6 +1162,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   Future<void> delete() async {
+    // Its own working copy goes with it, unless it holds uncommitted work;
+    // its branch stays either way.
+    if (session case final s? when s.ownCopy) await _projects?.removeCopy(s.repo!, s.cwd);
     // A folder of its own (no project) is Helmy's, and goes with it.
     final cwd = session?.cwd;
     if (cwd != null && isScratch(cwd)) {

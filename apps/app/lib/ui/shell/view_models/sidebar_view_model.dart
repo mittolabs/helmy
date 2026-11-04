@@ -33,6 +33,9 @@ class SidebarViewModel extends ChangeNotifier {
     _sessions.addListener(notifyListeners);
     _settings.addListener(notifyListeners);
     _conversations.addListener(_onConversations);
+    // Working copies and checkouts kept in order: now, then now and again.
+    unawaited(_tidy());
+    _tidyTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(_tidy()));
     create = Command0(
       () async => _sessions.create(
         cwd: defaultFolder,
@@ -205,9 +208,32 @@ class SidebarViewModel extends ChangeNotifier {
 
   Future<void> setPinned(Session s, bool pinned) => _sessions.save(s.copyWith(pinned: pinned));
 
-  Future<void> setArchived(Session s, bool archived) {
+  Future<void> setArchived(Session s, bool archived) async {
     lastArchived = archived ? s : null;
-    return _sessions.save(s.copyWith(archived: archived, pinned: archived ? false : null));
+    await _sessions.save(s.copyWith(archived: archived, pinned: archived ? false : null));
+    // Archived, its copy can go (it comes back when the session is opened).
+    if (archived && s.ownCopy) unawaited(_tidy());
+  }
+
+  Timer? _tidyTimer;
+  bool _tidying = false;
+
+  Future<void> _tidy() async {
+    final projects = _projects;
+    if (projects == null || _tidying) return;
+    _tidying = true;
+    try {
+      // Never a copy a session is working in right now.
+      final working = {
+        for (final s in _sessions.sessions)
+          if (_conversations.of(s.id).busy) s.id,
+      };
+      await projects.tidy(_sessions.sessions, working: working);
+    } on Object {
+      // Tried again next time.
+    } finally {
+      _tidying = false;
+    }
   }
 
   /// Where a new session starts: the folder last worked in or the one set in
@@ -317,6 +343,7 @@ class SidebarViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _tidyTimer?.cancel();
     _sessions.removeListener(notifyListeners);
     _settings.removeListener(notifyListeners);
     _conversations.removeListener(_onConversations);

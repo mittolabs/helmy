@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import '../../domain/models/engine.dart';
+import '../../domain/models/session.dart';
 import '../services/worktrees.dart';
 import 'settings_repository.dart';
 
@@ -15,6 +18,16 @@ abstract class ProjectRepository {
   /// Removes a session's own working copy at [path] of [repo], keeping its
   /// branch; refused (false) while it holds uncommitted work.
   Future<bool> removeCopy(String repo, String path);
+
+  /// Puts back a session's working copy tidied away, on its branch.
+  Future<bool> restoreCopy(Session session);
+
+  /// Keeps working copies and checkouts in order, for [sessions]: copies of
+  /// archived sessions, of merged branches, and of no session go (never one
+  /// with uncommitted work; branches stay), and default branches are brought
+  /// up to date where that can do no harm. Sessions in [working] are at work
+  /// now: their copies count as theirs and are not touched. What was done.
+  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}});
 }
 
 class ProjectRepositoryGit implements ProjectRepository {
@@ -34,4 +47,52 @@ class ProjectRepositoryGit implements ProjectRepository {
 
   @override
   Future<bool> removeCopy(String repo, String path) => _git.remove(repo, path);
+
+  @override
+  Future<bool> restoreCopy(Session s) async {
+    if (!s.ownCopy) return true;
+    return _git.restore(s.repo!, s.cwd, s.branch!);
+  }
+
+  @override
+  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}}) async {
+    final done = <String>[];
+    final copies = [
+      for (final s in sessions)
+        if (s.ownCopy) s,
+    ];
+    for (final s in copies) {
+      if (working.contains(s.id) || !Directory(s.cwd).existsSync()) continue;
+      final why = s.archived
+          ? 'archived'
+          : await _git.merged(s.repo!, s.branch!)
+          ? 'merged'
+          : null;
+      if (why != null && await _git.remove(s.repo!, s.cwd)) done.add('Removed ${s.cwd} ($why)');
+    }
+    // Copies no session has (left by a crash, or a session deleted elsewhere).
+    final repos = {
+      for (final s in sessions)
+        if (s.repo != null) s.repo!,
+    };
+    final owned = {for (final s in copies) Worktrees.canonical(s.cwd)};
+    for (final repo in repos) {
+      for (final path in await _git.copiesOf(repo)) {
+        if (!owned.contains(path) && await _git.remove(repo, path)) {
+          done.add('Removed $path (no session)');
+        }
+      }
+    }
+    // The default branch of each project worked in, kept current.
+    if (_settings.settings.keepDefaultCurrent) {
+      final checkouts = {
+        for (final s in sessions)
+          if (!s.archived) s.repo ?? await _git.repoOf(s.cwd),
+      }.whereType<String>();
+      for (final repo in checkouts) {
+        if (await _git.pullIfClean(repo)) done.add('Brought $repo up to date');
+      }
+    }
+    return done;
+  }
 }

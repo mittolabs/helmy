@@ -66,10 +66,9 @@ void main() {
   });
 
   test('accounts join and leave the running registry', () {
-    final registry = EngineRegistry(
-      [...CodexEngine.discover(CliLocator(), home.path)],
-      account: (id, folder) => CodexEngine(CliLocator(), id: id, home: folder),
-    );
+    final registry = EngineRegistry([
+      ...CodexEngine.discover(CliLocator(), home.path),
+    ], account: (id, folder) => CodexEngine(CliLocator(), id: id, home: folder));
     registry.add('codex-2', '${home.path}/.codex-2');
     registry.add('codex-2', '${home.path}/.codex-2');
     expect([for (final e in registry.engines) e.info.id], ['codex', 'codex-2']);

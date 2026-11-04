@@ -31,7 +31,9 @@ void main() {
       disabledEngines: {'codex'},
       setupDone: true,
       projects: {
-        '/p': ProjectSettings(actions: [ProjectAction(name: 'dev', command: 'npm run dev')]),
+        '/p': ProjectSettings(
+          actions: [ProjectAction(name: 'dev', command: 'npm run dev')],
+        ),
       },
     );
     final all = withDefaults(s);

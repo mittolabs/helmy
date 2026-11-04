@@ -164,6 +164,10 @@ class const AppSettings({
   /// The app projects open in, by bundle id, as last chosen; null lets
   /// Helmy pick the editor used most recently.
   final String? editor,
+
+  /// Each project's default branch brought up to date when its checkout is
+  /// on it with nothing of its own (fast-forward only).
+  final bool keepDefaultCurrent = true,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -196,6 +200,7 @@ class const AppSettings({
     PreviewEngine? previewWith,
     String? chromiumBrowser,
     String? editor,
+    bool? keepDefaultCurrent,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -226,6 +231,7 @@ class const AppSettings({
     previewWith: previewWith ?? this.previewWith,
     chromiumBrowser: chromiumBrowser ?? this.chromiumBrowser,
     editor: editor ?? this.editor,
+    keepDefaultCurrent: keepDefaultCurrent ?? this.keepDefaultCurrent,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -258,6 +264,7 @@ class const AppSettings({
     'previewWith': previewWith.name,
     'chromiumBrowser': chromiumBrowser,
     'editor': editor,
+    'keepDefaultCurrent': keepDefaultCurrent,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -293,6 +300,7 @@ class const AppSettings({
     previewWith: PreviewEngine.values.asNameMap()[json['previewWith']] ?? .system,
     chromiumBrowser: json['chromiumBrowser'] as String?,
     editor: json['editor'] as String?,
+    keepDefaultCurrent: json['keepDefaultCurrent'] as bool? ?? true,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
@@ -318,6 +326,7 @@ const restorableSettings = <String, List<String>>{
   'Keep sessions running when the window closes': ['keepRunning'],
   'Send with': ['sendWithEnter'],
   'Each session on its own branch': ['ownCopies'],
+  'Keep default branches current': ['keepDefaultCurrent'],
   'Send error reports': ['sendErrors'],
   'Show steps open': ['stepsOpen'],
   'Ask before deleting a session': ['confirmDelete'],

@@ -10,7 +10,10 @@ void main() {
   test('versions here and published, read for real (nothing is updated)', () async {
     final setup = ConnectionsSetup(CliLocator(), DesktopService());
     for (final kind in ['claude', 'codex', 'ollama']) {
-      final (installed, latest) = await (setup.installedVersion(kind), setup.latestVersion(kind)).wait;
+      final (installed, latest) = await (
+        setup.installedVersion(kind),
+        setup.latestVersion(kind),
+      ).wait;
       // ignore: avoid_print
       print('$kind: installed $installed, newest $latest');
       expect(installed, isNotNull, reason: '$kind is installed on this Mac');

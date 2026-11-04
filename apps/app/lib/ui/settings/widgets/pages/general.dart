@@ -59,6 +59,18 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
+          title: 'Keep default branches current',
+          description:
+              "A project's main branch is brought up to date in the background when its "
+              'checkout is on it with nothing of its own: no changes, no commits. Never a '
+              'merge, never anything of yours touched.',
+          control: Switch(
+            value: s.keepDefaultCurrent,
+            semanticLabel: 'Keep default branches current',
+            onChanged: (v) => vm.update(s.copyWith(keepDefaultCurrent: v)),
+          ),
+        ),
+        _Row(
           title: 'Send error reports',
           description: ErrorReports.configured
               ? "When something in Helmy itself goes wrong, what went wrong in its code goes "

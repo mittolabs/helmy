@@ -102,7 +102,10 @@ void main() {
 
   test('brought back as a file with the next message, only what was said in it', () async {
     final id = await start();
-    repo.of(id).items.addAll([UserMessage('Why blue?'), AssistantText('b:0', 'It matches the logo.')]);
+    repo.of(id).items.addAll([
+      UserMessage('Why blue?'),
+      AssistantText('b:0', 'It matches the logo.'),
+    ]);
     expect(await vm.bringBack(id), isTrue);
     final file = File(vm.attachments.single);
     final text = file.readAsStringSync();

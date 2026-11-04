@@ -194,4 +194,19 @@ class FakeProjectRepository implements ProjectRepository {
     removed.add(path);
     return true;
   }
+
+  final restored = <String>[];
+  var tidied = 0;
+
+  @override
+  Future<bool> restoreCopy(Session session) async {
+    restored.add(session.cwd);
+    return true;
+  }
+
+  @override
+  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}}) async {
+    tidied++;
+    return const [];
+  }
 }
