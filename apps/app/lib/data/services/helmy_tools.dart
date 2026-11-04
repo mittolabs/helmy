@@ -13,10 +13,6 @@ class HelmyTools {
   HelmyTools(this._watch);
   final WatchService _watch;
 
-  /// The app's, set where it is put together; null in tests, and then the
-  /// connections start without Helmy's tools.
-  static HelmyTools? current;
-
   HttpServer? _server;
   final _secret = List.generate(24, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
 

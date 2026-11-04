@@ -21,7 +21,7 @@ import '../ollama/ollama_doctor.dart';
 /// Codex, driven through `codex app-server`: one thread per session, approvals
 /// answered from the app.
 class CodexEngine implements AgentEngine {
-  new(this._locator)
+  new(this._locator, {this.tools})
     : info = const EngineInfo(
         id: 'codex',
         name: 'Codex',
@@ -33,7 +33,7 @@ class CodexEngine implements AgentEngine {
   /// Codex's agent on a model Ollama runs on this Mac: tools, approvals and
   /// all, with no internet. Chosen only when nothing online can answer.
   /// [model] is the one picked in settings, or null for the first pulled.
-  new local(this._locator, {required String? Function() model})
+  new local(this._locator, {required String? Function() model, this.tools})
     : info = const EngineInfo(
         id: 'ollama',
         name: 'Codex on Ollama (this computer)',
@@ -43,6 +43,9 @@ class CodexEngine implements AgentEngine {
       _local = model;
 
   final CliLocator _locator;
+
+  /// Helmy's own tools, given to every run; none in tests.
+  final HelmyTools? tools;
 
   /// Set for the local engine: which Ollama model to use.
   final String? Function()? _local;
@@ -348,6 +351,7 @@ class CodexEngine implements AgentEngine {
       () => commands(launch.cwd),
       // The local engine: Codex's own provider for Ollama, and its model.
       local == null ? const {} : {'modelProvider': 'ollama', 'model': local},
+      await tools?.url,
     );
     run._ready = run._open(launch);
     return run;
@@ -355,7 +359,7 @@ class CodexEngine implements AgentEngine {
 }
 
 class _CodexRun implements EngineRun {
-  new(this._rpc, this._reducer, this._skills, this._provider) {
+  new(this._rpc, this._reducer, this._skills, this._provider, this._toolsUrl) {
     _rpc.incoming.listen(_onMessage, onDone: _changes.close);
   }
 
@@ -365,6 +369,9 @@ class _CodexRun implements EngineRun {
 
   /// Which provider and model the thread runs on, when not Codex's default.
   final Map<String, Object?> _provider;
+
+  /// Helmy's own tools' address, when the app serves them.
+  final String? _toolsUrl;
   final _changes = StreamController<bool>.broadcast();
   late Future<String?> _ready;
   String? _threadId;
@@ -394,7 +401,7 @@ class _CodexRun implements EngineRun {
         'capabilities': null,
       });
       _rpc.notify('initialized', {});
-      final tools = await HelmyTools.current?.url;
+      final tools = _toolsUrl;
       final settings = {
         // Helmy's own tools, as an MCP server it runs.
         if (tools != null)

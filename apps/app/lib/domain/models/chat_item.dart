@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../data/services/snapshots.dart';
+import 'snapshot.dart';
 
 /// One thing shown in a conversation. Items are mutable while a turn streams
 /// in, and serialised so a conversation survives a restart.

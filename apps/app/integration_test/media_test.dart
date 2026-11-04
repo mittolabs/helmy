@@ -21,10 +21,16 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 const samples = String.fromEnvironment('SAMPLES');
 
+/// The corner player, as the app provides it.
+final corner = PoppedOut();
+
 Future<void> show(WidgetTester tester, String file) async {
   await tester.pumpWidget(
-    Provider(
-      create: (_) => DesktopService(),
+    MultiProvider(
+      providers: [
+        Provider(create: (_) => DesktopService()),
+        ChangeNotifierProvider.value(value: corner),
+      ],
       child: AshlarApp(
         theme: appTheme,
         darkTheme: appDarkTheme,
@@ -147,8 +153,11 @@ void main() {
     FloatingPlayers.enabled = false;
     addTearDown(() => FloatingPlayers.enabled = true);
     await tester.pumpWidget(
-      Provider(
-        create: (_) => DesktopService(),
+      MultiProvider(
+        providers: [
+          Provider(create: (_) => DesktopService()),
+          ChangeNotifierProvider.value(value: corner),
+        ],
         child: AshlarApp(
           theme: appTheme,
           darkTheme: appDarkTheme,
@@ -174,10 +183,10 @@ void main() {
     await until(tester, () => find.text('Playing in the corner.').evaluate().isNotEmpty);
     expect(find.text('Playing in the corner.'), findsOneWidget);
     expect(find.byType(VideoPlayer), findsOneWidget, reason: 'now in the corner');
-    expect(PoppedOut.instance.controller!.value.isPlaying, isTrue, reason: 'still playing');
+    expect(corner.controller!.value.isPlaying, isTrue, reason: 'still playing');
     await tester.tap(find.text('Bring it back'));
     await until(tester, () => find.text('Playing in the corner.').evaluate().isEmpty);
-    expect(PoppedOut.instance.controller, isNull);
+    expect(corner.controller, isNull);
     expect(find.byType(VideoPlayer), findsOneWidget, reason: 'back in its place');
   });
 
@@ -196,6 +205,7 @@ void main() {
         providers: [
           Provider(create: (_) => DesktopService()),
           Provider(create: (_) => WatchService(CliLocator())),
+          ChangeNotifierProvider.value(value: corner),
         ],
         child: AshlarApp(
           theme: appTheme,

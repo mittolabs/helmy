@@ -1,4 +1,4 @@
-import '../../data/services/snapshots.dart';
+import 'snapshot.dart';
 import 'engine.dart';
 
 /// One engine's side of a conversation: its own thread, and how much of the

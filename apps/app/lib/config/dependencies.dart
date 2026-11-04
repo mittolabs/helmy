@@ -32,6 +32,7 @@ import '../data/services/connections_setup.dart';
 import '../data/repositories/ship_repository.dart';
 import '../data/services/shipping.dart';
 import '../data/services/fixes.dart';
+import '../ui/chat/widgets/player.dart' show PoppedOut;
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -59,7 +60,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // Helmy's own tools (watching a video), served to every connection.
   Provider(
     lazy: false,
-    create: (context) => HelmyTools.current = HelmyTools(context.read()),
+    create: (context) => HelmyTools(context.read()),
     dispose: (_, tools) => unawaited(tools.close()),
   ),
   // Add an engine here and the router starts using it. The order breaks ties
@@ -67,12 +68,16 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(
     create: (context) => EngineRegistry([
       // Every Claude Code account on the machine, each with its own limits.
-      ...ClaudeEngine.discover(context.read(), homeDir),
-      CodexEngine(context.read()),
+      ...ClaudeEngine.discover(context.read(), homeDir, tools: context.read()),
+      CodexEngine(context.read(), tools: context.read()),
       // A model on this Mac, for when nothing online can answer: directly for a
       // message that needs no tools, through Codex's agent for one that does.
       OllamaChatEngine(model: () => loaded.settings.settings.ollamaModel),
-      CodexEngine.local(context.read(), model: () => loaded.settings.settings.ollamaModel),
+      CodexEngine.local(
+        context.read(),
+        model: () => loaded.settings.settings.ollamaModel,
+        tools: context.read(),
+      ),
     ]),
   ),
   Provider<EngineRouter>(
@@ -105,6 +110,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => NotifyService()),
   Provider(create: (context) => ChatExport(context.read(), context.read())),
   Provider(create: (_) => DesktopService()),
+  // A video popped out to a corner of the window: one for the app.
+  ChangeNotifierProvider(create: (_) => PoppedOut()),
   // Getting the connections ready: after what it uses.
   Provider(create: (context) => ConnectionsSetup(context.read(), context.read())),
   Provider(create: (context) => Fixes(context.read(), context.read())),

@@ -19,7 +19,7 @@ import '../../helmy_tools.dart';
 class ClaudeEngine implements AgentEngine {
   /// One Claude Code login. [configDir] is the account's CLAUDE_CONFIG_DIR;
   /// null is the default account in ~/.claude.
-  new(this._locator, {String id = 'claude', this.configDir})
+  new(this._locator, {String id = 'claude', this.configDir, this.tools})
     : info = EngineInfo(
         id: id,
         name: 'Claude Code ($id)',
@@ -30,6 +30,9 @@ class ClaudeEngine implements AgentEngine {
   final CliLocator _locator;
   final String? configDir;
 
+  /// Helmy's own tools, given to every run; none in tests.
+  final HelmyTools? tools;
+
   @override
   final EngineInfo info;
 
@@ -38,8 +41,8 @@ class ClaudeEngine implements AgentEngine {
   /// Every Claude Code account on this machine: ~/.claude, and each
   /// `~/.claude-<name>` folder as the account `claude-<name>`, the way a shell
   /// function setting CLAUDE_CONFIG_DIR makes one.
-  static List<ClaudeEngine> discover(CliLocator locator, String home) {
-    final accounts = [ClaudeEngine(locator)];
+  static List<ClaudeEngine> discover(CliLocator locator, String home, {HelmyTools? tools}) {
+    final accounts = [ClaudeEngine(locator, tools: tools)];
     final dir = Directory(home);
     if (home.isEmpty || !dir.existsSync()) return accounts;
     final folders =
@@ -51,7 +54,9 @@ class ClaudeEngine implements AgentEngine {
             .toList()
           ..sort();
     for (final name in folders) {
-      accounts.add(ClaudeEngine(locator, id: name.substring(1), configDir: '$home/$name'));
+      accounts.add(
+        ClaudeEngine(locator, id: name.substring(1), configDir: '$home/$name', tools: tools),
+      );
     }
     return accounts;
   }
@@ -287,7 +292,7 @@ class ClaudeEngine implements AgentEngine {
       resume: launch.resumeId,
       // Whichever account answers, it answers as Helmy.
       appendSystemPrompt: helmyIdentity,
-      toolsUrl: await HelmyTools.current?.url,
+      toolsUrl: await tools?.url,
       allowedTools: HelmyTools.claudeTools,
     );
     return _ClaudeRun(process, ClaudeReducer(items), launch.resumeId);

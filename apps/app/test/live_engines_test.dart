@@ -29,7 +29,9 @@ import 'package:helmy/data/services/helmy_tools.dart';
 /// few cents. Run with: fvm flutter test --tags live --run-skipped
 void main() {
   final locator = CliLocator();
-  final claude = ClaudeEngine(locator), codex = CodexEngine(locator);
+  // Helmy's own tools, served as the app serves them.
+  final tools = HelmyTools(WatchService(locator));
+  final claude = ClaudeEngine(locator, tools: tools), codex = CodexEngine(locator, tools: tools);
 
   for (final engine in [claude, codex]) {
     test('${engine.info.name}: approved write, then a resumed turn', () async {
@@ -223,7 +225,6 @@ void main() {
 
   for (final engine in [claude, codex]) {
     test('${engine.info.name}: watches a video with Helmy\'s own tool', () async {
-      HelmyTools.current ??= HelmyTools(WatchService(CliLocator()));
       final h = await _Live.make([engine], _Scripted([engine.info.id]));
       await Process.run('ffmpeg', [
         '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=320x180:d=3', //

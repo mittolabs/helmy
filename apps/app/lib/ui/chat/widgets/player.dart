@@ -44,6 +44,9 @@ class _PlayerState extends State<Player> {
   final _focus = FocusNode(debugLabel: 'player');
   bool _failed = false;
 
+  /// The corner player, the app's one (given by provider).
+  late final PoppedOut _corner = context.read<PoppedOut>();
+
   /// Small frames along the video, for the bar's preview on hover; made once,
   /// for a file, where ffmpeg is.
   List<Frame> _strip = const [];
@@ -52,7 +55,7 @@ class _PlayerState extends State<Player> {
   void initState() {
     super.initState();
     _c.addListener(_changed);
-    PoppedOut.instance.addListener(_changed);
+    _corner.addListener(_changed);
     _c.initialize().then(
       (_) => _changed(),
       onError: (Object _) {
@@ -74,10 +77,10 @@ class _PlayerState extends State<Player> {
   @override
   void dispose() {
     _c.removeListener(_changed);
-    PoppedOut.instance.removeListener(_changed);
+    _corner.removeListener(_changed);
     // Playing in the corner, it is the corner's now; else it ends here.
-    if (PoppedOut.instance.controller == _c) {
-      PoppedOut.instance.orphan();
+    if (_corner.controller == _c) {
+      _corner.orphan();
     } else {
       _c.dispose();
     }
@@ -96,7 +99,7 @@ class _PlayerState extends State<Player> {
     final id = await FloatingPlayers.open(_c, where: where, words: widget.words, onBack: _takeBack);
     if (!mounted) return;
     if (id == null) {
-      PoppedOut.instance.take(_c, widget.words);
+      _corner.take(_c, widget.words);
       unawaited(_c.play());
     } else {
       setState(() => _floating = id);
@@ -169,7 +172,7 @@ class _PlayerState extends State<Player> {
         ),
       );
     }
-    if (PoppedOut.instance.controller == _c) {
+    if (_corner.controller == _c) {
       return _Frame(
         child: Padding(
           padding: const .all(12),
@@ -185,7 +188,7 @@ class _PlayerState extends State<Player> {
               Button(
                 variant: .outline,
                 size: .sm,
-                onPressed: PoppedOut.instance.giveBack,
+                onPressed: _corner.giveBack,
                 child: const Text('Bring it back'),
               ),
             ],
@@ -660,9 +663,6 @@ class _Preview extends StatelessWidget {
 /// another gives the first back. The corner owns it once the message it came
 /// from is gone, and ends it when closed.
 class PoppedOut extends ChangeNotifier {
-  PoppedOut._();
-  static final instance = PoppedOut._();
-
   VideoPlayerController? controller;
   String words = '';
 
@@ -702,101 +702,106 @@ class CornerPlayer extends StatelessWidget {
   const CornerPlayer({super.key});
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: PoppedOut.instance,
-    builder: (context, _) {
-      final c = PoppedOut.instance.controller;
-      if (c == null) return const SizedBox.shrink();
-      final t = AshlarTheme.of(context);
-      return PositionedDirectional(
-        end: 16,
-        bottom: 16,
-        width: 320,
-        child: ListenableBuilder(
-          listenable: c,
-          builder: (context, _) => Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF000000),
-              border: Border.all(color: t.colors.border),
-              borderRadius: .circular(t.radiusLg),
-              boxShadow: t.shadowLg,
-            ),
-            clipBehavior: .antiAlias,
-            child: Column(
-              mainAxisSize: .min,
-              children: [
-                AspectRatio(
-                  aspectRatio: c.value.aspectRatio,
-                  child: _Picture(
-                    controller: c,
-                    words: PoppedOut.instance.words,
-                    onTap: () => togglePlay(c),
-                    onDoubleTap: PoppedOut.instance.giveBack,
+  Widget build(BuildContext context) {
+    // None given (a screen drawn on its own, in a test): no corner player.
+    final corner = context.read<PoppedOut?>();
+    if (corner == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: corner,
+      builder: (context, _) {
+        final c = corner.controller;
+        if (c == null) return const SizedBox.shrink();
+        final t = AshlarTheme.of(context);
+        return PositionedDirectional(
+          end: 16,
+          bottom: 16,
+          width: 320,
+          child: ListenableBuilder(
+            listenable: c,
+            builder: (context, _) => Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF000000),
+                border: Border.all(color: t.colors.border),
+                borderRadius: .circular(t.radiusLg),
+                boxShadow: t.shadowLg,
+              ),
+              clipBehavior: .antiAlias,
+              child: Column(
+                mainAxisSize: .min,
+                children: [
+                  AspectRatio(
+                    aspectRatio: c.value.aspectRatio,
+                    child: _Picture(
+                      controller: c,
+                      words: corner.words,
+                      onTap: () => togglePlay(c),
+                      onDoubleTap: corner.giveBack,
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const .symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    children: [
-                      Button(
-                        variant: .ghost,
-                        size: .iconXs,
-                        semanticLabel: c.value.isPlaying ? 'Pause' : 'Play',
-                        onPressed: () => togglePlay(c),
-                        child: AshlarIcon(
-                          c.value.isPlaying
-                              ? AshlarIconsRoundedStroke.pause
-                              : AshlarIconsRoundedStroke.play,
-                          size: 14,
-                          color: const Color(0xFFFFFFFF),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          PoppedOut.instance.words,
-                          maxLines: 1,
-                          overflow: .ellipsis,
-                          style: t.text.xs.copyWith(color: const Color(0xB3FFFFFF)),
-                        ),
-                      ),
-                      Tooltip(
-                        message: 'Back to the conversation',
-                        child: Button(
+                  Padding(
+                    padding: const .symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      children: [
+                        Button(
                           variant: .ghost,
                           size: .iconXs,
-                          semanticLabel: 'Back to the conversation',
-                          onPressed: PoppedOut.instance.giveBack,
-                          child: const AshlarIcon(
-                            AshlarIconsRoundedStroke.arrowUpLeft,
+                          semanticLabel: c.value.isPlaying ? 'Pause' : 'Play',
+                          onPressed: () => togglePlay(c),
+                          child: AshlarIcon(
+                            c.value.isPlaying
+                                ? AshlarIconsRoundedStroke.pause
+                                : AshlarIconsRoundedStroke.play,
                             size: 14,
-                            color: Color(0xFFFFFFFF),
+                            color: const Color(0xFFFFFFFF),
                           ),
                         ),
-                      ),
-                      Tooltip(
-                        message: 'Close',
-                        child: Button(
-                          variant: .ghost,
-                          size: .iconXs,
-                          semanticLabel: 'Close the corner player',
-                          onPressed: PoppedOut.instance.close,
-                          child: const AshlarIcon(
-                            AshlarIconsRoundedStroke.x,
-                            size: 14,
-                            color: Color(0xFFFFFFFF),
+                        Expanded(
+                          child: Text(
+                            corner.words,
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                            style: t.text.xs.copyWith(color: const Color(0xB3FFFFFF)),
                           ),
                         ),
-                      ),
-                    ],
+                        Tooltip(
+                          message: 'Back to the conversation',
+                          child: Button(
+                            variant: .ghost,
+                            size: .iconXs,
+                            semanticLabel: 'Back to the conversation',
+                            onPressed: corner.giveBack,
+                            child: const AshlarIcon(
+                              AshlarIconsRoundedStroke.arrowUpLeft,
+                              size: 14,
+                              color: Color(0xFFFFFFFF),
+                            ),
+                          ),
+                        ),
+                        Tooltip(
+                          message: 'Close',
+                          child: Button(
+                            variant: .ghost,
+                            size: .iconXs,
+                            semanticLabel: 'Close the corner player',
+                            onPressed: corner.close,
+                            child: const AshlarIcon(
+                              AshlarIconsRoundedStroke.x,
+                              size: 14,
+                              color: Color(0xFFFFFFFF),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }
 
 /// The video filling the window, on black, its controls over the bottom.
