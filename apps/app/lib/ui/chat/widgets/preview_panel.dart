@@ -50,6 +50,9 @@ class _PreviewPanelState extends State<PreviewPanel> {
   String _at = '';
   double _zoom = 1;
 
+  /// The light or dark the page sees: 'light', 'dark', or 'system'.
+  String _appearance = 'system';
+
   /// What a menu action had to say (it could not be done), for a moment.
   String? _note;
   Timer? _noteTimer;
@@ -130,8 +133,9 @@ class _PreviewPanelState extends State<PreviewPanel> {
       }
       _browser = chosen;
       _tab = tab;
-      // The zoom chosen before it opened.
+      // The zoom and the light or dark chosen before it opened.
       tab.zoom = _zoom;
+      if (_appearance != 'system') unawaited(tab.appearance(_appearance));
       _tabUrls = tab.urls.listen(_moved);
       setState(() => _chromiumState = null);
       if (_at.isNotEmpty) unawaited(tab.navigate(_at));
@@ -356,15 +360,25 @@ class _PreviewPanelState extends State<PreviewPanel> {
                       ('dark', 'Dark mode', AshlarIconsRoundedStroke.moon),
                       ('system', 'Match the system', AshlarIconsRoundedStroke.sunMoon),
                     ])
-                      item(icon, label, () {
-                        if (chromium) {
-                          // Many sites choose their colors as they load.
-                          unawaited(tab?.appearance(mode == 'system' ? null : mode));
-                        } else {
-                          unawaited(widget.vm.webPage('appearance', {'appearance': mode}));
-                          unawaited(_c.reload());
-                        }
-                      }),
+                      MenuItem(
+                        leading: AshlarIcon(icon, size: 16),
+                        // The one the page sees now, checked.
+                        trailing: _appearance == mode
+                            ? const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16)
+                            : null,
+                        selected: _appearance == mode,
+                        child: Text(label),
+                        onPressed: () {
+                          setState(() => _appearance = mode);
+                          if (chromium) {
+                            // Many sites choose their colors as they load.
+                            unawaited(tab?.appearance(mode == 'system' ? null : mode));
+                          } else {
+                            unawaited(widget.vm.webPage('appearance', {'appearance': mode}));
+                            unawaited(_c.reload());
+                          }
+                        },
+                      ),
                   ],
                   const MenuSeparator(),
                   item(AshlarIconsRoundedStroke.cookie, 'Clear cookies', () async {
