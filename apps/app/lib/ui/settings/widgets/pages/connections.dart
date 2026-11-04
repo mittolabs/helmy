@@ -36,7 +36,9 @@ class _Agents extends StatelessWidget {
                     'sessions keep working with no internet, on that model.'
               : vm.localModels!.isEmpty
               ? 'Ollama is running but has no model. Pull one, for example: ollama pull gpt-oss:20b'
-              : 'Used only when no online agent can answer: when offline, or out of room.',
+              : 'Answers only when no online agent can: when offline, or out of room. '
+                    "A chat's summaries and brief are written on the largest model here, at no "
+                    'cost in usage.',
           control: vm.localModels == null || vm.localModels!.isEmpty
               ? const SizedBox.shrink()
               : SizedBox(

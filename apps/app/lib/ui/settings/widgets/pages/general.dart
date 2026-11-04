@@ -298,7 +298,7 @@ class _ThemeCard extends StatelessWidget {
 
 /// Snapshots with both Shift keys: on or off, and what macOS still has to
 /// allow, each with the pane that allows it.
-class _SnapshotRow extends StatefulWidget {
+class _SnapshotRow extends StatefulWidget with _Setting {
   const new({required this.vm});
   final SettingsViewModel vm;
 

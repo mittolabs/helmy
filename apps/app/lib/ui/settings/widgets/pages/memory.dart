@@ -8,6 +8,20 @@ class _Memory extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     if (vm.loadingMemory) return const Center(child: Spinner(size: 18));
+    // Nothing to choose: said, rather than asking for a choice.
+    if (vm.files.isEmpty && vm.notes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const .symmetric(horizontal: 32),
+          child: Text(
+            'No memory yet. What the agents keep between sessions, their instructions '
+            'and notes, shows here once there is some.',
+            textAlign: .center,
+            style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const .fromLTRB(8, 0, 32, 24),
       child: LayoutBuilder(

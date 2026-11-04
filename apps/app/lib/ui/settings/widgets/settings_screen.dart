@@ -423,7 +423,36 @@ class _Results extends StatelessWidget {
 }
 
 /// A setting: what it is and what it does on the left, its control on the right.
-class _Row extends StatelessWidget {
+/// A setting, shown in a card with the settings next to it. A row that is
+/// more than [_Row] (one that checks what macOS allows, say) says so too, or
+/// it breaks its group's card in two.
+mixin _Setting on Widget {}
+
+/// A part of a card that is not a setting to change: a list, say. Spaced
+/// as a [_Row] is, under a [title].
+class _Block extends StatelessWidget with _Setting {
+  const new({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return Padding(
+      padding: const .symmetric(horizontal: 18, vertical: 14),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 8,
+        children: [
+          Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget with _Setting {
   const new({required this.title, this.description, required this.control});
   final String title;
   final String? description;
@@ -528,7 +557,7 @@ class _Page extends StatelessWidget {
     }
 
     for (final c in children) {
-      if (c is _Row) {
+      if (c is _Setting) {
         run.add(c);
       } else {
         card();
