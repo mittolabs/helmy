@@ -241,7 +241,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
         break;
       }
     }
-    if (_onlyThisMac != offline) {
+    // Asked as the app closes, it may come back after: nothing to tell.
+    if (_onlyThisMac != offline && !_disposed) {
       _onlyThisMac = offline;
       notifyListeners();
     }
@@ -797,8 +798,11 @@ class ConversationRepositoryEngines extends ConversationRepository {
     of(sessionId).items.map((i) => i.toJson()).toList(),
   );
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     // Processes outlive this object by a moment; nothing they say may reach it.
     for (final s in _subscriptions.values) {
       unawaited(s.cancel());

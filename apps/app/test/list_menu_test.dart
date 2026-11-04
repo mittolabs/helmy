@@ -27,7 +27,7 @@ void main() {
       root = await Directory.systemTemp.createTemp('menu');
       final storage = StorageService(root: () async => root);
       final sessions = SessionRepositoryLocal(storage);
-      settings = SettingsRepository(storage);
+      settings = SettingsRepositoryLocal(storage);
       final meter = UsageMeter();
       final repo = ConversationRepositoryEngines(
         engines: EngineRegistry([]),

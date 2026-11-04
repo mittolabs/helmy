@@ -54,7 +54,7 @@ void main() {
       late SettingsRepository settings;
       await tester.runAsync(() async {
         root = await Directory.systemTemp.createTemp('setup');
-        settings = SettingsRepository(StorageService(root: () async => root));
+        settings = SettingsRepositoryLocal(StorageService(root: () async => root));
       });
       final setup = _Pretend()..states['ollama'] = SetupState.signedOut;
       final router = GoRouter(
@@ -67,7 +67,7 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider.value(value: settings),
+            ChangeNotifierProvider<SettingsRepository>.value(value: settings),
             Provider<ConnectionsSetup>.value(value: setup),
           ],
           child: AshlarApp.router(routerConfig: router, theme: appTheme, darkTheme: appDarkTheme),

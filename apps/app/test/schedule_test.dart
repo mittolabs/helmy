@@ -59,7 +59,7 @@ void main() {
       sessions: sessions,
     );
     var now = DateTime(2026, 11, 3, 8, 59);
-    final repo = ScheduleRepository(
+    final repo = ScheduleRepositoryLocal(
       storage: storage,
       sessions: sessions,
       conversations: conversations,
@@ -107,7 +107,7 @@ void main() {
     await repo.tick();
     expect(repo.runsOf(daily.id), hasLength(1));
     await storage.flush();
-    final again = ScheduleRepository(
+    final again = ScheduleRepositoryLocal(
       storage: storage,
       sessions: sessions,
       conversations: conversations,

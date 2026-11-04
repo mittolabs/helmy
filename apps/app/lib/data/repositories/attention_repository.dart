@@ -14,7 +14,25 @@ import 'settings_repository.dart';
 /// finished while the user was not looking. Sends a notification when either
 /// happens out of sight, keeps the dock badge at their count, and shows in
 /// the Dock the face that fits what Helmy is doing.
-class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
+/// What needs the user, across sessions: unread and waiting sessions, the
+/// Dock's count and face, notifications, and notes said inside Helmy.
+abstract class AttentionRepository extends ChangeNotifier {
+  /// How long the Dock shows Helmy waking up after the app opens.
+  static const wakingFor = Duration(seconds: 3);
+
+  /// Nothing asked of Helmy for this long, and it dozes off in the Dock.
+  static const dozeAfter = Duration(minutes: 30);
+
+  bool get notificationsBlocked;
+  Future<void> checkNotifications();
+  bool isUnread(String sessionId);
+  void markRead(String sessionId);
+  set viewing(String? sessionId);
+  String? faceNow();
+  Stream<({String sessionId, String title, String body})> get inApp;
+}
+
+class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingObserver {
   new({
     required this._conversations,
     required this._sessions,
@@ -28,12 +46,10 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
     _planWake();
     unawaited(checkNotifications());
     // Just opened: Helmy waking up, unless something needs showing first.
-    _wakingUp = Timer(wakingFor, _showFace);
+    _wakingUp = Timer(AttentionRepository.wakingFor, _showFace);
     _showFace();
   }
 
-  /// How long the Dock shows Helmy waking up after the app opens.
-  static const wakingFor = Duration(seconds: 3);
   Timer? _wakingUp;
 
   final ConversationRepository _conversations;
@@ -52,13 +68,12 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _wake;
   DateTime? _wakeAt;
 
-  /// Nothing asked of Helmy for this long, and it dozes off in the Dock.
-  static const dozeAfter = Duration(minutes: 30);
-
   /// Notifications are on in Helmy but the system blocks them: nothing would
   /// reach the user, so the app says so where it can be fixed.
+  @override
   bool notificationsBlocked = false;
 
+  @override
   Future<void> checkNotifications() async {
     final allowed = await _notify.notificationsAllowed();
     final blocked = _settings.settings.notify && allowed == false;
@@ -69,9 +84,11 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Finished while the user was elsewhere, and not opened since.
+  @override
   bool isUnread(String sessionId) => _unread.contains(sessionId);
 
   /// Clears [sessionId]'s unread mark without opening it.
+  @override
   void markRead(String sessionId) => _seen(sessionId);
 
   /// Wakes snoozed sessions that are due, as needing you, and sets a timer
@@ -102,6 +119,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// The session on screen, or null.
+  @override
   set viewing(String? sessionId) {
     _viewing = sessionId;
     if (sessionId != null) _seen(sessionId);
@@ -148,6 +166,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
 
   /// The face for the most pressing thing across every session: one waiting
   /// on you, then work under way, then work left to read.
+  @override
   String? faceNow() {
     final all = [for (final s in _sessions.sessions) _conversations.of(s.id)];
     if (all.any((c) => c.pendingPrompts > 0)) return 'needs-you';
@@ -180,7 +199,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
       // Idle: the app icon (or offline), and dozing once nothing has been
       // asked for a while.
       _setFace(face);
-      _dozing ??= Timer(dozeAfter, () => _setFace('dozing'));
+      _dozing ??= Timer(AttentionRepository.dozeAfter, () => _setFace('dozing'));
     }
   }
 
@@ -234,6 +253,7 @@ class AttentionRepository extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Said inside Helmy instead, when it is in front: a session other than
   /// the one on screen finished or needs you.
+  @override
   Stream<({String sessionId, String title, String body})> get inApp => _inApp.stream;
   final _inApp = StreamController<({String sessionId, String title, String body})>.broadcast();
 

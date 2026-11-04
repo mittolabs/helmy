@@ -100,7 +100,7 @@ void main() {
       );
       final storage = StorageService(root: () async => root);
       sessions = SessionRepositoryLocal(storage);
-      settings = SettingsRepository(storage);
+      settings = SettingsRepositoryLocal(storage);
       meter = UsageMeter();
       engines = EngineRegistry([
         _Named(
@@ -127,7 +127,11 @@ void main() {
       await sessions.save(
         session.copyWith(title: 'A session whose title runs on well past any sidebar width'),
       );
-      schedules = ScheduleRepository(storage: storage, sessions: sessions, conversations: repo);
+      schedules = ScheduleRepositoryLocal(
+        storage: storage,
+        sessions: sessions,
+        conversations: repo,
+      );
       await schedules.add(
         name: 'Every weekday morning, sum up what came in overnight across my accounts',
         prompt: 'Sum up my unread mail and new files since yesterday.',
@@ -162,7 +166,7 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider.value(value: settings),
+            ChangeNotifierProvider<SettingsRepository>.value(value: settings),
             Provider(create: (_) => DesktopService()),
           ],
           child: AshlarApp(
@@ -209,7 +213,7 @@ void main() {
             settings: settings,
             engines: engines,
             meter: meter,
-            memory: MemoryRepository(engines),
+            memory: MemoryRepositoryEngines(engines),
           )..section = section;
           await show(SettingsScreen(viewModel: vm));
           // Nothing cut off at the window's right edge (a scrollable hides that

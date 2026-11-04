@@ -126,7 +126,7 @@ void main() {
     final conversations = _Conversations(storage, sessions);
     final shipping = _Shipping();
     final notes = _Notes();
-    final ship = ShipRepository(
+    final ship = ShipRepositoryGit(
       shipping: shipping,
       sessions: sessions,
       conversations: conversations,

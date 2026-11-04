@@ -62,7 +62,7 @@ _setup() async {
     storage: storage,
     sessions: sessions,
   );
-  return (sessions: sessions, repo: repo, settings: SettingsRepository(storage), root: root);
+  return (sessions: sessions, repo: repo, settings: SettingsRepositoryLocal(storage), root: root);
 }
 
 void main() {
@@ -111,7 +111,7 @@ void main() {
       session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
     });
     final notes = _Notes();
-    final attention = AttentionRepository(
+    final attention = AttentionRepositoryLocal(
       conversations: s.repo,
       sessions: s.sessions,
       settings: s.settings,
@@ -193,7 +193,7 @@ void main() {
       session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
     });
     final notes = _Notes();
-    final attention = AttentionRepository(
+    final attention = AttentionRepositoryLocal(
       conversations: s.repo,
       sessions: s.sessions,
       settings: s.settings,
@@ -232,7 +232,7 @@ void main() {
       session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
     });
     final notes = _Notes();
-    final attention = AttentionRepository(
+    final attention = AttentionRepositoryLocal(
       conversations: s.repo,
       sessions: s.sessions,
       settings: s.settings,
@@ -274,7 +274,7 @@ void main() {
     final s = await _setup();
     final session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
     final notes = _Notes();
-    final attention = AttentionRepository(
+    final attention = AttentionRepositoryLocal(
       conversations: s.repo,
       sessions: s.sessions,
       settings: s.settings,

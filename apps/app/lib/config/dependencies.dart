@@ -46,7 +46,7 @@ typedef Loaded = ({
 Future<Loaded> load() async {
   final storage = StorageService();
   final sessions = SessionRepositoryLocal(storage);
-  final settings = SettingsRepository(storage);
+  final settings = SettingsRepositoryLocal(storage);
   final meter = UsageMeter(storage: storage);
   await (sessions.load(), settings.load(), meter.load()).wait;
   return (storage: storage, sessions: sessions, settings: settings, meter: meter);
@@ -85,7 +85,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     create: (context) =>
         HeadroomRouter(context.read(), margin: () => loaded.settings.settings.switching.margin),
   ),
-  Provider(create: (context) => MemoryRepository(context.read())),
+  Provider<MemoryRepository>(create: (context) => MemoryRepositoryEngines(context.read())),
   ChangeNotifierProvider<SessionRepository>.value(value: loaded.sessions),
   ChangeNotifierProvider<ConversationRepository>(
     create: (context) {
@@ -118,18 +118,18 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (context) => Fixes(context.read(), context.read())),
   Provider<ProjectRepository>(create: (context) => ProjectRepositoryGit(context.read())),
   // Not lazy: tasks run on time whether or not their page was opened.
-  ChangeNotifierProvider(
+  ChangeNotifierProvider<ScheduleRepository>(
     lazy: false,
-    create: (context) => ScheduleRepository(
+    create: (context) => ScheduleRepositoryLocal(
       storage: context.read(),
       sessions: context.read(),
       conversations: context.read(),
     )..start(),
   ),
   // Not lazy: it has to be listening before anything finishes.
-  ChangeNotifierProvider(
+  ChangeNotifierProvider<AttentionRepository>(
     lazy: false,
-    create: (context) => AttentionRepository(
+    create: (context) => AttentionRepositoryLocal(
       conversations: context.read(),
       sessions: context.read(),
       settings: context.read(),
@@ -137,9 +137,9 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     ),
   ),
   // Not lazy either: watched checks are followed from launch.
-  ChangeNotifierProvider(
+  ChangeNotifierProvider<ShipRepository>(
     lazy: false,
-    create: (context) => ShipRepository(
+    create: (context) => ShipRepositoryGit(
       shipping: Shipping(context.read()),
       sessions: context.read(),
       conversations: context.read(),

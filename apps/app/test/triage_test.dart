@@ -32,7 +32,7 @@ void main() {
         storage: storage,
         sessions: sessions,
       );
-      final settings = SettingsRepository(storage);
+      final settings = SettingsRepositoryLocal(storage);
       final vm = SidebarViewModel(sessions: sessions, conversations: repo, settings: settings);
       Future<Session> make() async =>
           (await sessions.create(cwd: root.path) as Ok).value as Session;
@@ -84,8 +84,8 @@ void main() {
       a = (await sessions.create(cwd: root.path) as Ok).value as Session;
       b = (await sessions.create(cwd: root.path) as Ok).value as Session;
     });
-    final settings = SettingsRepository(storage);
-    final attention = AttentionRepository(
+    final settings = SettingsRepositoryLocal(storage);
+    final attention = AttentionRepositoryLocal(
       conversations: repo,
       sessions: sessions,
       settings: settings,

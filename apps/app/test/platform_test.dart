@@ -75,7 +75,7 @@ void main() {
         );
         final storage = StorageService(root: () async => root);
         sessions = SessionRepositoryLocal(storage);
-        settings = SettingsRepository(storage);
+        settings = SettingsRepositoryLocal(storage);
         repo = ConversationRepositoryEngines(
           engines: engines,
           router: HeadroomRouter(meter),
@@ -102,7 +102,7 @@ void main() {
         await tester.pumpWidget(
           MultiProvider(
             providers: [
-              ChangeNotifierProvider.value(value: settings),
+              ChangeNotifierProvider<SettingsRepository>.value(value: settings),
               Provider(create: (_) => DesktopService()),
             ],
             child: AshlarApp(
@@ -127,7 +127,7 @@ void main() {
           settings: settings,
           engines: engines,
           meter: meter,
-          memory: MemoryRepository(engines),
+          memory: MemoryRepositoryEngines(engines),
         )..section = section;
         texts.add(await shown(SettingsScreen(viewModel: vm)));
       }

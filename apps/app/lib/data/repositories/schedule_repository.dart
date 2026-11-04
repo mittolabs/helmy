@@ -13,7 +13,25 @@ import 'session_repository.dart';
 
 /// Scheduled tasks: kept on disk, and run while the app is open. Each run is a
 /// new session named after the task, sending the task's message.
-class ScheduleRepository extends ChangeNotifier {
+/// Scheduled tasks: kept, run when due, and each run a session of its own.
+abstract class ScheduleRepository extends ChangeNotifier {
+  List<ScheduledTask> get tasks;
+  Future<void> start();
+  Future<void> tick();
+  List<Session> runsOf(String taskId);
+  Future<ScheduledTask> add({
+    required String name,
+    required String prompt,
+    required String cwd,
+    required PermissionLevel level,
+    required Schedule schedule,
+  });
+  Future<void> update(ScheduledTask task);
+  Future<void> remove(String id);
+  Future<Result<Session>> run(String id);
+}
+
+class ScheduleRepositoryLocal extends ScheduleRepository {
   new({
     required this._storage,
     required this._sessions,
@@ -31,10 +49,12 @@ class ScheduleRepository extends ChangeNotifier {
   final List<ScheduledTask> _tasks = [];
   Timer? _timer;
 
+  @override
   List<ScheduledTask> get tasks => List.unmodifiable(_tasks);
 
   /// Reads the tasks, runs any whose time came while the app was closed, and
   /// checks every half minute from then on.
+  @override
   Future<void> start() async {
     final json = await _storage.read(_file);
     _tasks
@@ -49,6 +69,7 @@ class ScheduleRepository extends ChangeNotifier {
   }
 
   /// Runs every task that is due.
+  @override
   Future<void> tick() async {
     final now = _now();
     for (final t in [..._tasks]) {
@@ -57,10 +78,12 @@ class ScheduleRepository extends ChangeNotifier {
   }
 
   /// The sessions a task's runs made, newest first.
+  @override
   List<Session> runsOf(String taskId) =>
       _sessions.sessions.where((s) => s.taskId == taskId).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+  @override
   Future<ScheduledTask> add({
     required String name,
     required String prompt,
@@ -82,6 +105,7 @@ class ScheduleRepository extends ChangeNotifier {
     return task;
   }
 
+  @override
   Future<void> update(ScheduledTask task) async {
     final i = _tasks.indexWhere((t) => t.id == task.id);
     if (i < 0) return;
@@ -89,6 +113,7 @@ class ScheduleRepository extends ChangeNotifier {
     await _save();
   }
 
+  @override
   Future<void> remove(String id) async {
     _tasks.removeWhere((t) => t.id == id);
     await _save();
@@ -96,6 +121,7 @@ class ScheduleRepository extends ChangeNotifier {
 
   /// Runs [id] now: a new session in its folder, sending its message. The
   /// schedule goes on from now, so a run missed twice runs once.
+  @override
   Future<Result<Session>> run(String id) async {
     final i = _tasks.indexWhere((t) => t.id == id);
     if (i < 0) return .error(Exception('No such task'));

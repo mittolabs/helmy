@@ -110,10 +110,10 @@ void main() {
       vm = ChatViewModel(sessionId: created.id, sessions: sessions, conversations: repo);
     });
     // Steps open, so every tool name and result is on screen to check.
-    final settings = SettingsRepository(storage);
+    final settings = SettingsRepositoryLocal(storage);
     await tester.runAsync(() => settings.save(settings.settings.copyWith(stepsOpen: true)));
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
+      ChangeNotifierProvider<SettingsRepository>.value(
         value: settings,
         child: AshlarApp(
           home: ListenableBuilder(

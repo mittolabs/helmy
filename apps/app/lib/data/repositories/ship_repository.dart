@@ -12,8 +12,18 @@ import 'session_repository.dart';
 /// stands, and asking its agent to commit and to open the pull request. With
 /// the checks watched, a failure goes to the agent with what failed, to fix;
 /// a pass goes to the user. Each commit's outcome is told once.
-class ShipRepository extends ChangeNotifier {
-  ShipRepository({
+/// A session's way from work to a merged pull request.
+abstract class ShipRepository extends ChangeNotifier {
+  BranchState? stateOf(String sessionId);
+  Future<BranchState?> refresh(Session session);
+  Future<void> commit(Session session);
+  Future<void> openPullRequest(Session session);
+  Future<void> watch(Session session, bool on);
+  Future<void> check(Session session);
+}
+
+class ShipRepositoryGit extends ShipRepository {
+  ShipRepositoryGit({
     required this._shipping,
     required this._sessions,
     required this._conversations,
@@ -37,9 +47,11 @@ class ShipRepository extends ChangeNotifier {
   Timer? _timer;
 
   /// What [sessionId]'s branch was last seen as; null before it was asked.
+  @override
   BranchState? stateOf(String sessionId) => _states[sessionId];
 
   /// Asks again where [session]'s branch stands.
+  @override
   Future<BranchState?> refresh(Session session) async {
     final s = await _shipping.state(session.cwd);
     _states[session.id] = s;
@@ -48,12 +60,14 @@ class ShipRepository extends ChangeNotifier {
   }
 
   /// Asks the agent to commit the work, in the repository's own style.
+  @override
   Future<void> commit(Session session) => _conversations.send(
     session,
     "Commit the changes on this branch, with a message in this repository's style.",
   );
 
   /// Asks the agent to push the branch and open its pull request.
+  @override
   Future<void> openPullRequest(Session session) => _conversations.send(
     session,
     "Push this branch and open a pull request for it, written in this repository's style. "
@@ -61,6 +75,7 @@ class ShipRepository extends ChangeNotifier {
   );
 
   /// Follows [session]'s checks, or stops.
+  @override
   Future<void> watch(Session session, bool on) async {
     await _sessions.save(session.copyWith(watchChecks: on));
     if (on) unawaited(check(_sessions.byId(session.id) ?? session));
@@ -83,6 +98,7 @@ class ShipRepository extends ChangeNotifier {
   }
 
   /// Looks at [session]'s checks once; tells what finished, if not told yet.
+  @override
   Future<void> check(Session session) async {
     final s = await refresh(session);
     final pr = s?.pr;

@@ -46,7 +46,7 @@ Future<_World> _world(WidgetTester tester) async {
       root: root,
       storage: storage,
       sessions: sessions,
-      settings: SettingsRepository(storage),
+      settings: SettingsRepositoryLocal(storage),
       repo: ConversationRepositoryEngines(
         engines: EngineRegistry([]),
         router: HeadroomRouter(meter),
@@ -133,7 +133,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: w.settings),
+          ChangeNotifierProvider<SettingsRepository>.value(value: w.settings),
           Provider(create: (_) => DesktopService()),
         ],
         child: AshlarApp(
