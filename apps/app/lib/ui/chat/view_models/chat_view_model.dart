@@ -39,7 +39,10 @@ import '../../../domain/models/settings.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview, terminal, files, ship, device }
+enum SidePanel { changes, background, preview, terminal, files, side, ship, device }
+
+/// The note a side chat begins with, after what it was copied from.
+const sideChatNote = 'A side chat: it knows what was said in the session, which goes on as it is.';
 
 /// One tab in the panel beside the conversation: what it shows, and for a
 /// browser tab, where it is.
@@ -62,6 +65,10 @@ class PanelTab {
   ProjectAction? action;
   int runs = 1;
   int? exitCode;
+
+  /// A side chat tab's session, and the question to ask it once it shows.
+  String? sideId;
+  String? ask;
 }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
@@ -79,6 +86,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this.chromium,
     this.browser,
     this._editors,
+    this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
     // The agent's browser_open opens the page here, in the Preview panel.
@@ -90,7 +98,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     _conversations.addListener(notifyListeners);
     _conversations.addListener(_onConversation);
     send = Command1(_send);
-    _conversations.load(sessionId).then((_) => countChanges());
+    ready = _conversations.load(sessionId);
+    ready.then((_) => countChanges());
     unawaited(_findRepo());
   }
 
@@ -135,11 +144,114 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   final String sessionId;
+
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    // Work that finishes after the screen has gone (a deletion, a read)
+    // has no one to tell.
+    if (!_disposed) super.notifyListeners();
+  }
+
+  /// Done once the conversation has been read.
+  late final Future<void> ready;
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
   final AttentionRepository? _attention;
   final SettingsRepository? _settings;
   final EditorService? _editors;
+
+  /// Shown inside another session's panel (a side chat): it opens no panel
+  /// of its own.
+  final bool embedded;
+
+  // Side chats: a question asked beside the session without adding to it.
+
+  /// Where a side chat's own part begins (its first note); 0 for a session.
+  int get firstShown {
+    if (session?.sideOf == null) return 0;
+    final at = items.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    return at < 0 ? 0 : at;
+  }
+
+  /// This session's side chats, newest first.
+  List<Session> get sideChats => [
+    for (final s in _sessions.sessions)
+      if (s.sideOf == sessionId) s,
+  ];
+
+  /// A side chat's name: its title once its first question named it.
+  String sideTitle(String id) {
+    final s = _sessions.byId(id);
+    if (s == null || s.title.startsWith('New session in')) return 'Side chat';
+    return s.title;
+  }
+
+  /// Starts a side chat beside this session, from all it knows, in a tab of
+  /// its own, asking [ask] there when given. Its first edit is asked about,
+  /// whatever this session may do.
+  Future<void> sideChat({String? ask}) async {
+    final s = session;
+    if (s == null) return;
+    final made = await _sessions.create(cwd: s.cwd, sideOf: s.id);
+    if (made case Ok(:final value)) {
+      await _conversations.copy(s.id, value.id, upTo: items.length - 1, note: sideChatNote);
+      openSide(value.id, ask: ask);
+    }
+  }
+
+  /// Shows side chat [id] in its tab: the one open, else a new one.
+  void openSide(String id, {String? ask}) {
+    final open = tabs.where((t) => t.sideId == id).firstOrNull;
+    if (open != null) {
+      if (ask != null) open.ask = ask;
+      focus(open);
+      return;
+    }
+    final tab = PanelTab(.side)
+      ..sideId = id
+      ..ask = ask;
+    final at = active == null ? tabs.length : tabs.indexOf(active!) + 1;
+    tabs.insert(at, tab);
+    focus(tab);
+  }
+
+  /// Deletes side chat [id], its tab closed.
+  Future<void> deleteSide(String id) async {
+    // The tab goes at once; the deleting after, which may outlast this screen.
+    for (final t in tabs.where((t) => t.sideId == id).toList()) {
+      _removeTab(t);
+    }
+    notifyListeners();
+    await _conversations.forget(id);
+    await _sessions.delete(id);
+  }
+
+  /// Whether side chat [id] has nothing asked in it yet.
+  bool sideUnused(String id) {
+    final c = _conversations.of(id);
+    final start = c.items.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    return !c.busy && !c.items.skip(start + 1).any((i) => i is UserMessage);
+  }
+
+  /// What was said in side chat [id], given to this session with the next
+  /// message as a file it reads (its chip shows above the message, to take
+  /// off). False while this session works, as it cannot take it then.
+  Future<bool> bringBack(String id) async {
+    if (busy) return false;
+    final side = _conversations.of(id).items;
+    final start = side.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    final title = sideTitle(id);
+    final text = transcriptMarkdown('Side chat: $title', side.skip(start + 1).toList());
+    final dir = await Directory.systemTemp.createTemp('helmy-side');
+    final name = title.replaceAll(RegExp(r'[/:\\]'), '-');
+    final file = File('${dir.path}/Side chat, $name.md');
+    await file.writeAsString(text);
+    attach([file.path]);
+    focusRequests.value++;
+    return true;
+  }
 
   late final Command1<void, String> send;
 
@@ -324,6 +436,17 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// Closes [tab]; the one beside it shows, and with none left the panel hides.
   void closeTab(PanelTab tab) {
+    // A side chat nothing was asked in goes with its tab.
+    final side = tab.sideId;
+    if (side != null && sideUnused(side)) {
+      unawaited(deleteSide(side));
+      return;
+    }
+    _removeTab(tab);
+    notifyListeners();
+  }
+
+  void _removeTab(PanelTab tab) {
     final at = tabs.indexOf(tab);
     if (at < 0) return;
     tabs.removeAt(at);
@@ -332,7 +455,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
       panelOpen = false;
       panelExpanded = false;
     }
-    notifyListeners();
   }
 
   /// Something a tab shows changed (a page's title or icon): its name redrawn.
@@ -621,6 +743,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (webViewHere) .preview,
     .terminal,
     .files,
+    if (!embedded) .side,
     .changes,
     if (inRepo) .ship,
     if (device != null) .device,
@@ -983,6 +1106,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   Future<void> delete() async {
+    // Its side chats go with it.
+    for (final side in sideChats) {
+      await _conversations.forget(side.id);
+      await _sessions.delete(side.id);
+    }
     await _conversations.forget(sessionId);
     await _sessions.delete(sessionId);
   }
@@ -1001,6 +1129,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   @override
   void dispose() {
+    _disposed = true;
     _attention?.viewing = null;
     browser?.opener(sessionId, null);
     browser?.deviceOpener(sessionId, null);

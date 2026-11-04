@@ -50,6 +50,10 @@ class const Session({
   /// Its pull request's checks are followed: a failure goes to the agent to
   /// fix, a pass to the user.
   final bool watchChecks = false,
+
+  /// A side chat: a question asked beside the session with this id, starting
+  /// from what it knows. Shown only there, never in the list.
+  final String? sideOf,
 }) {
   /// In its own working copy, on its own branch.
   bool get ownCopy => repo != null && branch != null;
@@ -93,6 +97,7 @@ class const Session({
     repo: repo ?? this.repo,
     branch: branch ?? this.branch,
     watchChecks: watchChecks ?? this.watchChecks,
+    sideOf: sideOf,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -115,6 +120,7 @@ class const Session({
     'repo': ?repo,
     'branch': ?branch,
     if (watchChecks) 'watchChecks': true,
+    'sideOf': ?sideOf,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -147,6 +153,7 @@ class const Session({
       repo: json['repo'] as String?,
       branch: json['branch'] as String?,
       watchChecks: json['watchChecks'] == true,
+      sideOf: json['sideOf'] as String?,
     );
   }
 }

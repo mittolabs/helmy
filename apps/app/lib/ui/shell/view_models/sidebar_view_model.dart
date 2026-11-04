@@ -63,7 +63,11 @@ class SidebarViewModel extends ChangeNotifier {
 
   final Map<String, SessionActivity> _activity = {};
 
-  List<Session> get sessions => _sessions.sessions;
+  /// Every session but side chats, which show only beside their session.
+  List<Session> get sessions => [
+    for (final s in _sessions.sessions)
+      if (s.sideOf == null) s,
+  ];
 
   AppSettings get settings => _settings.settings;
   Future<void> updateSettings(AppSettings s) => _settings.save(s);
@@ -73,6 +77,8 @@ class SidebarViewModel extends ChangeNotifier {
     final s = settings;
     final since = s.recency.within == null ? null : DateTime.now().subtract(s.recency.within!);
     final list = _sessions.sessions
+        // Side chats show only beside their session.
+        .where((x) => x.sideOf == null)
         .where(
           (x) => switch (s.show) {
             // A snoozed session stays out until it is due, unless it wants you
@@ -164,7 +170,7 @@ class SidebarViewModel extends ChangeNotifier {
 
   /// Every session with its conversation as text, for the search palette.
   Future<List<(Session, String)>> searchIndex() async => [
-    for (final s in _sessions.sessions) (s, await _conversations.searchText(s.id)),
+    for (final s in sessions) (s, await _conversations.searchText(s.id)),
   ];
 
   /// Wants you or is working: back in the list even while snoozed.

@@ -36,7 +36,8 @@ Future<void> main() async {
     release: const String.fromEnvironment('HELMY_VERSION', defaultValue: 'dev'),
   );
   loaded.settings.addListener(() => ErrorReports.allow(loaded.settings.settings.sendErrors));
-  final last = loaded.sessions.sessions.firstOrNull;
+  // The session last worked in (a side chat shows only beside its session).
+  final last = loaded.sessions.sessions.where((s) => s.sideOf == null).firstOrNull;
   // The splash window shows until the first frame is drawn.
   WidgetsBinding.instance.addPostFrameCallback((_) => NotifyService.ready());
   // HELMY_FLOAT opens a video in a floating player, for looking at one while

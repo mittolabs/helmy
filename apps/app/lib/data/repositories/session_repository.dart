@@ -15,12 +15,14 @@ abstract class SessionRepository extends ChangeNotifier {
   Future<Result<void>> load();
 
   /// A new session in [cwd]. [title] names it for good; without one it is
-  /// named after its first message. [taskId] marks it a scheduled task's run.
+  /// named after its first message. [taskId] marks it a scheduled task's run;
+  /// [sideOf], a side chat of that session.
   Future<Result<Session>> create({
     required String cwd,
     PermissionLevel level = .ask,
     String? title,
     String? taskId,
+    String? sideOf,
   });
 
   Future<Result<void>> save(Session session);

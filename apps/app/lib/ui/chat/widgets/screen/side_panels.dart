@@ -53,6 +53,7 @@ class _SidePanelsState extends State<_SidePanels> {
   .preview => ('Browser', AshlarIconsRoundedStroke.globe),
   .terminal => ('Terminal', AshlarIconsRoundedStroke.squareTerminal),
   .files => ('Files', AshlarIconsRoundedStroke.files),
+  .side => ('Side chat', AshlarIconsRoundedStroke.messageSquareText),
   .changes => ('Changes', AshlarIconsRoundedStroke.fileDiff),
   .ship => ('Pull request', AshlarIconsRoundedStroke.gitPullRequest),
   .device => ('Device', AshlarIconsRoundedStroke.smartphone),
@@ -75,6 +76,7 @@ class _Panel extends StatelessWidget {
       vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
     .device => vm.device?.device?.name ?? 'Device',
     .terminal when tab.action != null => tab.action!.name,
+    .side => vm.sideTitle(tab.sideId!),
     .terminal => 'Terminal ${vm.tabs.where((t) => t.kind == .terminal).toList().indexOf(tab) + 1}',
     _ => _kindOf(tab.kind).$1,
   };
@@ -145,9 +147,11 @@ class _Panel extends StatelessWidget {
                                 MenuItem(
                                   leading: AshlarIcon(_kindOf(kind).$2, size: 16),
                                   // Several pages and terminals; one of each other kind.
-                                  onPressed: () => kind == .preview || kind == .terminal
-                                      ? vm.add(kind)
-                                      : vm.show(kind),
+                                  onPressed: () => switch (kind) {
+                                    .preview || .terminal => vm.add(kind),
+                                    .side => unawaited(vm.sideChat()),
+                                    _ => vm.show(kind),
+                                  },
                                   child: Text(_kindOf(kind).$1),
                                 ),
                             ],
@@ -200,6 +204,7 @@ class _Panel extends StatelessWidget {
                     ),
                     .device => DevicePanel(vm: vm),
                     .files => FilesPanel(vm: vm, active: tab == active && vm.panelOpen),
+                    .side => SideChatPanel(vm: vm, tab: tab),
                   },
                 ),
             ],

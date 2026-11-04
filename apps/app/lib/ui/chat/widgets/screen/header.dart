@@ -270,6 +270,22 @@ class _SessionMenu extends StatelessWidget {
         child: const Text('Save as Markdown...'),
       ),
       const MenuSeparator(),
+      // A question beside the session, without adding to it ("/side" too).
+      MenuItem(
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquareText, size: 16),
+        onPressed: () => unawaited(vm.sideChat()),
+        child: const Text('Ask on the side'),
+      ),
+      if (vm.sideChats.isNotEmpty)
+        MenuSub(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
+          items: [
+            for (final s in vm.sideChats)
+              MenuItem(onPressed: () => vm.openSide(s.id), child: Text(vm.sideTitle(s.id))),
+          ],
+          child: Text('Side chats (${vm.sideChats.length})'),
+        ),
+      const MenuSeparator(),
       MenuItem(
         destructive: true,
         leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),

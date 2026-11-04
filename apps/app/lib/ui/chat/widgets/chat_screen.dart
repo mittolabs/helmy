@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../../../domain/helmy_voice.dart';
@@ -40,6 +41,7 @@ import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
 import 'files_panel.dart';
+import 'side_chat_panel.dart';
 import 'preview_panel.dart';
 import 'project_menu.dart';
 import 'ship_panel.dart';
@@ -58,8 +60,12 @@ part 'screen/header.dart';
 part 'screen/side_panels.dart';
 
 class ChatScreen extends StatefulWidget {
-  const new({super.key, required this.viewModel});
+  const new({super.key, required this.viewModel, this.bar});
   final ChatViewModel viewModel;
+
+  /// Shown inside another screen's panel (a side chat): this bar in place of
+  /// the header, and no panel of its own.
+  final Widget? bar;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -258,6 +264,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _submit(String text) {
     if (text.trim().isEmpty && vm.attachments.isEmpty) return;
+    // "/side" or "/btw", and a question: asked in a side chat, not here.
+    final side = RegExp(r'^/(?:side|btw)\b\s*([\s\S]*)$').firstMatch(text.trim());
+    if (side != null && widget.bar == null) {
+      _text.clear();
+      setState(() => _suggestions = const []);
+      final ask = side.group(1)!.trim();
+      unawaited(vm.sideChat(ask: ask.isEmpty ? null : ask));
+      return;
+    }
     _text.clear();
     _back = null;
     setState(() => _suggestions = const []);
@@ -342,13 +357,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 vm: vm,
                 chat: Column(
                   children: [
-                    TitleBar(
-                      // Redrawn into or out of full screen, where its start moves.
-                      child: ListenableBuilder(
-                        listenable: windowFullScreen,
-                        builder: (context, _) => _Header(vm: vm, session: session),
+                    if (widget.bar case final bar?)
+                      bar
+                    else
+                      TitleBar(
+                        // Redrawn into or out of full screen, where its start moves.
+                        child: ListenableBuilder(
+                          listenable: windowFullScreen,
+                          builder: (context, _) => _Header(vm: vm, session: session),
+                        ),
                       ),
-                    ),
                     if (_finding)
                       _FindBar(
                         controller: _find,
@@ -432,6 +450,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           onSubmit: _submit,
                           placeholder: vm.pendingNeeds.contains(Capability.imageGeneration)
                               ? 'Describe the change to this image'
+                              : widget.bar != null
+                              ? 'Ask on the side'
                               : 'Type / for commands, @ for files',
                           status: vm.busy
                               ? 'Working. What you send waits its turn; ${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'

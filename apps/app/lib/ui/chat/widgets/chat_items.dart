@@ -80,6 +80,8 @@ List<ChatRow> buildRows(ChatViewModel vm) {
   }
 
   for (final (i, item) in items.indexed) {
+    // A side chat shows from where it began; what came before it knows.
+    if (i < vm.firstShown) continue;
     final p = item is ToolCall ? promptsByTool[item.id] : null;
     final quiet =
         (item is ToolCall && p?.decision != PermissionDecision.pending) ||

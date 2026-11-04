@@ -43,6 +43,7 @@ class SessionRepositoryLocal extends SessionRepository {
     PermissionLevel level = .ask,
     String? title,
     String? taskId,
+    String? sideOf,
   }) async {
     final now = DateTime.now();
     final name = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ?? cwd;
@@ -51,6 +52,7 @@ class SessionRepositoryLocal extends SessionRepository {
       level: level,
       title: title ?? 'New session in $name',
       taskId: taskId,
+      sideOf: sideOf,
       cwd: cwd,
       createdAt: now,
       updatedAt: now,
