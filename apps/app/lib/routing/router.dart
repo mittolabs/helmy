@@ -63,6 +63,7 @@ GoRouter router(String initialLocation) => GoRouter(
               fixes: context.read(),
               devices: context.read(),
               chromium: context.read(),
+              browser: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),

@@ -22,6 +22,12 @@ String toolLabel(String name) {
     ('device_swipe', 'Swiped on the device'),
     ('device_type', 'Typed on the device'),
     ('device_home', 'Pressed home'),
+    ('browser_open', 'Opened a page'),
+    ('browser_read', 'Read the page'),
+    ('browser_act', 'Used the page'),
+    ('browser_screenshot', 'Looked at the page'),
+    ('browser_logs', "Checked the page's errors"),
+    ('browser_eval', 'Ran a script in the page'),
   ]) {
     if (name.endsWith(tool)) return said;
   }

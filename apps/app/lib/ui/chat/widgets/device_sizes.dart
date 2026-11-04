@@ -135,6 +135,8 @@ class _DeviceSizeBarState extends State<DeviceSizeBar> {
               child: Select<String>(
                 value: s == null ? 'Responsive' : (s.name == 'Custom' ? 'Custom' : s.name),
                 semanticLabel: 'Device size',
+                // Wide enough for each device's name and size in full.
+                menuWidth: 300,
                 options: [
                   const SelectOption('Responsive', 'Responsive'),
                   if (s?.name == 'Custom') const SelectOption('Custom', 'Custom'),

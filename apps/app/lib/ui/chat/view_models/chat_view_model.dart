@@ -30,6 +30,7 @@ import '../../../domain/problem.dart';
 import '../../core/file_actions.dart';
 import '../../../data/services/devices.dart';
 import 'device_view_model.dart';
+import '../../../data/services/browser/browser_host.dart';
 import '../../../data/services/chromium/chromium_service.dart';
 import '../../../domain/models/settings.dart';
 
@@ -50,8 +51,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this._fixes,
     DeviceService? devices,
     this.chromium,
+    this.browser,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
+    // The agent's browser_open opens the page here, in the Preview panel.
+    browser?.opener(sessionId, preview);
     _sessions.addListener(notifyListeners);
     _sessions.addListener(_findRepoLater);
     _conversations.addListener(notifyListeners);
@@ -177,6 +181,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// Chromium browsers for Preview, when this computer can run them.
   final ChromiumService? chromium;
+
+  /// Where the session's agent finds the page in its Preview panel.
+  final BrowserHost? browser;
 
   /// What draws pages in Preview.
   PreviewEngine get previewEngine => _settings?.settings.previewWith ?? .system;
@@ -702,6 +709,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   void dispose() {
     _attention?.viewing = null;
+    browser?.opener(sessionId, null);
     device?.dispose();
     focusRequests.dispose();
     _sessions.removeListener(notifyListeners);

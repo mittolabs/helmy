@@ -1,3 +1,5 @@
 tags:
+  browser:
+    skip: "Drives a real Chromium-based browser. Run with: fvm flutter test --tags browser --run-skipped"
   live:
     skip: "Spends real tokens. Run with: fvm flutter test --tags live --run-skipped"

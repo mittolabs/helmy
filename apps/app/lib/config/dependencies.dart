@@ -13,6 +13,8 @@ import '../data/repositories/session_repository.dart';
 import '../data/repositories/session_repository_local.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/services/cli_locator.dart';
+import '../data/services/browser/browser_host.dart';
+import '../data/services/browser/browser_tools.dart';
 import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
 import '../data/services/engines/claude/claude_engine.dart';
@@ -67,10 +69,17 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     create: (_) => ChromiumService(appData: getApplicationSupportDirectory),
     dispose: (_, c) => unawaited(c.stop()),
   ),
+  // The page each session's agent works: its Preview panel's, or one in the
+  // background.
+  Provider(create: (context) => BrowserHost(chromium: context.read())),
   // Helmy's own tools (watching a video), served to every connection.
   Provider(
     lazy: false,
-    create: (context) => HelmyTools(context.read(), context.read<DeviceService>()),
+    create: (context) => HelmyTools(
+      context.read(),
+      context.read<DeviceService>(),
+      BrowserTools(context.read<BrowserHost>()),
+    ),
     dispose: (_, tools) => unawaited(tools.close()),
   ),
   // Add an engine here and the router starts using it. The order breaks ties

@@ -182,8 +182,15 @@ class ChromiumTab {
   }
 
   /// Runs [script] in the page; what it gives back, as a value.
-  Future<Object?> evaluate(String script) async {
-    final r = await _send('Runtime.evaluate', {'expression': script, 'returnByValue': true});
+  Future<Object?> evaluate(String script, {bool awaitPromise = false}) async {
+    final r = await _send('Runtime.evaluate', {
+      'expression': script,
+      'returnByValue': true,
+      'awaitPromise': awaitPromise,
+    });
+    if (r['exceptionDetails'] case final Map e) {
+      throw CdpError('${(e['exception'] as Map?)?['description'] ?? e['text']}');
+    }
     return (r['result'] as Map?)?['value'];
   }
 

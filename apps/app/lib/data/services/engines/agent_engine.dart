@@ -9,6 +9,10 @@ class const EngineLaunch({
 
   /// The engine's own conversation id, to pick up where it left off.
   final String? resumeId,
+
+  /// Helmy's session, so Helmy's own tools know which session asks (the
+  /// page in its Preview panel).
+  final String? sessionId,
 });
 
 /// State an engine reports alongside the items it writes.

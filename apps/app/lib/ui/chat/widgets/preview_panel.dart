@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
@@ -10,6 +12,7 @@ import '../../../data/services/chromium/chromium_tab.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/platform.dart';
 import '../../core/helmy_dialog.dart';
+import '../../../data/services/browser/browser_host.dart';
 import 'chromium_view.dart';
 import 'device_sizes.dart';
 import 'page_marking.dart';
@@ -130,6 +133,9 @@ class _PreviewPanelState extends State<PreviewPanel> {
     }
   }
 
+  // The page as the session's agent works it.
+  late final _driver = _PanelDriver(this);
+
   // Marking up the page for the agent.
   bool _markingOpen = false;
   late final _marking = PageMarking((
@@ -208,6 +214,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
       _c.addJavaScriptChannel('Helmy', onMessageReceived: (m) => _marking.fromPage(m.message)),
     );
     widget.vm.addListener(_follow);
+    widget.vm.browser?.attach(widget.vm.sessionId, _driver);
     if (_chromium) unawaited(_startChromium());
     _follow();
   }
@@ -424,6 +431,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
   @override
   void dispose() {
     widget.vm.removeListener(_follow);
+    widget.vm.browser?.detach(widget.vm.sessionId, _driver);
     _noteTimer?.cancel();
     _creep?.cancel();
     unawaited(_closeChromium());
@@ -730,4 +738,82 @@ class _PreviewPanelState extends State<PreviewPanel> {
       ),
     ),
   );
+}
+
+/// The panel's page, as the session's agent works it: Chromium over its
+/// DevTools protocol (real clicks, keys and typing), or the built-in browser
+/// through scripts in the page.
+class _PanelDriver implements PageDriver {
+  _PanelDriver(this._s);
+  final _PreviewPanelState _s;
+  var _n = 0;
+
+  ChromiumTab? get _tab => _s._chromium ? _s._tab : null;
+
+  @override
+  String get url => _s._at;
+
+  @override
+  Future<Object?> eval(String script) async {
+    final tab = _tab;
+    if (tab != null) return chromiumEval(tab, script);
+    if (_s._chromium) throw StateError('Chromium is still starting.');
+    // The built-in browser does not wait for a promise: the answer is kept in
+    // the page, and asked for until it is there.
+    final id = 'r${_n++}';
+    await _s._c.runJavaScript(
+      'window.__hr = window.__hr || {}; Promise.resolve().then(() => ($script)).then('
+      "v => __hr['$id'] = JSON.stringify(v === undefined ? null : v), "
+      "e => __hr['$id'] = JSON.stringify({ __error: String((e && e.message) || e) }))",
+    );
+    final until = DateTime.now().add(const Duration(seconds: 12));
+    while (DateTime.now().isBefore(until)) {
+      final r = await _s._c.runJavaScriptReturningResult(
+        "(window.__hr && window.__hr['$id']) || ''",
+      );
+      final text = r is String ? r : '$r';
+      if (text.isNotEmpty && text != '""') {
+        unawaited(_s._c.runJavaScript("delete window.__hr['$id']"));
+        final value = jsonDecode(text);
+        if (value is Map && value['__error'] != null) throw StateError('${value['__error']}');
+        return value;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+    throw TimeoutException('The page did not answer.');
+  }
+
+  @override
+  Future<void> navigate(String url) async => _s._go(url);
+
+  @override
+  Future<void> back() async => _tab != null ? _tab!.go(-1) : _s._c.goBack();
+
+  @override
+  Future<void> Function(double x, double y)? get click {
+    final tab = _tab;
+    return tab == null ? null : (x, y) => chromiumClick(tab, x, y);
+  }
+
+  @override
+  Future<void> Function(String text)? get typeText => _tab?.type;
+
+  @override
+  Future<void> Function(String key)? get press {
+    final tab = _tab;
+    return tab == null ? null : (k) => chromiumPress(tab, k);
+  }
+
+  @override
+  Future<Uint8List?> screenshot() async {
+    final tab = _tab;
+    if (tab != null) return tab.screenshot();
+    final path =
+        '${Directory.systemTemp.path}/helmy-page-${DateTime.now().millisecondsSinceEpoch}.png';
+    final saved = await _s.widget.vm.webSnapshot(path);
+    if (saved == null) return null;
+    final bytes = await File(saved).readAsBytes();
+    unawaited(File(saved).delete());
+    return bytes;
+  }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import '../../utils/platform.dart';
+import 'browser/browser_tools.dart';
 import 'devices.dart';
 import 'watch_service.dart';
 
@@ -12,9 +13,10 @@ import 'watch_service.dart';
 /// MCP's plain JSON over HTTP. Its tools: watch a video, and see and use a
 /// simulator or emulator.
 class HelmyTools {
-  HelmyTools(this._watch, [this._devices]);
+  HelmyTools(this._watch, [this._devices, this._browser]);
   final WatchService _watch;
   final DeviceService? _devices;
+  final BrowserTools? _browser;
 
   HttpServer? _server;
   final _secret = List.generate(24, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
@@ -23,12 +25,21 @@ class HelmyTools {
   Future<String?> get url => _url ??= _start();
   Future<String?>? _url;
 
+  /// The address for one session's runs: its tools then know which session
+  /// asks, for the page in that session's Preview panel.
+  Future<String?> urlFor(String? session) async {
+    final base = await url;
+    if (base == null || session == null) return base;
+    return '$base?session=${Uri.encodeQueryComponent(session)}';
+  }
+
   /// The tool names as each connection sees them, to allow without asking:
   /// watching only looks, and the device tools act only on a simulator or
   /// emulator.
   static final claudeTools = [
     'mcp__helmy__watch_video',
     for (final t in deviceTools) 'mcp__helmy__$t',
+    for (final t in BrowserTools.names) 'mcp__helmy__$t',
   ];
 
   static const deviceTools = [
@@ -70,7 +81,11 @@ class HelmyTools {
         res.statusCode = HttpStatus.accepted;
         return;
       }
-      final reply = await answer('${message['method']}', (message['params'] as Map?) ?? const {});
+      final reply = await answer(
+        '${message['method']}',
+        (message['params'] as Map?) ?? const {},
+        session: r.uri.queryParameters['session'],
+      );
       res.headers.contentType = ContentType.json;
       res.write(jsonEncode({'jsonrpc': '2.0', 'id': id, ...reply}));
     } on Object catch (e) {
@@ -82,45 +97,47 @@ class HelmyTools {
   }
 
   /// The answer to one request: `{result: ...}` or `{error: ...}`.
-  Future<Map<String, Object?>> answer(String method, Map params) async => switch (method) {
-    'initialize' => {
-      'result': {
-        'protocolVersion': params['protocolVersion'] ?? '2025-06-18',
-        'capabilities': {'tools': <String, Object?>{}},
-        'serverInfo': {'name': 'helmy', 'version': '1'},
-      },
-    },
-    'ping' => {'result': <String, Object?>{}},
-    'tools/list' => {
-      'result': {
-        'tools': [
-          {
-            'name': 'watch_video',
-            'description':
-                'Watch a video on this computer: see frames spread across it, with when each '
-                'is, and hear what is said in it, as text with where each part starts. Use it '
-                'whenever you are asked to watch, look at, describe or check a video, or what '
-                'happens or is said in it. Give the full path.',
-            'inputSchema': {
-              'type': 'object',
-              'properties': {
-                'path': {'type': 'string', 'description': 'The video file, as a full path.'},
-              },
-              'required': ['path'],
-            },
-            'annotations': {'readOnlyHint': true, 'title': 'Watch a video'},
+  Future<Map<String, Object?>> answer(String method, Map params, {String? session}) async =>
+      switch (method) {
+        'initialize' => {
+          'result': {
+            'protocolVersion': params['protocolVersion'] ?? '2025-06-18',
+            'capabilities': {'tools': <String, Object?>{}},
+            'serverInfo': {'name': 'helmy', 'version': '1'},
           },
-          if (_devices != null) ..._deviceToolList,
-        ],
-      },
-    },
-    'tools/call' => {'result': await _call(params)},
-    _ => {
-      'error': {'code': -32601, 'message': 'No such method: $method'},
-    },
-  };
+        },
+        'ping' => {'result': <String, Object?>{}},
+        'tools/list' => {
+          'result': {
+            'tools': [
+              {
+                'name': 'watch_video',
+                'description':
+                    'Watch a video on this computer: see frames spread across it, with when each '
+                    'is, and hear what is said in it, as text with where each part starts. Use it '
+                    'whenever you are asked to watch, look at, describe or check a video, or what '
+                    'happens or is said in it. Give the full path.',
+                'inputSchema': {
+                  'type': 'object',
+                  'properties': {
+                    'path': {'type': 'string', 'description': 'The video file, as a full path.'},
+                  },
+                  'required': ['path'],
+                },
+                'annotations': {'readOnlyHint': true, 'title': 'Watch a video'},
+              },
+              if (_devices != null) ..._deviceToolList,
+              if (_browser != null) ...BrowserTools.list,
+            ],
+          },
+        },
+        'tools/call' => {'result': await _call(params, session)},
+        _ => {
+          'error': {'code': -32601, 'message': 'No such method: $method'},
+        },
+      };
 
-  Future<Map<String, Object?>> _call(Map params) async {
+  Future<Map<String, Object?>> _call(Map params, [String? session]) async {
     Map<String, Object?> says(String text, {bool error = false}) => {
       'content': [
         {'type': 'text', 'text': text},
@@ -128,6 +145,9 @@ class HelmyTools {
       'isError': error,
     };
     final name = '${params['name']}';
+    if (BrowserTools.names.contains(name) && _browser != null) {
+      return _browser.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    }
     if (deviceTools.contains(name) && _devices != null) {
       return _device(name, (params['arguments'] as Map?) ?? const {}, says);
     }

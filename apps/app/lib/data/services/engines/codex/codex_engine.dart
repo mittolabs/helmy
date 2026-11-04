@@ -351,7 +351,7 @@ class CodexEngine implements AgentEngine {
       () => commands(launch.cwd),
       // The local engine: Codex's own provider for Ollama, and its model.
       local == null ? const {} : {'modelProvider': 'ollama', 'model': local},
-      await tools?.url,
+      await tools?.urlFor(launch.sessionId),
     );
     run._ready = run._open(launch);
     return run;

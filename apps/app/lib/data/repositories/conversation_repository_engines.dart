@@ -373,6 +373,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
           cwd: session.cwd,
           level: session.level,
           resumeId: session.threads[engineId]?.resumeId,
+          sessionId: session.id,
         ),
         of(session.id).items,
       );
