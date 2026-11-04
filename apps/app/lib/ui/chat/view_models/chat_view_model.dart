@@ -411,6 +411,17 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   String? get previewUrl =>
       (active?.kind == .preview ? active : tabs.where((t) => t.kind == .preview).lastOrNull)?.url;
 
+  /// An attached file shown: beside the conversation where there is a web
+  /// view (pictures, PDFs and text show there), else in its own app.
+  void showFile(String path) {
+    if (!File(path).existsSync()) return;
+    if (webViewHere) {
+      add(.preview, url: Uri.file(path).toString());
+    } else {
+      unawaited(open(path));
+    }
+  }
+
   /// Shows [url] in a browser tab beside the conversation: the one showing,
   /// else the last one, else a new one.
   @override

@@ -211,6 +211,7 @@ class _UserState extends State<_User> {
                     Attachment(
                       title: path.split('/').last,
                       size: .sm,
+                      onPressed: () => vm.showFile(path),
                       image:
                           imageTypes.containsKey(path.split('.').last.toLowerCase()) &&
                               File(path).existsSync()

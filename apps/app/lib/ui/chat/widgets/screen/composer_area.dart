@@ -266,6 +266,7 @@ class _Attached extends StatelessWidget {
     return Attachment(
       title: name,
       size: .sm,
+      onPressed: () => vm.showFile(path),
       icon: picture ? AshlarIconsRoundedStroke.image : AshlarIconsRoundedStroke.file,
       image: picture ? FileImage(File(path)) : null,
       actions: [
