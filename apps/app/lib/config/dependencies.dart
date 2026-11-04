@@ -18,6 +18,7 @@ import '../data/services/browser/browser_host.dart';
 import '../data/services/browser/browser_tools.dart';
 import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
+import '../data/services/editors.dart';
 import '../data/services/sim_input.dart';
 import '../data/services/engines/claude/claude_engine.dart';
 import '../data/services/engines/codex/codex_engine.dart';
@@ -79,6 +80,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     dispose: (_, input) => input.dispose(),
   ),
   Provider(create: (context) => DeviceService(context.read(), input: context.read())),
+  // The apps a project opens in, asked of macOS once.
+  Provider(create: (_) => EditorService()),
   // A Chromium browser for Preview, once asked for; ended with the app.
   Provider(
     create: (_) => ChromiumService(appData: getApplicationSupportDirectory),

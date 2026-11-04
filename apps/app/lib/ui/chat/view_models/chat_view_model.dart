@@ -24,6 +24,9 @@ import '../../../utils/transcript_markdown.dart';
 import '../../../utils/platform.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../data/services/desktop_service.dart';
+import '../../../data/services/editors.dart';
+import '../../../data/services/project_actions.dart';
+import '../../../domain/models/project_action.dart';
 import '../../../data/services/watch_service.dart';
 import '../../../data/services/fixes.dart';
 import '../../../domain/problem.dart';
@@ -41,7 +44,7 @@ enum SidePanel { changes, background, preview, terminal, ship, device }
 /// One tab in the panel beside the conversation: what it shows, and for a
 /// browser tab, where it is.
 class PanelTab {
-  PanelTab(this.kind, {this.url}) : id = '${kind.name}-${_next++}';
+  PanelTab(this.kind, {this.url, this.action}) : id = '${kind.name}-${_next++}';
   static var _next = 0;
   final String id;
   final SidePanel kind;
@@ -52,6 +55,13 @@ class PanelTab {
   /// A browser tab's page: its title and the address of its icon, once read.
   String? title;
   String? icon;
+
+  /// A terminal tab running a project action: which, how many times it has
+  /// been started (each start runs it afresh), and how it last ended (null
+  /// while it runs).
+  ProjectAction? action;
+  int runs = 1;
+  int? exitCode;
 }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
@@ -68,6 +78,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     DeviceService? devices,
     this.chromium,
     this.browser,
+    this._editors,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
     // The agent's browser_open opens the page here, in the Preview panel.
@@ -100,7 +111,17 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<void> _findRepo() async {
     final cwd = session?.cwd;
     if (cwd == null || cwd == _askedFor) return;
+    // The session moved into its own copy while open here (its first
+    // message made it): what is to run in each new copy runs there now.
+    final intoCopy = _askedFor != null && (session?.ownCopy ?? false);
     _askedFor = cwd;
+    refreshActions();
+    if (intoCopy) {
+      for (final a in actions.where((a) => a.onNewCopy)) {
+        run(a, focus: false);
+      }
+    }
+    unawaited(_findEditors(cwd));
     final found = await _projects?.repoOf(cwd) != null;
     final mobile = isMobileProject(cwd);
     if (mobile != this.mobile) {
@@ -118,6 +139,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   final ConversationRepository _conversations;
   final AttentionRepository? _attention;
   final SettingsRepository? _settings;
+  final EditorService? _editors;
 
   late final Command1<void, String> send;
 
@@ -377,6 +399,151 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (_wasBusy && !busy) countChanges();
     _wasBusy = busy;
     _findServer();
+  }
+
+  // Project actions: run, test, build, as the project's files say, and those
+  // the user added; each runs in a terminal tab of its own.
+
+  /// The project's actions: those found in its files, then the user's own.
+  List<ProjectAction> actions = const [];
+
+  /// The action run last here, which ⌘R runs again.
+  ProjectAction? lastAction;
+
+  /// The folder whose settings hold the user's own actions: the repository
+  /// (shared by its copies), else the session's folder.
+  String? get _actionsHome => session?.repo ?? session?.cwd;
+
+  /// Reads the actions again (the project's files may have changed).
+  void refreshActions() {
+    final cwd = session?.cwd;
+    if (cwd == null) return;
+    final home = _actionsHome!;
+    final own = _settings?.settings.project(home).actions ?? const <ProjectAction>[];
+    final next = [...findActions(cwd), ...own];
+    if (listEquals(next, actions)) return;
+    actions = next;
+    notifyListeners();
+  }
+
+  /// Runs [action] in the session's folder, in a terminal tab of its own:
+  /// the one it ran in before, afresh, if that is still open.
+  void run(ProjectAction action, {bool focus = true}) {
+    lastAction = action;
+    final tab = tabs.where((t) => t.action?.key == action.key).firstOrNull;
+    if (tab != null) {
+      tab
+        ..runs += 1
+        ..exitCode = null;
+      if (focus) {
+        this.focus(tab);
+      } else {
+        notifyListeners();
+      }
+      return;
+    }
+    final made = PanelTab(.terminal, action: action);
+    final at = active == null ? tabs.length : tabs.indexOf(active!) + 1;
+    tabs.insert(at, made);
+    if (focus || active == null) {
+      this.focus(made);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// What an action's terminal said: a local address in it opens in the
+  /// Preview panel, once.
+  void actionOutput(PanelTab tab, String text) {
+    if (!webViewHere) return;
+    // Output comes in pieces, and an address can be split between two: the
+    // end of what came before is read with what comes now.
+    final seen = (_tails[tab.id] ?? '') + text;
+    _tails[tab.id] = seen.length > 400 ? seen.substring(seen.length - 400) : seen;
+    final url = localServerInText(seen);
+    if (url == null || !_servers.add(url)) return;
+    preview(url);
+  }
+
+  final _tails = <String, String>{};
+
+  /// An action's run ended with [code].
+  void actionEnded(PanelTab tab, int code) {
+    tab.exitCode = code;
+    notifyListeners();
+  }
+
+  /// Saves [action] as one of the user's own, in place of [replacing].
+  Future<void> saveAction(ProjectAction action, {ProjectAction? replacing}) async {
+    final s = _settings, home = _actionsHome;
+    if (s == null || home == null) return;
+    final project = s.settings.project(home);
+    final list = [...project.actions];
+    final at = replacing == null ? -1 : list.indexWhere((a) => a.key == replacing.key);
+    if (at >= 0) {
+      list[at] = action;
+    } else {
+      list.add(action);
+    }
+    await s.save(
+      s.settings.copyWith(
+        projects: {
+          ...s.settings.projects,
+          home: project.copyWith(actions: list),
+        },
+      ),
+    );
+    refreshActions();
+  }
+
+  /// Removes one of the user's own actions.
+  Future<void> removeAction(ProjectAction action) async {
+    final s = _settings, home = _actionsHome;
+    if (s == null || home == null) return;
+    final project = s.settings.project(home);
+    await s.save(
+      s.settings.copyWith(
+        projects: {
+          ...s.settings.projects,
+          home: project.copyWith(
+            actions: [
+              for (final a in project.actions)
+                if (a.key != action.key) a,
+            ],
+          ),
+        },
+      ),
+    );
+    if (lastAction?.key == action.key) lastAction = null;
+    refreshActions();
+  }
+
+  // Opening the project in an editor.
+
+  /// The apps this project can open in, editors first.
+  List<Editor> editors = const [];
+
+  /// The one it opens in: as chosen last, else the editor used most recently.
+  Editor? get editor => defaultEditor(editors, _settings?.settings.editor);
+
+  Future<void> _findEditors(String cwd) async {
+    final found = await _editors?.installed() ?? const <Editor>[];
+    editors = editorsFor(cwd, found);
+    notifyListeners();
+  }
+
+  /// Opens the project in [app] (else the usual one), which becomes the
+  /// usual one; false when it could not open.
+  Future<bool> openIn([Editor? app]) async {
+    final e = app ?? editor;
+    final folder = session?.cwd;
+    if (e == null || folder == null || _editors == null) return false;
+    if (app != null && app.id != _settings?.settings.editor) {
+      final s = _settings;
+      if (s != null) await s.save(s.settings.copyWith(editor: app.id));
+      notifyListeners();
+    }
+    return _editors.open(e, folder);
   }
 
   /// Local servers already offered, so each opens once.
@@ -837,6 +1004,18 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     super.dispose();
   }
 }
+
+/// The last address on this computer in [text] (a terminal's output, its
+/// colors taken out); null when there is none.
+String? localServerInText(String text) {
+  final plain = text.replaceAll(RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'), '');
+  final found = _local.allMatches(plain).lastOrNull?[0];
+  return found?.replaceFirst('0.0.0.0', 'localhost');
+}
+
+final _local = RegExp(
+  r'''https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:/[^\s'"`<>)\]]*)?''',
+);
 
 /// The newest address on this computer that a step's output gave, such as
 /// a dev server's "Local: http://localhost:5173/"; null when there is none.

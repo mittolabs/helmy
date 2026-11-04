@@ -40,6 +40,7 @@ import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
 import 'preview_panel.dart';
+import 'project_menu.dart';
 import 'ship_panel.dart';
 import 'device_panel.dart';
 import 'terminal_panel.dart';
@@ -286,7 +287,24 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
     return CallbackShortcuts(
-      bindings: {Desktop.current.shortcut(LogicalKeyboardKey.keyF): _openFind},
+      bindings: {
+        Desktop.current.shortcut(LogicalKeyboardKey.keyF): _openFind,
+        // The project's action again (the last run, else its first).
+        Desktop.current.shortcut(LogicalKeyboardKey.keyR): () {
+          if (actionToRun(vm) case final a?) vm.run(a);
+        },
+        Desktop.current.shortcut(LogicalKeyboardKey.keyO, shift: true): () => vm.openIn(),
+        // ⌘⌥1 to ⌘⌥9: the actions in the project menu's order.
+        for (final (i, key) in actionKeys.indexed)
+          SingleActivator(
+            key,
+            meta: Desktop.current.commandIsMeta,
+            control: !Desktop.current.commandIsMeta,
+            alt: true,
+          ): () {
+            if (i < vm.actions.length) vm.run(vm.actions[i]);
+          },
+      },
       child: ColoredBox(
         color: t.colors.background,
         child: ListenableBuilder(

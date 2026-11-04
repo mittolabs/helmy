@@ -1,5 +1,6 @@
 import 'engine.dart';
 import 'permission_rule.dart';
+import 'project_action.dart';
 
 /// Where a new session starts.
 enum FolderMode { last, fixed }
@@ -72,15 +73,33 @@ class const ProjectSettings({
 
   /// What Helmy may do without asking, in sessions here.
   final PermissionLevel? level,
-}) {
-  ProjectSettings copyWith({bool? ownCopies, PermissionLevel? level}) =>
-      ProjectSettings(ownCopies: ownCopies ?? this.ownCopies, level: level ?? this.level);
 
-  Map<String, Object?> toJson() => {'ownCopies': ?ownCopies, 'level': ?level?.id};
+  /// Actions the user added, beside those found in the project's files.
+  final List<ProjectAction> actions = const [],
+}) {
+  ProjectSettings copyWith({
+    bool? ownCopies,
+    PermissionLevel? level,
+    List<ProjectAction>? actions,
+  }) => ProjectSettings(
+    ownCopies: ownCopies ?? this.ownCopies,
+    level: level ?? this.level,
+    actions: actions ?? this.actions,
+  );
+
+  Map<String, Object?> toJson() => {
+    'ownCopies': ?ownCopies,
+    'level': ?level?.id,
+    if (actions.isNotEmpty) 'actions': [for (final a in actions) a.toJson()],
+  };
 
   static ProjectSettings fromJson(Map<String, Object?> json) => ProjectSettings(
     ownCopies: json['ownCopies'] as bool?,
     level: json['level'] == null ? null : PermissionLevel.fromId(json['level'] as String?),
+    actions: [
+      for (final a in (json['actions'] as List?) ?? const [])
+        if (a is Map) ProjectAction.fromJson(a.cast<String, Object?>()),
+    ],
   );
 }
 
@@ -139,6 +158,10 @@ class const AppSettings({
   /// The Chromium browser Preview uses, by its program; null lets Helmy pick
   /// one of those installed.
   final String? chromiumBrowser,
+
+  /// The app projects open in, by bundle id, as last chosen; null lets
+  /// Helmy pick the editor used most recently.
+  final String? editor,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
@@ -170,6 +193,7 @@ class const AppSettings({
     bool? stepsOpen,
     PreviewEngine? previewWith,
     String? chromiumBrowser,
+    String? editor,
     bool? confirmDelete,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -199,6 +223,7 @@ class const AppSettings({
     stepsOpen: stepsOpen ?? this.stepsOpen,
     previewWith: previewWith ?? this.previewWith,
     chromiumBrowser: chromiumBrowser ?? this.chromiumBrowser,
+    editor: editor ?? this.editor,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -230,6 +255,7 @@ class const AppSettings({
     'stepsOpen': stepsOpen,
     'previewWith': previewWith.name,
     'chromiumBrowser': chromiumBrowser,
+    'editor': editor,
     'confirmDelete': confirmDelete,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -264,6 +290,7 @@ class const AppSettings({
     stepsOpen: json['stepsOpen'] as bool? ?? false,
     previewWith: PreviewEngine.values.asNameMap()[json['previewWith']] ?? .system,
     chromiumBrowser: json['chromiumBrowser'] as String?,
+    editor: json['editor'] as String?,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {

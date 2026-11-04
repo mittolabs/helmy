@@ -73,6 +73,7 @@ class _Panel extends StatelessWidget {
     .changes =>
       vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
     .device => vm.device?.device?.name ?? 'Device',
+    .terminal when tab.action != null => tab.action!.name,
     .terminal => 'Terminal ${vm.tabs.where((t) => t.kind == .terminal).toList().indexOf(tab) + 1}',
     _ => _kindOf(tab.kind).$1,
   };
@@ -122,7 +123,16 @@ class _Panel extends StatelessWidget {
                           for (final tab in vm.tabs)
                             _TabChip(
                               label: _label(tab),
-                              icon: _kindOf(tab.kind).$2,
+                              // An action's: running, finished, or stopped by an error.
+                              icon: switch (tab) {
+                                PanelTab(action: _?, exitCode: null) =>
+                                  AshlarIconsRoundedStroke.play,
+                                PanelTab(action: _?, exitCode: 0) =>
+                                  AshlarIconsRoundedStroke.circleCheck,
+                                PanelTab(action: _?) => AshlarIconsRoundedStroke.circleAlert,
+                                _ => _kindOf(tab.kind).$2,
+                              },
+                              failed: tab.action != null && (tab.exitCode ?? 0) != 0,
                               image: tab.kind == .preview ? tab.icon : null,
                               on: tab == active,
                               onPressed: () => vm.focus(tab),
@@ -180,6 +190,12 @@ class _Panel extends StatelessWidget {
                     .terminal => TerminalPanel(
                       cwd: vm.session?.cwd ?? homeDir,
                       active: tab == active && vm.panelOpen,
+                      command: tab.action?.command,
+                      name: tab.action?.name,
+                      runs: tab.runs,
+                      onOutput: tab.action == null ? null : (text) => vm.actionOutput(tab, text),
+                      onExit: tab.action == null ? null : (code) => vm.actionEnded(tab, code),
+                      onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
                     ),
                     .device => DevicePanel(vm: vm),
                   },
@@ -198,12 +214,16 @@ class _TabChip extends StatelessWidget {
     required this.label,
     required this.icon,
     this.image,
+    this.failed = false,
     required this.on,
     required this.onPressed,
     required this.onClose,
   });
   final String label;
   final IconData icon;
+
+  /// What it ran stopped with an error: its icon says so in red.
+  final bool failed;
 
   /// The page's own icon, when it has one; [icon] until then, or if it fails.
   final String? image;
@@ -243,7 +263,11 @@ class _TabChip extends StatelessWidget {
                     AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
               )
             else
-              AshlarIcon(icon, size: 13, color: on ? c.foreground : c.mutedForeground),
+              AshlarIcon(
+                icon,
+                size: 13,
+                color: failed ? c.destructive : (on ? c.foreground : c.mutedForeground),
+              ),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
               child: Text(

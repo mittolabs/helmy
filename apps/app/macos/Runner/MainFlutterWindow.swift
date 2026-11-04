@@ -363,6 +363,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "face":
         DockFace.shared.show(args["face"] as? String)
         result(nil)
+      case "apps":
+        // Which of these apps (by bundle id) are installed: where, their
+        // name, when last used, and their icon. Off the main thread: asking
+        // Spotlight for the dates can take a moment.
+        let ids = args["ids"] as? [String] ?? []
+        DispatchQueue.global(qos: .userInitiated).async {
+          let found = ids.compactMap { Notifier.app($0) }
+          DispatchQueue.main.async { result(found) }
+        }
       case "webSnapshot":
         // A picture of the page in the Preview panel, as PNG, at the
         // screen's sharpness; nil when there is none.
@@ -404,6 +413,35 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
   /// Does [action] to the largest web view in the main window (the Preview
   /// panel's): its inspector, its zoom, a reload past the cache, or the
   /// appearance the page sees. False when there is no page.
+  /// An installed app by bundle id: its path, name, when it was last used
+  /// (milliseconds since 1970, or nil when macOS has not recorded it) and
+  /// its icon as a 64-pixel PNG.
+  static func app(_ id: String) -> [String: Any]? {
+    guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return nil }
+    var out: [String: Any] = ["id": id, "path": url.path]
+    let name = FileManager.default.displayName(atPath: url.path)
+    out["name"] = name.hasSuffix(".app") ? String(name.dropLast(4)) : name
+    if let item = NSMetadataItem(url: url),
+       let used = item.value(forAttribute: "kMDItemLastUsedDate") as? Date {
+      out["lastUsed"] = Int(used.timeIntervalSince1970 * 1000)
+    }
+    let icon = NSWorkspace.shared.icon(forFile: url.path)
+    let size = NSSize(width: 64, height: 64)
+    if let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8,
+        samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+        bytesPerRow: 0, bitsPerPixel: 0) {
+      NSGraphicsContext.saveGraphicsState()
+      NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+      icon.draw(in: NSRect(origin: .zero, size: size))
+      NSGraphicsContext.restoreGraphicsState()
+      if let png = rep.representation(using: .png, properties: [:]) {
+        out["icon"] = FlutterStandardTypedData(bytes: png)
+      }
+    }
+    return out
+  }
+
   static func webPage(_ action: String, _ args: [String: Any]) -> Bool {
     func all(_ v: NSView) -> [WKWebView] {
       (v as? WKWebView).map { [$0] } ?? v.subviews.flatMap(all)

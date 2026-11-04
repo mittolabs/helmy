@@ -123,6 +123,7 @@ class SettingsViewModel extends ChangeNotifier {
     final next = ProjectSettings(
       ownCopies: clearOwn ? null : ownCopies ?? now.ownCopies,
       level: clearLevel ? null : level ?? now.level,
+      actions: now.actions,
     );
     return update(settings.copyWith(projects: {...settings.projects, repo: next}));
   }

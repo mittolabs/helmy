@@ -61,58 +61,68 @@ class _Header extends StatelessWidget {
               // buttons and the sidebar's share (measured: 1.5 points low).
               child: Transform.translate(
                 offset: const Offset(0, -1.5),
-                child: Row(
-                  spacing: 8,
-                  children: [
-                    // A breadcrumb: the folder, then the session in it. In its
-                    // own copy, the repository it is a copy of.
-                    // The folder keeps its name whole unless it is very long.
-                    Flexible(
-                      flex: 2,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 200),
-                        child: _FolderButton(
-                          vm: vm,
-                          cwd: session.ownCopy ? session.repo! : session.cwd,
-                          style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
-                        ),
-                      ),
-                    ),
-                    Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
-                    Flexible(
-                      flex: 3,
-                      child: Text(
-                        session.title,
-                        style: t.text.sm.copyWith(
-                          fontWeight: .w500,
-                          height: 1,
-                          leadingDistribution: .even,
-                        ),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
-                    ),
-                    if (session.branch case final branch?)
-                      Flexible(
-                        child: Tooltip(
-                          message: 'Its own branch, in its own copy: other sessions here are not disturbed',
-                          child: Row(
-                            mainAxisSize: .min,
-                            spacing: 4,
-                            children: [
-                              AshlarIcon(
-                                AshlarIconsRoundedStroke.gitBranch,
-                                size: 12,
-                                color: muted.color,
-                              ),
-                              Flexible(
-                                child: Text(branch, maxLines: 1, overflow: .ellipsis, style: muted),
-                              ),
-                            ],
+                child: LayoutBuilder(
+                  builder: (context, box) => Row(
+                    spacing: 8,
+                    children: [
+                      // A breadcrumb: the folder, then the session in it. In its
+                      // own copy, the repository it is a copy of.
+                      // The folder keeps its name whole unless it is very long;
+                      // with too little room, the session's title alone.
+                      if (box.maxWidth >= 140) ...[
+                        Flexible(
+                          flex: 2,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 200),
+                            child: _FolderButton(
+                              vm: vm,
+                              cwd: session.ownCopy ? session.repo! : session.cwd,
+                              style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
+                            ),
                           ),
                         ),
+                        Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
+                      ],
+                      Flexible(
+                        flex: 3,
+                        child: Text(
+                          session.title,
+                          style: t.text.sm.copyWith(
+                            fontWeight: .w500,
+                            height: 1,
+                            leadingDistribution: .even,
+                          ),
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                        ),
                       ),
-                  ],
+                      if (session.branch case final branch?)
+                        Flexible(
+                          child: Tooltip(
+                            message: 'Its own branch, in its own copy: other sessions here are not disturbed',
+                            child: Row(
+                              mainAxisSize: .min,
+                              spacing: 4,
+                              children: [
+                                AshlarIcon(
+                                  AshlarIconsRoundedStroke.gitBranch,
+                                  size: 12,
+                                  color: muted.color,
+                                ),
+                                Flexible(
+                                  child: Text(
+                                    branch,
+                                    maxLines: 1,
+                                    overflow: .ellipsis,
+                                    style: muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -147,25 +157,37 @@ class _Header extends StatelessWidget {
                 }),
               ),
             ),
-          // The panel beside the conversation, shown or hidden, its tabs kept.
-          Tooltip(
-            message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-            child: Button(
-              variant: vm.panelOpen ? .secondary : .ghost,
-              size: .icon,
-              semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-              onPressed: () {
-                if (vm.tabs.isEmpty) {
-                  // Nothing in it yet: a page to start from.
-                  webViewHere ? vm.add(.preview) : vm.show(.changes);
-                } else {
-                  vm.togglePanel();
-                }
-              },
-              child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
-            ),
+          // The controls, close together as one cluster.
+          Row(
+            mainAxisSize: .min,
+            spacing: 2,
+            children: [
+              // The project: run it again, and the menu to open it, run more, add.
+              if (session.cwd.isNotEmpty) ...[
+                ProjectRunButton(vm: vm, compact: MediaQuery.sizeOf(context).width < 820),
+                ProjectMenu(vm: vm),
+              ],
+              // The panel beside the conversation, shown or hidden, its tabs kept.
+              Tooltip(
+                message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                child: Button(
+                  variant: vm.panelOpen ? .secondary : .ghost,
+                  size: .icon,
+                  semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                  onPressed: () {
+                    if (vm.tabs.isEmpty) {
+                      // Nothing in it yet: a page to start from.
+                      webViewHere ? vm.add(.preview) : vm.show(.changes);
+                    } else {
+                      vm.togglePanel();
+                    }
+                  },
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+                ),
+              ),
+              _SessionMenu(vm: vm),
+            ],
           ),
-          _SessionMenu(vm: vm),
         ],
       ),
     );
