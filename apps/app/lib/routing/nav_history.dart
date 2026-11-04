@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 /// Where you have been in the app, for ⌘[ and ⌘] like a browser's back and
 /// forward. go_router replaces the location rather than stacking it, so the
-/// trail is kept here, from the router's own changes.
-class NavHistory {
+/// trail is kept here, from the router's own changes. It tells its
+/// listeners when going back or forward becomes possible or not.
+class NavHistory extends ChangeNotifier {
   new(this._router) {
     _router.routerDelegate.addListener(_onChange);
     _onChange();
@@ -28,6 +30,7 @@ class NavHistory {
       ..add(here);
     if (_trail.length > 100) _trail.removeAt(0);
     _at = _trail.length - 1;
+    notifyListeners();
   }
 
   bool get canBack => _at > 0;
@@ -36,12 +39,18 @@ class NavHistory {
   void back() {
     if (!canBack) return;
     _router.go(_trail[--_at]);
+    notifyListeners();
   }
 
   void forward() {
     if (!canForward) return;
     _router.go(_trail[++_at]);
+    notifyListeners();
   }
 
-  void dispose() => _router.routerDelegate.removeListener(_onChange);
+  @override
+  void dispose() {
+    _router.routerDelegate.removeListener(_onChange);
+    super.dispose();
+  }
 }

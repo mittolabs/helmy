@@ -172,6 +172,13 @@ void main() {
     router.go('/b');
     await tester.pumpAndSettle();
     expect(history.canForward, isFalse);
+
+    // The arrows hear of each move, to be pressable or not.
+    var told = 0;
+    history.addListener(() => told++);
+    history.back();
+    await tester.pumpAndSettle();
+    expect((told > 0, history.canForward), (true, true));
     history.dispose();
   });
 }
