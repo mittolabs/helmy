@@ -44,6 +44,8 @@ String identityWith(String? brief) {
       '## What this chat has come to\n\n'
       'This conversation is one thread of a longer chat about the same topic. Here is '
       'that chat\'s brief, as it stood when this thread began: what was decided, and what '
-      'is open. Take it as known; ask the user when you need what is not here.\n\n'
+      'is open. Take it as known. For what it does not say: chat_threads lists the chat\'s '
+      'other threads with a line on each (cheap, look there first); chat_thread reads one, '
+      'with find for only the parts you need. Ask the user when neither has it.\n\n'
       '$b';
 }

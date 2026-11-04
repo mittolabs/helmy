@@ -227,7 +227,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<void> _freezeBrief() async {
     final s = session, chats = _chats;
     if (s == null || chats == null || s.chatId == null) return;
-    final brief = chats.byId(s.chatId!)?.brief ?? '';
+    var brief = chats.byId(s.chatId!)?.brief ?? '';
+    // Other threads but no brief yet: still said, so the agent knows they
+    // are there to look into.
+    if (brief.isEmpty && chats.threadsOf(s.chatId!).any((t) => t.id != s.id)) {
+      brief = '(No brief yet.)';
+    }
     if ((s.brief ?? '') == brief) return;
     await _sessions.save(s.copyWith(brief: brief));
   }

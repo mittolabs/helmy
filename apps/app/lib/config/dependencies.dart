@@ -22,6 +22,7 @@ import '../data/services/editors.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/chat_keeper.dart';
 import '../data/services/local_writer.dart';
+import '../data/services/chat_tools.dart';
 import '../data/services/history_import.dart';
 import '../data/services/turn_log.dart';
 import '../data/services/pull_requests.dart';
@@ -175,6 +176,16 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       loaded.settings.addListener(() => unawaited(repo.checkReach()));
       return repo;
     },
+  ),
+  // The rest of a session's chat, for its agent (decision 0014).
+  Provider(
+    lazy: false,
+    create: (context) => context.read<HelmyTools>().chats = ChatTools(
+      sessions: context.read(),
+      chats: context.read(),
+      conversations: context.read(),
+      log: context.read(),
+    ),
   ),
   // Chats kept current as threads go quiet, on the model on this Mac.
   Provider(create: (_) => LocalWriter(model: () => loaded.settings.settings.ollamaModel)),

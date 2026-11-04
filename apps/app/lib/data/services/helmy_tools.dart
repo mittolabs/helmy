@@ -5,6 +5,7 @@ import 'dart:math';
 
 import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
+import 'chat_tools.dart';
 import 'devices.dart';
 import 'watch_service.dart';
 
@@ -17,6 +18,9 @@ class HelmyTools {
   final WatchService _watch;
   final DeviceService? _devices;
   final BrowserTools? _browser;
+
+  /// The rest of a session's chat, for its agent: set once chats are ready.
+  ChatTools? chats;
 
   /// Shows a session's Device panel; true when it could.
   final bool Function(String? session)? _showDevice;
@@ -43,6 +47,7 @@ class HelmyTools {
     'mcp__helmy__watch_video',
     for (final t in deviceTools) 'mcp__helmy__$t',
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
+    for (final t in ChatTools.names) 'mcp__helmy__$t',
   ];
 
   static const deviceTools = [
@@ -131,6 +136,7 @@ class HelmyTools {
               },
               if (_devices != null) ..._deviceToolList,
               if (_browser != null) ...BrowserTools.list,
+              if (chats != null) ...ChatTools.list,
             ],
           },
         },
@@ -150,6 +156,9 @@ class HelmyTools {
     final name = '${params['name']}';
     if (BrowserTools.names.contains(name) && _browser != null) {
       return _browser.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    }
+    if (ChatTools.names.contains(name) && chats != null) {
+      return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (deviceTools.contains(name) && _devices != null) {
       return _device(name, (params['arguments'] as Map?) ?? const {}, says, session);

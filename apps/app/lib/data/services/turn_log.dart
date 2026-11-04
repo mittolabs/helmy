@@ -90,6 +90,16 @@ class TurnLog {
     'kept': kept,
   });
 
+  /// The agent looked into another thread of its chat: which rung of the
+  /// ladder (summaries, a thread's matching parts, a whole thread), and how
+  /// much came back, in characters.
+  Future<void> lookup({
+    required String thread,
+    required String chat,
+    required String rung,
+    required int size,
+  }) => _write('lookup', {'thread': thread, 'chat': chat, 'rung': rung, 'size': size});
+
   /// The person moved a thread to another chat (or out into its own), or
   /// rewrote a chat's brief: what filing and briefs are tuned on.
   Future<void> correction({
