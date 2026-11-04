@@ -28,9 +28,37 @@ import 'package:helmy/ui/settings/widgets/settings_screen.dart';
 import 'package:helmy/ui/shell/view_models/sidebar_view_model.dart';
 import 'package:helmy/ui/shell/widgets/empty_screen.dart';
 import 'package:helmy/ui/shell/widgets/shell_screen.dart';
+import 'package:helmy/data/services/engines/agent_engine.dart';
+import 'package:helmy/domain/models/engine.dart';
+import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:provider/provider.dart';
+
+/// An engine that is only a name in settings: nothing runs.
+class _Named implements AgentEngine {
+  _Named(this.info);
+  @override
+  final EngineInfo info;
+  @override
+  Future<String?> unavailableReason() async => null;
+  @override
+  Future<List<MemoryFile>> memoryFiles() async => const [];
+  @override
+  Future<List<SlashCommand>> commands(String cwd) async => const [];
+  @override
+  Future<Usage?> readUsage() async => null;
+  @override
+  Future<List<({String name, String status})>> servers() async => const [];
+  @override
+  Future<Set<Capability>> connected() async => const {};
+  @override
+  Future<String?> ask(String instructions, String question) async => null;
+  @override
+  Future<List<MemoryNote>> memoryNotes() async => const [];
+  @override
+  Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) => throw UnimplementedError();
+}
 
 const shots = String.fromEnvironment('SHOTS');
 const window = Size(1200, 850);
@@ -51,7 +79,18 @@ void main() {
       sessions = SessionRepositoryLocal(storage);
       settings = SettingsRepositoryLocal(storage);
       meter = UsageMeter();
-      engines = EngineRegistry([]);
+      engines = EngineRegistry([
+        _Named(
+          const EngineInfo(id: 'claude', name: 'Claude Code', capabilities: {Capability.tools}),
+        ),
+        _Named(
+          const EngineInfo(
+            id: 'codex',
+            name: 'Codex',
+            capabilities: {Capability.tools, Capability.imageGeneration},
+          ),
+        ),
+      ]);
       repo = ConversationRepositoryEngines(
         engines: engines,
         router: HeadroomRouter(meter),

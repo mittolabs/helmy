@@ -9,17 +9,8 @@ class _Agents extends StatelessWidget {
     final s = vm.settings;
     return _Page(
       children: [
-        const _Heading('Set up', first: true),
-        _Row(
-          title: 'Install and sign in',
-          description: 'Each connection installed and signed in with one press, no terminal.',
-          control: Button(
-            variant: .outline,
-            size: .sm,
-            onPressed: () => context.go('/setup'),
-            child: const Text('Open setup'),
-          ),
-        ),
+        const _Heading('Connections', first: true),
+        _Connections(vm: vm),
         const _Heading('Routing'),
         _Row(
           title: 'Move to an agent with more room',
@@ -37,8 +28,6 @@ class _Agents extends StatelessWidget {
             ),
           ),
         ),
-        const _Heading('Agents'),
-        for (final a in vm.agents) _AgentCard(row: a, checked: vm.checked, vm: vm),
         const _Heading('Local model'),
         _Row(
           title: 'Ollama model',
@@ -86,6 +75,157 @@ class _Agents extends StatelessWidget {
   }
 }
 
+/// The connections in a list, and the chosen one's details beside it.
+class _Connections extends StatelessWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final chosen = vm.chosen;
+    final list = Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        for (final a in vm.agents)
+          _ConnectionItem(
+            row: a,
+            checked: vm.checked,
+            selected: a.info.id == chosen?.info.id,
+            onPressed: () => vm.chooseAgent(a.info.id),
+            onEnabled: (on) => vm.setEnabled(a.info.id, on),
+          ),
+        Pressable(
+          onPressed: () => context.go('/setup'),
+          semanticLabel: 'Add a connection',
+          builder: (context, state) => Container(
+            padding: const .symmetric(horizontal: 16, vertical: 14),
+            color: state.hovered ? c.accent.withValues(alpha: .5) : null,
+            child: Row(
+              spacing: 10,
+              children: [
+                AshlarIcon(AshlarIconsRoundedStroke.plus, size: 16, color: c.mutedForeground),
+                Text('Add a connection', style: t.text.sm),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+    final detail = chosen == null
+        ? Padding(
+            padding: const .all(18),
+            child: Text(
+              'No connection yet. Add one, and it is installed and signed in with one press.',
+              style: t.text.sm.copyWith(color: c.mutedForeground),
+            ),
+          )
+        : _AgentCard(row: chosen, checked: vm.checked, vm: vm);
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.border),
+        borderRadius: .circular(t.radiusLg),
+      ),
+      clipBehavior: .antiAlias,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // Narrow: the details under the list.
+          if (box.maxWidth < 560) {
+            return Column(
+              crossAxisAlignment: .stretch,
+              children: [
+                list,
+                Container(height: 1, color: c.border),
+                detail,
+              ],
+            );
+          }
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: .stretch,
+              children: [
+                Container(
+                  width: 250,
+                  decoration: BoxDecoration(
+                    border: Border(right: BorderSide(color: c.border)),
+                  ),
+                  child: list,
+                ),
+                Expanded(child: detail),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// One connection in the list: its name, how it is, and whether it is used.
+class _ConnectionItem extends StatelessWidget {
+  const new({
+    required this.row,
+    required this.checked,
+    required this.selected,
+    required this.onPressed,
+    required this.onEnabled,
+  });
+  final AgentRow row;
+  final bool checked, selected;
+  final VoidCallback onPressed;
+  final ValueChanged<bool> onEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Pressable(
+      onPressed: onPressed,
+      selected: selected,
+      semanticLabel: row.info.name,
+      builder: (context, state) => Container(
+        padding: const .fromLTRB(16, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? c.accent
+              : state.hovered
+              ? c.accent.withValues(alpha: .5)
+              : null,
+          border: Border(bottom: BorderSide(color: c.border)),
+        ),
+        child: Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .start,
+                spacing: 2,
+                children: [
+                  Text(
+                    row.info.name,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: t.text.sm.copyWith(fontWeight: .w500),
+                  ),
+                  Text(
+                    _AgentCard.statusOf(row, checked),
+                    maxLines: 2,
+                    overflow: .ellipsis,
+                    style: t.text.xs.copyWith(color: c.mutedForeground),
+                  ),
+                ],
+              ),
+            ),
+            Switch(value: row.enabled, semanticLabel: 'Use ${row.info.name}', onChanged: onEnabled),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AgentCard extends StatelessWidget {
   const new({required this.row, required this.checked, required this.vm});
   final AgentRow row;
@@ -100,32 +240,30 @@ class _AgentCard extends StatelessWidget {
     return 'in ${d.inDays}d ${d.inHours % 24}h';
   }
 
+  /// How [row] is, in a few words.
+  static String statusOf(AgentRow row, bool checked) => !checked
+      ? 'Checking...'
+      : row.problem ??
+            (row.downUntil != null
+                ? 'Resting after a failure, back ${_until(row.downUntil!, DateTime.now())}'
+                : row.enabled
+                ? 'Ready'
+                : 'Turned off: no messages go to it');
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
     final now = DateTime.now();
     final usage = row.usage;
-    final status = !checked
-        ? 'Checking...'
-        : row.problem ??
-              (row.downUntil != null
-                  ? 'Resting after a failure, back ${_until(row.downUntil!, now)}'
-                  : row.enabled
-                  ? 'Ready'
-                  : 'Turned off: no messages go to it');
+    final status = statusOf(row, checked);
     final can = [
       for (final c in row.info.capabilities)
         if (c != Capability.tools) c.label,
     ];
     final connections = vm.connectionsOf(row.info.id);
-    return Container(
-      margin: const .only(top: 12),
-      padding: const .all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: t.colors.border),
-        borderRadius: .circular(t.radiusLg),
-      ),
+    return Padding(
+      padding: const .all(18),
       child: Column(
         crossAxisAlignment: .stretch,
         spacing: 10,
@@ -137,16 +275,19 @@ class _AgentCard extends StatelessWidget {
                   crossAxisAlignment: .start,
                   spacing: 2,
                   children: [
-                    Text(row.info.name, style: t.text.sm.copyWith(fontWeight: .w600)),
+                    Text(row.info.name, style: t.text.base.copyWith(fontWeight: .w600)),
                     Text(status, style: muted),
                   ],
                 ),
               ),
-              Switch(
-                value: row.enabled,
-                semanticLabel: 'Use ${row.info.name}',
-                onChanged: (on) => vm.setEnabled(row.info.id, on),
-              ),
+              // A problem says its fix where it shows.
+              if (row.problem != null)
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: () => context.go('/setup'),
+                  child: const Text('Fix in setup'),
+                ),
             ],
           ),
           if (row.info.localOnly)

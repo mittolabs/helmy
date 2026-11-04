@@ -158,6 +158,19 @@ class SettingsViewModel extends ChangeNotifier {
       ),
   ];
 
+  /// The connection whose details show beside the list.
+  String? chosenAgent;
+
+  AgentRow? get chosen {
+    final all = agents;
+    return all.where((a) => a.info.id == chosenAgent).firstOrNull ?? all.firstOrNull;
+  }
+
+  void chooseAgent(String engineId) {
+    chosenAgent = engineId;
+    notifyListeners();
+  }
+
   Future<void> setEnabled(String engineId, bool on) {
     final off = {...settings.disabledEngines};
     on ? off.remove(engineId) : off.add(engineId);
