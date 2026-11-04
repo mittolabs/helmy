@@ -19,6 +19,7 @@ import '../data/services/browser/browser_tools.dart';
 import '../data/services/chromium/chromium_service.dart';
 import '../data/services/devices.dart';
 import '../data/services/editors.dart';
+import '../utils/format.dart';
 import '../data/services/sim_input.dart';
 import '../data/services/engines/claude/claude_engine.dart';
 import '../data/services/engines/codex/codex_engine.dart';
@@ -57,6 +58,8 @@ Future<Loaded> load() async {
   final settings = SettingsRepositoryLocal(storage);
   final meter = UsageMeter(storage: storage);
   await (sessions.load(), settings.load(), meter.load()).wait;
+  // Sessions started without a project each get a folder here.
+  scratchRoot = '${(await getApplicationSupportDirectory()).path}/scratch';
   return (storage: storage, sessions: sessions, settings: settings, meter: meter);
 }
 

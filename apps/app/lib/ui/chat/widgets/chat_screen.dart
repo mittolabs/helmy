@@ -386,7 +386,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         onClose: _closeFind,
                       ),
                     if (vm.items.isEmpty && !vm.busy && !_finding)
-                      Expanded(child: _Hello(offline: vm.onlyThisMac))
+                      Expanded(
+                        child: _Hello(offline: vm.onlyThisMac, vm: vm),
+                      )
                     else
                       Expanded(
                         // As AshlarPageRoute does; go_router pages do not get it by themselves.

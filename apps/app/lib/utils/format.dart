@@ -34,3 +34,13 @@ String ago(DateTime then, {DateTime? now}) {
   ];
   return '${months[then.month - 1]} ${then.day}';
 }
+
+/// Where sessions started without a project keep their folders (one each,
+/// Helmy's own); set once at startup.
+String? scratchRoot;
+
+/// Whether [path] is a folder of a session started without a project.
+bool isScratch(String path) => scratchRoot != null && path.startsWith('$scratchRoot/');
+
+/// A session folder's name as shown: "No project" for one of Helmy's own.
+String projectName(String path) => isScratch(path) ? 'No project' : folderName(path);

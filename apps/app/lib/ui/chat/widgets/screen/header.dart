@@ -334,9 +334,12 @@ class _FolderButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return Tooltip(
-      message: vm.busy
-          ? '${tildePath(cwd)}. Wait for the turn to end to change the folder'
-          : '${tildePath(cwd)}. Click to change the folder',
+      message: switch ((isScratch(cwd), vm.busy)) {
+        (true, true) => 'No project: a folder of its own. Wait for the turn to end to choose one',
+        (true, false) => 'No project: a folder of its own. Click to choose a folder to work in',
+        (false, true) => '${tildePath(cwd)}. Wait for the turn to end to change the folder',
+        (false, false) => '${tildePath(cwd)}. Click to change the folder',
+      },
       child: Pressable(
         onPressed: vm.busy ? null : _pick,
         semanticLabel: 'Folder ${tildePath(cwd)}, change',
@@ -348,7 +351,9 @@ class _FolderButton extends StatelessWidget {
             Flexible(
               child: Text(
                 // The folder's name; the whole path is in the tooltip.
-                tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
+                isScratch(cwd)
+                    ? 'No project'
+                    : tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
                 maxLines: 1,
                 overflow: .ellipsis,
                 style: style.copyWith(

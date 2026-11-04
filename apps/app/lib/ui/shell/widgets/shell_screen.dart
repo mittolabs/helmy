@@ -574,7 +574,7 @@ class _SessionRowState extends State<_SessionRow> {
     final s = widget.session;
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
     final line = widget.line;
-    final folder = folderName(s.ownCopy ? s.repo! : s.cwd);
+    final folder = projectName(s.ownCopy ? s.repo! : s.cwd);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -724,17 +724,28 @@ class _ProjectBadge extends StatelessWidget {
                   )
                 : Container(
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: fill, borderRadius: .circular(4)),
-                    child: Text(
-                      _initials,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                        height: 1,
-                        letterSpacing: .2,
-                      ),
+                    decoration: BoxDecoration(
+                      color: name == 'No project' ? c.muted : fill,
+                      borderRadius: .circular(4),
                     ),
+                    // No project: a plain mark rather than initials, which
+                    // would read as a project's.
+                    child: name == 'No project'
+                        ? AshlarIcon(
+                            AshlarIconsRoundedStroke.messageCircle,
+                            size: 11,
+                            color: c.mutedForeground,
+                          )
+                        : Text(
+                            _initials,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                              height: 1,
+                              letterSpacing: .2,
+                            ),
+                          ),
                   ),
           ),
           if (activity == .needsYou || activity == .unread)

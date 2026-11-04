@@ -18,6 +18,7 @@ import '../../../utils/starters.dart';
 import '../../../data/services/man_pages.dart';
 import '../../../data/services/snapshots.dart';
 import '../../../utils/diffs.dart';
+import '../../../utils/format.dart';
 import '../../../utils/project_files.dart';
 import '../../../utils/result.dart';
 import '../../../utils/transcript_markdown.dart';
@@ -184,7 +185,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// A side chat's name: its title once its first question named it.
   String sideTitle(String id) {
     final s = _sessions.byId(id);
-    if (s == null || s.title.startsWith('New session in')) return 'Side chat';
+    if (s == null || s.title.startsWith('New session')) return 'Side chat';
     return s.title;
   }
 
@@ -289,7 +290,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// What an empty session suggests, from what its folder holds.
   Future<List<Starter>> starters() {
     final s = session;
-    if (s == null) return Future.value(const []);
+    // A folder of its own (no project) is empty: nothing in it to suggest.
+    if (s == null || isScratch(s.cwd)) return Future.value(const []);
     return _starters ??= readFolderFacts(s.cwd).then(startersFor);
   }
 
@@ -1144,7 +1146,27 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     await _sessions.save(s.copyWith(title: t));
   }
 
+  /// Moves the session (before its first message) into a folder of its
+  /// own that Helmy keeps: for what belongs to no project. Its files are
+  /// still made there, and choosing a folder later moves it.
+  Future<void> startWithoutProject() async {
+    final root = scratchRoot;
+    if (root == null) return;
+    final dir = Directory('$root/$sessionId');
+    await dir.create(recursive: true);
+    await changeFolder(dir.path);
+  }
+
   Future<void> delete() async {
+    // A folder of its own (no project) is Helmy's, and goes with it.
+    final cwd = session?.cwd;
+    if (cwd != null && isScratch(cwd)) {
+      try {
+        await Directory(cwd).delete(recursive: true);
+      } on FileSystemException {
+        // Already gone.
+      }
+    }
     // Its side chats go with it.
     for (final side in sideChats) {
       await _conversations.forget(side.id);
@@ -1163,7 +1185,14 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     // Before its first message, a session takes on its new project's level.
     final fresh = !items.any((i) => i is UserMessage);
     final level = fresh ? await _projects?.levelFor(cwd) : null;
-    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level));
+    // What was read of the old folder is not this one's.
+    _starters = null;
+    _files = null;
+    // Not yet named by a first message: named for where it now is.
+    final title = s.title.startsWith('New session')
+        ? (isScratch(cwd) ? 'New session' : 'New session in ${folderName(cwd)}')
+        : null;
+    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level, title: title));
   }
 
   @override

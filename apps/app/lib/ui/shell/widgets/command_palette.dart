@@ -32,16 +32,18 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
     groups: [
       if (open != null)
         CommandGroup(heading: 'This session', [
-          CommandItem(
-            'New session in ${folderName(open.ownCopy ? open.repo! : open.cwd)}',
-            description: 'Starts beside this one, in the same folder',
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
-            onSelected: () async {
-              if (await vm.createIn(open.ownCopy ? open.repo! : open.cwd) case Ok(:final value)) {
-                router.go('/s/${value.id}');
-              }
-            },
-          ),
+          // (Not beside one without a project: its folder is its own.)
+          if (!isScratch(open.cwd))
+            CommandItem(
+              'New session in ${folderName(open.ownCopy ? open.repo! : open.cwd)}',
+              description: 'Starts beside this one, in the same folder',
+              leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
+              onSelected: () async {
+                if (await vm.createIn(open.ownCopy ? open.repo! : open.cwd) case Ok(:final value)) {
+                  router.go('/s/${value.id}');
+                }
+              },
+            ),
           CommandItem(
             open.pinned ? 'Unpin' : 'Pin',
             description: open.title,
