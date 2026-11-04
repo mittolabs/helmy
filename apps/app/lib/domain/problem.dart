@@ -93,11 +93,7 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
     final until = stamp == null ? null : DateTime.fromMillisecondsSinceEpoch(stamp * 1000);
     return until == null
         ? p("I've reached a usage limit. It frees up again soon; try again in a while.", .retry)
-        : p(
-            "I've reached a usage limit. It frees up at ${_time(until, now)}.",
-            .wait,
-            until: until,
-          );
+        : p("I've reached a usage limit. It frees up ${atTime(until, now)}.", .wait, until: until);
   }
   if (RegExp(r'overloaded|\b529\b|\b503\b|capacity|unavailable').hasMatch(e)) {
     return p(
@@ -128,7 +124,16 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
   );
 }
 
-String _time(DateTime t, DateTime? now) {
+/// When [t] is, to follow a verb: "at 3:40 PM", "tomorrow at 9:00 AM",
+/// "on 11/6 at 9:00 AM".
+String atTime(DateTime t, DateTime? now) {
+  final when = clockAt(t, now);
+  if (!when.contains(' at ')) return 'at $when';
+  return when.startsWith('tomorrow') ? when : 'on $when';
+}
+
+/// [t] as a person says it: "3:40 PM", "tomorrow at 9:00 AM", "11/6 at 9:00 AM".
+String clockAt(DateTime t, DateTime? now) {
   final n = now ?? DateTime.now();
   final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
   final clock = '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';

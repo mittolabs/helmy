@@ -360,7 +360,10 @@ class _Working extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final waiting = vm.items.whereType<PermissionPrompt>().any((p) => p.decision == .pending);
-    final label = waiting
+    final held = vm.heldUntil;
+    final label = held != null
+        ? 'Waiting for room, until ${clockAt(held, null)}'
+        : waiting
         ? 'Waiting for you'
         : vm.thinking
         ? 'Thinking'
@@ -368,7 +371,7 @@ class _Working extends StatelessWidget {
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Shimmer(
-        enabled: !waiting,
+        enabled: !waiting && held == null,
         child: Text(label, style: t.text.sm.copyWith(color: t.colors.mutedForeground)),
       ),
     );

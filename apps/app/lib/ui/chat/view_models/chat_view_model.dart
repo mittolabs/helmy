@@ -405,6 +405,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   bool get onlyThisMac => _conversations.onlyThisMac ?? false;
   bool get thinking => _c.thinking;
 
+  /// Every connection is at its limit: the message waits until then.
+  DateTime? get heldUntil => _c.heldUntil;
+
   // Composing: commands, files, history, the queue, the context.
 
   Future<List<SlashCommand>>? _commands;
@@ -1242,7 +1245,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Sends [text] now even while the agent works: it stops what it is doing
   /// and takes this up instead.
   Future<void> sendNow(String text) async {
-    if (!busy) {
+    // Waiting for room, there is nothing to redirect: it waits its turn.
+    if (!busy || heldUntil != null) {
       await send.execute(text);
       return;
     }

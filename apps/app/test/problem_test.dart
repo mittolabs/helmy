@@ -34,6 +34,7 @@ const _errors = [
 ];
 
 void main() {
+  group('times', atTimes);
   testWidgets('no problem reaches the conversation without a way to act on it', (tester) async {
     late Directory root;
     late ChatViewModel vm;
@@ -80,7 +81,7 @@ void main() {
     }
     vm.dispose();
     repo.dispose();
-    await tester.runAsync(() => root.delete(recursive: true));
+    await tester.runAsync(() => deleteFolder(root));
   });
 
   test('answer links name fixes, and anything else is not one', () {
@@ -88,5 +89,14 @@ void main() {
     expect(Fix.fromLink('helmy://fix/start-local'), Fix.startLocal);
     expect(Fix.fromLink('https://example.com'), isNull);
     expect(Fix.fromLink('helmy://fix/delete-everything'), isNull);
+  });
+}
+
+void atTimes() {
+  test('a time follows a verb as said: today, tomorrow, or another day', () {
+    final now = DateTime(2026, 11, 4, 22, 0);
+    expect(atTime(DateTime(2026, 11, 4, 23, 40), now), 'at 11:40 PM');
+    expect(atTime(DateTime(2026, 11, 5, 0, 34), now), 'tomorrow at 12:34 AM');
+    expect(atTime(DateTime(2026, 11, 6, 9, 0), now), 'on 11/6 at 9:00 AM');
   });
 }

@@ -120,6 +120,7 @@ class _Decider implements Decider {
 void main() {
   steering();
   moving();
+  group('holding', holding);
   late Directory root;
   late SessionRepositoryLocal sessions;
   late StorageService storage;
@@ -397,4 +398,100 @@ void moving() {
       await root.delete(recursive: true);
     },
   );
+}
+
+void holding() {
+  Future<
+    (
+      ConversationRepositoryEngines,
+      SessionRepositoryLocal,
+      Session,
+      _Engine,
+      UsageMeter,
+      StorageService,
+    )
+  >
+  setUpHeld(String name) async {
+    final root = await Directory.systemTemp.createTemp(name);
+    final storage = storageAt(root);
+    addTearDown(() async {
+      await storage.flush();
+      await root.delete(recursive: true);
+    });
+    final sessions = SessionRepositoryLocal(storage);
+    final meter = UsageMeter();
+    final engine = _Engine(
+      const EngineInfo(id: 'claude', name: 'agent', capabilities: {Capability.tools}),
+      'answered once there was room',
+    );
+    final repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([engine]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+      holdMargin: Duration.zero,
+    );
+    addTearDown(repo.dispose);
+    final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
+    repo.of(s.id).loaded = true;
+    return (repo, sessions, s, engine, meter, storage);
+  }
+
+  test('at its limit everywhere, a message waits and goes when the limit lifts', () async {
+    final (repo, sessions, s, engine, meter, _) = await setUpHeld('held');
+    final reset = DateTime.now().add(const Duration(milliseconds: 400));
+    meter
+      ..report('claude', Usage(used: 1, resetsAt: reset))
+      ..markDown('claude');
+    await repo.send(sessions.byId(s.id)!, 'sum up the budget');
+    final c = repo.of(s.id);
+    expect((c.busy, c.heldUntil), (true, reset));
+    expect(
+      c.items.whereType<Notice>().single.text,
+      contains('goes by itself at'),
+      reason: 'the reset the connection reported, said as a time',
+    );
+    // Sent while it waits: after it, in turn.
+    await repo.send(sessions.byId(s.id)!, 'and the travel line');
+    expect(c.queue, hasLength(1));
+    expect(engine.sent, isEmpty);
+
+    for (var i = 0; i < 100 && (c.busy || c.queue.isNotEmpty); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect(c.heldUntil, isNull);
+    expect(engine.sent.map((t) => t.split('\n').last), [
+      'sum up the budget',
+      'and the travel line',
+    ]);
+    expect(c.items.whereType<AssistantText>(), hasLength(2));
+  });
+
+  test('with no reset said, it says when it tries again; stopping lets it go', () async {
+    final (repo, sessions, s, engine, meter, storage) = await setUpHeld('held-unknown');
+    meter.markDown('claude');
+    await repo.send(sessions.byId(s.id)!, 'sum up the budget');
+    final c = repo.of(s.id);
+    expect(c.items.whereType<Notice>().single.text, contains('none said when it frees up'));
+    expect(c.heldUntil, isNotNull);
+
+    // Helmy closed while it waited: opened again, the conversation says so.
+    final again = ConversationRepositoryEngines(
+      engines: EngineRegistry([engine]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    addTearDown(again.dispose);
+    await storage.flush();
+    await again.load(s.id);
+    expect(again.of(s.id).items.whereType<Notice>().last.fix, 'retry');
+
+    repo.interrupt(s.id);
+    expect((c.busy, c.heldUntil), (false, null));
+    expect(c.items.whereType<Notice>().last.text, startsWith('Not sent'));
+    expect(engine.sent, isEmpty);
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../../../domain/helmy_voice.dart';
+import '../../../domain/problem.dart' show clockAt;
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -541,7 +542,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               : widget.bar != null
                               ? 'Ask on the side'
                               : 'Type / for commands, @ for files',
-                          status: vm.busy
+                          status: vm.heldUntil != null
+                              ? 'Waiting for room. What you send waits its turn.'
+                              : vm.busy
                               ? 'Working. What you send waits its turn; ${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
                               : null,
                           attachments: [

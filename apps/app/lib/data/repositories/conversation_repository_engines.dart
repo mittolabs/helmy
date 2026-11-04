@@ -71,6 +71,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     this._worktrees,
     this._log,
     bool Function(String repo)? ownCopies,
+    this.holdMargin = const Duration(seconds: 30),
   }) : _ownCopies = ownCopies ?? ((_) => false),
        _enabled = enabled ?? ((_) => true),
        _rules = rules ?? (() => const []);
@@ -80,6 +81,13 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// What each turn cost, measured (decision `0014`).
   final TurnLog? _log;
+
+  /// How long after a limit resets a held message goes: a reset is not
+  /// always to the second.
+  final Duration holdMargin;
+
+  /// Messages held while every connection is at its limit, by session.
+  final _held = <String, Timer>{};
 
   /// Runs `!command` in the user's shell.
   final ShellService _shellService = const ShellService();
@@ -134,6 +142,16 @@ class ConversationRepositoryEngines extends ConversationRepository {
         (j) => ChatItem.fromJson(j.cast<String, Object?>()),
       ),
     );
+    // A message held for room when Helmy last closed was never sent: said,
+    // rather than leaving "goes by itself" standing.
+    if (c.items.lastOrNull case Notice(fix: final fix) when fix == Fix.wait.link) {
+      c.items.add(
+        Notice(
+          'Helmy closed while this message waited for room, so it was not sent.',
+          fix: Fix.retry.link,
+        ),
+      );
+    }
     // Read for a row in the list, it may arrive after the app has closed.
     if (!_disposed) notifyListeners();
   }
@@ -325,6 +343,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
         warm: ended != null && DateTime.now().difference(ended) < cacheLife,
       );
       if (id == null) {
+        if (await _hold(sessionId, turn)) return;
         c
           ..busy = false
           ..thinking = false;
@@ -372,6 +391,71 @@ class ConversationRepositoryEngines extends ConversationRepository {
       );
       return;
     }
+  }
+
+  /// When every connection that could answer is at its usage limit, the
+  /// message waits rather than failing: the thread stays busy (what is sent
+  /// after it waits its turn), and it goes by itself when the first limit
+  /// lifts. The time said is the reset a connection reported, or, when none
+  /// said, when Helmy tries again. False when something else stood in the way.
+  Future<bool> _hold(String sessionId, _Turn turn) async {
+    if (turn.unasked) return false;
+    final limited = <(String, DateTime)>[];
+    var usable = 0;
+    for (final e in _engines.engines) {
+      final id = e.info.id;
+      if (!_enabled(id) || await e.unavailableReason() != null) continue;
+      usable++;
+      if (_meter.downUntil(id) case final until?) limited.add((id, until));
+    }
+    if (usable == 0 || limited.length < usable) return false;
+    limited.sort((a, b) => a.$2.compareTo(b.$2));
+    final (first, until) = limited.first;
+    final reported = _meter.usageOf(first)?.resetsAt == until;
+    final c = of(sessionId)
+      ..busy = true
+      ..thinking = false
+      ..heldUntil = until;
+    c.items.add(
+      Notice(
+        reported
+            ? 'Every connection I can use is at its usage limit. This message waits here and '
+                  'goes by itself ${atTime(until, null)}, when the first one has room again.'
+            : "Every connection I can use is at its usage limit, and none said when it frees "
+                  'up. This message waits here; I try it again ${atTime(until, null)}.',
+        fix: Fix.wait.link,
+      ),
+    );
+    _persist(sessionId);
+    _held[sessionId]?.cancel();
+    _held[sessionId] = Timer(until.difference(DateTime.now()) + holdMargin, () {
+      _held.remove(sessionId);
+      if (_disposed || c.heldUntil == null) return;
+      c.heldUntil = null;
+      turn
+        ..tried.clear()
+        ..lastError = null;
+      notifyListeners();
+      unawaited(_dispatch(sessionId, turn));
+    });
+    notifyListeners();
+    return true;
+  }
+
+  /// Lets go of a held message: it stays in the conversation, unsent.
+  bool _release(String sessionId) {
+    final timer = _held.remove(sessionId);
+    if (timer == null) return false;
+    timer.cancel();
+    final c = of(sessionId)
+      ..heldUntil = null
+      ..busy = false;
+    c.items.add(Notice('Not sent: you stopped it while it waited for room.'));
+    _turns.remove(sessionId);
+    _persist(sessionId);
+    notifyListeners();
+    _next(sessionId);
+    return true;
   }
 
   Future<EngineRun?> _runFor(Session session, String engineId) async {
@@ -745,7 +829,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
   }
 
   @override
-  void interrupt(String sessionId) => _active(sessionId)?.interrupt();
+  void interrupt(String sessionId) {
+    if (_release(sessionId)) return;
+    _active(sessionId)?.interrupt();
+  }
 
   @override
   void answerPermission(String sessionId, PermissionPrompt prompt, PermissionAnswer answer) {
@@ -879,6 +966,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
   @override
   void dispose() {
     _disposed = true;
+    for (final t in _held.values) {
+      t.cancel();
+    }
     // Processes outlive this object by a moment; nothing they say may reach it.
     for (final s in _subscriptions.values) {
       unawaited(s.cancel());

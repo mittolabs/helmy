@@ -22,6 +22,10 @@ class Conversation {
   /// Messages waiting for the turn to end, oldest first.
   final List<Queued> queue = [];
 
+  /// Every connection was at its usage limit: the message waits, and goes by
+  /// itself at this time. Null when nothing is held.
+  DateTime? heldUntil;
+
   int get pendingPrompts =>
       items.whereType<PermissionPrompt>().where((p) => p.decision == .pending).length;
 }
