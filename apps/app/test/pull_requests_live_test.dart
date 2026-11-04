@@ -18,10 +18,14 @@ void main() {
     final watch = Stopwatch()..start();
     final r = await PullRequests(CliLocator()).list(folders);
     // ignore: avoid_print
-    print('${watch.elapsedMilliseconds} ms, me=${r.me}, problem=${r.problem}, ${r.prs.length} open');
+    print(
+      '${watch.elapsedMilliseconds} ms, me=${r.me}, problem=${r.problem}, ${r.prs.length} open',
+    );
     for (final p in r.prs.take(6)) {
       // ignore: avoid_print
-      print('  ${p.repo}#${p.number} ${p.checks.name} review=${p.review} draft=${p.draft} labels=${p.labels.length}');
+      print(
+        '  ${p.repo}#${p.number} ${p.checks.name} review=${p.review} draft=${p.draft} labels=${p.labels.length}',
+      );
     }
   });
 }

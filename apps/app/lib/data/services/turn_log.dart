@@ -53,6 +53,23 @@ class TurnLog {
     'items': [from, to],
   });
 
+  /// A new thread filed: where, how sure, the runner-up.
+  Future<void> filing({
+    required String thread,
+    required String kind,
+    String? chat,
+    double? score,
+    String? runnerUp,
+    double? runnerUpScore,
+  }) => _write('filing', {
+    'thread': thread,
+    'decided': kind,
+    'chat': chat,
+    'score': score,
+    'runnerUp': runnerUp,
+    'runnerUpScore': runnerUpScore,
+  });
+
   /// The person moved a thread to another chat (or out into its own), or
   /// rewrote a chat's brief: what filing and briefs are tuned on.
   Future<void> correction({

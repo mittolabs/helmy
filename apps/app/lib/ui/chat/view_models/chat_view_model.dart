@@ -27,6 +27,9 @@ import '../../../data/repositories/project_repository.dart';
 import '../../../data/services/desktop_service.dart';
 import '../../../data/services/editors.dart';
 import '../../../data/services/window_snapshots.dart';
+import '../../../data/repositories/chat_repository.dart';
+import '../../../data/services/turn_log.dart';
+import '../../../domain/filing.dart';
 import '../../../data/services/project_actions.dart';
 import '../../../domain/models/project_action.dart';
 import '../../../data/services/watch_service.dart';
@@ -98,6 +101,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this.browser,
     this._editors,
     this._snaps,
+    this._chats,
+    this._log,
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
@@ -178,6 +183,89 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   final SettingsRepository? _settings;
   final EditorService? _editors;
   final WindowSnapshots? _snaps;
+  final ChatRepository? _chats;
+  final TurnLog? _log;
+
+  // Filing (decision 0014): a new thread, after its first message, goes
+  // into the chat it belongs to, said on screen with Move and Undo.
+
+  /// What filing decided for this thread, to show; null when nothing to say.
+  Filing? filing;
+
+  /// The chat this thread is in, and its title.
+  String? get chatTitle {
+    final id = session?.chatId;
+    return id == null ? null : _chats?.byId(id)?.title;
+  }
+
+  Future<void> _file(String message) async {
+    final chats = _chats, s = session;
+    if (chats == null || s == null || s.sideOf != null || s.chatId == null || embedded) return;
+    final own = chats.byId(s.chatId!);
+    // Only a thread alone in a chat nobody named: one started in a chat stays.
+    if (own == null || own.named || chats.threadsOf(own.id).length != 1) return;
+    final f = file(message, chats.cards(except: own.id));
+    unawaited(
+      _log?.filing(
+        thread: s.id,
+        kind: f.kind.name,
+        chat: f.best,
+        score: f.bestScore,
+        runnerUp: f.runnerUp,
+        runnerUpScore: f.runnerUpScore,
+      ),
+    );
+    if (f.kind == .own) return;
+    if (f.kind == .file) {
+      await chats.move(s, f.best);
+    }
+    filing = f;
+    notifyListeners();
+  }
+
+  /// Files this thread into [chatId] (an answer to Helmy's question, or a
+  /// move): a correction, logged.
+  Future<void> fileInto(String? chatId) async {
+    final chats = _chats, s = session;
+    if (chats == null || s == null) return;
+    final from = s.chatId;
+    final to = await chats.move(s, chatId);
+    unawaited(
+      _log?.correction(
+        what: filing?.kind == .ask ? 'answer' : 'move',
+        thread: s.id,
+        from: from,
+        to: to,
+      ),
+    );
+    filing = (kind: FilingKind.file, best: to, bestScore: 1, runnerUp: null, runnerUpScore: 0);
+    notifyListeners();
+  }
+
+  /// Takes the filing back: the thread goes back into a chat of its own.
+  Future<void> undoFiling() async {
+    final chats = _chats, s = session;
+    if (chats == null || s == null) return;
+    final from = s.chatId;
+    final to = await chats.move(s, null);
+    await _log?.correction(what: 'undo', thread: s.id, from: from, to: to);
+    filing = null;
+    notifyListeners();
+  }
+
+  /// The chip put away, the filing kept.
+  void dismissFiling() {
+    filing = null;
+    notifyListeners();
+  }
+
+  /// Every other chat, for Move.
+  List<({String id, String title})> get otherChats => [
+    for (final c in _chats?.chats ?? const [])
+      if (c.id != session?.chatId) (id: c.id, title: c.title),
+  ];
+
+  String? chatTitleOf(String? id) => id == null ? null : _chats?.byId(id)?.title;
 
   /// Snapshots [window] into the message being written: its picture, and its
   /// text where macOS gives it. What came of it, to say so when it did not.
@@ -1014,7 +1102,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     final needs = {...pendingNeeds};
     attachments.clear();
     pendingNeeds.clear();
-    return _conversations.send(s, text.trim(), attachments: files, needs: needs);
+    final first = !items.any((i) => i is UserMessage);
+    final sent = await _conversations.send(s, text.trim(), attachments: files, needs: needs);
+    if (first) unawaited(_file(text));
+    return sent;
   }
 
   void interrupt() => _conversations.interrupt(sessionId);

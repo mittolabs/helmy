@@ -408,6 +408,12 @@ class _ChatScreenState extends State<ChatScreen> {
                           builder: (context, _) => _Header(vm: vm, session: session),
                         ),
                       ),
+                    // Where filing put this thread, said once.
+                    if (widget.bar == null && vm.filing != null)
+                      Padding(
+                        padding: .symmetric(horizontal: sideMargin(context)),
+                        child: inColumn(_FilingChip(vm: vm)),
+                      ),
                     if (_finding)
                       _FindBar(
                         controller: _find,

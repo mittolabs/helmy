@@ -104,6 +104,14 @@ class ChatRepository extends ChangeNotifier {
     return c;
   }
 
+  /// What each chat but [except] is known by, to file a new thread against:
+  /// its title, its brief, and its threads' titles.
+  List<({String id, String text})> cards({String? except}) => [
+    for (final c in _chats.values)
+      if (c.id != except)
+        (id: c.id, text: [c.title, c.brief, for (final t in threadsOf(c.id)) t.title].join('. ')),
+  ];
+
   /// Names [chatId], for good: its threads no longer name it.
   Future<void> rename(String chatId, String title) async {
     final c = _chats[chatId];

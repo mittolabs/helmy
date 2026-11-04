@@ -422,3 +422,128 @@ class _ChatCrumb extends StatelessWidget {
     );
   }
 }
+
+/// Where filing put this new thread, said once under the header: "In
+/// Finances", with Move and Undo; or, when two chats were close, the
+/// question of which.
+class _FilingChip extends StatelessWidget {
+  const _FilingChip({required this.vm});
+  final ChatViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = vm.filing;
+    if (f == null) return const SizedBox.shrink();
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final muted = t.text.xs.copyWith(color: c.mutedForeground);
+    Widget pick(String? id) => Button(
+      variant: .outline,
+      size: .xs,
+      onPressed: () => vm.fileInto(id),
+      child: Text(
+        id == null ? 'Neither' : vm.chatTitleOf(id) ?? 'That chat',
+        maxLines: 1,
+        overflow: .ellipsis,
+      ),
+    );
+    final chatId = vm.session?.chatId;
+    return Container(
+      margin: const .only(bottom: 6),
+      padding: const .fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: c.muted.withValues(alpha: .5),
+        borderRadius: .circular(t.radiusMd),
+      ),
+      child: Row(
+        spacing: 6,
+        children: [
+          // What it says and does, then the way to put it away at the end.
+          Expanded(
+            child: Row(
+              spacing: 6,
+              children: [
+                AshlarIcon(
+                  AshlarIconsRoundedStroke.messagesSquare,
+                  size: 14,
+                  color: c.mutedForeground,
+                ),
+                if (f.kind == .ask) ...[
+                  Flexible(
+                    child: Text(
+                      'Part of an earlier chat?',
+                      style: muted,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                    ),
+                  ),
+                  Flexible(child: pick(f.best)),
+                  if (f.runnerUp != null) Flexible(child: pick(f.runnerUp)),
+                  pick(null),
+                ] else ...[
+                  Flexible(
+                    child: Pressable(
+                      onPressed: chatId == null ? null : () => context.go('/c/$chatId'),
+                      semanticLabel: 'In ${vm.chatTitle}',
+                      builder: (context, state) => Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'In '),
+                            TextSpan(
+                              text: vm.chatTitle ?? '',
+                              style: TextStyle(
+                                color: c.foreground,
+                                fontWeight: .w500,
+                                decoration: state.hovered ? TextDecoration.underline : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: muted,
+                      ),
+                    ),
+                  ),
+                  DropdownMenu(
+                    items: [
+                      for (final other in vm.otherChats)
+                        MenuItem(
+                          onPressed: () => vm.fileInto(other.id),
+                          child: Text(other.title, maxLines: 1, overflow: .ellipsis),
+                        ),
+                      const MenuSeparator(),
+                      MenuItem(onPressed: vm.undoFiling, child: const Text('A chat of its own')),
+                    ],
+                    builder: (context, menu) => Button(
+                      variant: .ghost,
+                      size: .xs,
+                      onPressed: menu.open,
+                      child: const Text('Move'),
+                    ),
+                  ),
+                  Button(
+                    variant: .ghost,
+                    size: .xs,
+                    onPressed: vm.undoFiling,
+                    child: const Text('Undo'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Tooltip(
+            message: 'Put away',
+            child: Button(
+              variant: .ghost,
+              size: .iconXs,
+              semanticLabel: 'Put away',
+              onPressed: vm.dismissFiling,
+              child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
