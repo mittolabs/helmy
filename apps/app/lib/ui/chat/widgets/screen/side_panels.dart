@@ -30,6 +30,7 @@ class _SidePanels extends StatelessWidget {
                 .background => BackgroundPanel(vm: vm),
                 .preview => PreviewPanel(vm: vm),
                 .ship => ShipPanel(vm: vm),
+                .device => DevicePanel(vm: vm),
               },
             ),
           ],

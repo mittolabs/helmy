@@ -2,15 +2,17 @@ import '../../domain/problem.dart';
 import '../../utils/platform.dart';
 import 'connections_setup.dart';
 import 'desktop_service.dart';
+import 'devices.dart';
 import 'engines/ollama/ollama_doctor.dart';
 
 /// Carries out the fixes Helmy offers where a problem happens. Retrying and
 /// opening setup belong to the screen; these reach outside it: a connection's
 /// sign-in, the model on this computer, the system's own permission panes.
 class Fixes {
-  Fixes(this._setup, this._desktop);
+  Fixes(this._setup, this._desktop, [this._devices]);
   final ConnectionsSetup _setup;
   final DesktopService _desktop;
+  final DeviceService? _devices;
 
   /// Does [fix] (for the connection [engineId], where it needs one). True
   /// when it worked, or the system's pane is open for the user to finish.
@@ -31,6 +33,8 @@ class Fixes {
         if (pane == null) return false;
         await _desktop.open(pane);
         return true;
+      case .installDeviceInput:
+        return await _devices?.installIosInput() ?? false;
       case .retry || .setup || .wait:
         return false;
     }

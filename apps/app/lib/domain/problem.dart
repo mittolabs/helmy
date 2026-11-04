@@ -20,6 +20,9 @@ enum Fix {
   /// Allow notifications for Helmy (the system's own pane).
   allowNotifications,
 
+  /// Install what carries taps and typing to iOS simulators (AXe).
+  installDeviceInput,
+
   /// Nothing to press: it fixes itself, at [Problem.until].
   wait;
 
@@ -31,6 +34,7 @@ enum Fix {
     startLocal => 'start-local',
     allowSpeech => 'allow-speech',
     allowNotifications => 'allow-notifications',
+    installDeviceInput => 'install-device-input',
     wait => 'wait',
   };
 
@@ -47,6 +51,7 @@ enum Fix {
     startLocal => 'Start it',
     allowSpeech => 'Allow speech recognition',
     allowNotifications => 'Allow notifications',
+    installDeviceInput => 'Install it',
     wait => '',
   };
 }

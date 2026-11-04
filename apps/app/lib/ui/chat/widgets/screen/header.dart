@@ -124,6 +124,7 @@ class _Header extends StatelessWidget {
                 .background => 'Work running in the background',
                 .preview => 'The page or document an answer pointed at',
                 .ship => 'From these changes to a merged pull request',
+                .device => 'A simulator or emulator, live, to use beside the conversation',
               },
               child: Button(
                 variant: vm.isOpen(p) ? .secondary : .ghost,
@@ -133,6 +134,7 @@ class _Header extends StatelessWidget {
                   .background => 'Background',
                   .preview => 'Preview',
                   .ship => 'Ship',
+                  .device => 'Device',
                 },
                 onPressed: () => vm.toggle(p),
                 leading: AshlarIcon(switch (p) {
@@ -140,6 +142,7 @@ class _Header extends StatelessWidget {
                   .background => AshlarIconsRoundedStroke.loader,
                   .preview => AshlarIconsRoundedStroke.appWindow,
                   .ship => AshlarIconsRoundedStroke.gitPullRequest,
+                  .device => AshlarIconsRoundedStroke.smartphone,
                 }, size: 14),
                 child: Text(switch (p) {
                   .changes => 'Changes ${vm.changedFiles ?? ''}'.trim(),
@@ -147,6 +150,7 @@ class _Header extends StatelessWidget {
                     '${vm.backgroundSteps.where((c) => c.background!.status == .running).length} running',
                   .preview => 'Preview',
                   .ship => 'Ship',
+                  .device => 'Device',
                 }),
               ),
             ),

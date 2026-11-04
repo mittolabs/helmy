@@ -28,10 +28,12 @@ import '../../../data/services/watch_service.dart';
 import '../../../data/services/fixes.dart';
 import '../../../domain/problem.dart';
 import '../../core/file_actions.dart';
+import '../../../data/services/devices.dart';
+import 'device_view_model.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview, ship }
+enum SidePanel { changes, background, preview, ship, device }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
   new({
@@ -44,7 +46,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this._desktop,
     this._watch,
     this._fixes,
-  }) {
+    DeviceService? devices,
+  }) : device = devices == null ? null : DeviceViewModel(devices) {
     _attention?.viewing = sessionId;
     _sessions.addListener(notifyListeners);
     _sessions.addListener(_findRepoLater);
@@ -60,6 +63,13 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Whether the session's folder is in a git repository, so its work can
   /// go on to a pull request; asked once, and again when the folder changes.
   bool inRepo = false;
+
+  /// Whether the session's folder holds an iOS or Android app, so the
+  /// Device panel is offered.
+  bool mobile = false;
+
+  /// The Device panel's simulator or emulator; null where there are none.
+  final DeviceViewModel? device;
   String? _askedFor;
 
   Future<void> _findRepo() async {
@@ -67,6 +77,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (cwd == null || cwd == _askedFor) return;
     _askedFor = cwd;
     final found = await _projects?.repoOf(cwd) != null;
+    final mobile = isMobileProject(cwd);
+    if (mobile != this.mobile) {
+      this.mobile = mobile;
+      notifyListeners();
+    }
     if (found != inRepo) {
       inRepo = found;
       notifyListeners();
@@ -163,8 +178,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// Does [fix] outside the conversation (signing in, starting the model
   /// here, a system pane); true when it worked.
-  Future<bool> applyFix(Fix fix, {String? engineId}) async =>
-      await _fixes?.apply(fix, engineId: engineId) ?? false;
+  Future<bool> applyFix(Fix fix, {String? engineId}) async {
+    final ok = await _fixes?.apply(fix, engineId: engineId) ?? false;
+    if (fix == .installDeviceInput) await device?.checkTouch();
+    return ok;
+  }
 
   /// A picture on the clipboard, attached; false when there is none.
   Future<bool> pasteImage() async {
@@ -278,6 +296,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     // (Only where there is a web view to show it in.)
     if (previewUrl != null && webViewHere) .preview,
     if (inRepo) .ship,
+    if (device != null && (mobile || isOpen(.device))) .device,
     if ((changedFiles ?? 0) > 0 || isOpen(.changes)) .changes,
     if (backgroundSteps.any((c) => c.background!.status == .running) || isOpen(.background))
       .background,
@@ -424,6 +443,17 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
       attachments: [path],
       needs: {Capability.imageGeneration},
     );
+  }
+
+  /// A device's screen as it is now, attached to the message.
+  Future<void> attachScreen(Uint8List bytes) async {
+    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
+    final png = bytes.length > 3 && bytes[1] == 0x50;
+    final file = File(
+      '${dir.path}/device-${DateTime.now().millisecondsSinceEpoch}.${png ? 'png' : 'jpg'}',
+    );
+    await file.writeAsBytes(bytes);
+    attach([file.path]);
   }
 
   void attach(Iterable<String> paths) {
@@ -631,6 +661,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   void dispose() {
     _attention?.viewing = null;
+    device?.dispose();
     focusRequests.dispose();
     _sessions.removeListener(notifyListeners);
     _sessions.removeListener(_findRepoLater);
@@ -652,4 +683,23 @@ String? localServerIn(List<ChatItem> items) {
     if (found != null) return found.replaceFirst('0.0.0.0', 'localhost');
   }
   return null;
+}
+
+/// Whether [folder] holds an iOS or Android app: an Xcode project, a
+/// Flutter or React Native app's ios/ and android/ folders, or Gradle's
+/// Android app module.
+bool isMobileProject(String folder) {
+  final dir = Directory(folder);
+  if (!dir.existsSync()) return false;
+  if (Directory('$folder/ios').existsSync() || Directory('$folder/android').existsSync()) {
+    return true;
+  }
+  if (File('$folder/app/src/main/AndroidManifest.xml').existsSync()) return true;
+  try {
+    return dir.listSync().any(
+      (e) => e.path.endsWith('.xcodeproj') || e.path.endsWith('.xcworkspace'),
+    );
+  } on FileSystemException {
+    return false;
+  }
 }

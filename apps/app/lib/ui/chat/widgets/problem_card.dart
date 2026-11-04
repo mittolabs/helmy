@@ -155,6 +155,13 @@ Future<void> runFix(
             ? 'Turn Helmy on in the window that opened, then try again.'
             : "This system has no setting for it that I can open.",
       );
+    case .installDeviceInput:
+      final ok = await vm.applyFix(fix);
+      onNote?.call(
+        ok
+            ? 'Installed. Taps and typing reach iOS simulators now.'
+            : "It didn't install. It comes through Homebrew, from brew.sh.",
+      );
   }
 }
 

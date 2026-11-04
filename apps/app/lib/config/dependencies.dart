@@ -12,6 +12,7 @@ import '../data/repositories/session_repository.dart';
 import '../data/repositories/session_repository_local.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/services/cli_locator.dart';
+import '../data/services/devices.dart';
 import '../data/services/engines/claude/claude_engine.dart';
 import '../data/services/engines/codex/codex_engine.dart';
 import '../data/services/engines/decider.dart';
@@ -58,10 +59,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.meter),
   Provider(create: (_) => CliLocator()),
   Provider(create: (context) => WatchService(context.read())),
+  Provider(create: (context) => DeviceService(context.read())),
   // Helmy's own tools (watching a video), served to every connection.
   Provider(
     lazy: false,
-    create: (context) => HelmyTools(context.read()),
+    create: (context) => HelmyTools(context.read(), context.read<DeviceService>()),
     dispose: (_, tools) => unawaited(tools.close()),
   ),
   // Add an engine here and the router starts using it. The order breaks ties
@@ -115,7 +117,9 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider(create: (_) => PoppedOut()),
   // Getting the connections ready: after what it uses.
   Provider(create: (context) => ConnectionsSetup(context.read(), context.read())),
-  Provider(create: (context) => Fixes(context.read(), context.read())),
+  Provider(
+    create: (context) => Fixes(context.read(), context.read(), context.read<DeviceService>()),
+  ),
   Provider<ProjectRepository>(create: (context) => ProjectRepositoryGit(context.read())),
   // Not lazy: tasks run on time whether or not their page was opened.
   ChangeNotifierProvider<ScheduleRepository>(

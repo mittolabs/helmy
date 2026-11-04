@@ -15,6 +15,16 @@ String inHelmysWords(String? raw) => diagnose(raw).what;
 String toolLabel(String name) {
   // Helmy's own tools, and a connection's look-up of one, in plain words.
   if (name.endsWith('watch_video')) return 'Watched a video';
+  for (final (tool, said) in const [
+    ('device_list', 'Looked for devices'),
+    ('device_screen', "Looked at the device's screen"),
+    ('device_tap', 'Tapped the device'),
+    ('device_swipe', 'Swiped on the device'),
+    ('device_type', 'Typed on the device'),
+    ('device_home', 'Pressed home'),
+  ]) {
+    if (name.endsWith(tool)) return said;
+  }
   if (name == 'ToolSearch') return 'Found a tool';
   String words(String s) => s.replaceAll(RegExp(r'[_-]+'), ' ').trim();
   // "notion" reads "Notion"; "Google_Drive" stays "Google Drive".

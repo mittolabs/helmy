@@ -82,6 +82,7 @@ GoRouter router(String initialLocation) => GoRouter(
               desktop: context.read(),
               watch: context.read(),
               fixes: context.read(),
+              devices: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),
