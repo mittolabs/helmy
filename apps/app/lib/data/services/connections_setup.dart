@@ -137,10 +137,46 @@ class ConnectionsSetup {
       case 'codex':
         final bin = await _find('codex');
         if (bin == null) return false;
-        return (await _run(bin, ['login']))?.exitCode == 0;
+        return (await _run(bin, ['login'], extra: {'CODEX_HOME': ?configDir}))?.exitCode == 0;
       case 'ollama':
         return OllamaDoctor.ensure(start: true);
     }
     return false;
+  }
+
+  /// The file that marks an account's folder as one Helmy made, so Helmy
+  /// may remove it; folders made another way are the user's own.
+  static const addedMark = '.helmy-added';
+
+  /// Adds another account of [kind] ('claude' or 'codex'): a folder of its
+  /// own beside the usual one (~/.claude-2, ~/.codex-2), signed in through
+  /// the browser. Its id and folder, or null when sign-in did not finish,
+  /// in which case the folder goes too.
+  Future<({String id, String folder})?> addAccount(String kind, {String? home}) async {
+    final base = home ?? homeDir;
+    if (base.isEmpty) return null;
+    var n = 2;
+    while (Directory('$base/.$kind-$n').existsSync()) {
+      n++;
+    }
+    final dir = Directory('$base/.$kind-$n');
+    await dir.create(recursive: true);
+    await File('${dir.path}/$addedMark').writeAsString('Added by Helmy.\n');
+    if (!await signIn(kind, configDir: dir.path)) {
+      await dir.delete(recursive: true);
+      return null;
+    }
+    return (id: '$kind-$n', folder: dir.path);
+  }
+
+  /// Whether the account in [folder] is one Helmy added.
+  static bool addedByHelmy(String folder) => File('$folder/$addedMark').existsSync();
+
+  /// Removes an account Helmy added: its folder and sign-in go. False for one
+  /// Helmy did not add, which stays.
+  Future<bool> removeAccount(String folder) async {
+    if (!addedByHelmy(folder)) return false;
+    await Directory(folder).delete(recursive: true);
+    return true;
   }
 }

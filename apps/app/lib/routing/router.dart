@@ -101,6 +101,7 @@ GoRouter router(String initialLocation) => GoRouter(
                 )
                 ..desktop = context.read()
                 ..chromium = context.read()
+                ..setup = context.read()
                 ..sessions = context.read()
                 ..projectsOf = context.read()
                 ..section =

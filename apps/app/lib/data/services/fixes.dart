@@ -24,7 +24,9 @@ class Fixes {
           // Accounts beyond the first live in ~/.claude-<name>.
           return _setup.signIn('claude', configDir: id == 'claude' ? null : '$homeDir/.$id');
         }
-        if (id == 'codex') return _setup.signIn('codex');
+        if (id.startsWith('codex')) {
+          return _setup.signIn('codex', configDir: id == 'codex' ? null : '$homeDir/.$id');
+        }
         return false;
       case .startLocal:
         return OllamaDoctor.ensure(start: true);

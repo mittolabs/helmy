@@ -21,14 +21,40 @@ import '../ollama/ollama_doctor.dart';
 /// Codex, driven through `codex app-server`: one thread per session, approvals
 /// answered from the app.
 class CodexEngine implements AgentEngine {
-  new(this._locator, {this.tools})
-    : info = const EngineInfo(
-        id: 'codex',
-        name: 'Codex',
+  /// One Codex login. [home] is the account's CODEX_HOME (null: ~/.codex).
+  new(this._locator, {this.tools, String id = 'codex', this.home})
+    : info = EngineInfo(
+        id: id,
+        name: id == 'codex' ? 'Codex' : 'Codex ($id)',
         // Its image_generation feature, on by default in codex-cli 0.162.1.
-        capabilities: {Capability.tools, Capability.imageGeneration},
+        capabilities: const {Capability.tools, Capability.imageGeneration},
       ),
       _local = null;
+
+  static final _accountFolder = RegExp(r'^\.codex-[A-Za-z0-9_-]+$');
+
+  /// Every Codex account on this machine: ~/.codex, and each `~/.codex-<name>`
+  /// folder as the account `codex-<name>`, as CODEX_HOME makes one.
+  static List<CodexEngine> discover(CliLocator locator, String home, {HelmyTools? tools}) {
+    final accounts = [CodexEngine(locator, tools: tools)];
+    final dir = Directory(home);
+    if (home.isEmpty || !dir.existsSync()) return accounts;
+    final folders =
+        dir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => d.path.split('/').last)
+            .where(_accountFolder.hasMatch)
+            .toList()
+          ..sort();
+    for (final name in folders) {
+      accounts.add(CodexEngine(locator, id: name.substring(1), home: '$home/$name', tools: tools));
+    }
+    return accounts;
+  }
+
+  /// The account's CODEX_HOME; null for the usual one.
+  final String? home;
 
   /// Codex's agent on a model Ollama runs on this Mac: tools, approvals and
   /// all, with no internet. Chosen only when nothing online can answer.
@@ -40,7 +66,8 @@ class CodexEngine implements AgentEngine {
         localOnly: true,
         capabilities: {Capability.tools},
       ),
-      _local = model;
+      _local = model,
+      home = null;
 
   final CliLocator _locator;
 
@@ -174,7 +201,7 @@ class CodexEngine implements AgentEngine {
     try {
       final rpc = await CodexRpc.start(
         binary: binary,
-        environment: await _locator.environment(),
+        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
         cwd: cwd,
       );
       await rpc.request('initialize', {
@@ -219,7 +246,7 @@ class CodexEngine implements AgentEngine {
     try {
       final rpc = await CodexRpc.start(
         binary: binary,
-        environment: await _locator.environment(),
+        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
         cwd: Directory.systemTemp.path,
       );
       await rpc.request('initialize', {
@@ -258,7 +285,7 @@ class CodexEngine implements AgentEngine {
     try {
       final rpc = await CodexRpc.start(
         binary: binary,
-        environment: await _locator.environment(),
+        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
         cwd: dir,
       );
       await rpc.request('initialize', {
@@ -306,7 +333,7 @@ class CodexEngine implements AgentEngine {
           '$instructions\n\n$question',
         ],
         workingDirectory: dir.path,
-        environment: await _locator.environment(),
+        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
         includeParentEnvironment: false,
       ).timeout(const Duration(seconds: 120));
       final file = File(out);
@@ -341,7 +368,7 @@ class CodexEngine implements AgentEngine {
     if (binary == null) throw StateError((await unavailableReason())!);
     final rpc = await CodexRpc.start(
       binary: binary,
-      environment: await _locator.environment(),
+      environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
       cwd: launch.cwd,
     );
     final local = _local == null ? null : await _localModel();

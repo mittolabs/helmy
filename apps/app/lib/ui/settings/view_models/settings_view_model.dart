@@ -19,6 +19,7 @@ import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
 import '../../../utils/result.dart';
 import '../../../utils/platform.dart';
+import '../../../data/services/connections_setup.dart';
 import '../../../utils/format.dart';
 import '../../../domain/models/session.dart';
 import '../../../data/repositories/session_repository.dart';
@@ -212,6 +213,57 @@ class SettingsViewModel extends ChangeNotifier {
 
   /// Chromium browsers on this computer; set where the page is made.
   ChromiumService? chromium;
+
+  /// Signs connections in, and adds and removes their accounts.
+  ConnectionsSetup? setup;
+
+  /// The kind of account being added ('claude', 'codex') while sign-in runs.
+  String? adding;
+
+  /// The kind of connection [engineId] is an account of, where another
+  /// account can be added: 'claude', 'codex', or null.
+  static String? kindOf(String engineId) => switch (engineId) {
+    'claude' || 'codex' => engineId,
+    _ when engineId.startsWith('claude-') => 'claude',
+    _ when engineId.startsWith('codex-') => 'codex',
+    _ => null,
+  };
+
+  /// Adds another account of [kind], signed in through the browser; false
+  /// when sign-in did not finish. Used from the next message on.
+  Future<bool> addAccount(String kind) async {
+    final s = setup;
+    if (s == null || adding != null) return false;
+    adding = kind;
+    notifyListeners();
+    final made = await s.addAccount(kind);
+    if (made != null) {
+      _engines.add(made.id, made.folder);
+      chosenAgent = made.id;
+      await _checkEngines();
+    }
+    adding = null;
+    notifyListeners();
+    return made != null;
+  }
+
+  /// Where account [engineId] keeps its sign-in, when another was added.
+  static String accountFolder(String engineId) => '$homeDir/.$engineId';
+
+  /// Whether [engineId] is an account Helmy added, so it can remove it.
+  bool canRemove(String engineId) =>
+      engineId.contains('-') &&
+      kindOf(engineId) != null &&
+      ConnectionsSetup.addedByHelmy(accountFolder(engineId));
+
+  /// Removes account [engineId], which Helmy added: its sign-in goes.
+  Future<void> removeAccount(String engineId) async {
+    if (!canRemove(engineId)) return;
+    await setup?.removeAccount(accountFolder(engineId));
+    _engines.remove(engineId);
+    if (chosenAgent == engineId) chosenAgent = null;
+    notifyListeners();
+  }
 
   /// The Chromium-based browsers installed, once asked.
   Future<List<ChromiumBrowser>> chromiumBrowsers() async => await chromium?.installed() ?? const [];

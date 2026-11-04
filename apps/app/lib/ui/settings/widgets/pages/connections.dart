@@ -319,6 +319,62 @@ class _AgentCard extends StatelessWidget {
                   : 'Connected: ${[for (final c in connections) c.label].join(', ')}',
               style: muted,
             ),
+          // More accounts, more room: each has its own limits, and Helmy
+          // moves between them as one runs low.
+          if (SettingsViewModel.kindOf(row.info.id) case final kind?)
+            Padding(
+              padding: const .only(top: 6),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Button(
+                    variant: .outline,
+                    size: .sm,
+                    onPressed: vm.adding != null
+                        ? null
+                        : () async {
+                            final ok = await vm.addAccount(kind);
+                            if (!context.mounted) return;
+                            showToast(
+                              context,
+                              title: ok ? 'Account added' : "The account wasn't added",
+                              description: ok
+                                  ? 'Helmy uses it from the next message, alongside the others.'
+                                  : 'Sign-in in the browser did not finish. Try again when ready.',
+                              type: ok ? .success : .error,
+                            );
+                          },
+                    leading: vm.adding == kind
+                        ? const Spinner(size: 14)
+                        : const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
+                    child: Text(
+                      vm.adding == kind
+                          ? 'Signing in, in your browser...'
+                          : 'Add another ${kind == 'claude' ? 'Claude Code' : 'Codex'} account',
+                    ),
+                  ),
+                  if (vm.canRemove(row.info.id))
+                    Button(
+                      variant: .ghost,
+                      size: .sm,
+                      onPressed: () async {
+                        final sure = await confirm(
+                          context,
+                          title: 'Remove ${row.info.name}?',
+                          body:
+                              'Its sign-in on this Mac goes, and Helmy stops using it. '
+                              'The account itself is not touched.',
+                          action: 'Remove',
+                          destructive: true,
+                        );
+                        if (sure) await vm.removeAccount(row.info.id);
+                      },
+                      child: const Text('Remove from Helmy'),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

@@ -107,19 +107,26 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // Add an engine here and the router starts using it. The order breaks ties
   // before any engine has reported its usage.
   Provider(
-    create: (context) => EngineRegistry([
-      // Every Claude Code account on the machine, each with its own limits.
-      ...ClaudeEngine.discover(context.read(), homeDir, tools: context.read()),
-      CodexEngine(context.read(), tools: context.read()),
-      // A model on this Mac, for when nothing online can answer: directly for a
-      // message that needs no tools, through Codex's agent for one that does.
-      OllamaChatEngine(model: () => loaded.settings.settings.ollamaModel),
-      CodexEngine.local(
-        context.read(),
-        model: () => loaded.settings.settings.ollamaModel,
-        tools: context.read(),
-      ),
-    ]),
+    create: (context) => EngineRegistry(
+      [
+        // Every Claude Code and Codex account on the machine, each with its own
+        // limits.
+        ...ClaudeEngine.discover(context.read(), homeDir, tools: context.read()),
+        ...CodexEngine.discover(context.read(), homeDir, tools: context.read()),
+        // A model on this Mac, for when nothing online can answer: directly for a
+        // message that needs no tools, through Codex's agent for one that does.
+        OllamaChatEngine(model: () => loaded.settings.settings.ollamaModel),
+        CodexEngine.local(
+          context.read(),
+          model: () => loaded.settings.settings.ollamaModel,
+          tools: context.read(),
+        ),
+      ],
+      // Another account, added in Settings: Claude Code's or Codex's.
+      account: (id, folder) => id.startsWith('claude')
+          ? ClaudeEngine(context.read(), id: id, configDir: folder, tools: context.read())
+          : CodexEngine(context.read(), id: id, home: folder, tools: context.read()),
+    ),
   ),
   Provider<EngineRouter>(
     create: (context) =>
