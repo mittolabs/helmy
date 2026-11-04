@@ -1,17 +1,22 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../ui/core/window_layout.dart';
 
 /// System notifications and the dock badge, through the macOS runner
 /// (`MainFlutterWindow.swift`).
+/// Counts presses of About Helmy in the app's menu.
+final aboutRequests = ValueNotifier<int>(0);
+
 class NotifyService {
   new() {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'open' && call.arguments is String) _opened.add(call.arguments as String);
       if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
       if (call.method == 'inSight') _inSight.add(call.arguments == true);
+      if (call.method == 'about') aboutRequests.value++;
     });
   }
 
@@ -66,6 +71,24 @@ class NotifyService {
   /// `needs-you`, `background`, `done`, `error`, `offline`, `dozing`), or the app
   /// icon when null.
   Future<void> face(String? face) => _call('face', {'face': face});
+
+  /// Opens the Mac's own About window, with [credits] in it.
+  static Future<void> aboutPanel(String credits) async {
+    try {
+      await _channel.invokeMethod<void>('aboutPanel', {'credits': credits});
+    } on Object {
+      // Not on macOS.
+    }
+  }
+
+  /// Says on the splash what Helmy is doing as it starts.
+  static Future<void> splash(String text) async {
+    try {
+      await _channel.invokeMethod<void>('splash', {'text': text});
+    } on Object {
+      // Not on macOS, or in a test: there is no splash.
+    }
+  }
 
   /// Tells macOS the app has drawn its first frame, so the splash window
   /// hands over to the main one.

@@ -17,6 +17,7 @@ import 'ui/core/ashlar/app_theme.dart';
 import 'ui/core/ashlar/markdown.dart';
 import 'ui/core/code_highlight.dart';
 import 'ui/chat/widgets/floating_player.dart';
+import 'ui/core/about_dialog.dart';
 import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
 Future<void> main() async {
@@ -25,7 +26,9 @@ Future<void> main() async {
   if (await _floatingPlayer() case (final window, final args)) {
     return runFloatingPlayer(window, args);
   }
+  await NotifyService.splash('Loading your sessions and settings…');
   final loaded = await load();
+  await NotifyService.splash('Opening Helmy…');
   // Helmy's own errors, to Mittolabs, when this build names where and the
   // setting allows; in step with the setting from then on.
   await ErrorReports.start(
@@ -88,10 +91,27 @@ class _HelmyAppState extends State<HelmyApp> {
     });
     // A click on a notification opens the session it was about.
     _opened = context.read<NotifyService>().opened.listen((id) => _router.go('/s/$id'));
+    // About Helmy, from the app's menu.
+    aboutRequests.addListener(_about);
+  }
+
+  void _about() {
+    // A Mac has its own About window: Helmy's credits go in it.
+    if (Platform.isMacOS) {
+      unawaited(NotifyService.aboutPanel(openSourceCredits()));
+      return;
+    }
+    final context = _router.routerDelegate.navigatorKey.currentContext;
+    if (context == null) return;
+    showAbout(
+      context,
+      version: const String.fromEnvironment('HELMY_VERSION', defaultValue: _version),
+    );
   }
 
   @override
   void dispose() {
+    aboutRequests.removeListener(_about);
     _opened?.cancel();
     _history.dispose();
     super.dispose();
@@ -144,3 +164,6 @@ Future<(WindowController, FloatingArgs)?> _floatingPlayer() async {
     return null;
   }
 }
+
+/// The version this build says, as pubspec.yaml has it.
+const _version = '0.1.0'; // x-release-please-version

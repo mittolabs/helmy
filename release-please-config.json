@@ -6,7 +6,10 @@
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md",
-      "extra-files": [{ "type": "generic", "path": "apps/app/pubspec.yaml" }]
+      "extra-files": [
+        { "type": "generic", "path": "apps/app/pubspec.yaml" },
+        { "type": "generic", "path": "apps/app/lib/main.dart" }
+      ]
     }
   }
 }

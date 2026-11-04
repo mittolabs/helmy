@@ -8,6 +8,8 @@ import WebKit
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
+    // About Helmy is Helmy's own window, with its open-source credits.
+    DispatchQueue.main.async { About.take() }
     let flutterViewController = FlutterViewController()
     self.contentViewController = flutterViewController
     self.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
@@ -90,7 +92,13 @@ final class Splash {
   /// Long enough to see Helmy breathe a little: the owner's choice.
   static let minimum: TimeInterval = 4.0
   private var window: NSWindow?
+  private var status: NSTextField?
   private var shownAt = Date()
+
+  /// What Helmy is doing as it starts, as it says it; only real steps.
+  func say(_ text: String) {
+    status?.stringValue = text
+  }
   private var done: (() -> Void)?
 
   func show(then: @escaping () -> Void) {
@@ -135,6 +143,24 @@ final class Splash {
     tagline.alignment = .center
     tagline.frame = NSRect(x: 0, y: 104, width: size.width, height: 20)
     card.addSubview(tagline)
+
+    // The version, read from the app itself.
+    if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+      let version = NSTextField(labelWithString: "Version \(v)")
+      version.font = .systemFont(ofSize: 11)
+      version.textColor = ink.withAlphaComponent(0.4)
+      version.alignment = .center
+      version.frame = NSRect(x: 0, y: 84, width: size.width, height: 16)
+      card.addSubview(version)
+    }
+
+    let step = NSTextField(labelWithString: "Starting…")
+    step.font = .systemFont(ofSize: 11)
+    step.textColor = ink.withAlphaComponent(0.55)
+    step.alignment = .center
+    step.frame = NSRect(x: 0, y: 66, width: size.width, height: 16)
+    card.addSubview(step)
+    status = step
 
     // At the foot, as the sites have it: the mark, "Powered by Mittolabs",
     // then the notice, small and quiet.
@@ -195,6 +221,7 @@ final class Splash {
   /// Dart is ready: fade out, no sooner than [minimum] after showing.
   func finish() {
     guard let w = window else { return }
+    say("Ready")
     window = nil
     let wait = max(0, Splash.minimum - Date().timeIntervalSince(shownAt))
     DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
@@ -244,6 +271,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       switch call.method {
       case "ready":
         Splash.shared.finish()
+        result(nil)
+      case "aboutPanel":
+        // The Mac's own About window, with Helmy's credits.
+        About.panel(credits: args["credits"] as? String ?? "")
+        result(nil)
+      case "splash":
+        Splash.shared.say(args["text"] as? String ?? "")
         result(nil)
       case "notify":
         self?.post(
@@ -576,5 +610,39 @@ enum Transcriber {
         }
       }
     }
+  }
+}
+
+/// About Helmy, from the app's menu: asks the app to show its own window.
+final class About: NSObject {
+  static let shared = About()
+
+  static func take() {
+    for item in NSApp.mainMenu?.items.first?.submenu?.items ?? []
+    where item.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:)) {
+      item.target = About.shared
+      item.action = #selector(About.show(_:))
+    }
+  }
+
+  // The credits are Dart's (written from pubspec.lock): it is asked for them.
+  @objc func show(_ sender: Any?) {
+    Notifier.shared.tell("about", nil)
+  }
+
+  static func panel(credits: String) {
+    let style = NSMutableParagraphStyle()
+    style.alignment = .center
+    let text = NSAttributedString(string: credits, attributes: [
+      .font: NSFont.systemFont(ofSize: 11),
+      .foregroundColor: NSColor.secondaryLabelColor,
+      .paragraphStyle: style,
+    ])
+    NSApp.activate(ignoringOtherApps: true)
+    NSApp.orderFrontStandardAboutPanel(options: [
+      .credits: text,
+      NSApplication.AboutPanelOptionKey(rawValue: "Copyright"):
+        "© \(Calendar.current.component(.year, from: Date())) Mittolabs · BSD license",
+    ])
   }
 }
