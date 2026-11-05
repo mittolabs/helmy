@@ -60,6 +60,11 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'queue steer follow up redirect interrupt',
   ),
+  (
+    title: 'Format as you type',
+    section: .general,
+    keywords: 'markdown rich text bold italic composer',
+  ),
   (title: 'How chats are named', section: .general, keywords: 'names titles naming instructions'),
   (
     title: 'Mark chats done on their own',

@@ -1,4 +1,5 @@
 import '../../core/key_bindings.dart';
+import '../../core/markdown_typing.dart';
 
 import 'dart:async';
 import 'dart:io';
@@ -87,7 +88,7 @@ typedef _Suggestion = ({String label, String detail, String insert});
 
 class _ChatScreenState extends State<ChatScreen> {
   late final _composer = FocusNode(onKeyEvent: _onKey);
-  final _text = TextEditingController();
+  final _text = MarkdownTypingController();
   List<_Suggestion> _suggestions = const [];
 
   // Find in this session (⌘F).
@@ -504,6 +505,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
+    _text
+      ..enabled = context.watch<SettingsRepository>().settings.formatAsYouType
+      ..marks = t.colors.mutedForeground.withValues(alpha: .7)
+      ..codeBackground = t.colors.muted;
     // How wide the conversation reads, from settings.
     final column = context.watch<SettingsRepository>().settings.width.pixels;
     Widget inColumn(Widget child) => Center(

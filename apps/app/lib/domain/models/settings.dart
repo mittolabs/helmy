@@ -345,6 +345,9 @@ class const AppSettings({
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
 
+  /// Markdown in the message box shown as it is typed: bold, italic, code.
+  final bool formatAsYouType = true,
+
   /// A message sent while a chat works redirects it at once, rather than
   /// waiting its turn; ⇧⌘Enter does the other.
   final bool steerByDefault = false,
@@ -495,6 +498,7 @@ class const AppSettings({
     bool? keepWithPr,
     String? namingNote,
     bool? steerByDefault,
+    bool? formatAsYouType,
     Map<String, String>? keys,
     String? commitStyle,
     Map<String, String>? hookSigning,
@@ -573,6 +577,7 @@ class const AppSettings({
     keepWithPr: keepWithPr ?? this.keepWithPr,
     namingNote: namingNote ?? this.namingNote,
     steerByDefault: steerByDefault ?? this.steerByDefault,
+    formatAsYouType: formatAsYouType ?? this.formatAsYouType,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
     hookSigning: hookSigning ?? this.hookSigning,
@@ -654,6 +659,7 @@ class const AppSettings({
     'keepWithPr': keepWithPr,
     'namingNote': namingNote,
     'steerByDefault': steerByDefault,
+    'formatAsYouType': formatAsYouType,
     'keys': keys,
     'commitStyle': commitStyle,
     'hookSigning': hookSigning,
@@ -732,6 +738,7 @@ class const AppSettings({
     keepWithPr: json['keepWithPr'] as bool? ?? true,
     namingNote: json['namingNote'] as String? ?? '',
     steerByDefault: json['steerByDefault'] as bool? ?? false,
+    formatAsYouType: json['formatAsYouType'] as bool? ?? true,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
     hookSigning: {
@@ -837,6 +844,7 @@ const restorableSettings = <String, List<String>>{
   'Keep chats with an open pull request': ['keepWithPr'],
   'How chats are named': ['namingNote'],
   'A message sent while a chat works': ['steerByDefault'],
+  'Format as you type': ['formatAsYouType'],
   'Shortcuts': ['keys'],
   'Commits and pull requests': ['commitStyle', 'commitNote'],
   'Branch names': ['copySemantic', 'copyPrefix'],

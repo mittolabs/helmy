@@ -218,6 +218,17 @@ class _General extends StatelessWidget {
             ),
           ),
         _Row(
+          title: 'Format as you type',
+          description:
+              'Markdown in the message box shows as it is typed: **bold**, *italic*, '
+              '`code`. What is sent is what was typed.',
+          control: Switch(
+            value: s.formatAsYouType,
+            semanticLabel: 'Format as you type',
+            onChanged: (v) => vm.update(s.copyWith(formatAsYouType: v)),
+          ),
+        ),
+        _Row(
           title: 'A message sent while a chat works',
           description: s.steerByDefault
               ? 'Goes in now and redirects it. ${Desktop.current.keys('⇧⌘Enter')} has one wait its turn.'
