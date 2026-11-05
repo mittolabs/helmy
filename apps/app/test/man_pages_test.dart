@@ -1,3 +1,7 @@
+// Drives what only a Mac has.
+@TestOn('mac-os')
+library;
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

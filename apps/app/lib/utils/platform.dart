@@ -70,7 +70,7 @@ enum Desktop {
 /// Whether this platform has the embedded web view (WebKit on Apple's
 /// systems, Android's own): pages and PDFs open inside Helmy. Elsewhere they
 /// open in their own app.
-bool get webViewHere => Platform.isMacOS || Platform.isIOS || Platform.isAndroid;
+bool get webViewHere => Desktop.current == Desktop.mac || Platform.isIOS || Platform.isAndroid;
 
 /// Whether video and sound play inside Helmy here. Elsewhere they open in
 /// their own app.

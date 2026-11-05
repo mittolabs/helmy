@@ -1,3 +1,7 @@
+// Drives what only a Mac has.
+@TestOn('mac-os')
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
