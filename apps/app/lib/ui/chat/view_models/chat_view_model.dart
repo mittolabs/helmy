@@ -790,6 +790,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// Hides the panel; its tabs stay.
   void closePanel() {
+    if (panel == .changes) _changesClosed = true;
     panelOpen = false;
     panelExpanded = false;
     notifyListeners();
@@ -850,7 +851,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   int? changedFiles;
   bool _wasBusy = false;
 
-  Future<void> countChanges() async {
+  Future<void> countChanges({bool turnEnded = false}) async {
     final git = await changesIn(null);
     final n =
         git?.length ??
@@ -858,14 +859,29 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
           for (final c in reportedIn(null))
             for (final d in diffsOf(c)) d.path,
         }.length;
+    final lines = git?.fold<int>(0, (sum, c) => sum + c.added + c.removed) ?? 0;
+
     if (n != changedFiles) {
       changedFiles = n;
       notifyListeners();
     }
+    // Enough changed to be worth seeing (three files, or fifty lines): the
+    // Changes panel opens by itself, once, unless it was closed here.
+    final enough = n >= 3 || lines >= 50;
+    if (turnEnded && enough && !_changesShown && !panelOpen && !_changesClosed) {
+      _changesShown = true;
+      showChanges();
+    }
   }
 
+  /// The Changes panel opened by itself here already: once is enough.
+  bool _changesShown = false;
+
+  /// The Changes panel was closed in this thread: it does not open by itself.
+  bool _changesClosed = false;
+
   void _onConversation() {
-    if (_wasBusy && !busy) countChanges();
+    if (_wasBusy && !busy) countChanges(turnEnded: true);
     _wasBusy = busy;
     _findServer();
   }

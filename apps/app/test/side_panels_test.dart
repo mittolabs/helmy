@@ -114,4 +114,45 @@ void main() {
     await storage.flush();
     await root.delete(recursive: true);
   });
+
+  test('enough changed, the Changes panel opens by itself, until closed there', () async {
+    final root = await Directory.systemTemp.createTemp('panels-open');
+    final storage = StorageService(root: () async => root);
+    final sessions = SessionRepositoryLocal(storage);
+    final meter = UsageMeter();
+    final repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    final created = (await sessions.create(cwd: root.path) as Ok).value as Session;
+    repo.of(created.id).loaded = true;
+    final vm = ChatViewModel(sessionId: created.id, sessions: sessions, conversations: repo);
+    void edit(String name) => repo
+        .of(created.id)
+        .items
+        .add(
+          ToolCall(
+            id: name,
+            name: 'Edit',
+            input: {'file_path': '${root.path}/$name', 'old_string': 'a', 'new_string': 'b'},
+          )..result = 'ok',
+        );
+    edit('a.txt');
+    edit('b.txt');
+    await vm.countChanges(turnEnded: true);
+    expect(vm.panelOpen, isFalse, reason: 'two files: not yet');
+    edit('c.txt');
+    await vm.countChanges(turnEnded: true);
+    expect(vm.panel, SidePanel.changes, reason: 'three files: worth seeing');
+    vm.closePanel();
+    edit('d.txt');
+    await vm.countChanges(turnEnded: true);
+    expect(vm.panelOpen, isFalse, reason: 'closed here: it stays closed');
+    vm.dispose();
+    repo.dispose();
+    await root.delete(recursive: true);
+  });
 }
