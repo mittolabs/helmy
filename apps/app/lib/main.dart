@@ -242,7 +242,11 @@ class _HelmyAppState extends State<HelmyApp> {
 Future<(WindowController, FloatingArgs)?> _floatingPlayer() async {
   if (!FloatingPlayers.here) return null;
   try {
-    final window = await WindowController.fromCurrentEngine();
+    // The plugin can fail to answer (an engine it no longer has): the main
+    // window does not wait on it.
+    final window = await WindowController.fromCurrentEngine().timeout(
+      const Duration(seconds: 2),
+    );
     final args = FloatingArgs.decode(window.arguments);
     return args == null ? null : (window, args);
   } on Object {
