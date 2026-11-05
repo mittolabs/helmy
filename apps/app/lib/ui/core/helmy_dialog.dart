@@ -117,12 +117,16 @@ class DialogButton extends StatelessWidget {
             : main
             ? (c.foreground.withValues(alpha: state.hovered ? .88 : 1), c.background)
             : (c.foreground.withValues(alpha: state.hovered ? .08 : 0), c.foreground);
+        // Compact: Ashlar's small button (32 tall, at the theme's density),
+        // not a big block at the foot of a small question.
         return AnimatedContainer(
           duration: t.duration,
-          padding: const .symmetric(horizontal: 16, vertical: 9),
+          constraints: BoxConstraints(minHeight: t.control(32)),
+          alignment: .center,
+          padding: const .symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: .circular(10),
+            borderRadius: .circular(t.radiusMd),
             boxShadow: [if (state.focused) BoxShadow(color: c.ring, spreadRadius: 2)],
           ),
           child: Text(
