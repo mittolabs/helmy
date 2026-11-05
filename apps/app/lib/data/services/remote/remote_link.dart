@@ -219,6 +219,10 @@ class RemoteLink extends ChangeNotifier {
   Future<void> answer(String id, PermissionPrompt prompt, String answer) =>
       _send({'type': 'answer', 'id': id, 'request': prompt.requestId, 'answer': answer});
 
+  /// Answers [prompt]'s questions in [id], with what was chosen in it.
+  Future<void> answerQuestion(String id, PermissionPrompt prompt) =>
+      _send({'type': 'question', 'id': id, 'request': prompt.requestId, 'answers': prompt.answers});
+
   Future<void> interrupt(String id) => _send({'type': 'interrupt', 'id': id});
 
   /// A new chat on the Mac, starting with [text]; [made] says its id.

@@ -180,6 +180,18 @@ class RemoteServer {
             .firstOrNull;
         final answer = PermissionAnswer.values.asNameMap()[m['answer']];
         if (p != null && answer != null) _conversations.answerPermission(id, p, answer);
+      case 'question':
+        final p = _conversations
+            .of(id)
+            .items
+            .whereType<PermissionPrompt>()
+            .where((p) => p.requestId == m['request'])
+            .firstOrNull;
+        if (p == null || m['answers'] is! Map) return;
+        p.answers
+          ..clear()
+          ..addAll((m['answers'] as Map).map((k, v) => MapEntry('$k', '$v')));
+        _conversations.answerQuestion(id, p);
       case 'interrupt':
         _conversations.interrupt(id);
       case 'screen':

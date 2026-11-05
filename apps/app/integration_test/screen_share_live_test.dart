@@ -1,7 +1,6 @@
 // The Mac's screen through Helmy's own Swift side, in the real app: a frame
 // captured, and the mark shown then taken down. No input is posted.
 // fvm flutter test integration_test/screen_share_live_test.dart -d macos --dart-define=SHOTS=<dir>
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
