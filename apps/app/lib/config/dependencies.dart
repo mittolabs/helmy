@@ -3,6 +3,8 @@ import '../data/services/engines/agent_engine.dart';
 
 import 'package:flutter/widgets.dart';
 
+import '../data/services/engines/acp/acp_engine.dart';
+
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -280,7 +282,17 @@ List<SingleChildWidget> providers(Loaded loaded) => [
 ];
 
 /// The engine for an account added in Settings.
-AgentEngine _account(BuildContext context, ConnectionAccount a) => a.kind == 'claude'
+AgentEngine _account(BuildContext context, ConnectionAccount a) => a.kind == 'acp'
+    ? AcpEngine(
+        context.read(),
+        id: a.id,
+        name: a.name,
+        command: a.command ?? '',
+        args: a.args,
+        profile: profileFor(a.agentId ?? ''),
+        tools: context.read(),
+      )
+    : a.kind == 'claude'
     ? ClaudeEngine(
         context.read(),
         id: a.id,

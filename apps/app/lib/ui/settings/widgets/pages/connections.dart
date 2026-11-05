@@ -11,6 +11,19 @@ class _Agents extends StatelessWidget {
       children: [
         const _Heading('Connections', first: true),
         _Connections(vm: vm),
+        _Row(
+          title: 'Other agents',
+          description:
+              'Any agent that speaks the Agent Client Protocol: OpenCode, Gemini, Cursor and more '
+              'from the ACP registry, or one of your own.',
+          control: Button(
+            variant: .outline,
+            size: .sm,
+            onPressed: () => addAgent(context, vm),
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
+            child: const Text('Add an agent'),
+          ),
+        ),
         const _Heading('Routing'),
         _Row(
           title: 'Move to a connection with more room',
@@ -343,6 +356,11 @@ class _AgentCard extends StatelessWidget {
           if (ConnectionsSetup.kindOf(row.info.id) case final kind?) _Version(vm: vm, kind: kind),
           if (row.info.localOnly)
             Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
+          else if (row.info.assignedOnly)
+            Text(
+              'It reports no usage limits, so Helmy cannot tell how much room it has.',
+              style: muted,
+            )
           else if (usage == null)
             Text('No usage reported yet. It reports with its first answer.', style: muted)
           else ...[
@@ -370,6 +388,39 @@ class _AgentCard extends StatelessWidget {
                   : 'Connected: ${[for (final c in connections) c.label].join(', ')}',
               style: muted,
             ),
+          // An agent added: what it is set best at, and a way to remove it.
+          if (row.info.assignedOnly) ...[
+            Text(switch ([
+              for (final k in WorkKind.values)
+                if (vm.settings.bestFor(k) == row.info.id) k.label,
+            ]) {
+              [] => 'Answers nothing yet: set what it is best at under Advanced.',
+              final kinds => 'Answers: ${kinds.join(', ')}.',
+            }, style: muted),
+            Padding(
+              padding: const .only(top: 6),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: () async {
+                    final sure = await confirm(
+                      context,
+                      title: 'Remove ${row.info.name}?',
+                      body: vm.madeByHelmy(row.info.id)
+                          ? 'Helmy stops using it, and the copy Helmy installed goes.'
+                          : 'Helmy stops using it. The program itself stays.',
+                      action: 'Remove',
+                      destructive: true,
+                    );
+                    if (sure) await vm.removeAccount(row.info.id);
+                  },
+                  child: const Text('Remove from Helmy'),
+                ),
+              ),
+            ),
+          ],
           // More accounts, more room: each has its own limits, and Helmy
           // moves between them as one runs low.
           if (SettingsViewModel.kindOf(row.info.id) case final kind?)

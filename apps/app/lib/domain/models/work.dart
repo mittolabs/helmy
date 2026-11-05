@@ -23,5 +23,7 @@ const Map<WorkKind, String?> defaultBestAt = {
   WorkKind.research: null,
   WorkKind.pictures: 'codex',
   WorkKind.accounts: 'claude',
-  WorkKind.quick: null,
+  // OpenCode on its private free models, when it is added: free for what
+  // is not critical. Until then, any.
+  WorkKind.quick: 'acp.opencode',
 };

@@ -53,7 +53,9 @@ class HeadroomRouter implements EngineRouter {
   }
 
   /// The kind of engine: every Claude Code account is "claude".
-  static String familyOf(String id) => id.split('-').first;
+  /// The kind of connection [id] is: every Claude Code account is
+  /// 'claude'; an agent ('acp.opencode') is its own kind.
+  static String familyOf(String id) => id.startsWith('acp.') ? id : id.split('-').first;
   static String _family(String id) => familyOf(id);
 
   final UsageMeter _meter;

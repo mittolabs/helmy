@@ -20,7 +20,11 @@ class HelmyDialog extends StatelessWidget {
     this.destructive = false,
     this.body,
     this.content,
+    this.maxWidth = 420,
   });
+
+  /// How wide it may grow: wider for a list to choose from.
+  final double maxWidth;
 
   final String title;
   final IconData? icon;
@@ -38,7 +42,7 @@ class HelmyDialog extends StatelessWidget {
     final tone = destructive ? c.destructive : c.foreground;
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: Container(
           margin: const .all(24),
           padding: const .fromLTRB(24, 24, 24, 20),

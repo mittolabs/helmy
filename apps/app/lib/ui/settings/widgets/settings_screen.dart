@@ -16,6 +16,8 @@ import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
+import '../../../data/services/engines/acp/acp_registry.dart';
+import '../../../data/services/engines/acp/acp_engine.dart';
 import '../../../data/services/window_snapshots.dart';
 
 import 'package:go_router/go_router.dart';
@@ -53,6 +55,7 @@ import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
 
 part 'pages/add_account.dart';
+part 'pages/add_agent.dart';
 part 'pages/appearance.dart';
 part 'pages/connections.dart';
 part 'pages/data.dart';

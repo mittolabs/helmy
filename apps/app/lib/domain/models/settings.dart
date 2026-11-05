@@ -134,8 +134,9 @@ class const ProjectSettings({
   );
 }
 
-/// Another account of a connection, added in Settings: Claude Code or Codex
-/// signed in to a folder of its own (CLAUDE_CONFIG_DIR or CODEX_HOME).
+/// A connection added in Settings: another Claude Code or Codex account,
+/// signed in to a folder of its own (CLAUDE_CONFIG_DIR or CODEX_HOME), or an
+/// agent that speaks the Agent Client Protocol (kind 'acp').
 class const ConnectionAccount({
   /// The engine id: 'claude-work', 'codex-personal'.
   final String id = '',
@@ -149,9 +150,17 @@ class const ConnectionAccount({
   /// Where its sign-in lives.
   final String folder = '',
 
-  /// Helmy made the folder (a browser sign-in), so removing the account
-  /// removes it; a folder the user pointed at is only forgotten.
+  /// Helmy made the folder (a browser sign-in, an agent it installed), so
+  /// removing the account removes it; a folder the user pointed at is only
+  /// forgotten.
   final bool made = false,
+
+  /// For an agent ('acp'): the program and what it is started with.
+  final String? command,
+  final List<String> args = const [],
+
+  /// For an agent from the ACP registry: its id there.
+  final String? agentId,
 }) {
   Map<String, Object?> toJson() => {
     'id': id,
@@ -159,6 +168,9 @@ class const ConnectionAccount({
     'name': name,
     'folder': folder,
     'made': made,
+    'command': ?command,
+    if (args.isNotEmpty) 'args': args,
+    'agentId': ?agentId,
   };
 
   static ConnectionAccount fromJson(Map<String, Object?> json) => ConnectionAccount(
@@ -167,6 +179,9 @@ class const ConnectionAccount({
     name: json['name'] as String? ?? '',
     folder: json['folder'] as String? ?? '',
     made: json['made'] as bool? ?? false,
+    command: json['command'] as String?,
+    args: [...((json['args'] as List?) ?? const []).map((a) => '$a')],
+    agentId: json['agentId'] as String?,
   );
 }
 

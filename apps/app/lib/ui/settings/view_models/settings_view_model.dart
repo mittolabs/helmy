@@ -1,3 +1,7 @@
+import 'package:path_provider/path_provider.dart';
+
+import '../../../data/services/engines/acp/acp_registry.dart';
+import '../../../data/services/engines/acp/acp_engine.dart';
 import '../../../domain/models/work.dart';
 import '../../../data/services/engines/engine_router.dart';
 
@@ -425,6 +429,79 @@ class SettingsViewModel extends ChangeNotifier {
     await _checkEngines();
   }
 
+  // Agents that speak the Agent Client Protocol.
+
+  /// The ACP registry; set where the page is made.
+  AcpRegistry registry = AcpRegistry();
+
+  /// Where agents Helmy installs are kept.
+  Future<String> Function() agentsRoot = () async =>
+      '${(await getApplicationSupportDirectory()).path}/agents';
+
+  /// The registry's agents that run here, those already added left out;
+  /// null when it could not be reached.
+  Future<List<AcpListing>?> listings() async {
+    final all = await registry.list();
+    if (all == null) return null;
+    final have = {for (final a in settings.accounts) ?a.agentId};
+    return [
+      for (final l in all)
+        if (l.runsHere && !have.contains(l.id)) l,
+    ];
+  }
+
+  /// Installs [listing] and adds it, under [name]. Then checks it starts;
+  /// what that found, for the dialog to act on.
+  Future<AcpAdded> addAgent(AcpListing listing, {String? name}) async {
+    final launch = await AcpRegistry.install(listing, root: await agentsRoot());
+    final a = ConnectionAccount(
+      id: _agentId(listing.id),
+      kind: 'acp',
+      name: name?.trim().isNotEmpty ?? false ? name!.trim() : listing.name,
+      folder: launch.command.startsWith('/') ? '${await agentsRoot()}/${listing.id}' : '',
+      made: launch.command.startsWith('/'),
+      command: launch.command,
+      args: launch.args,
+      agentId: listing.id,
+    );
+    await _keep(a);
+    return (account: a, check: await checkAgent(a.id));
+  }
+
+  /// Adds an agent started by a command of the user's own: "my-agent --acp".
+  Future<AcpAdded> addCommand(String name, String commandLine) async {
+    final words = commandLine.trim().split(RegExp(r'\s+'));
+    final a = ConnectionAccount(
+      id: _agentId(ConnectionsSetup.slugOf(name)),
+      kind: 'acp',
+      name: name.trim(),
+      command: words.first,
+      args: words.skip(1).toList(),
+    );
+    await _keep(a);
+    return (account: a, check: await checkAgent(a.id));
+  }
+
+  String _agentId(String base) {
+    var id = 'acp.$base';
+    for (var n = 2; _taken.contains(id); n++) {
+      id = 'acp.$base-$n';
+    }
+    return id;
+  }
+
+  /// Whether agent [engineId] starts a session, and if not, why.
+  Future<AcpCheck?> checkAgent(String engineId) async {
+    final e = _engines.byId(engineId);
+    return e is AcpEngine ? await e.check() : null;
+  }
+
+  /// Signs agent [engineId] in by [method], one its check gave.
+  Future<bool> signInAgent(String engineId, Map<String, Object?> method) async {
+    final e = _engines.byId(engineId);
+    return e is AcpEngine && await e.signIn(method);
+  }
+
   /// Whether [engineId] is an account added in Settings, so it can go.
   bool canRemove(String engineId) => settings.accounts.any((a) => a.id == engineId);
 
@@ -436,7 +513,12 @@ class SettingsViewModel extends ChangeNotifier {
   Future<void> removeAccount(String engineId) async {
     final a = settings.accounts.where((a) => a.id == engineId).firstOrNull;
     if (a == null) return;
-    if (a.made) await setup?.removeAccount(a.folder);
+    if (a.made && a.kind == 'acp') {
+      final dir = Directory(a.folder);
+      if (a.folder.isNotEmpty && dir.existsSync()) await dir.delete(recursive: true);
+    } else if (a.made) {
+      await setup?.removeAccount(a.folder);
+    }
     await update(settings.copyWith(accounts: [...settings.accounts]..remove(a)));
     _engines.remove(engineId);
     if (chosenAgent == engineId) chosenAgent = null;
