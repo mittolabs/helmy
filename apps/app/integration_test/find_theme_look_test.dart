@@ -64,7 +64,9 @@ void main() {
     await wait(() => find.text('Nord').evaluate().isNotEmpty);
     await shot(tester, '$shots/find-theme.png');
     await tester.tap(find.text('Open').first);
-    await wait(() => settings.settings.themeImport != null || find.text('Use').evaluate().isNotEmpty);
+    await wait(
+      () => settings.settings.themeImport != null || find.text('Use').evaluate().isNotEmpty,
+    );
     if (settings.settings.themeImport == null) await tester.tap(find.text('Use').first);
     await wait(() => settings.settings.themeImport != null);
     expect(settings.settings.palette, Palette.imported);

@@ -27,7 +27,8 @@ void main() {
                 onTap: () => confirm(
                   context,
                   title: 'Put earlier threads together?',
-                  body: 'Before chats, each conversation stood alone. Nothing moves that you untick.',
+                  body:
+                      'Before chats, each conversation stood alone. Nothing moves that you untick.',
                   action: 'Put 22 together',
                 ),
                 child: const Text('open'),

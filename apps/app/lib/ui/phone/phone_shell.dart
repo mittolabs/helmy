@@ -323,13 +323,13 @@ class _HomeState extends State<_Home> {
                 mainAxisSize: .min,
                 spacing: 12,
                 children: [
-                  if (!keyboard)
-                    Image.asset(
-                      'assets/helmy/hello.png',
-                      width: 120,
-                      height: 120,
-                      semanticLabel: 'Helmy',
-                    ),
+                  // Always there; smaller while the keyboard takes room.
+                  Image.asset(
+                    'assets/helmy/hello.png',
+                    width: keyboard ? 80 : 120,
+                    height: keyboard ? 80 : 120,
+                    semanticLabel: 'Helmy',
+                  ),
                   Text(
                     starting == null ? 'What should we get done?' : 'Starting it on the Mac…',
                     textAlign: .center,
@@ -351,14 +351,18 @@ class _HomeState extends State<_Home> {
         ),
         Padding(
           padding: const .fromLTRB(12, 0, 12, 10),
-          child: Composer(
-            controller: _text,
-            focusNode: _focus,
-            placeholder: 'Ask Helmy',
-            onSubmit: (text) {
-              widget.onSend(text);
-              _text.clear();
-            },
+          // A tap anywhere else puts the keyboard away.
+          child: TapRegion(
+            onTapOutside: (_) => _focus.unfocus(),
+            child: Composer(
+              controller: _text,
+              focusNode: _focus,
+              placeholder: 'Ask Helmy',
+              onSubmit: (text) {
+                widget.onSend(text);
+                _text.clear();
+              },
+            ),
           ),
         ),
       ],
@@ -419,38 +423,50 @@ class _ChatState extends State<_Chat> {
                   : MarkdownMedia(
                       show: (where, words) =>
                           Media(where: where, words: words, cwd: session.cwd, actions: vm),
-                      child: MessageScroller(
-                        controller: _scroller,
-                        busy: vm.busy,
-                        gap: 14,
-                        padding: const .fromLTRB(16, 8, 16, 24),
-                        semanticLabel: 'Conversation',
-                        items: [
-                          for (final r in rows)
-                            MessageScrollerItem(id: r.id, anchor: r.anchor, child: r.child),
-                        ],
+                      // Scrolling the conversation by hand puts the keyboard away.
+                      child: NotificationListener<ScrollUpdateNotification>(
+                        onNotification: (n) {
+                          if (n.dragDetails != null) _focus.unfocus();
+                          return false;
+                        },
+                        child: MessageScroller(
+                          controller: _scroller,
+                          busy: vm.busy,
+                          gap: 14,
+                          padding: const .fromLTRB(16, 8, 16, 24),
+                          semanticLabel: 'Conversation',
+                          items: [
+                            for (final r in rows)
+                              MessageScrollerItem(id: r.id, anchor: r.anchor, child: r.child),
+                          ],
+                        ),
                       ),
                     ),
             ),
             Padding(
               padding: const .fromLTRB(12, 0, 12, 10),
-              child: Composer(
-                controller: _text,
-                focusNode: _focus,
-                placeholder: vm.busy ? 'Helmy is working. Say more, or stop it' : 'Reply to Helmy',
-                trailing: [
-                  if (vm.busy)
-                    ComposerButton(
-                      icon: AshlarIconsRoundedStroke.playerStop,
-                      label: 'Stop',
-                      onPressed: vm.interrupt,
-                    ),
-                ],
-                onSubmit: (text) {
-                  if (text.trim().isEmpty) return;
-                  unawaited(vm.send.execute(text));
-                  _text.clear();
-                },
+              child: TapRegion(
+                onTapOutside: (_) => _focus.unfocus(),
+                child: Composer(
+                  controller: _text,
+                  focusNode: _focus,
+                  placeholder: vm.busy
+                      ? 'Helmy is working. Say more, or stop it'
+                      : 'Reply to Helmy',
+                  trailing: [
+                    if (vm.busy)
+                      ComposerButton(
+                        icon: AshlarIconsRoundedStroke.playerStop,
+                        label: 'Stop',
+                        onPressed: vm.interrupt,
+                      ),
+                  ],
+                  onSubmit: (text) {
+                    if (text.trim().isEmpty) return;
+                    unawaited(vm.send.execute(text));
+                    _text.clear();
+                  },
+                ),
               ),
             ),
           ],

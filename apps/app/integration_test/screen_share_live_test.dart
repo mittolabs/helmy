@@ -34,8 +34,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 20));
       }
       // ignore: avoid_print
-      print('frames: ${frames.length}, next took ${sw.elapsedMilliseconds} ms, '
-          'size ${imageSize(frames.first)}, ${frames.first.length ~/ 1024} KB');
+      print(
+        'frames: ${frames.length}, next took ${sw.elapsedMilliseconds} ms, '
+        'size ${imageSize(frames.first)}, ${frames.first.length ~/ 1024} KB',
+      );
       if (shots.isNotEmpty) await File('$shots/frame.jpg').writeAsBytes(frames.first);
       await screen.stop();
       expect(frames, isNotEmpty);
