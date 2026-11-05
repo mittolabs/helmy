@@ -241,7 +241,7 @@ class ChatKeeper {
         chat.id,
         title: now.titled || now.named ? null : n.title,
         description: n.about,
-        icon: now.icon ?? n.icon,
+        icon: (now.icon ?? '').isNotEmpty ? null : n.icon,
         topic: now.topic.isEmpty ? n.topic : null,
       );
       final thread = _sessions.byId(id);
@@ -257,7 +257,7 @@ class ChatKeeper {
   /// at a time; an empty one from before is called "New chat".
   Future<void> catchUp() async {
     for (final c in _chats.chats.toList()) {
-      if ((c.titled || c.named) && c.icon != null && c.topic.isNotEmpty) continue;
+      if ((c.titled || c.named) && (c.icon ?? '').isNotEmpty && c.topic.isNotEmpty) continue;
       final latest = _chats.threadsOf(c.id).firstOrNull;
       if (latest == null) continue;
       await _conversations.load(latest.id);

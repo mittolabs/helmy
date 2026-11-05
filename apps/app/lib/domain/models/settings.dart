@@ -22,6 +22,24 @@ enum Switching {
 
 enum ThemeChoice { system, light, dark }
 
+/// The colors Helmy is drawn in, light and dark alike: its own (pure black
+/// when dark), or one of the warmer or cooler greys.
+enum Palette {
+  helmy('Helmy'),
+  stone('Stone'),
+  taupe('Taupe'),
+  olive('Olive'),
+  mauve('Mauve'),
+  mist('Mist'),
+  zinc('Zinc');
+
+  const Palette(this.label);
+  final String label;
+}
+
+/// A color for the main buttons and what is chosen; none keeps them grey.
+enum AccentChoice { none, blue, teal, emerald, amber, orange, rose, violet }
+
 /// What draws pages in Preview: the system's own web view, or a Chromium
 /// browser on this computer (for Chrome's developer tools).
 enum PreviewEngine { system, chromium }
@@ -124,6 +142,12 @@ class const AppSettings({
   final Switching switching = .balanced,
   final bool notify = true,
   final ThemeChoice theme = .system,
+
+  /// The colors, light and dark alike.
+  final Palette palette = .helmy,
+
+  /// A color for the main buttons and what is chosen.
+  final AccentChoice accent = .none,
   final TextSize textSize = .medium,
   final Width width = .medium,
   final ShowSessions show = .active,
@@ -210,6 +234,8 @@ class const AppSettings({
     Switching? switching,
     bool? notify,
     ThemeChoice? theme,
+    Palette? palette,
+    AccentChoice? accent,
     TextSize? textSize,
     Width? width,
     ShowSessions? show,
@@ -246,6 +272,8 @@ class const AppSettings({
     switching: switching ?? this.switching,
     notify: notify ?? this.notify,
     theme: theme ?? this.theme,
+    palette: palette ?? this.palette,
+    accent: accent ?? this.accent,
     textSize: textSize ?? this.textSize,
     width: width ?? this.width,
     show: show ?? this.show,
@@ -284,6 +312,8 @@ class const AppSettings({
     'switching': switching.name,
     'notify': notify,
     'theme': theme.name,
+    'palette': palette.name,
+    'accent': accent.name,
     'textSize': textSize.name,
     'width': width.name,
     'show': show.name,
@@ -322,6 +352,8 @@ class const AppSettings({
     switching: Switching.values.asNameMap()[json['switching']] ?? .balanced,
     notify: json['notify'] as bool? ?? true,
     theme: ThemeChoice.values.asNameMap()[json['theme']] ?? .system,
+    palette: Palette.values.asNameMap()[json['palette']] ?? .helmy,
+    accent: AccentChoice.values.asNameMap()[json['accent']] ?? .none,
     textSize: TextSize.values.asNameMap()[json['textSize']] ?? .medium,
     width: Width.values.asNameMap()[json['width']] ?? .medium,
     show: ShowSessions.values.asNameMap()[json['show']] ?? .active,

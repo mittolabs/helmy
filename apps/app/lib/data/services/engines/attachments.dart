@@ -20,7 +20,22 @@ String? imageType(String path) {
   return type;
 }
 
-/// The text to send with [files] the engine does not take as images.
-String withFiles(String text, List<String> files) => files.isEmpty
-    ? text
-    : '$text\n\nAttached files (read them from disk):\n${files.map((f) => '- $f').join('\n')}';
+/// The text to send with [files] the engine does not take as images, and
+/// where [pictures] it does take are on disk: real files, so an agent can
+/// use them (put one in a pull request, say), not only see them.
+String withFiles(String text, List<String> files, {List<String> pictures = const []}) => [
+  text,
+  if (files.isNotEmpty)
+    'Attached files (read them from disk):\n${files.map((f) => '- $f').join('\n')}',
+  if (pictures.isNotEmpty)
+    'The attached pictures are also on disk, to use the files themselves:\n'
+        '${pictures.map((f) => '- $f').join('\n')}',
+].join('\n\n');
+
+/// Where Helmy keeps what is pasted or captured into a message: a folder that
+/// lasts, unlike the system's temporary one, so an agent can use the files
+/// later in the conversation too.
+Directory attachmentsDir() {
+  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+  return Directory('$home/.helmy/attachments')..createSync(recursive: true);
+}

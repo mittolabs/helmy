@@ -53,6 +53,7 @@ import '../data/services/fixes.dart';
 import '../ui/chat/widgets/player.dart' show PoppedOut;
 import '../data/repositories/project_repository.dart';
 import '../data/services/webhooks.dart';
+import '../data/repositories/stash_repository.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -82,6 +83,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.settings),
   ChangeNotifierProvider.value(value: loaded.meter),
   ChangeNotifierProvider.value(value: loaded.chats),
+  // Drafts put aside with ⌘S, to go on with in any chat.
+  ChangeNotifierProvider(create: (context) => StashRepository(loaded.storage)..load()),
   Provider(create: (_) => CliLocator()),
   Provider(create: (context) => WatchService(context.read())),
   // Taps on iOS simulators through Helmy's resident helper: milliseconds.

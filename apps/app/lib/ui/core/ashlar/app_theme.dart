@@ -3,6 +3,7 @@
 
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/models/settings.dart';
 import 'palette.dart';
 import 'theme.dart';
 
@@ -37,3 +38,19 @@ AshlarThemeData _black(AshlarThemeData t) => t.copyWith(
     sidebarBorder: const Color(0x17FFFFFF),
   ),
 );
+
+/// Helmy drawn in [palette] with [accent], for [brightness]; its own colors
+/// are [appTheme] and [appDarkTheme].
+AshlarThemeData themeFor(
+  Brightness brightness, {
+  Palette palette = .helmy,
+  AccentChoice accent = .none,
+}) {
+  final dark = brightness == Brightness.dark;
+  final a = accent == .none ? null : AshlarAccent.values.byName(accent.name);
+  if (palette == .helmy && a == null) return dark ? appDarkTheme : appTheme;
+  final base = palette == .helmy ? AshlarBase.neutral : AshlarBase.values.byName(palette.name);
+  final t = AshlarThemeData.from(brightness: brightness, base: base, accent: a);
+  // Helmy's own stays pure black when dark, with an accent or without.
+  return dark && palette == .helmy ? _black(t) : t;
+}

@@ -12,6 +12,7 @@ import '../../../domain/models/permission_rule.dart';
 import '../../../data/services/engines/agent_engine.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
+import '../../../data/services/engines/attachments.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/command.dart';
 import '../../../utils/starters.dart';
@@ -633,7 +634,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<bool> pasteImage() async {
     final desktop = _desktop;
     if (desktop == null) return false;
-    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
+    final dir = attachmentsDir();
     final path = await desktop.pasteImage(
       '${dir.path}/pasted-${DateTime.now().millisecondsSinceEpoch}.png',
     );
@@ -1261,7 +1262,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// A device's screen with marks drawn on it, and the marks as text: both
   /// go with the next message.
   Future<void> attachMarks(Uint8List png, String text) async {
-    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
+    final dir = attachmentsDir();
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final picture = File('${dir.path}/device-marks-$stamp.png');
     final notes = File('${dir.path}/device-marks-$stamp.md');
@@ -1272,7 +1273,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   Future<void> attachScreen(Uint8List bytes) async {
-    final dir = Directory('${Directory.systemTemp.path}/helmy-pasted')..createSync(recursive: true);
+    final dir = attachmentsDir();
     final png = bytes.length > 3 && bytes[1] == 0x50;
     final file = File(
       '${dir.path}/device-${DateTime.now().millisecondsSinceEpoch}.${png ? 'png' : 'jpg'}',

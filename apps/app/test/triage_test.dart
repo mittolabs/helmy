@@ -48,10 +48,10 @@ void main() {
       // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
       repo.notifyListeners();
       expect(vm.groups.map((g) => '${g.label}: ${g.sessions.map((s) => s.id).join(",")}'), [
-        'Working: ${b.id}',
         'Everything else: ${c.id},${a.id}',
-      ]);
-      expect(vm.inOrder.first.id, b.id, reason: '⌘1 opens the first one shown');
+        'Working: ${b.id}',
+      ], reason: 'what is working waits at the bottom until it finishes or needs you');
+      expect(vm.inOrder.first.id, c.id, reason: '⌘1 opens the first one shown');
 
       await vm.setArchived(c, true);
       expect(vm.shown.any((s) => s.id == c.id), isFalse);

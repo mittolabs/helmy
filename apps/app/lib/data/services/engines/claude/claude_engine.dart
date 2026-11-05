@@ -372,7 +372,7 @@ class _ClaudeRun implements EngineRun {
         if (imageType(a) == null) a,
     ];
     _process.sendUser([
-      {'type': 'text', 'text': withFiles(text, files)},
+      {'type': 'text', 'text': withFiles(text, files, pictures: images)},
       for (final path in images)
         {
           'type': 'image',

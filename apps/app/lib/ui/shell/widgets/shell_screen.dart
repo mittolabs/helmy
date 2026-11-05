@@ -9,9 +9,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../routing/settings_route.dart';
 
+import '../../../data/repositories/chat_keeper.dart';
 import '../../../domain/chat_icons.dart';
 import '../../core/tinted_icon.dart';
 import '../../../domain/models/chat.dart';
@@ -98,6 +100,10 @@ class ShellScreen extends StatelessWidget {
             // Undo the last archive, snooze or settle (a text field's own undo
             // comes first).
             Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undo,
+            // Esc lets picked chats go.
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              if (viewModel.picking) viewModel.clearPicks();
+            },
             // A Mac's menu quits with ⌘Q; elsewhere Ctrl+Q is the app's to give.
             if (!Desktop.current.commandIsMeta)
               Desktop.current.shortcut(LogicalKeyboardKey.keyQ): () =>
@@ -207,24 +213,26 @@ class ShellScreen extends StatelessWidget {
                         // The list's heading, with how it is shown at its end.
                         Padding(
                           padding: const .fromLTRB(10, 4, 0, 4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  switch (viewModel.settings.show) {
-                                    .active => 'Chats',
-                                    .archived => 'Archived',
-                                    .all => 'All chats',
-                                  },
-                                  style: t.text.xs.copyWith(
-                                    color: t.colors.mutedForeground,
-                                    fontWeight: .w500,
-                                  ),
+                          child: viewModel.picking
+                              ? _PickedBar(viewModel: viewModel)
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        switch (viewModel.settings.show) {
+                                          .active => 'Chats',
+                                          .archived => 'Archived',
+                                          .all => 'All chats',
+                                        },
+                                        style: t.text.xs.copyWith(
+                                          color: t.colors.mutedForeground,
+                                          fontWeight: .w500,
+                                        ),
+                                      ),
+                                    ),
+                                    _ListMenu(viewModel: viewModel),
+                                  ],
                                 ),
-                              ),
-                              _ListMenu(viewModel: viewModel),
-                            ],
-                          ),
                         ),
                         viewModel.shown.isEmpty
                             ? Padding(
@@ -558,30 +566,48 @@ class ShellScreen extends StatelessWidget {
               selected: all.any((t) => t.id == selectedId),
               onOpen: () => context.go('/s/${first.id}'),
             )
-          // Rested on: a preview of it, beside the list.
-          : HoverCard(
-              openDelay: const Duration(milliseconds: 800),
-              side: .right,
-              align: .start,
-              width: 320,
-              content: (context) => _ChatPreviewCard(
-                title: title,
-                chat: e.chat,
-                preview: viewModel.previewOf(e.threads),
-              ),
-              child: _ChatRow(
-                onSettle: canSettle ? settle : null,
-                title: title,
-                threads: e.threads,
-                activity: viewModel.activityOfAll(e.threads),
-                chat: e.chat,
-                line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
-                selected: all.any((t) => t.id == selectedId),
-                onOpen: () => context.go('/s/${first.id}'),
-                onDelete: () => _deleteChat(context, title, all),
+          // Rested on: a preview of it, beside the list. Dragged onto another
+          // chat, it joins it.
+          : _DragChat(
+              viewModel: viewModel,
+              chat: e.chat,
+              threads: all,
+              title: title,
+              child: HoverCard(
+                openDelay: const Duration(milliseconds: 800),
+                side: .right,
+                align: .start,
+                width: 320,
+                content: (context) => _ChatPreviewCard(
+                  title: title,
+                  chat: e.chat,
+                  preview: viewModel.previewOf(e.threads),
+                ),
+                child: _ChatRow(
+                  onSettle: canSettle ? settle : null,
+                  title: title,
+                  threads: e.threads,
+                  activity: viewModel.activityOfAll(e.threads),
+                  chat: e.chat,
+                  line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
+                  selected: viewModel.picking
+                      ? viewModel.isPicked(first)
+                      : all.any((t) => t.id == selectedId),
+                  onOpen: () => _openOrPick(context, first),
+                  onDelete: () => _deleteChat(context, title, all),
+                ),
               ),
             ),
     );
+  }
+
+  /// A click opens the chat; ⌘-click picks it too, ⇧-click a run up to it.
+  /// While some are picked, a plain click picks as well.
+  void _openOrPick(BuildContext context, Session first) {
+    final keys = HardwareKeyboard.instance;
+    if (keys.isShiftPressed) return viewModel.pick(first, range: true);
+    if (Desktop.current.commandHeld || viewModel.picking) return viewModel.pick(first);
+    context.go('/s/${first.id}');
   }
 
   Future<void> _deleteChat(BuildContext context, String title, List<Session> all) async {
@@ -1507,6 +1533,134 @@ class _ChatPreviewCard extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// What can be done to the chats picked, in place of the list's heading.
+class _PickedBar extends StatelessWidget {
+  const _PickedBar({required this.viewModel});
+  final SidebarViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final n = viewModel.pickedCount;
+    Widget act(IconData icon, String label, VoidCallback onPressed) => Tooltip(
+      message: label,
+      child: Button(
+        variant: .ghost,
+        size: .iconSm,
+        semanticLabel: label,
+        onPressed: onPressed,
+        child: AshlarIcon(icon, size: 15),
+      ),
+    );
+    ChatKeeper? keeper;
+    try {
+      keeper = context.read<ChatKeeper>();
+    } on ProviderNotFoundException {
+      keeper = null;
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$n ${n == 1 ? 'chat' : 'chats'} picked',
+            style: t.text.xs.copyWith(color: t.colors.foreground, fontWeight: .w600),
+          ),
+        ),
+        act(AshlarIconsRoundedStroke.circleCheck, 'Mark as done', viewModel.markPickedDone),
+        act(
+          AshlarIconsRoundedStroke.clock,
+          'Snooze until tomorrow',
+          () => viewModel.snoozePicked(SidebarViewModel.tomorrowMorning()),
+        ),
+        act(AshlarIconsRoundedStroke.archive, 'Archive', viewModel.archivePicked),
+        if (keeper case final k?)
+          act(
+            AshlarIconsRoundedStroke.sparkles,
+            'Name again',
+            () => viewModel.renamePicked(k.describe),
+          ),
+        act(AshlarIconsRoundedStroke.trash, 'Delete', () async {
+          final ok = await confirm(
+            context,
+            title: 'Delete $n ${n == 1 ? 'chat' : 'chats'}?',
+            body: 'Their conversations leave Helmy. Files in their folders stay as they are.',
+            action: 'Delete',
+            destructive: true,
+          );
+          if (ok) await viewModel.deletePicked();
+        }),
+        act(AshlarIconsRoundedStroke.x, 'Stop picking', viewModel.clearPicks),
+      ],
+    );
+  }
+}
+
+/// A chat's row that can be dragged onto another chat's, to join it: its
+/// threads then belong to that chat, which can read and message them.
+class _DragChat extends StatelessWidget {
+  const _DragChat({
+    required this.viewModel,
+    required this.chat,
+    required this.threads,
+    required this.title,
+    required this.child,
+  });
+
+  final SidebarViewModel viewModel;
+  final Chat? chat;
+  final List<Session> threads;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final target = chat;
+    Widget row = Draggable<({List<Session> threads, String title})>(
+      data: (threads: threads, title: title),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Container(
+        padding: const .symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: c.popover,
+          border: Border.all(color: c.border),
+          borderRadius: .circular(t.radiusMd),
+          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12)],
+        ),
+        child: Text(title, style: t.text.sm.copyWith(color: c.popoverForeground)),
+      ),
+      childWhenDragging: Opacity(opacity: .4, child: child),
+      child: child,
+    );
+    if (target == null) return row;
+    return DragTarget<({List<Session> threads, String title})>(
+      onWillAcceptWithDetails: (d) => d.data.threads.first.chatId != target.id,
+      onAcceptWithDetails: (d) async {
+        await viewModel.mergeInto(d.data.threads, target.id);
+        if (!context.mounted) return;
+        showToast(
+          context,
+          title: 'Moved "${d.data.title}" into "${target.title}"',
+          action: Button(
+            size: .sm,
+            variant: .outline,
+            onPressed: viewModel.undo,
+            child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+          ),
+        );
+      },
+      builder: (context, offered, _) => DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: offered.isEmpty ? const Color(0x00000000) : c.ring, width: 1.5),
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: row,
+      ),
     );
   }
 }

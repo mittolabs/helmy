@@ -404,3 +404,70 @@ class _WorkingState extends State<_Working> {
     );
   }
 }
+
+/// The latest draft put aside (⌘S), offered back while the box is empty.
+class _StashChip extends StatelessWidget {
+  const _StashChip({required this.onTake});
+  final VoidCallback onTake;
+
+  @override
+  Widget build(BuildContext context) {
+    final StashRepository stash;
+    try {
+      stash = context.watch<StashRepository>();
+    } on ProviderNotFoundException {
+      return const SizedBox.shrink();
+    }
+    final latest = stash.items.firstOrNull;
+    if (latest == null) return const SizedBox.shrink();
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final words = latest.text.trim().split('\n').first;
+    final more = stash.items.length - 1;
+    return Padding(
+      padding: const .only(bottom: 6),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Pressable(
+          onPressed: onTake,
+          semanticLabel: 'Bring back what was put aside',
+          builder: (context, state) => Container(
+            padding: const .symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: state.hovered ? c.muted : c.muted.withValues(alpha: .5),
+              borderRadius: .circular(t.radiusMd),
+            ),
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 6,
+              children: [
+                AshlarIcon(
+                  AshlarIconsRoundedStroke.cornerUpLeft,
+                  size: 13,
+                  color: c.mutedForeground,
+                ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: Text(
+                    [
+                      'Put aside${latest.from.isEmpty ? '' : ' in ${latest.from}'}: '
+                          '${words.isEmpty ? '${latest.attachments.length} files' : words}',
+                      if (more > 0) '$more more',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: t.text.xs.copyWith(color: c.mutedForeground),
+                  ),
+                ),
+                Text(
+                  Desktop.current.keys('⌘S'),
+                  style: t.text.xs.copyWith(color: c.mutedForeground),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

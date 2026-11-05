@@ -37,6 +37,8 @@ import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../../../utils/result.dart';
 import '../view_models/chat_view_model.dart';
+import '../../../data/repositories/stash_repository.dart';
+import '../../shell/view_models/sidebar_view_model.dart';
 import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
@@ -260,6 +262,18 @@ class _ChatScreenState extends State<ChatScreen> {
       return .handled;
     }
     final withMeta = !context.read<SettingsRepository>().settings.sendWithEnter;
+    // Sent in the background (⌘Enter; ⌥⌘Enter where ⌘Enter sends): this chat
+    // works on it while a new one opens, to send the next.
+    if (key == LogicalKeyboardKey.enter &&
+        e is KeyDownEvent &&
+        widget.bar == null &&
+        Desktop.current.commandHeld &&
+        !HardwareKeyboard.instance.isShiftPressed &&
+        (!withMeta || HardwareKeyboard.instance.isAltPressed)) {
+      if (_text.text.trim().isEmpty && !vm.hasExtras) return .handled;
+      unawaited(_sendInBackground());
+      return .handled;
+    }
     if (Composer.handleEnter(e, () => _submit(_text.text), withMeta: withMeta) == .handled) {
       return .handled;
     }
@@ -294,6 +308,11 @@ class _ChatScreenState extends State<ChatScreen> {
     // ⌘V: a picture becomes an attachment; anything else pastes as text.
     if (meta && key == LogicalKeyboardKey.keyV) {
       _paste();
+      return .handled;
+    }
+    // ⌘S: what is written goes aside; in an empty box, the latest comes back.
+    if (meta && key == LogicalKeyboardKey.keyS && widget.bar == null) {
+      unawaited(_stashOrTake());
       return .handled;
     }
     return .ignored;
@@ -333,6 +352,63 @@ class _ChatScreenState extends State<ChatScreen> {
     _back = null;
     setState(() => _suggestions = const []);
     vm.send.execute(text);
+  }
+
+  StashRepository? get _stash {
+    try {
+      return context.read<StashRepository>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  /// Puts what is written aside (words, files, pictures), or, with nothing
+  /// written, brings back the latest put aside.
+  Future<void> _stashOrTake() async {
+    final stash = _stash;
+    if (stash == null) return;
+    if (_text.text.trim().isEmpty && vm.attachments.isEmpty) {
+      final s = await stash.takeLatest();
+      if (s == null || !mounted) return;
+      _put(s.text);
+      vm.attach(s.attachments);
+      return;
+    }
+    await stash.stash(_text.text, [
+      ...vm.attachments,
+    ], from: vm.chatTitle ?? vm.session?.title ?? '');
+    _text.clear();
+    vm.attachments.clear();
+    vm.keepDraft('');
+    if (!mounted) return;
+    setState(() {});
+    showToast(
+      context,
+      title: 'Put aside',
+      description: '${Desktop.current.keys('⌘S')} in an empty box, in any chat, brings it back.',
+    );
+  }
+
+  /// Sends what is written, then opens a new chat in the same folder: this
+  /// one goes on working where it is.
+  Future<void> _sendInBackground() async {
+    final title = vm.chatTitle ?? vm.session?.title ?? 'this chat';
+    final cwd = vm.session?.cwd;
+    final router = GoRouter.of(context);
+    _submit(_text.text);
+    final SidebarViewModel list;
+    try {
+      list = context.read<SidebarViewModel>();
+    } on ProviderNotFoundException {
+      return;
+    }
+    if (cwd == null) return;
+    final made = await list.createIn(cwd);
+    if (!mounted) return;
+    if (made case Ok(:final value)) {
+      showToast(context, title: 'Sent to "$title". It goes on working there.');
+      router.go('/s/${value.id}');
+    }
   }
 
   void _focus() => _composer.requestFocus();
@@ -575,6 +651,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     if (vm.queue.isNotEmpty) inColumn(_Queue(vm: vm)),
+                    // A draft put aside, offered back while the box is empty.
+                    if (widget.bar == null)
+                      ValueListenableBuilder(
+                        valueListenable: _text,
+                        builder: (context, value, _) => value.text.isEmpty
+                            ? inColumn(_StashChip(onTake: () => unawaited(_stashOrTake())))
+                            : const SizedBox.shrink(),
+                      ),
                     if (_suggestions.isNotEmpty)
                       inColumn(_SuggestionList(items: _suggestions, onPick: _take))
                     else if (vm.items.isEmpty && !vm.busy && alone)

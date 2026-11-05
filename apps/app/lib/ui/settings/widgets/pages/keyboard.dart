@@ -16,6 +16,7 @@ class _Keyboard extends StatelessWidget {
     ('Enter', 'Send (or ⌘Enter, as set in General)'),
     ('Shift+Enter', 'New line in a message'),
     ('⇧⌘Enter', 'While Helmy works: send now, redirecting it'),
+    ('⌘Enter', 'Send, and start another chat while it works (⌥⌘Enter when ⌘Enter sends)'),
     ('/', 'Commands and skills, at the start of a message'),
     ('@', "Pick a file from the thread's folder"),
     ('Tab', 'Take the first suggestion'),

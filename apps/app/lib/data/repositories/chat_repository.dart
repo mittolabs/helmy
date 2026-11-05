@@ -170,6 +170,16 @@ class ChatRepository extends ChangeNotifier {
     await _persist();
   }
 
+  /// Forgets what Helmy named [chatId] (not a name the person gave), so it
+  /// is named afresh.
+  Future<void> forgetNaming(String chatId) async {
+    final c = _chats[chatId];
+    if (c == null) return;
+    _chats[chatId] = c.copyWith(titled: false, topic: '', icon: '', description: '');
+    notifyListeners();
+    await _persist();
+  }
+
   /// The topic words chats have, most used first: for a new chat to reuse.
   List<String> get topics {
     final n = <String, int>{};

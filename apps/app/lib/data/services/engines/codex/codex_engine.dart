@@ -515,7 +515,11 @@ class _CodexRun implements EngineRun {
         'threadId': threadId,
         'input': [
           ?skill,
-          {'type': 'text', 'text': withFiles(text, files), 'text_elements': <Object>[]},
+          {
+            'type': 'text',
+            'text': withFiles(text, files, pictures: images),
+            'text_elements': <Object>[],
+          },
           for (final path in images) {'type': 'localImage', 'path': path},
         ],
       });
@@ -539,10 +543,17 @@ class _CodexRun implements EngineRun {
         'input': [
           {
             'type': 'text',
-            'text': withFiles(text, [
-              for (final a in attachments)
-                if (imageType(a) == null) a,
-            ]),
+            'text': withFiles(
+              text,
+              [
+                for (final a in attachments)
+                  if (imageType(a) == null) a,
+              ],
+              pictures: [
+                for (final a in attachments)
+                  if (imageType(a) != null) a,
+              ],
+            ),
             'text_elements': <Object>[],
           },
           for (final a in attachments)

@@ -147,8 +147,8 @@ class _HelmyAppState extends State<HelmyApp> {
     final settings = context.watch<SettingsRepository>().settings;
     return AshlarApp.router(
       title: 'Helmy',
-      theme: appTheme,
-      darkTheme: appDarkTheme,
+      theme: themeFor(.light, palette: settings.palette, accent: settings.accent),
+      darkTheme: themeFor(.dark, palette: settings.palette, accent: settings.accent),
       themeMode: switch (settings.theme) {
         .system => AshlarThemeMode.system,
         .light => AshlarThemeMode.light,

@@ -148,19 +148,34 @@ class SidebarViewModel extends ChangeNotifier {
       for (final x in list)
         if (chatActivity(x) == SessionActivity.working) x,
     ];
+    // New chats with words written and nothing sent yet: kept at the top,
+    // to finish or delete.
+    final drafts = [
+      for (final x in list)
+        if (x.untitled && x.hasDraft && chatActivity(x) == .idle) x,
+    ];
     final rest = [
       for (final x in list)
-        if (!wants.contains(x) && !working.contains(x)) x,
+        if (!wants.contains(x) && !working.contains(x) && !drafts.contains(x)) x,
     ];
+    // What needs you first; what is working last, out of the way until it
+    // finishes or needs you (then it moves up by itself).
     final out = <({String? label, String? folder, List<Session> sessions})>[
+      if (drafts.isNotEmpty) (label: 'Drafts', folder: null, sessions: drafts),
       if (wants.isNotEmpty) (label: 'Needs you', folder: null, sessions: wants),
+    ];
+    final last = <({String? label, String? folder, List<Session> sessions})>[
       if (working.isNotEmpty) (label: 'Working', folder: null, sessions: working),
     ];
     if (settings.group == .none) {
-      if (rest.isNotEmpty || out.isEmpty) {
-        out.add((label: out.isEmpty ? null : 'Everything else', folder: null, sessions: rest));
+      if (rest.isNotEmpty || (out.isEmpty && last.isEmpty)) {
+        out.add((
+          label: out.isEmpty && last.isEmpty ? null : 'Everything else',
+          folder: null,
+          sessions: rest,
+        ));
       }
-      return out;
+      return [...out, ...last];
     }
     // A chat under the folder its latest thread works in.
     final byFolder = <String, List<Session>>{};
@@ -172,6 +187,7 @@ class SidebarViewModel extends ChangeNotifier {
     return [
       ...out,
       for (final e in byFolder.entries) (label: null, folder: e.key, sessions: e.value),
+      ...last,
     ];
   }
 
@@ -386,6 +402,114 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   Future<void> Function()? _undo;
+
+  // Several chats at once: ⌘-click picks one more, ⇧-click a run of them;
+  // then what is done is done to all of them.
+
+  /// The chats picked, by the key of their chat.
+  final picked = <String>{};
+  String? _lastPicked;
+
+  bool get picking => picked.isNotEmpty;
+
+  /// Picks [s]'s chat, or lets it go; with [range], every chat from the last
+  /// one picked to it, in the list's order.
+  void pick(Session s, {bool range = false}) {
+    final key = _key(_sessions.byId(s.id) ?? s);
+    if (range && _lastPicked != null) {
+      final order = [for (final t in inOrder) _key(t)];
+      final a = order.indexOf(_lastPicked!), b = order.indexOf(key);
+      if (a >= 0 && b >= 0) {
+        picked.addAll(order.sublist(a < b ? a : b, (a < b ? b : a) + 1));
+        notifyListeners();
+        return;
+      }
+    }
+    if (!picked.remove(key)) picked.add(key);
+    _lastPicked = key;
+    notifyListeners();
+  }
+
+  void clearPicks() {
+    picked.clear();
+    _lastPicked = null;
+    notifyListeners();
+  }
+
+  bool isPicked(Session s) => picked.contains(_key(_sessions.byId(s.id) ?? s));
+
+  /// Every picked chat's threads (side chats too), chat by chat.
+  List<List<Session>> get _pickedChats => [
+    for (final key in picked)
+      [
+        for (final x in _sessions.sessions)
+          if (_key(x) == key) x,
+      ],
+  ].where((c) => c.isNotEmpty).toList();
+
+  /// Does [each] to every picked chat, keeping one undo that takes all of
+  /// them back; then lets them go.
+  Future<void> _forPicked(Future<void> Function(List<Session> chat) each) async {
+    final undos = <Future<void> Function()>[];
+    for (final chat in _pickedChats) {
+      _undo = null;
+      await each(chat);
+      if (_undo case final u?) undos.add(u);
+    }
+    _undo = undos.isEmpty
+        ? null
+        : () async {
+            for (final u in undos) {
+              await u();
+            }
+          };
+    clearPicks();
+  }
+
+  Future<void> markPickedDone() => _forPicked((c) async {
+    if (!busyChat(c)) await settleChat(c);
+  });
+
+  Future<void> snoozePicked(DateTime until) => _forPicked((c) => snoozeChat(c, until));
+
+  Future<void> archivePicked() => _forPicked((c) => setChatArchived(c, true));
+
+  Future<void> deletePicked() => _forPicked(deleteChat);
+
+  /// Has Helmy name the picked chats afresh (a name the person gave stays).
+  Future<void> renamePicked(Future<void> Function(String threadId) describe) =>
+      _forPicked((c) async {
+        final first = c.where((t) => t.sideOf == null).firstOrNull;
+        final chatId = first?.chatId;
+        if (first == null || chatId == null) return;
+        await _chats?.forgetNaming(chatId);
+        await describe(first.id);
+      });
+
+  int get pickedCount => picked.length;
+
+  /// Moves the chat of [from] into [chatId]: its threads become threads of
+  /// that chat, which can then read them and message them. One undo puts
+  /// them back in a chat of their own.
+  Future<void> mergeInto(List<Session> from, String chatId) async {
+    final chats = _chats;
+    final threads = from.where((t) => t.sideOf == null).toList();
+    if (chats == null || threads.isEmpty || threads.first.chatId == chatId) return;
+    final was = threads.first.chatId;
+    for (final t in threads) {
+      await chats.move(_sessions.byId(t.id) ?? t, chatId);
+    }
+    await _log?.correction(what: 'merge', thread: threads.first.id, from: was, to: chatId);
+    _undo = () async {
+      String? back;
+      for (final t in threads) {
+        final now = _sessions.byId(t.id);
+        if (now == null) continue;
+        back = await chats.move(now, back);
+      }
+    };
+    notifyListeners();
+  }
 
   // Settled (the list as an inbox): a chat nothing in waits on goes to the
   // bottom, until something new happens in it. By hand, when its pull
