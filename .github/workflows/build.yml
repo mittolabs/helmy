@@ -14,8 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: The release tag to build, such as v0.2.0
-        required: true
+        description: The release tag to build, such as v0.2.0; empty builds the branch chosen above, kept as the run's artifacts rather than attached to a release
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -38,12 +39,13 @@ jobs:
         working-directory: apps/app
         shell: bash
     env:
-      TAG: ${{ inputs.tag }}
+      # A release's tag, or "dev" for a trial build of a branch.
+      TAG: ${{ inputs.tag || 'dev' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.tag || github.ref }}
           # All of history, to count it for the build number.
           fetch-depth: 0
       - uses: subosito/flutter-action@v2
@@ -71,4 +73,12 @@ jobs:
         if: matrix.platform == 'linux'
         run: tar -czf "Helmy-$TAG-linux.tar.gz" -C build/linux/x64/release bundle
       - name: Attach to the release
+        if: inputs.tag != ''
         run: gh release upload "$TAG" Helmy-"$TAG"-* --clobber
+      - name: Keep a trial build with the run
+        if: inputs.tag == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Helmy-${{ matrix.platform }}
+          path: apps/app/Helmy-dev-*
+          retention-days: 7
