@@ -51,3 +51,12 @@ String pathEnd(String path) {
   final parts = tildePath(path).split(RegExp(r'[/\\]')).where((p) => p.isNotEmpty).toList();
   return parts.length <= 2 ? parts.join('/') : parts.sublist(parts.length - 2).join('/');
 }
+
+/// A time of day as the user reads clocks ([use24Hour]): 1:05 PM or 13:05.
+String clock(DateTime t, {bool seconds = false}) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final s = seconds ? ':${two(t.second)}' : '';
+  if (use24Hour) return '${t.hour}:${two(t.minute)}$s';
+  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  return '$h:${two(t.minute)}$s ${t.hour < 12 ? 'AM' : 'PM'}';
+}

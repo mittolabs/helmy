@@ -1,4 +1,5 @@
 import 'version.dart';
+import 'utils/platform.dart';
 
 import 'dart:async';
 import 'dart:io';
@@ -150,32 +151,53 @@ class _HelmyAppState extends State<HelmyApp> {
     final settings = context.watch<SettingsRepository>().settings;
     return AshlarApp.router(
       title: 'Helmy',
-      theme: themeFor(.light, palette: settings.palette, accent: settings.accent),
-      darkTheme: themeFor(.dark, palette: settings.palette, accent: settings.accent),
+      theme: themeFor(
+        .light,
+        palette: settings.palette,
+        accent: settings.accent,
+        font: settings.interfaceFont,
+        contrast: settings.contrast,
+      ),
+      darkTheme: themeFor(
+        .dark,
+        palette: settings.palette,
+        accent: settings.accent,
+        font: settings.interfaceFont,
+        contrast: settings.contrast,
+      ),
       themeMode: switch (settings.theme) {
         .system => AshlarThemeMode.system,
         .light => AshlarThemeMode.light,
         .dark => AshlarThemeMode.dark,
       },
       // Text size is a scale on every size the theme sets.
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(settings.textSize.scale)),
-        child: MarkdownCodeWrap(
-          wrap: settings.wrapCode,
-          // Code in answers, plans and notes in syntax colors, in the theme's palette.
-          child: Builder(
-            builder: (context) {
-              final colors = CodeColors.of(context);
-              return MarkdownHighlight(
-                highlight: (code, language, base) =>
-                    CodeHighlighter.spans(code, language, base, colors),
-                child: child!,
-              );
-            },
+      builder: (context, child) {
+        // Code's font, and how clocks read, for the helpers that draw them.
+        chosenCodeFont = settings.codeFont;
+        use24Hour = switch (settings.clock) {
+          .system => MediaQuery.of(context).alwaysUse24HourFormat,
+          .twelve => false,
+          .twentyFour => true,
+        };
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(settings.textSize.scale)),
+          child: MarkdownCodeWrap(
+            wrap: settings.wrapCode,
+            // Code in answers, plans and notes in syntax colors, in the theme's palette.
+            child: Builder(
+              builder: (context) {
+                final colors = CodeColors.of(context);
+                return MarkdownHighlight(
+                  highlight: (code, language, base) =>
+                      CodeHighlighter.spans(code, language, base, colors),
+                  child: child!,
+                );
+              },
+            ),
           ),
-        ),
-      ),
+        );
+      },
       routerConfig: _router,
     );
   }

@@ -670,6 +670,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Composer(
                           controller: _text,
                           focusNode: _composer,
+                          font: context.watch<SettingsRepository>().settings.promptFont,
                           onSubmit: _submit,
                           placeholder: vm.pendingNeeds.contains(Capability.imageGeneration)
                               ? 'Describe the change to this image'

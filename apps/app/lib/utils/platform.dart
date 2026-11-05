@@ -79,7 +79,16 @@ bool get playerHere => Platform.isMacOS || Platform.isIOS || Platform.isAndroid;
 /// Fixed-width fonts, the platform's first: Menlo on a Mac, Consolas on
 /// Windows, Roboto Mono or the system's own elsewhere. With
 /// `fontFamily: 'monospace'`, as Ashlar's code blocks do.
-const monoFonts = ['Menlo', 'Consolas', 'Roboto Mono', 'monospace'];
+List<String> get monoFonts => [?chosenCodeFont, ..._monoFonts];
+const _monoFonts = ['Menlo', 'Consolas', 'Roboto Mono', 'monospace'];
+
+/// The font chosen for code in Appearance, first in [monoFonts]; null for
+/// the system's own. Set where the app applies its settings.
+String? chosenCodeFont;
+
+/// Whether clock times read 13:05 rather than 1:05 PM: the user's choice,
+/// else the system's. Set where the app applies its settings.
+bool use24Hour = false;
 
 /// The user's home folder: HOME, or USERPROFILE on Windows.
 String get homeDir => Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';

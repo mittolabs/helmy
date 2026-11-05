@@ -87,7 +87,7 @@ void main() {
       'w',
       '2 pictures',
       '1 file',
-      'Snoozed till 9:00',
+      'Snoozed till 9:00 AM',
     ]);
   });
 

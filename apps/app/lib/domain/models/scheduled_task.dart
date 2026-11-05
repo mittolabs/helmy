@@ -1,3 +1,4 @@
+import '../../utils/format.dart';
 import 'engine.dart';
 
 /// How often a scheduled task runs.
@@ -66,12 +67,6 @@ class const Schedule(final Repeat repeat, final DateTime at) {
     'Saturday',
     'Sunday',
   ];
-}
-
-/// "9:00 AM".
-String clock(DateTime t) {
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  return '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
 }
 
 /// "Nov 4".

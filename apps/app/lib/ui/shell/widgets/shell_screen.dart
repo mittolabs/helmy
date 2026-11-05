@@ -1092,8 +1092,7 @@ class _ProjectBadge extends StatelessWidget {
 /// A snooze's end as people say it: "6:40 PM", or "tomorrow at 9:00 AM".
 String _when(DateTime t) {
   final now = DateTime.now();
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  final time = '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+  final time = clock(t);
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(t.year, t.month, t.day).difference(today).inDays;
   return switch (day) {

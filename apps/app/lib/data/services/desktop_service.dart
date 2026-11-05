@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -98,6 +99,30 @@ class DesktopService {
 
   /// Whether Helmy opens at login, after turning it [on] or off when given;
   /// null when this macOS cannot say.
+  /// The font families installed, by name, and those of them whose letters
+  /// are all one width (for code). Empty where the system will not say.
+  Future<({List<String> all, List<String> fixed})> fontFamilies() async {
+    if (!Platform.isMacOS) return (all: const <String>[], fixed: const <String>[]);
+    try {
+      final r = await Process.run('/usr/bin/osascript', [
+        '-l',
+        'JavaScript',
+        '-e',
+        'ObjC.import("AppKit"); var m = \$.NSFontManager.sharedFontManager; '
+            'var all = m.availableFontFamilies.js.map(x => x.js).filter(n => !n.startsWith(".")); '
+            'var fixed = all.filter(n => { var f = \$.NSFont.fontWithNameSize(n, 12); '
+            'return f && f.isFixedPitch; }); JSON.stringify({all: all, fixed: fixed})',
+      ]).timeout(const Duration(seconds: 15));
+      final j = jsonDecode('${r.stdout}'.trim()) as Map;
+      return (
+        all: [...(j['all'] as List).map((x) => '$x')],
+        fixed: [...(j['fixed'] as List).map((x) => '$x')],
+      );
+    } on Object {
+      return (all: const <String>[], fixed: const <String>[]);
+    }
+  }
+
   Future<bool?> openAtLogin([bool? on]) async {
     try {
       return await _channel.invokeMethod<bool>('openAtLogin', {'on': on});

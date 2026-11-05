@@ -155,9 +155,8 @@ class _ThreadGist extends StatelessWidget {
 /// "Nov 4, 3:40 PM" (with the year when it is not this one).
 String threadStamp(DateTime t, [DateTime? now]) {
   final n = now ?? DateTime.now();
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  final clock = '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
-  if (t.year == n.year && t.month == n.month && t.day == n.day) return clock;
+  final time = clock(t);
+  if (t.year == n.year && t.month == n.month && t.day == n.day) return time;
   const months = [
     'Jan',
     'Feb',
@@ -173,5 +172,5 @@ String threadStamp(DateTime t, [DateTime? now]) {
     'Dec',
   ];
   final day = '${months[t.month - 1]} ${t.day}';
-  return t.year == n.year ? '$day, $clock' : '$day ${t.year}, $clock';
+  return t.year == n.year ? '$day, $time' : '$day ${t.year}, $time';
 }

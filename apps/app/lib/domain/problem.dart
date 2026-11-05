@@ -1,3 +1,4 @@
+import '../utils/format.dart';
 import 'helmy_voice.dart';
 
 /// The one action that fixes a problem, where it happened.
@@ -135,12 +136,11 @@ String atTime(DateTime t, DateTime? now) {
 /// [t] as a person says it: "3:40 PM", "tomorrow at 9:00 AM", "11/6 at 9:00 AM".
 String clockAt(DateTime t, DateTime? now) {
   final n = now ?? DateTime.now();
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  final clock = '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+  final time = clock(t);
   final days = DateTime(t.year, t.month, t.day).difference(DateTime(n.year, n.month, n.day)).inDays;
   return days == 0
-      ? clock
+      ? time
       : days == 1
-      ? 'tomorrow at $clock'
-      : '${t.month}/${t.day} at $clock';
+      ? 'tomorrow at $time'
+      : '${t.month}/${t.day} at $time';
 }

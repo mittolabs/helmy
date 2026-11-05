@@ -56,11 +56,22 @@ enum TextSize {
   final double scale;
 }
 
+/// How clock times read.
+enum ClockFormat {
+  system('As the system has it'),
+  twelve('1:05 PM'),
+  twentyFour('13:05');
+
+  const ClockFormat(this.label);
+  final String label;
+}
+
 /// How wide the conversation reads.
 enum Width {
   narrow('Narrow', 640),
   medium('Medium', 720),
-  wide('Wide', 920);
+  wide('Wide', 920),
+  full('Full', double.infinity);
 
   const Width(this.label, this.pixels);
   final String label;
@@ -195,6 +206,15 @@ class const AppSettings({
   final String? fixedFolder,
   final Set<String> disabledEngines = const {},
 
+  /// Fonts chosen in Appearance, by family; null is the system's own.
+  final String? interfaceFont,
+  final String? codeFont,
+  final String? promptFont,
+
+  /// How much firmer borders and quiet text are: 0 as designed, up to 1.
+  final double contrast = 0,
+  final ClockFormat clock = .system,
+
   /// Accounts added beside the usual Claude Code and Codex ones.
   final List<ConnectionAccount> accounts = const [],
 
@@ -309,6 +329,11 @@ class const AppSettings({
     String? fixedFolder,
     Set<String>? disabledEngines,
     List<ConnectionAccount>? accounts,
+    String? interfaceFont,
+    String? codeFont,
+    String? promptFont,
+    double? contrast,
+    ClockFormat? clock,
     Map<String, String>? bestAt,
     Switching? switching,
     bool? notify,
@@ -351,6 +376,11 @@ class const AppSettings({
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
     accounts: accounts ?? this.accounts,
+    interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
+    codeFont: codeFont == '' ? null : codeFont ?? this.codeFont,
+    promptFont: promptFont == '' ? null : promptFont ?? this.promptFont,
+    contrast: contrast ?? this.contrast,
+    clock: clock ?? this.clock,
     bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
     notify: notify ?? this.notify,
@@ -396,6 +426,11 @@ class const AppSettings({
     'disabledEngines': disabledEngines.toList(),
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
     'bestAt': bestAt,
+    'interfaceFont': interfaceFont,
+    'codeFont': codeFont,
+    'promptFont': promptFont,
+    'contrast': contrast,
+    'clock': clock.name,
     'switching': switching.name,
     'notify': notify,
     'theme': theme.name,
@@ -438,6 +473,11 @@ class const AppSettings({
     folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .last,
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
+    interfaceFont: json['interfaceFont'] as String?,
+    codeFont: json['codeFont'] as String?,
+    promptFont: json['promptFont'] as String?,
+    contrast: (json['contrast'] as num?)?.toDouble() ?? 0,
+    clock: ClockFormat.values.asNameMap()[json['clock']] ?? .system,
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
     },
@@ -520,6 +560,11 @@ const restorableSettings = <String, List<String>>{
   'Editor projects open in': ['editor'],
   'Chat list': ['show', 'group', 'sort', 'recency'],
   'Best at': ['bestAt'],
+  'Interface font': ['interfaceFont'],
+  'Code font': ['codeFont'],
+  'Message font': ['promptFont'],
+  'Contrast': ['contrast'],
+  'Time format': ['clock'],
 };
 
 /// The names of the settings in [s] that differ from Helmy's own, in the

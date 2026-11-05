@@ -23,9 +23,13 @@ class Composer extends StatelessWidget {
     this.attachments = const [],
     this.actions = const [],
     this.trailing = const [],
+    this.font,
   });
 
   final TextEditingController controller;
+
+  /// The font chosen for messages, by family; null for the interface's.
+  final String? font;
 
   /// Its key handler should send on Enter; see [handleEnter].
   final FocusNode focusNode;
@@ -61,7 +65,11 @@ class Composer extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    final text = t.text.base.copyWith(color: c.foreground, height: 1.45);
+    final text = t.text.base.copyWith(
+      color: c.foreground,
+      height: 1.45,
+      fontFamily: font ?? t.text.fontFamily,
+    );
     final dark = t.brightness == .dark;
     return Container(
       padding: const .fromLTRB(16, 10, 10, 10),

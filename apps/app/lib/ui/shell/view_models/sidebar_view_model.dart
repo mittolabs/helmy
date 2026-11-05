@@ -775,7 +775,7 @@ class SidebarViewModel extends ChangeNotifier {
       if (pictures > 0) plural(pictures, 'picture'),
       if (files > 0) plural(files, 'file'),
       if (until != null && until.isAfter(at))
-        'Snoozed till ${until.day == at.day ? '' : '${const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][until.weekday - 1]} '}${until.hour}:${until.minute.toString().padLeft(2, '0')}',
+        'Snoozed till ${until.day == at.day ? '' : '${const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][until.weekday - 1]} '}${clock(until)}',
     ];
   }
 

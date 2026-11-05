@@ -79,6 +79,31 @@ class _Appearance extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(textSize: v)),
           ),
         ),
+        ..._fonts(context, vm),
+        _Row(
+          title: 'Contrast',
+          description: 'Firmer borders and quieter text a little louder, for reading at a glance.',
+          control: _Choice<double>(
+            value: const [0.0, .5, 1.0].contains(s.contrast) ? s.contrast : 0,
+            label: 'Contrast',
+            options: {0.0: 'As designed', .5: 'Firmer', 1.0: 'Firmest'},
+            onChanged: (v) => vm.update(s.copyWith(contrast: v)),
+          ),
+        ),
+        _Row(
+          title: 'Time format',
+          description: 'How clock times read: when a message came, a snooze ends, a task runs.',
+          control: SizedBox(
+            width: 190,
+            child: Select<ClockFormat>(
+              size: .sm,
+              value: s.clock,
+              semanticLabel: 'Time format',
+              options: [for (final f in ClockFormat.values) SelectOption(f, f.label)],
+              onChanged: (f) => vm.update(s.copyWith(clock: f)),
+            ),
+          ),
+        ),
         _Row(
           title: 'Conversation width',
           control: _Choice<Width>(
@@ -240,4 +265,77 @@ class _PaletteChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The fonts: the interface's, code's, and messages' as typed, each the
+/// system's own until another is chosen, with a sample of all three.
+List<Widget> _fonts(BuildContext context, SettingsViewModel vm) {
+  final s = vm.settings;
+  final fonts = vm.fonts;
+  if (fonts == null) unawaited(vm.loadFonts());
+  Widget pick(String label, String? value, List<String> names, void Function(String?) set) =>
+      SizedBox(
+        width: 210,
+        child: Select<String>(
+          size: .sm,
+          value: value ?? '',
+          semanticLabel: label,
+          options: [
+            const SelectOption('', 'System'),
+            for (final n in {...names, ?value}) SelectOption(n, n),
+          ],
+          onChanged: (v) => set(v.isEmpty ? '' : v),
+        ),
+      );
+  final t = AshlarTheme.of(context);
+  return [
+    _Row(
+      title: 'Interface font',
+      description: fonts == null ? 'Reading the fonts on this computer...' : null,
+      control: pick(
+        'Interface font',
+        s.interfaceFont,
+        fonts?.all ?? const [],
+        (v) => vm.update(s.copyWith(interfaceFont: v)),
+      ),
+    ),
+    _Row(
+      title: 'Code font',
+      description: 'For code in answers, changes and the terminal.',
+      control: pick(
+        'Code font',
+        s.codeFont,
+        fonts?.fixed ?? const [],
+        (v) => vm.update(s.copyWith(codeFont: v)),
+      ),
+    ),
+    _Row(
+      title: 'Message font',
+      description: 'For what you type, where it differs from the interface.',
+      control: pick(
+        'Message font',
+        s.promptFont,
+        fonts?.all ?? const [],
+        (v) => vm.update(s.copyWith(promptFont: v)),
+      ),
+    ),
+    _Block(
+      title: 'Sample',
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 6,
+        children: [
+          Text('Plan the trip to the coast for the long weekend.', style: t.text.sm),
+          Text(
+            'Plan the trip to the coast, and book it.',
+            style: t.text.sm.copyWith(fontFamily: s.promptFont ?? t.text.fontFamily),
+          ),
+          Text(
+            'final days = trip.end.difference(trip.start).inDays;',
+            style: t.text.xs.copyWith(fontFamily: 'monospace', fontFamilyFallback: monoFonts),
+          ),
+        ],
+      ),
+    ),
+  ];
 }

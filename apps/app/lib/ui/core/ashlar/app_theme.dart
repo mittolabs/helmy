@@ -45,6 +45,8 @@ AshlarThemeData themeFor(
   Brightness brightness, {
   Palette palette = .helmy,
   AccentChoice accent = .none,
+  String? font,
+  double contrast = 0,
 }) {
   final dark = brightness == Brightness.dark;
   final a = accent == .none ? null : AshlarAccent.values.byName(accent.name);
@@ -57,6 +59,23 @@ AshlarThemeData themeFor(
     // Helmy's own stays pure black when dark, with an accent or without.
     chosen = dark && palette == .helmy ? _black(t) : t;
   }
+  // Firmer, as asked: borders and quiet text toward the text's own color.
+  final c = chosen.colors;
+  final k = contrast.clamp(0.0, 1.0);
+  final colors = k == 0
+      ? c
+      : c.copyWith(
+          mutedForeground: Color.lerp(c.mutedForeground, c.foreground, k * .6),
+          border: Color.lerp(c.border, c.foreground, k * .35),
+          input: Color.lerp(c.input, c.foreground, k * .35),
+          sidebarBorder: Color.lerp(c.sidebarBorder, c.foreground, k * .35),
+        );
   // Compact, as a desktop tool is: every control and menu row a size down.
-  return chosen.copyWith(density: -1);
+  return chosen.copyWith(
+    density: -1,
+    colors: colors,
+    text: font == null
+        ? null
+        : AshlarText(fontFamily: font, fontFamilyFallback: chosen.text.fontFamilyFallback),
+  );
 }

@@ -553,6 +553,15 @@ class SettingsViewModel extends ChangeNotifier {
     });
   }
 
+  /// Fonts installed here, for Appearance; null until read.
+  ({List<String> all, List<String> fixed})? fonts;
+
+  Future<void> loadFonts() async {
+    if (fonts != null) return;
+    fonts = await _desktop?.fontFamilies();
+    notifyListeners();
+  }
+
   Future<void> setOpenAtLogin(bool on) async {
     openAtLogin = await _desktop?.openAtLogin(on);
     notifyListeners();

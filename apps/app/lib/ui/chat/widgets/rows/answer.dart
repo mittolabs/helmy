@@ -113,8 +113,7 @@ String shortWhen(DateTime t, {DateTime? now}) {
     'Dec',
   ];
   if (t.year == n.year && t.month == n.month && t.day == n.day) {
-    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-    return '$h:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+    return clock(t);
   }
   return t.year == n.year
       ? '${months[t.month - 1]} ${t.day}'
@@ -138,10 +137,8 @@ String fullTime(DateTime t) {
     'Nov',
     'Dec',
   ];
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  String two(int n) => n.toString().padLeft(2, '0');
   return '${days[t.weekday - 1]}, ${months[t.month - 1]} ${t.day}, ${t.year} at '
-      '$h:${two(t.minute)}:${two(t.second)} ${t.hour < 12 ? 'AM' : 'PM'}';
+      '${clock(t, seconds: true)}';
 }
 
 class _IconAction extends StatelessWidget {
