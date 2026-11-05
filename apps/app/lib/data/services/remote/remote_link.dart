@@ -36,7 +36,9 @@ enum LinkState { connecting, connected, unreachable }
 /// "Mittos-iPhone" as "Mittos iPhone".
 String phoneName() {
   final n = Platform.localHostname.replaceAll(RegExp(r'\.local$'), '').replaceAll('-', ' ').trim();
-  return n.isEmpty ? (Platform.isIOS ? 'iPhone' : 'Phone') : n;
+  // iOS gives apps "localhost", not the phone's name.
+  if (n.isEmpty || n == 'localhost') return Platform.isIOS ? 'iPhone' : 'Phone';
+  return n;
 }
 
 /// A phone's line to Helmy on a Mac (see [RemoteServer]): the chats there,

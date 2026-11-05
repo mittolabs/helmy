@@ -45,7 +45,9 @@ class RemoteHost extends ChangeNotifier {
           for (final p in s.phones)
             if (p.id == device)
               p.copyWith(
-                name: p.name.isEmpty && name.isNotEmpty ? name : null,
+                // A name it gives replaces none, or the "localhost" older
+                // builds gave.
+                name: (p.name.isEmpty || p.name == 'localhost') && name.isNotEmpty ? name : null,
                 pairedAt: p.pairedAt ?? now,
                 lastSeen: now,
               )

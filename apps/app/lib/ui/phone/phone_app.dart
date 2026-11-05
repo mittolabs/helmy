@@ -146,7 +146,7 @@ class _PairScreenState extends State<_PairScreen> {
     final muted = t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5);
     return ColoredBox(
       color: t.colors.background,
-      child: SafeArea(
+      child: _AboveKeyboard(
         child: Padding(
           padding: const .all(24),
           child: Column(
@@ -239,7 +239,7 @@ class _ChatList extends StatelessWidget {
         });
         return ColoredBox(
           color: c.background,
-          child: SafeArea(
+          child: _AboveKeyboard(
             child: Column(
               crossAxisAlignment: .stretch,
               children: [
@@ -484,7 +484,7 @@ class _ChatViewState extends State<_ChatView> {
         ].firstOrNull;
         return ColoredBox(
           color: c.background,
-          child: SafeArea(
+          child: _AboveKeyboard(
             child: Column(
               crossAxisAlignment: .stretch,
               children: [
@@ -646,6 +646,23 @@ class _Approval extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A phone screen's safe area that also rises above the keyboard: with no
+/// Material scaffold, nothing else makes room for it.
+class _AboveKeyboard extends StatelessWidget {
+  const _AboveKeyboard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      // With the keyboard up, it covers the home indicator: no gap for it.
+      child: SafeArea(bottom: keyboard == 0, child: child),
     );
   }
 }
