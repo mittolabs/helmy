@@ -44,3 +44,10 @@ bool isScratch(String path) => scratchRoot != null && path.startsWith('$scratchR
 
 /// A session folder's name as shown: "No project" for one of Helmy's own.
 String projectName(String path) => isScratch(path) ? 'No project' : folderName(path);
+
+/// The end of a path, which tells folders apart: `cadence/videos` for
+/// `/Users/me/Downloads/cadence/videos`, the home folder as `~`.
+String pathEnd(String path) {
+  final parts = tildePath(path).split(RegExp(r'[/\\]')).where((p) => p.isNotEmpty).toList();
+  return parts.length <= 2 ? parts.join('/') : parts.sublist(parts.length - 2).join('/');
+}

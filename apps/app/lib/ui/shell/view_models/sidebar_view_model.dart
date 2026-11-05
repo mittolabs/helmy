@@ -105,6 +105,12 @@ class SidebarViewModel extends ChangeNotifier {
     final list = _sessions.sessions
         // Side chats show only beside their session.
         .where((x) => x.sideOf == null)
+        // A new chat with nothing sent or written is not a chat yet: it
+        // joins the list with its first message, or under Drafts with words.
+        .where(
+          (x) =>
+              !x.blank || _conversations.of(x.id).busy || _conversations.of(x.id).items.isNotEmpty,
+        )
         .where(
           (x) => switch (s.show) {
             // A snoozed session stays out until it is due, unless it wants you

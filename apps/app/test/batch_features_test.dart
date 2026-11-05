@@ -79,9 +79,9 @@ void main() {
 
   test('the sidebar shows active sessions, pinned first, grouped by folder', () async {
     final s = await _setup();
-    final a = (await s.sessions.create(cwd: '/w/one') as Ok).value as Session;
-    final b = (await s.sessions.create(cwd: '/w/two') as Ok).value as Session;
-    final c = (await s.sessions.create(cwd: '/w/one') as Ok).value as Session;
+    final a = (await s.sessions.create(cwd: '/w/one', title: 'One') as Ok).value as Session;
+    final b = (await s.sessions.create(cwd: '/w/two', title: 'Two') as Ok).value as Session;
+    final c = (await s.sessions.create(cwd: '/w/one', title: 'Three') as Ok).value as Session;
     final vm = SidebarViewModel(sessions: s.sessions, conversations: s.repo, settings: s.settings);
     await vm.setPinned(s.sessions.byId(a.id)!, true);
     await vm.setArchived(s.sessions.byId(b.id)!, true);

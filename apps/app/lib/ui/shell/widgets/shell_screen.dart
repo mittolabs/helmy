@@ -1467,7 +1467,7 @@ class _ChatPreviewCard extends StatelessWidget {
               child: Text(
                 [
                   if (chat?.topic.isNotEmpty ?? false) chat!.topic,
-                  p.folders.join(', '),
+                  p.folders.map(pathEnd).join(', '),
                   if (p.threads > 1) '${p.threads} threads',
                 ].join(' · '),
                 maxLines: 1,

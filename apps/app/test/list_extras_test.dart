@@ -68,6 +68,17 @@ void main() {
     expect(list.groups.first.sessions.single.id, d.id);
   });
 
+  test('a new chat with nothing written or sent is not listed until it has something', () async {
+    final budget = await thread('Budget');
+    final blank = await thread('New chat');
+    expect(list.shown.map((s) => s.id), [budget.id]);
+    // Words written: a draft. A message sent: a chat.
+    await sessions.save(blank.copyWith(draft: 'Plan'));
+    expect(list.shown.map((s) => s.id), contains(blank.id));
+    await sessions.save(blank.copyWith(draft: '', lastEngineId: 'claude'));
+    expect(list.shown.map((s) => s.id), contains(blank.id));
+  });
+
   test(
     'several chats picked are marked done, archived or deleted together, and undone together',
     () async {

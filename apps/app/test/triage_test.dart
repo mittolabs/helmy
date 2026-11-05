@@ -37,7 +37,7 @@ void main() {
       final settings = SettingsRepositoryLocal(storage);
       final vm = SidebarViewModel(sessions: sessions, conversations: repo, settings: settings);
       Future<Session> make() async =>
-          (await sessions.create(cwd: root.path) as Ok).value as Session;
+          (await sessions.create(cwd: root.path, title: 'Busy') as Ok).value as Session;
       final a = await make(), b = await make(), c = await make();
 
       expect(vm.groups.map((g) => g.label), [
@@ -83,8 +83,8 @@ void main() {
         storage: storage,
         sessions: sessions,
       );
-      a = (await sessions.create(cwd: root.path) as Ok).value as Session;
-      b = (await sessions.create(cwd: root.path) as Ok).value as Session;
+      a = (await sessions.create(cwd: root.path, title: 'Alpha') as Ok).value as Session;
+      b = (await sessions.create(cwd: root.path, title: 'Beta') as Ok).value as Session;
     });
     final settings = SettingsRepositoryLocal(storage);
     final attention = AttentionRepositoryLocal(

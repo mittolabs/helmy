@@ -71,8 +71,8 @@ void main() {
     final w = await _world(tester);
     late Session a, b;
     await tester.runAsync(() async {
-      a = (await w.sessions.create(cwd: w.root.path) as Ok).value as Session;
-      b = (await w.sessions.create(cwd: w.root.path) as Ok).value as Session;
+      a = (await w.sessions.create(cwd: w.root.path, title: 'First') as Ok).value as Session;
+      b = (await w.sessions.create(cwd: w.root.path, title: 'Second') as Ok).value as Session;
     });
     final vm = SidebarViewModel(sessions: w.sessions, conversations: w.repo, settings: w.settings);
     final router = GoRouter(

@@ -81,6 +81,13 @@ class const Session({
   /// Something written and not sent.
   bool get hasDraft => draft?.trim().isNotEmpty ?? false;
 
+  /// A message has gone: a connection took it up, or the folder was noted as
+  /// it stood before the first one.
+  bool get sent => threads.isNotEmpty || lastEngineId != null || baseline != null || taskId != null;
+
+  /// Nothing sent and nothing written: not a chat yet, so not listed.
+  bool get blank => untitled && !hasDraft && !sent;
+
   /// In its own working copy, on its own branch.
   bool get ownCopy => repo != null && branch != null;
 
