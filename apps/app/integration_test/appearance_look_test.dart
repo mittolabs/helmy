@@ -1,6 +1,9 @@
 // A look at Appearance's fonts, contrast and clock, on this Mac:
 // fvm flutter test integration_test/appearance_look_test.dart -d macos --dart-define=SHOTS=<dir>
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
+import 'package:helmy/domain/vscode_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/repositories/memory_repository.dart';
 import 'package:helmy/data/repositories/settings_repository.dart';
@@ -21,6 +24,9 @@ import 'support/shot.dart';
 
 const shots = String.fromEnvironment('SHOTS');
 
+/// A VS Code theme file to show Helmy in, instead.
+const vsTheme = String.fromEnvironment('THEME');
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets('fonts chosen, firmer, 24 hours', (tester) async {
@@ -30,14 +36,19 @@ void main() {
     final fonts = await tester.runAsync(desktop.fontFamilies);
     expect(fonts!.all, contains('Avenir'));
     expect(fonts.fixed, contains('Menlo'));
+    final imported = vsTheme.isEmpty
+        ? null
+        : readVsCodeTheme(File(vsTheme).readAsStringSync(), fallbackName: 'Monokai');
     final settings = FakeSettingsRepository(
-      const AppSettings(
-        interfaceFont: 'Avenir',
-        codeFont: 'Courier New',
-        promptFont: 'Georgia',
-        contrast: 1,
-        clock: .twentyFour,
-      ),
+      imported != null
+          ? AppSettings(palette: .imported, themeImport: importedThemeToJson(imported))
+          : const AppSettings(
+              interfaceFont: 'Avenir',
+              codeFont: 'Courier New',
+              promptFont: 'Georgia',
+              contrast: 1,
+              clock: .twentyFour,
+            ),
     );
     chosenCodeFont = 'Courier New';
     final engines = EngineRegistry([]);
@@ -57,8 +68,20 @@ void main() {
         ],
         child: shootable(
           AshlarApp(
-            theme: themeFor(Brightness.dark, font: s.interfaceFont, contrast: s.contrast),
-            darkTheme: themeFor(Brightness.dark, font: s.interfaceFont, contrast: s.contrast),
+            theme: themeFor(
+              Brightness.dark,
+              palette: s.palette,
+              font: s.interfaceFont,
+              contrast: s.contrast,
+              imported: imported,
+            ),
+            darkTheme: themeFor(
+              Brightness.dark,
+              palette: s.palette,
+              font: s.interfaceFont,
+              contrast: s.contrast,
+              imported: imported,
+            ),
             home: SettingsScreen(viewModel: vm),
           ),
         ),
@@ -68,12 +91,12 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pump();
     }
-    await tester.ensureVisible(find.text('Sample'));
+    await tester.ensureVisible(find.text(imported == null ? 'Sample' : 'Colors'));
     for (var i = 0; i < 10; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pump();
     }
-    await shot(tester, '$shots/appearance.png');
-    expect(find.text('Avenir'), findsOneWidget);
+    await shot(tester, '$shots/appearance${imported == null ? '' : '-theme'}.png');
+    if (imported == null) expect(find.text('Avenir'), findsOneWidget);
   });
 }

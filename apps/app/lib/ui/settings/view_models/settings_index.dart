@@ -80,6 +80,11 @@ const List<SettingEntry> settingsIndex = [
   // Appearance.
   (title: 'Theme', section: .appearance, keywords: 'dark light mode system color scheme'),
   (title: 'Colors', section: .appearance, keywords: 'palette theme stone mist colours'),
+  (
+    title: 'A theme from VS Code',
+    section: .appearance,
+    keywords: 'import vscode theme json colors dracula nord',
+  ),
   (title: 'Accent', section: .appearance, keywords: 'color highlight buttons blue rose'),
   (title: 'Interface font', section: .appearance, keywords: 'font family typeface type'),
   (title: 'Code font', section: .appearance, keywords: 'monospace mono font code terminal'),

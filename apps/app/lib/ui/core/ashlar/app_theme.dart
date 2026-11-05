@@ -1,6 +1,8 @@
 // Your app's theme, written by `ashlar init`: change it here, or choose again with
 // `ashlar apply`. Give it to [AshlarApp]: theme: appTheme, darkTheme: appDarkTheme.
 
+import '../../../domain/vscode_theme.dart';
+
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/models/settings.dart';
@@ -47,17 +49,23 @@ AshlarThemeData themeFor(
   AccentChoice accent = .none,
   String? font,
   double contrast = 0,
+  ImportedTheme? imported,
 }) {
   final dark = brightness == Brightness.dark;
   final a = accent == .none ? null : AshlarAccent.values.byName(accent.name);
   final AshlarThemeData chosen;
-  if (palette == .helmy && a == null) {
+  final theirs = palette == .imported && imported != null && imported.dark == dark;
+  if (theirs) {
+    chosen = _from(dark ? appDarkTheme : appTheme, imported.colors);
+  } else if ((palette == .helmy || palette == .imported) && a == null) {
     chosen = dark ? appDarkTheme : appTheme;
   } else {
-    final base = palette == .helmy ? AshlarBase.neutral : AshlarBase.values.byName(palette.name);
+    final base = palette == .helmy || palette == .imported
+        ? AshlarBase.neutral
+        : AshlarBase.values.byName(palette.name);
     final t = AshlarThemeData.from(brightness: brightness, base: base, accent: a);
     // Helmy's own stays pure black when dark, with an accent or without.
-    chosen = dark && palette == .helmy ? _black(t) : t;
+    chosen = dark && (palette == .helmy || palette == .imported) ? _black(t) : t;
   }
   // Firmer, as asked: borders and quiet text toward the text's own color.
   final c = chosen.colors;
@@ -77,5 +85,38 @@ AshlarThemeData themeFor(
     text: font == null
         ? null
         : AshlarText(fontFamily: font, fontFamilyFallback: chosen.text.fontFamilyFallback),
+  );
+}
+
+/// [base] in an imported theme's [colors] (by Helmy's names): those it has
+/// replace Helmy's, the rest follow from them or stay.
+AshlarThemeData _from(AshlarThemeData base, Map<String, int> colors) {
+  Color? c(String k) => colors[k] == null ? null : Color(colors[k]!);
+  final b = base.colors;
+  final bg = c('background') ?? b.background;
+  final fg = c('foreground') ?? b.foreground;
+  final card = c('card') ?? bg;
+  return base.copyWith(
+    colors: b.copyWith(
+      background: bg,
+      foreground: fg,
+      card: card,
+      cardForeground: fg,
+      popover: c('popover') ?? card,
+      popoverForeground: fg,
+      primary: c('primary'),
+      primaryForeground: c('primaryForeground'),
+      muted: c('muted'),
+      mutedForeground: c('mutedForeground'),
+      accent: c('accent'),
+      accentForeground: fg,
+      destructive: c('destructive'),
+      border: c('border'),
+      input: c('input') ?? c('border'),
+      ring: c('ring'),
+      sidebar: c('sidebar') ?? card,
+      sidebarForeground: fg,
+      sidebarBorder: c('border'),
+    ),
   );
 }

@@ -1,4 +1,5 @@
 import 'version.dart';
+import 'domain/vscode_theme.dart';
 import 'domain/identity.dart';
 import 'ui/core/ashlar/toast.dart';
 import 'utils/platform.dart';
@@ -174,6 +175,7 @@ class _HelmyAppState extends State<HelmyApp> {
         accent: settings.accent,
         font: settings.interfaceFont,
         contrast: settings.contrast,
+        imported: importedThemeFromJson(settings.themeImport),
       ),
       darkTheme: themeFor(
         .dark,
@@ -181,6 +183,7 @@ class _HelmyAppState extends State<HelmyApp> {
         accent: settings.accent,
         font: settings.interfaceFont,
         contrast: settings.contrast,
+        imported: importedThemeFromJson(settings.themeImport),
       ),
       themeMode: switch (settings.theme) {
         .system => AshlarThemeMode.system,

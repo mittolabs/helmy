@@ -32,7 +32,10 @@ enum Palette {
   olive('Olive'),
   mauve('Mauve'),
   mist('Mist'),
-  zinc('Zinc');
+  zinc('Zinc'),
+
+  /// A VS Code theme the user brought in ([AppSettings.themeImport]).
+  imported('Imported');
 
   const Palette(this.label);
   final String label;
@@ -300,6 +303,9 @@ class const AppSettings({
   /// Chats at work when Helmy closed carry on when it opens again.
   final bool carryOnAfterRestart = true,
 
+  /// A VS Code theme brought in, as `importedThemeToJson` writes it.
+  final Map<String, Object?>? themeImport,
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -447,6 +453,7 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    Map<String, Object?>? themeImport,
     bool? carryOnAfterRestart,
     String? snapshotSound,
     bool? snapshotFlash,
@@ -518,6 +525,7 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    themeImport: themeImport ?? this.themeImport,
     carryOnAfterRestart: carryOnAfterRestart ?? this.carryOnAfterRestart,
     snapshotSound: snapshotSound ?? this.snapshotSound,
     snapshotFlash: snapshotFlash ?? this.snapshotFlash,
@@ -592,6 +600,7 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'themeImport': themeImport,
     'carryOnAfterRestart': carryOnAfterRestart,
     'snapshotSound': snapshotSound,
     'snapshotFlash': snapshotFlash,
@@ -663,6 +672,7 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    themeImport: (json['themeImport'] as Map?)?.cast<String, Object?>(),
     carryOnAfterRestart: json['carryOnAfterRestart'] as bool? ?? true,
     snapshotSound: json['snapshotSound'] as String? ?? 'Pop',
     snapshotFlash: json['snapshotFlash'] as bool? ?? true,

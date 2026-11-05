@@ -9,6 +9,7 @@ class _Appearance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = vm.settings;
+    final imported = importedThemeFromJson(s.themeImport);
     return _Page(
       children: [
         const _Heading('Theme and text', first: true),
@@ -29,7 +30,10 @@ class _Appearance extends StatelessWidget {
         ),
         _Row(
           title: 'Colors',
-          description: 'For light and dark alike. Helmy\'s own is pure black when dark.',
+          description: imported != null && s.palette == .imported
+              ? '${imported.name}, from VS Code, when ${imported.dark ? 'dark' : 'light'}; '
+                    "Helmy's own otherwise."
+              : 'For light and dark alike. Helmy\'s own is pure black when dark.',
           control: SizedBox(
             // Named, as greys this close tell apart only in use.
             width: 300,
@@ -38,14 +42,78 @@ class _Appearance extends StatelessWidget {
               runSpacing: 6,
               children: [
                 for (final p in Palette.values)
-                  _PaletteChip(
-                    label: p.label,
-                    selected: s.palette == p,
-                    onPressed: () => vm.update(s.copyWith(palette: p)),
-                    colors: (b) => themeFor(b, palette: p, accent: s.accent).colors,
-                  ),
+                  if (p != .imported || imported != null)
+                    _PaletteChip(
+                      label: p == .imported ? imported!.name : p.label,
+                      selected: s.palette == p,
+                      onPressed: () => vm.update(s.copyWith(palette: p)),
+                      colors: (b) =>
+                          themeFor(b, palette: p, accent: s.accent, imported: imported).colors,
+                    ),
               ],
             ),
+          ),
+        ),
+        _Row(
+          title: 'A theme from VS Code',
+          description:
+              'A color theme file (.json), as VS Code themes are made: its colors become '
+              "Helmy's, for light or dark as the theme is.",
+          control: Row(
+            mainAxisSize: .min,
+            spacing: 6,
+            children: [
+              if (imported != null)
+                Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: () => vm.update(
+                    AppSettings.fromJson({
+                      ...s.toJson(),
+                      'themeImport': null,
+                      'palette': s.palette == .imported ? 'helmy' : s.palette.name,
+                    }),
+                  ),
+                  child: const Text('Remove'),
+                ),
+              Button(
+                variant: .outline,
+                size: .sm,
+                onPressed: () async {
+                  final file = await openFile(
+                    acceptedTypeGroups: const [
+                      XTypeGroup(label: 'VS Code theme', extensions: ['json', 'jsonc']),
+                    ],
+                    confirmButtonText: 'Use this theme',
+                  );
+                  if (file == null) return;
+                  final theme = readVsCodeTheme(
+                    await file.readAsString(),
+                    fallbackName: file.name.replaceAll(RegExp(r'\.jsonc?$'), ''),
+                  );
+                  if (!context.mounted) return;
+                  if (theme == null) {
+                    showToast(
+                      context,
+                      title: "That file isn't a color theme Helmy can read",
+                      description: 'A VS Code color theme has editor colors in a "colors" list.',
+                      type: .error,
+                    );
+                    return;
+                  }
+                  await vm.update(
+                    s.copyWith(palette: .imported, themeImport: importedThemeToJson(theme)),
+                  );
+                  if (!context.mounted) return;
+                  showToast(
+                    context,
+                    title: '${theme.name} in use',
+                    description: 'For ${theme.dark ? 'dark' : 'light'}; pick Theme to see it.',
+                  );
+                },
+                child: Text(imported == null ? 'Import...' : 'Another...'),
+              ),
+            ],
           ),
         ),
         _Row(
