@@ -19,6 +19,7 @@ import '../../../utils/diffs.dart';
 import 'dart:async';
 
 import '../../../data/repositories/chat_repository.dart';
+import '../../../data/repositories/ship_repository.dart';
 import '../../../data/services/turn_log.dart';
 import '../../../domain/filing.dart';
 import '../../../domain/models/chat.dart';
@@ -35,14 +36,24 @@ class SidebarViewModel extends ChangeNotifier {
     this._chats,
     this._log,
     this._fixes,
+    ShipRepository? ship,
   }) {
+    // A chat whose pull request merged is done with, unless something in it
+    // still goes on.
+    _mergedSub = ship?.merged.listen((id) => unawaited(_onMerged(id)));
     _attention?.addListener(_onConversations);
+    _chats?.addListener(notifyListeners);
     _sessions.addListener(notifyListeners);
     _settings.addListener(notifyListeners);
     _conversations.addListener(_onConversations);
     // Working copies and checkouts kept in order: now, then now and again.
     unawaited(_tidy());
-    _tidyTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(_tidy()));
+    _tidyTimer = Timer.periodic(const Duration(minutes: 10), (_) {
+      unawaited(_tidy());
+      unawaited(settleIdle());
+    });
+    // Once the list has been read.
+    _firstSettle = Timer(const Duration(seconds: 5), () => unawaited(settleIdle()));
     create = Command0(
       () async => _sessions.create(
         cwd: defaultFolder,
@@ -116,7 +127,8 @@ class SidebarViewModel extends ChangeNotifier {
   /// have not seen), then what is working, each only when there is any; then
   /// the rest, in one group or one per folder.
   List<({String? label, String? folder, List<Session> sessions})> get groups {
-    final list = shown;
+    // Settled chats are in their own section, at the bottom.
+    final list = settings.show == .active ? shown.where((x) => !isSettled(x)).toList() : shown;
     // A chat is one row: all its threads go where its busiest one would.
     final ofChat = <String, List<Session>>{};
     for (final x in list) {
@@ -238,7 +250,7 @@ class SidebarViewModel extends ChangeNotifier {
     if (archived && s.ownCopy) unawaited(_tidy());
   }
 
-  Timer? _tidyTimer;
+  Timer? _tidyTimer, _firstSettle;
   bool _tidying = false;
 
   Future<void> _tidy() async {
@@ -369,6 +381,87 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   Future<void> Function()? _undo;
+
+  // Settled (the list as an inbox): a chat nothing in waits on goes to the
+  // bottom, until something new happens in it. By hand, when its pull
+  // request merges, or after three days untouched.
+
+  /// Whether the chat [s] is in is settled.
+  bool isSettled(Session s) => s.chatId != null && (_chats?.byId(s.chatId!)?.settled ?? false);
+
+  /// The settled chats, last worked in first: shown under Settled, in the
+  /// list of what is active.
+  List<({Chat? chat, List<Session> threads})> get settled {
+    if (settings.show != .active) return const [];
+    final list = shown.where(isSettled).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return entriesOf(list);
+  }
+
+  /// Settled shown open, and all of it rather than the latest ten.
+  bool settledOpen = false, settledAll = false;
+
+  void toggleSettled() {
+    settledOpen = !settledOpen;
+    if (!settledOpen) settledAll = false;
+    notifyListeners();
+  }
+
+  void showAllSettled() {
+    settledAll = true;
+    notifyListeners();
+  }
+
+  /// Something in the chat waits on you or is working: it cannot be settled.
+  bool busyChat(List<Session> threads) =>
+      const {SessionActivity.needsYou, SessionActivity.working}.contains(activityOfAll(threads));
+
+  /// Settles the chat of [threads]: its threads read, the chat at the bottom.
+  Future<void> settleChat(List<Session> threads) async {
+    final chats = _chats;
+    final chatId = threads.firstOrNull?.chatId;
+    if (chats == null || chatId == null) return;
+    markChatRead(threads);
+    await chats.settle(chatId);
+    _undo = () => chats.unsettle(chatId);
+    notifyListeners();
+  }
+
+  Future<void> unsettleChat(List<Session> threads) async {
+    final chatId = threads.firstOrNull?.chatId;
+    if (chatId != null) await _chats?.unsettle(chatId);
+    notifyListeners();
+  }
+
+  /// How long untouched before a chat settles by itself.
+  static const idleSettles = Duration(days: 3);
+
+  /// Settles every chat untouched for [idleSettles]: none waiting on you,
+  /// working, pinned or snoozed. Only when settings let it.
+  Future<void> settleIdle({DateTime? now}) async {
+    final chats = _chats;
+    if (chats == null || !settings.settleOnItsOwn) return;
+    final at = now ?? DateTime.now();
+    for (final c in chats.chats.toList()) {
+      if (c.settled) continue;
+      final threads = chats.threadsOf(c.id);
+      if (threads.isEmpty || threads.every((t) => t.archived)) continue;
+      if (threads.any((t) => t.pinned || t.snoozed)) continue;
+      if (activityOfAll(threads) != .idle) continue;
+      if (at.difference(chats.lastTouched(c.id)) < idleSettles) continue;
+      await chats.settle(c.id, at: at);
+    }
+  }
+
+  Future<void> _onMerged(String sessionId) async {
+    final chats = _chats;
+    final s = _sessions.byId(sessionId);
+    if (chats == null || s?.chatId == null || !settings.settleOnItsOwn) return;
+    if (busyChat(chats.threadsOf(s!.chatId!))) return;
+    await chats.settle(s.chatId!);
+  }
+
+  StreamSubscription<String>? _mergedSub;
 
   /// The busiest of [threads]: one that needs you, else one working, else
   /// one unread.
@@ -509,6 +602,8 @@ class SidebarViewModel extends ChangeNotifier {
       if (_activity[s.id] != a) {
         _activity[s.id] = a;
         changed = true;
+        // Something new in a settled chat brings it back.
+        if (a != .idle && isSettled(s)) unawaited(_chats!.unsettle(s.chatId!));
       }
     }
     // Stream deltas arrive many times a second; only repaint the list when a
@@ -533,10 +628,13 @@ class SidebarViewModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _tidyTimer?.cancel();
+    _firstSettle?.cancel();
+    unawaited(_mergedSub?.cancel());
     _sessions.removeListener(notifyListeners);
     _settings.removeListener(notifyListeners);
     _conversations.removeListener(_onConversations);
     _attention?.removeListener(_onConversations);
+    _chats?.removeListener(notifyListeners);
     super.dispose();
   }
 }

@@ -205,6 +205,18 @@ void main() {
     chat.toggleThread(budget.id);
     await shoot('threads-open');
     expect(find.text('Help me set a food budget.'), findsOneWidget);
+
+    // Settled: two chats out of the way, at the bottom, opened.
+    for (final title in ['Plan the launch email', 'Fix the flaky upload test']) {
+      final t = sessions.sessions.firstWhere((x) => x.title == title);
+      await tester.runAsync(() => sidebar.settleChat(sidebar.chatOf(t)));
+    }
+    expect(sidebar.settled, hasLength(2));
+    expect(sidebar.entriesOf(sidebar.groups.expand((g) => g.sessions).toList()), hasLength(1));
+    sidebar.toggleSettled();
+    await shoot('settled');
+    expect(find.text('Settled'), findsOneWidget);
+    expect(find.bySemanticsLabel('Plan the launch email, settled'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     chat.dispose();
     sidebar.dispose();

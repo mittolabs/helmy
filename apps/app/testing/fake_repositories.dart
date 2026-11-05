@@ -175,6 +175,9 @@ class FakeShipRepository extends ShipRepository {
 
   @override
   Future<void> check(Session session) async => asked.add('check ${session.id}');
+
+  @override
+  Stream<String> get merged => const Stream.empty();
 }
 
 class FakeProjectRepository implements ProjectRepository {

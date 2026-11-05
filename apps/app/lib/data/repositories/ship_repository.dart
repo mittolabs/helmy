@@ -20,6 +20,9 @@ abstract class ShipRepository extends ChangeNotifier {
   Future<void> openPullRequest(Session session);
   Future<void> watch(Session session, bool on);
   Future<void> check(Session session);
+
+  /// Threads whose pull request was seen open and then merged.
+  Stream<String> get merged;
 }
 
 class ShipRepositoryGit extends ShipRepository {
@@ -43,6 +46,14 @@ class ShipRepositoryGit extends ShipRepository {
   final Duration every;
 
   final Map<String, BranchState?> _states = {};
+  final _merged = StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get merged => _merged.stream;
+
+  /// Ticks of the timer, so open pull requests nobody watches are looked at
+  /// less often than watched checks.
+  int _ticks = 0;
   final Map<String, String> _told = {};
   Timer? _timer;
 
@@ -54,8 +65,11 @@ class ShipRepositoryGit extends ShipRepository {
   @override
   Future<BranchState?> refresh(Session session) async {
     final s = await _shipping.state(session.cwd);
+    final was = _states[session.id]?.pr?.state;
     _states[session.id] = s;
+    if (was == 'OPEN' && s?.pr?.state == 'MERGED') _merged.add(session.id);
     notifyListeners();
+    _plan();
     return s;
   }
 
@@ -81,8 +95,11 @@ class ShipRepositoryGit extends ShipRepository {
     if (on) unawaited(check(_sessions.byId(session.id) ?? session));
   }
 
+  /// Pull requests seen open: followed until merged or closed, to tell.
+  bool _open(Session s) => _states[s.id]?.pr?.state == 'OPEN';
+
   void _plan() {
-    final any = _sessions.sessions.any((s) => s.watchChecks);
+    final any = _sessions.sessions.any((s) => s.watchChecks || _open(s));
     if (any && _timer == null) {
       _timer = Timer.periodic(every, (_) => unawaited(_checkAll()));
     } else if (!any) {
@@ -92,8 +109,13 @@ class ShipRepositoryGit extends ShipRepository {
   }
 
   Future<void> _checkAll() async {
-    for (final s in _sessions.sessions.where((s) => s.watchChecks)) {
-      await check(s);
+    _ticks++;
+    for (final s in _sessions.sessions.toList()) {
+      if (s.watchChecks) {
+        await check(s);
+      } else if (_open(s) && _ticks % 5 == 0) {
+        await refresh(s);
+      }
     }
   }
 
@@ -128,6 +150,7 @@ class ShipRepositoryGit extends ShipRepository {
   @override
   void dispose() {
     _timer?.cancel();
+    unawaited(_merged.close());
     _sessions.removeListener(_plan);
     super.dispose();
   }

@@ -14,14 +14,34 @@ class const Chat({
 
   /// The brief as the person wrote it: Helmy leaves it as it is.
   final bool briefByPerson = false,
+
+  /// Settled: nothing in it waits on anyone, so it sits in Settled at the
+  /// bottom of the list until something new happens in it.
+  final DateTime? settledAt,
+
+  /// Last brought back from Settled, by hand or by something new in it: it
+  /// counts as worked in then, so being idle does not settle it again at once.
+  final DateTime? unsettledAt,
 }) {
-  Chat copyWith({String? title, bool? named, String? brief, bool? briefByPerson}) => Chat(
+  bool get settled => settledAt != null;
+
+  Chat copyWith({
+    String? title,
+    bool? named,
+    String? brief,
+    bool? briefByPerson,
+    DateTime? settledAt,
+    DateTime? unsettledAt,
+  }) => Chat(
     id: id,
     title: title ?? this.title,
     createdAt: createdAt,
     named: named ?? this.named,
     brief: brief ?? this.brief,
     briefByPerson: briefByPerson ?? this.briefByPerson,
+    // Brought back, it is no longer settled.
+    settledAt: unsettledAt != null ? null : settledAt ?? this.settledAt,
+    unsettledAt: unsettledAt ?? this.unsettledAt,
   );
 
   Map<String, Object?> toJson() => {
@@ -31,6 +51,8 @@ class const Chat({
     if (named) 'named': true,
     if (brief.isNotEmpty) 'brief': brief,
     if (briefByPerson) 'briefByPerson': true,
+    if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
+    if (unsettledAt != null) 'unsettledAt': unsettledAt!.toIso8601String(),
   };
 
   static Chat fromJson(Map<String, Object?> j) => Chat(
@@ -40,5 +62,7 @@ class const Chat({
     named: j['named'] == true,
     brief: '${j['brief'] ?? ''}',
     briefByPerson: j['briefByPerson'] == true,
+    settledAt: DateTime.tryParse('${j['settledAt'] ?? ''}'),
+    unsettledAt: DateTime.tryParse('${j['unsettledAt'] ?? ''}'),
   );
 }

@@ -264,6 +264,19 @@ class ShellScreen extends StatelessWidget {
                                     for (final e in viewModel.entriesOf(g.sessions))
                                       _chatEntry(context, e),
                                   ],
+                                  // What nothing waits on, out of the way.
+                                  if (viewModel.settled case final done when done.isNotEmpty)
+                                    _SettledSection(
+                                      count: done.length,
+                                      open: viewModel.settledOpen,
+                                      more: viewModel.settledAll ? 0 : done.length - 10,
+                                      onToggle: viewModel.toggleSettled,
+                                      onMore: viewModel.showAllSettled,
+                                      rows: [
+                                        for (final e in viewModel.settledAll ? done : done.take(10))
+                                          _chatEntry(context, e, compact: true),
+                                      ],
+                                    ),
                                 ],
                               ),
                       ],
@@ -415,15 +428,48 @@ class ShellScreen extends StatelessWidget {
 
   /// One chat's row, with what can be done with it on a right click: done
   /// to the whole chat, every thread in it.
-  Widget _chatEntry(BuildContext context, ({Chat? chat, List<Session> threads}) e) {
+  Widget _chatEntry(
+    BuildContext context,
+    ({Chat? chat, List<Session> threads}) e, {
+    bool compact = false,
+  }) {
     final first = e.threads.first;
     final all = viewModel.chatOf(first);
     final title = viewModel.titleOf(e);
     final pinned = e.threads.any((t) => t.pinned);
     final snoozed = e.threads.every((t) => t.snoozed);
     final archived = e.threads.every((t) => t.archived);
+    final settled = e.chat?.settled ?? false;
+    final canSettle = e.chat != null && !settled && !viewModel.busyChat(all);
+    Future<void> settle() async {
+      await viewModel.settleChat(all);
+      if (!context.mounted) return;
+      showToast(
+        context,
+        title: 'Settled "$title"',
+        action: Button(
+          size: .sm,
+          variant: .outline,
+          onPressed: viewModel.undo,
+          child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+        ),
+      );
+    }
+
     return ContextMenu(
       items: [
+        if (canSettle)
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.circleCheck, size: 16),
+            onPressed: settle,
+            child: const Text('Settle'),
+          ),
+        if (settled)
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.cornerUpLeft, size: 16),
+            onPressed: () => viewModel.unsettleChat(all),
+            child: const Text('Bring back'),
+          ),
         if (e.threads.any((t) => viewModel.isUnread(t.id)))
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16),
@@ -497,15 +543,23 @@ class ShellScreen extends StatelessWidget {
           child: const Text('Delete'),
         ),
       ],
-      child: _ChatRow(
-        title: title,
-        threads: e.threads,
-        activity: viewModel.activityOfAll(e.threads),
-        line: viewModel.lineOf(first),
-        selected: all.any((t) => t.id == selectedId),
-        onOpen: () => context.go('/s/${first.id}'),
-        onDelete: () => _deleteChat(context, title, all),
-      ),
+      child: compact
+          ? _SettledRow(
+              title: title,
+              threads: e.threads,
+              selected: all.any((t) => t.id == selectedId),
+              onOpen: () => context.go('/s/${first.id}'),
+            )
+          : _ChatRow(
+              onSettle: canSettle ? settle : null,
+              title: title,
+              threads: e.threads,
+              activity: viewModel.activityOfAll(e.threads),
+              line: viewModel.lineOf(first),
+              selected: all.any((t) => t.id == selectedId),
+              onOpen: () => context.go('/s/${first.id}'),
+              onDelete: () => _deleteChat(context, title, all),
+            ),
     );
   }
 
@@ -658,9 +712,13 @@ class _ChatRow extends StatefulWidget {
     required this.selected,
     required this.onOpen,
     required this.onDelete,
+    this.onSettle,
   });
 
   final String title;
+
+  /// Settles the chat; null when something in it still goes on.
+  final VoidCallback? onSettle;
 
   /// Its threads in the list, the one it opens to first.
   final List<Session> threads;
@@ -737,7 +795,21 @@ class _ChatRowState extends State<_ChatRow> {
                   ),
                   if (widget.threads.any((x) => x.pinned))
                     AshlarIcon(AshlarIconsRoundedStroke.pin, size: 11, color: c.mutedForeground),
-                  if (_hovered && (widget.activity == .idle || widget.activity == .unread))
+                  if (_hovered && (widget.activity == .idle || widget.activity == .unread)) ...[
+                    if (widget.onSettle case final onSettle?)
+                      SizedBox(
+                        height: 16,
+                        child: Tooltip(
+                          message: 'Settle: nothing more to do here',
+                          child: Button(
+                            variant: .ghost,
+                            size: .iconXs,
+                            semanticLabel: 'Settle $title',
+                            onPressed: onSettle,
+                            child: const AshlarIcon(AshlarIconsRoundedStroke.circleCheck, size: 13),
+                          ),
+                        ),
+                      ),
                     SizedBox(
                       height: 16,
                       child: Button(
@@ -747,8 +819,8 @@ class _ChatRowState extends State<_ChatRow> {
                         onPressed: widget.onDelete,
                         child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 13),
                       ),
-                    )
-                  else
+                    ),
+                  ] else
                     Text(ago(s.updatedAt), style: muted),
                 ],
               ),
@@ -1142,6 +1214,154 @@ class _GroupingNotice extends StatelessWidget {
               'Review',
               style: t.text.xs.copyWith(fontWeight: .w600, color: c.sidebarForeground),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The settled chats, at the bottom of the list: a line with how many,
+/// opened to compact rows, the latest ten and then the rest on asking.
+class _SettledSection extends StatelessWidget {
+  const _SettledSection({
+    required this.count,
+    required this.open,
+    required this.more,
+    required this.onToggle,
+    required this.onMore,
+    required this.rows,
+  });
+
+  final int count;
+  final bool open;
+
+  /// How many more there are than shown.
+  final int more;
+  final VoidCallback onToggle, onMore;
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final style = t.text.xs.copyWith(color: c.mutedForeground, fontWeight: .w500);
+    return Padding(
+      padding: const .only(top: 14),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 1,
+        children: [
+          Pressable(
+            onPressed: onToggle,
+            semanticLabel: open ? 'Hide settled chats' : 'Show $count settled chats',
+            builder: (context, state) => Container(
+              padding: const .fromLTRB(10, 6, 8, 6),
+              decoration: BoxDecoration(
+                color: state.hovered ? c.sidebarAccent.withValues(alpha: .5) : null,
+                borderRadius: .circular(t.radiusMd),
+              ),
+              child: Row(
+                spacing: 6,
+                children: [
+                  Expanded(child: Text('Settled', style: style)),
+                  Text('$count', style: style),
+                  AshlarIcon(
+                    open
+                        ? AshlarIconsRoundedStroke.chevronDown
+                        : AshlarIconsRoundedStroke.chevronRight,
+                    size: 13,
+                    color: c.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open) ...[
+            ...rows,
+            if (more > 0)
+              Pressable(
+                onPressed: onMore,
+                semanticLabel: 'Show $more more',
+                builder: (context, state) => Container(
+                  padding: const .fromLTRB(10, 7, 10, 7),
+                  decoration: BoxDecoration(
+                    color: state.hovered ? c.sidebarAccent.withValues(alpha: .5) : null,
+                    borderRadius: .circular(t.radiusMd),
+                  ),
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      AshlarIcon(
+                        AshlarIconsRoundedStroke.chevronDown,
+                        size: 13,
+                        color: c.mutedForeground,
+                      ),
+                      Text(
+                        'Show $more more',
+                        style: t.text.sm.copyWith(color: c.sidebarForeground),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A settled chat: its project's badge, quiet; its title; how long ago.
+class _SettledRow extends StatelessWidget {
+  const _SettledRow({
+    required this.title,
+    required this.threads,
+    required this.selected,
+    required this.onOpen,
+  });
+
+  final String title;
+  final List<Session> threads;
+  final bool selected;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final s = threads.first;
+    final folder = projectName(s.ownCopy ? s.repo! : s.cwd);
+    return Pressable(
+      onPressed: onOpen,
+      selected: selected,
+      semanticLabel: '$title, settled',
+      builder: (context, state) => Container(
+        padding: const .fromLTRB(10, 7, 10, 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? c.sidebarAccent
+              : state.hovered
+              ? c.sidebarAccent.withValues(alpha: .5)
+              : null,
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: Row(
+          spacing: 8,
+          children: [
+            Opacity(
+              opacity: .55,
+              child: _ProjectBadge(name: folder, activity: .idle),
+            ),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: t.text.sm.copyWith(color: c.mutedForeground),
+              ),
+            ),
+            Text(ago(s.updatedAt), style: t.text.xs.copyWith(color: c.mutedForeground)),
           ],
         ),
       ),

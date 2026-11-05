@@ -135,12 +135,42 @@ class ChatRepository extends ChangeNotifier {
   /// own when [chatId] is null. The chat it leaves goes if it is left empty.
   Future<String> move(Session thread, String? chatId) async {
     final to = chatId ?? _create(thread.title, DateTime.now()).id;
+    // A thread come into a settled chat is something new in it.
+    if (_chats[to]?.settled ?? false) {
+      _chats[to] = _chats[to]!.copyWith(unsettledAt: DateTime.now());
+    }
     for (final s in _sessions.sessions.where((s) => s.id == thread.id || s.sideOf == thread.id)) {
       await _sessions.save(s.copyWith(chatId: to));
     }
     _keep();
     await _persist();
     return to;
+  }
+
+  /// Settles [chatId]: to the bottom of the list, until something new.
+  Future<void> settle(String chatId, {DateTime? at}) async {
+    final c = _chats[chatId];
+    if (c == null || c.settled) return;
+    _chats[chatId] = c.copyWith(settledAt: at ?? DateTime.now());
+    notifyListeners();
+    await _persist();
+  }
+
+  /// Brings [chatId] back from Settled.
+  Future<void> unsettle(String chatId) async {
+    final c = _chats[chatId];
+    if (c == null || !c.settled) return;
+    _chats[chatId] = c.copyWith(unsettledAt: DateTime.now());
+    notifyListeners();
+    await _persist();
+  }
+
+  /// When [chatId] was last worked in or brought back, whichever is later:
+  /// what being idle is counted from.
+  DateTime lastTouched(String chatId) {
+    final active = lastActive(chatId);
+    final back = _chats[chatId]?.unsettledAt;
+    return back != null && back.isAfter(active) ? back : active;
   }
 
   bool _pending = false;

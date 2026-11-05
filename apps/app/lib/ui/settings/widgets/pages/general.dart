@@ -113,6 +113,17 @@ class _General extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(confirmDelete: v)),
           ),
         ),
+        _Row(
+          title: 'Settle chats on their own',
+          description:
+              'A chat moves to Settled when its pull request merges, or after three days '
+              'untouched. Anything new in it brings it back.',
+          control: Switch(
+            value: s.settleOnItsOwn,
+            semanticLabel: 'Settle chats on their own',
+            onChanged: (v) => vm.update(s.copyWith(settleOnItsOwn: v)),
+          ),
+        ),
         const _Heading('New chats'),
         _Row(
           title: 'Permissions',

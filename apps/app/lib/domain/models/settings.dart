@@ -147,8 +147,12 @@ class const AppSettings({
   /// Steps start open to show what went in and came out.
   final bool stepsOpen = false,
 
-  /// Ask before a session is deleted.
+  /// Ask before a chat is deleted.
   final bool confirmDelete = true,
+
+  /// A chat settles by itself when its pull request merges, or after three
+  /// days untouched.
+  final bool settleOnItsOwn = true,
 
   /// Each session in a git repository on its own branch, in its own working
   /// copy, unless the project says otherwise.
@@ -229,6 +233,7 @@ class const AppSettings({
     bool? snapshotKeys,
     bool? groupingReviewed,
     bool? confirmDelete,
+    bool? settleOnItsOwn,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
     bool? sendErrors,
@@ -264,6 +269,7 @@ class const AppSettings({
     snapshotKeys: snapshotKeys ?? this.snapshotKeys,
     groupingReviewed: groupingReviewed ?? this.groupingReviewed,
     confirmDelete: confirmDelete ?? this.confirmDelete,
+    settleOnItsOwn: settleOnItsOwn ?? this.settleOnItsOwn,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
     sendErrors: sendErrors ?? this.sendErrors,
@@ -301,6 +307,7 @@ class const AppSettings({
     'snapshotKeys': snapshotKeys,
     'groupingReviewed': groupingReviewed,
     'confirmDelete': confirmDelete,
+    'settleOnItsOwn': settleOnItsOwn,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
     'sendErrors': sendErrors,
@@ -341,6 +348,7 @@ class const AppSettings({
     snapshotKeys: json['snapshotKeys'] as bool? ?? false,
     groupingReviewed: json['groupingReviewed'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
+    settleOnItsOwn: json['settleOnItsOwn'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
       for (final e in ((json['projects'] as Map?) ?? const {}).entries)
@@ -372,6 +380,7 @@ const restorableSettings = <String, List<String>>{
   'Send error reports': ['sendErrors'],
   'Show steps open': ['stepsOpen'],
   'Ask before deleting a chat': ['confirmDelete'],
+  'Settle chats on their own': ['settleOnItsOwn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],
