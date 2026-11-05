@@ -162,6 +162,7 @@ class SidebarLayout extends StatefulWidget {
     this.rail = true,
     this.width = 256,
     this.narrow = 768,
+    this.toggleKeys,
   });
 
   /// The navigation, in titled groups.
@@ -196,6 +197,9 @@ class SidebarLayout extends StatefulWidget {
 
   /// A thin strip along the sidebar's inner edge that toggles it on a click.
   final bool rail;
+
+  /// The keys that open and close it; null for ⌘B (Ctrl+B elsewhere).
+  final List<ShortcutActivator>? toggleKeys;
 
   /// How wide it is when open.
   final double width;
@@ -327,10 +331,14 @@ class SidebarLayoutState extends State<SidebarLayout> {
       ];
       return CallbackShortcuts(
         bindings: {
-          if (!fixed) ...{
-            const SingleActivator(LogicalKeyboardKey.keyB, meta: true): toggle,
-            const SingleActivator(LogicalKeyboardKey.keyB, control: true): toggle,
-          },
+          if (!fixed)
+            for (final k
+                in widget.toggleKeys ??
+                    const [
+                      SingleActivator(LogicalKeyboardKey.keyB, meta: true),
+                      SingleActivator(LogicalKeyboardKey.keyB, control: true),
+                    ])
+              k: toggle,
         },
         child: ColoredBox(
           color: widget.variant == SidebarVariant.inset

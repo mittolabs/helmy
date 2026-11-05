@@ -11,7 +11,8 @@ enum AppCommand {
   settings('Settings', ','),
   back('Back to where you were', '['),
   forward('Forward again', ']'),
-  find('Find in this thread', 'F');
+  find('Find in this thread', 'F'),
+  sidebar('Show or hide the sidebar', 'B');
 
   const AppCommand(this.label, this._key, {this.shift = false});
   final String label;

@@ -120,7 +120,8 @@ class ShellScreen extends StatelessWidget {
               onSave: (w) => viewModel.updateSettings(viewModel.settings.copyWith(sidebarWidth: w)),
               builder: (width) => SidebarLayout(
                 rail: false,
-                // Hides off the side; its button or ⌘B brings it back.
+                toggleKeys: [bindingOf(.sidebar, viewModel.settings.keys).activator],
+                // Hides off the side; its button or its keys (⌘B unless changed) bring it back.
                 collapse: .offcanvas,
                 narrow: narrowWindow,
                 open: viewModel.settings.sidebarOpen,

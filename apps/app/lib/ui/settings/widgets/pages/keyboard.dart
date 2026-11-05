@@ -5,7 +5,6 @@ class _Keyboard extends StatelessWidget {
   final SettingsViewModel vm;
 
   static const _keys = [
-    ('⌘B', 'Show or hide the sidebar'),
     ('⌘1 to ⌘9', 'Open the chats in the order the list shows them'),
     ('⌘Z', 'Undo marking done, archiving or snoozing a chat (outside a text box)'),
     ('Enter', 'Send (or ⌘Enter, as set in General)'),
