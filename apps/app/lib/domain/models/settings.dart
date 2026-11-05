@@ -380,7 +380,7 @@ const restorableSettings = <String, List<String>>{
   'Send error reports': ['sendErrors'],
   'Show steps open': ['stepsOpen'],
   'Ask before deleting a chat': ['confirmDelete'],
-  'Settle chats on their own': ['settleOnItsOwn'],
+  'Mark chats done on their own': ['settleOnItsOwn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],

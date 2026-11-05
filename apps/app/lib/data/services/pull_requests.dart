@@ -132,6 +132,27 @@ class PullRequests {
     }
   }
 
+  /// Whether any of [folders] is in a repository on GitHub: where pull
+  /// requests mean something. Read from git's own remotes, asking GitHub
+  /// nothing.
+  Future<bool> anyOnGitHub(Iterable<String> folders) async {
+    final git = await _locator.find('git');
+    if (git == null) return false;
+    for (final f in folders.toSet()) {
+      if (!Directory(f).existsSync()) continue;
+      try {
+        final r = await Process.run(git, [
+          'remote',
+          '-v',
+        ], workingDirectory: f).timeout(const Duration(seconds: 5));
+        if (r.exitCode == 0 && '${r.stdout}'.contains('github.com')) return true;
+      } on Object {
+        // Not a repository, or git did not answer: not this one.
+      }
+    }
+    return false;
+  }
+
   /// Open pull requests in the repositories [folders] are in, newest first.
   Future<PullRequestList> list(Iterable<String> folders) async {
     if (await _locator.find('gh') == null) {

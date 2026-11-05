@@ -13,6 +13,7 @@ import '../ui/pull_requests/pull_requests_view_model.dart';
 import '../ui/settings/view_models/settings_view_model.dart';
 import '../ui/settings/widgets/settings_screen.dart';
 import '../data/repositories/ship_repository.dart';
+import '../data/services/pull_requests.dart';
 import '../ui/shell/view_models/sidebar_view_model.dart';
 import '../ui/shell/widgets/empty_screen.dart';
 import '../ui/shell/widgets/shell_screen.dart';
@@ -33,6 +34,7 @@ GoRouter router(String initialLocation) => GoRouter(
           chats: context.read(),
           log: context.read(),
           ship: context.read<ShipRepository>(),
+          prs: context.read<PullRequests>(),
         ),
         builder: (vm) => ChangeNotifierProvider.value(
           value: vm,

@@ -53,11 +53,19 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
             ),
             onSelected: () => vm.setPinned(open, !open.pinned),
           ),
+          if (!vm.isSettled(open) && !vm.busyChat(vm.chatOf(open)))
+            CommandItem(
+              'Mark as done',
+              description: open.title,
+              keywords: const ['settle', 'finished', 'inbox'],
+              leading: const AshlarIcon(AshlarIconsRoundedStroke.circleCheck, size: 16),
+              onSelected: () => unawaited(vm.settleChat(vm.chatOf(open))),
+            ),
           if (!open.archived)
             CommandItem(
               'Archive',
               description: open.title,
-              keywords: const ['settle', 'done', 'hide'],
+              keywords: const ['hide'],
               leading: const AshlarIcon(AshlarIconsRoundedStroke.archive, size: 16),
               onSelected: () {
                 unawaited(vm.setArchived(open, true));
@@ -71,6 +79,13 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
           leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
           shortcut: Desktop.current.keys('⌘N'),
           onSelected: () => newSession(context, vm),
+        ),
+        CommandItem(
+          'Pull requests',
+          description: 'Open in the GitHub repositories your chats work in',
+          keywords: const ['github', 'pr', 'review', 'merge'],
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.gitPullRequest, size: 16),
+          onSelected: () => router.go('/pulls'),
         ),
         CommandItem(
           'Settings',

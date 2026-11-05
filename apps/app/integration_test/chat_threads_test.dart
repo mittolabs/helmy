@@ -215,8 +215,8 @@ void main() {
     expect(sidebar.entriesOf(sidebar.groups.expand((g) => g.sessions).toList()), hasLength(1));
     sidebar.toggleSettled();
     await shoot('settled');
-    expect(find.text('Settled'), findsOneWidget);
-    expect(find.bySemanticsLabel('Plan the launch email, settled'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.bySemanticsLabel('Plan the launch email, done'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     chat.dispose();
     sidebar.dispose();

@@ -114,13 +114,13 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Settle chats on their own',
+          title: 'Mark chats done on their own',
           description:
-              'A chat moves to Settled when its pull request merges, or after three days '
+              'A chat moves to Done when its pull request merges, or after three days '
               'untouched. Anything new in it brings it back.',
           control: Switch(
             value: s.settleOnItsOwn,
-            semanticLabel: 'Settle chats on their own',
+            semanticLabel: 'Mark chats done on their own',
             onChanged: (v) => vm.update(s.copyWith(settleOnItsOwn: v)),
           ),
         ),

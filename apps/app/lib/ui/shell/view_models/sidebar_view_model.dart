@@ -20,6 +20,7 @@ import 'dart:async';
 
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/repositories/ship_repository.dart';
+import '../../../data/services/pull_requests.dart';
 import '../../../data/services/turn_log.dart';
 import '../../../domain/filing.dart';
 import '../../../domain/models/chat.dart';
@@ -37,7 +38,10 @@ class SidebarViewModel extends ChangeNotifier {
     this._log,
     this._fixes,
     ShipRepository? ship,
+    this._prs,
   }) {
+    _sessions.addListener(_checkGitHub);
+    unawaited(_checkGitHub());
     // A chat whose pull request merged is done with, unless something in it
     // still goes on.
     _mergedSub = ship?.merged.listen((id) => unawaited(_onMerged(id)));
@@ -463,6 +467,33 @@ class SidebarViewModel extends ChangeNotifier {
 
   StreamSubscription<String>? _mergedSub;
 
+  // Pull requests are for people whose chats work in GitHub repositories:
+  // the list shows them only then (⌘K finds them always).
+
+  final PullRequests? _prs;
+
+  /// Some chat works in a repository on GitHub.
+  bool showPullRequests = false;
+
+  /// The folders last asked about, so the same ones are not asked again.
+  String? _gitHubAsked;
+
+  Future<void> _checkGitHub() async {
+    final prs = _prs;
+    if (prs == null) return;
+    final folders = {
+      for (final s in _sessions.sessions)
+        if (!s.archived) s.repo ?? s.cwd,
+    }.toList()..sort();
+    final key = folders.join('\n');
+    if (key == _gitHubAsked) return;
+    _gitHubAsked = key;
+    final show = await prs.anyOnGitHub(folders);
+    if (_disposed || show == showPullRequests) return;
+    showPullRequests = show;
+    notifyListeners();
+  }
+
   /// The busiest of [threads]: one that needs you, else one working, else
   /// one unread.
   SessionActivity activityOfAll(List<Session> threads) {
@@ -635,6 +666,7 @@ class SidebarViewModel extends ChangeNotifier {
     _conversations.removeListener(_onConversations);
     _attention?.removeListener(_onConversations);
     _chats?.removeListener(notifyListeners);
+    _sessions.removeListener(_checkGitHub);
     super.dispose();
   }
 }

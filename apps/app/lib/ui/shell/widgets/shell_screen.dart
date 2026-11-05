@@ -184,12 +184,14 @@ class ShellScreen extends StatelessWidget {
                           selected: inSchedule,
                           onPressed: () => context.go('/scheduled'),
                         ),
-                        _NavRow(
-                          icon: AshlarIconsRoundedStroke.gitPullRequest,
-                          label: 'Pull requests',
-                          selected: inPullRequests,
-                          onPressed: () => context.go('/pulls'),
-                        ),
+                        // Only where pull requests mean something (or while open).
+                        if (viewModel.showPullRequests || inPullRequests)
+                          _NavRow(
+                            icon: AshlarIconsRoundedStroke.gitPullRequest,
+                            label: 'Pull requests',
+                            selected: inPullRequests,
+                            onPressed: () => context.go('/pulls'),
+                          ),
                       ],
                     ),
                   ),
@@ -446,7 +448,7 @@ class ShellScreen extends StatelessWidget {
       if (!context.mounted) return;
       showToast(
         context,
-        title: 'Settled "$title"',
+        title: 'Marked "$title" as done',
         action: Button(
           size: .sm,
           variant: .outline,
@@ -462,13 +464,13 @@ class ShellScreen extends StatelessWidget {
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.circleCheck, size: 16),
             onPressed: settle,
-            child: const Text('Settle'),
+            child: const Text('Mark as done'),
           ),
         if (settled)
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.cornerUpLeft, size: 16),
             onPressed: () => viewModel.unsettleChat(all),
-            child: const Text('Bring back'),
+            child: const Text('Not done'),
           ),
         if (e.threads.any((t) => viewModel.isUnread(t.id)))
           MenuItem(
@@ -800,11 +802,11 @@ class _ChatRowState extends State<_ChatRow> {
                       SizedBox(
                         height: 16,
                         child: Tooltip(
-                          message: 'Settle: nothing more to do here',
+                          message: 'Mark as done',
                           child: Button(
                             variant: .ghost,
                             size: .iconXs,
-                            semanticLabel: 'Settle $title',
+                            semanticLabel: 'Mark $title as done',
                             onPressed: onSettle,
                             child: const AshlarIcon(AshlarIconsRoundedStroke.circleCheck, size: 13),
                           ),
@@ -1254,7 +1256,7 @@ class _SettledSection extends StatelessWidget {
         children: [
           Pressable(
             onPressed: onToggle,
-            semanticLabel: open ? 'Hide settled chats' : 'Show $count settled chats',
+            semanticLabel: open ? 'Hide done chats' : 'Show $count done chats',
             builder: (context, state) => Container(
               padding: const .fromLTRB(10, 6, 8, 6),
               decoration: BoxDecoration(
@@ -1264,7 +1266,7 @@ class _SettledSection extends StatelessWidget {
               child: Row(
                 spacing: 6,
                 children: [
-                  Expanded(child: Text('Settled', style: style)),
+                  Expanded(child: Text('Done', style: style)),
                   Text('$count', style: style),
                   AshlarIcon(
                     open
@@ -1335,7 +1337,7 @@ class _SettledRow extends StatelessWidget {
     return Pressable(
       onPressed: onOpen,
       selected: selected,
-      semanticLabel: '$title, settled',
+      semanticLabel: '$title, done',
       builder: (context, state) => Container(
         padding: const .fromLTRB(10, 7, 10, 7),
         decoration: BoxDecoration(
