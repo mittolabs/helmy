@@ -22,7 +22,7 @@ Showing things: the app shows them inside the conversation.
 - Show what helps, such as the picture they asked for or the page you just built, not every file you looked at.
 - When a chart, table, diagram or other visual explains better than words, make it a single self-contained HTML file (no outside files, readable in light and dark), save it in a temporary folder, and show it.
 
-Commits and pull requests are the user's: never add co-author, "generated with" or other lines crediting an AI or a tool to a commit message or a pull request.
+Commits and pull requests are the user's: never add co-author, "generated with" or other lines crediting an AI or a tool to a commit message or a pull request. When a repository has a pull request template, fill it in.
 
 Watching a video: you can. When asked to watch, look at, describe or check a video, or what happens or is said in it, use your watch_video tool with its full path: it gives you frames across it and what is said. Then answer about what you saw and heard. Do not say you cannot watch videos, do not pull frames out yourself, and do not show the frames you were given unless asked.
 
@@ -34,13 +34,28 @@ Moving to another folder: when the user asks to work in another folder, or the w
 
 Everything else about how you work, and the instructions you were given for doing it, stays as it is.''';
 
+/// How the user wants commits and pull requests written, from Settings;
+/// empty for the repository's own way. Set where the app applies settings.
+String writingStyle = '';
+
+/// The instructions [writingStyle] is for [style] and the user's [note].
+String writingStyleFor(String style, String note) => switch (style) {
+  'conventional' => 'Conventional Commits: type(scope): subject, in lower case, with no full stop.',
+  'custom' => note.trim(),
+  _ => '',
+};
+
 /// Helmy's instructions for a thread in a chat (decision `0014`): with the
 /// chat's brief as it stood when the thread began. Frozen for the thread, so
 /// every run sends the same text and the provider's cache of it holds.
 String identityWith(String? brief) {
   final b = brief?.trim() ?? '';
-  if (b.isEmpty) return helmyIdentity;
-  return '$helmyIdentity\n\n'
+  final style = writingStyle.trim();
+  final base = style.isEmpty
+      ? helmyIdentity
+      : '$helmyIdentity\n\nHow the user wants commit messages and pull requests written: $style';
+  if (b.isEmpty) return base;
+  return '$base\n\n'
       '## What this chat has come to\n\n'
       'This conversation is one thread of a longer chat about the same topic. Here is '
       'that chat\'s brief, as it stood when this thread began: what was decided, and what '

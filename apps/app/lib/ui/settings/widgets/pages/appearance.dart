@@ -147,6 +147,26 @@ class _Appearance extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(diffHideSpace: v)),
           ),
         ),
+        _Row(
+          title: 'Changes in one column',
+          description:
+              'Before and after one above the other, always; off, they sit side by side '
+              'where there is room.',
+          control: Switch(
+            value: s.diffStacked,
+            semanticLabel: 'Changes in one column',
+            onChanged: (v) => vm.update(s.copyWith(diffStacked: v)),
+          ),
+        ),
+        _Row(
+          title: "Each file's change open",
+          description: 'In a thread\'s changes, every file shows what changed without a click.',
+          control: Switch(
+            value: s.diffFilesOpen,
+            semanticLabel: "Each file's change open",
+            onChanged: (v) => vm.update(s.copyWith(diffFilesOpen: v)),
+          ),
+        ),
       ],
     );
   }

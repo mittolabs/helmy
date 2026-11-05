@@ -27,7 +27,7 @@ class DiffView extends StatelessWidget {
     final ink = _Ink.of(context, settings.diffColors);
     return LayoutBuilder(
       builder: (context, box) {
-        final wide = box.maxWidth >= sideBySideFrom;
+        final wide = !settings.diffStacked && box.maxWidth >= sideBySideFrom;
         final t = AshlarTheme.of(context);
         final c = t.colors;
         final base = t.text.xs.copyWith(

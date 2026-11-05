@@ -15,6 +15,32 @@ class _Projects extends StatelessWidget {
         final repos = snap.data ?? const <String>[];
         return _Page(
           children: [
+            const _Heading('Every project', first: true),
+            _Row(
+              title: 'Commits and pull requests',
+              description: switch (s.commitStyle) {
+                'conventional' =>
+                  'type(scope): subject, in lower case, as Conventional Commits has it.',
+                'custom' => 'As you describe below.',
+                _ => "Each repository's own way, as its history and files show.",
+              },
+              control: SizedBox(
+                width: 200,
+                child: Select<String>(
+                  size: .sm,
+                  value: s.commitStyle,
+                  semanticLabel: 'Commits and pull requests',
+                  options: const [
+                    SelectOption('repository', "The repository's own"),
+                    SelectOption('conventional', 'Conventional Commits'),
+                    SelectOption('custom', 'Your own words'),
+                  ],
+                  onChanged: (v) => vm.update(s.copyWith(commitStyle: v)),
+                ),
+              ),
+            ),
+            if (s.commitStyle == 'custom') _CommitNote(vm: vm),
+            const _Heading('Each project'),
             Text(
               'Every git repository your chats have worked in. What is set here is for '
               'that project alone; "As everywhere" follows General.',
@@ -75,4 +101,35 @@ class _Projects extends StatelessWidget {
       },
     );
   }
+}
+
+/// How commits and pull requests are written, in the user's words.
+class _CommitNote extends StatefulWidget with _Setting {
+  const _CommitNote({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_CommitNote> createState() => _CommitNoteState();
+}
+
+class _CommitNoteState extends State<_CommitNote> {
+  late final _text = TextEditingController(text: widget.vm.settings.commitNote);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _Block(
+    title: 'In your words',
+    child: Textarea(
+      controller: _text,
+      minLines: 2,
+      maxLines: 5,
+      placeholder: 'Short subjects in the imperative; a body that says why.',
+      onChanged: (v) => widget.vm.update(widget.vm.settings.copyWith(commitNote: v)),
+    ),
+  );
 }

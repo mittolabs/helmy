@@ -89,6 +89,21 @@ const List<SettingEntry> settingsIndex = [
     section: .appearance,
     keywords: 'diff red green blue orange colorblind',
   ),
+  (
+    title: 'Changes in one column',
+    section: .appearance,
+    keywords: 'diff split stacked unified side by side',
+  ),
+  (
+    title: "Each file's change open",
+    section: .appearance,
+    keywords: 'diff expanded collapsed files',
+  ),
+  (
+    title: 'Commits and pull requests',
+    section: .projects,
+    keywords: 'commit message conventional style writing pr template',
+  ),
   (title: 'Hide changes only in spaces', section: .appearance, keywords: 'whitespace diff ignore'),
   // Preview panel.
   (title: 'Show pages with', section: .preview, keywords: 'browser webkit chromium preview engine'),

@@ -1,4 +1,5 @@
 import 'version.dart';
+import 'domain/identity.dart';
 import 'ui/core/ashlar/toast.dart';
 import 'utils/platform.dart';
 
@@ -188,6 +189,7 @@ class _HelmyAppState extends State<HelmyApp> {
       builder: (context, child) {
         // Code's font, and how clocks read, for the helpers that draw them.
         chosenCodeFont = settings.codeFont;
+        writingStyle = writingStyleFor(settings.commitStyle, settings.commitNote);
         use24Hour = switch (settings.clock) {
           .system => MediaQuery.of(context).alwaysUse24HourFormat,
           .twelve => false,

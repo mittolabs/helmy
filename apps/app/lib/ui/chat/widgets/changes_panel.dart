@@ -1,3 +1,9 @@
+import '../../../data/repositories/settings_repository.dart';
+
+import 'package:provider/provider.dart';
+
+import 'dart:async';
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
 
@@ -224,8 +230,11 @@ class _FileRow extends StatefulWidget {
 class _FileRowState extends State<_FileRow> {
   FileDiff? _diff;
 
+  bool _reading = false;
+
   Future<void> _open() async {
-    if (_diff != null || widget.diff != null) return;
+    if (_diff != null || widget.diff != null || _reading) return;
+    _reading = true;
     final text = await widget.vm.diffOf(widget.change.path);
     if (mounted) setState(() => _diff = parseUnified(widget.change.path, text));
   }
@@ -238,7 +247,10 @@ class _FileRowState extends State<_FileRow> {
     final name = ch.path.split('/').last;
     final folder = ch.path.contains('/') ? ch.path.substring(0, ch.path.lastIndexOf('/')) : '';
     final diff = widget.diff ?? _diff;
+    final startOpen = context.watch<SettingsRepository>().settings.diffFilesOpen;
+    if (startOpen && diff == null) unawaited(_open());
     return Collapsible(
+      initiallyOpen: startOpen,
       onChanged: (open) {
         if (open) _open();
       },

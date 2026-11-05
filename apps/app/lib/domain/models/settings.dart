@@ -241,6 +241,16 @@ class const AppSettings({
   /// What the user wants of chats' names, added to how Helmy names them.
   final String namingNote = '',
 
+  /// How commits and pull requests are written: 'repository' (its own
+  /// way), 'conventional', or 'custom' with [commitNote].
+  final String commitStyle = 'repository',
+  final String commitNote = '',
+
+  /// Changes always in one column, rather than side by side where there is
+  /// room; and each file's change open from the start.
+  final bool diffStacked = false,
+  final bool diffFilesOpen = false,
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -376,6 +386,10 @@ class const AppSettings({
     String? namingNote,
     bool? steerByDefault,
     Map<String, String>? keys,
+    String? commitStyle,
+    String? commitNote,
+    bool? diffStacked,
+    bool? diffFilesOpen,
     ClockFormat? clock,
     Map<String, String>? bestAt,
     Switching? switching,
@@ -431,6 +445,10 @@ class const AppSettings({
     namingNote: namingNote ?? this.namingNote,
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
+    commitStyle: commitStyle ?? this.commitStyle,
+    commitNote: commitNote ?? this.commitNote,
+    diffStacked: diffStacked ?? this.diffStacked,
+    diffFilesOpen: diffFilesOpen ?? this.diffFilesOpen,
     clock: clock ?? this.clock,
     bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
@@ -489,6 +507,10 @@ class const AppSettings({
     'namingNote': namingNote,
     'steerByDefault': steerByDefault,
     'keys': keys,
+    'commitStyle': commitStyle,
+    'commitNote': commitNote,
+    'diffStacked': diffStacked,
+    'diffFilesOpen': diffFilesOpen,
     'clock': clock.name,
     'switching': switching.name,
     'notify': notify,
@@ -544,6 +566,10 @@ class const AppSettings({
     namingNote: json['namingNote'] as String? ?? '',
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+    commitStyle: json['commitStyle'] as String? ?? 'repository',
+    commitNote: json['commitNote'] as String? ?? '',
+    diffStacked: json['diffStacked'] as bool? ?? false,
+    diffFilesOpen: json['diffFilesOpen'] as bool? ?? false,
     clock: ClockFormat.values.asNameMap()[json['clock']] ?? .system,
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
@@ -622,6 +648,9 @@ const restorableSettings = <String, List<String>>{
   'How chats are named': ['namingNote'],
   'A message sent while a chat works': ['steerByDefault'],
   'Shortcuts': ['keys'],
+  'Commits and pull requests': ['commitStyle', 'commitNote'],
+  'Changes in one column': ['diffStacked'],
+  "Each file's change open": ['diffFilesOpen'],
   'Reach Helmy from your phone': ['remoteOn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
