@@ -59,68 +59,77 @@ class _Appearance extends StatelessWidget {
           description:
               'A color theme file (.json), as VS Code themes are made: its colors become '
               "Helmy's, for light or dark as the theme is.",
-          control: Wrap(
-            alignment: WrapAlignment.end,
-
-            spacing: 6,
-            children: [
-              if (imported != null)
-                Button(
-                  variant: .ghost,
-                  size: .sm,
-                  onPressed: () => vm.update(
-                    AppSettings.fromJson({
-                      ...s.toJson(),
-                      'themeImport': null,
-                      'palette': s.palette == .imported ? 'helmy' : s.palette.name,
-                    }),
+          control: SizedBox(
+            width: 200,
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
+              children: [
+                if (imported != null)
+                  Button(
+                    variant: .ghost,
+                    size: .sm,
+                    onPressed: () => vm.update(
+                      AppSettings.fromJson({
+                        ...s.toJson(),
+                        'themeImport': null,
+                        'palette': s.palette == .imported ? 'helmy' : s.palette.name,
+                      }),
+                    ),
+                    child: const Text('Remove'),
                   ),
-                  child: const Text('Remove'),
-                ),
-              Button(
-                variant: .outline,
-                size: .sm,
-                onPressed: () async {
-                  final file = await openFile(
-                    acceptedTypeGroups: const [
-                      XTypeGroup(label: 'VS Code theme', extensions: ['json', 'jsonc']),
-                    ],
-                    confirmButtonText: 'Use this theme',
-                  );
-                  if (file == null) return;
-                  final theme = readVsCodeTheme(
-                    await file.readAsString(),
-                    fallbackName: file.name.replaceAll(RegExp(r'\.jsonc?$'), ''),
-                  );
-                  if (!context.mounted) return;
-                  if (theme == null) {
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: () async {
+                    final file = await openFile(
+                      acceptedTypeGroups: const [
+                        XTypeGroup(label: 'VS Code theme', extensions: ['json', 'jsonc']),
+                      ],
+                      confirmButtonText: 'Use this theme',
+                    );
+                    if (file == null) return;
+                    final theme = readVsCodeTheme(
+                      await file.readAsString(),
+                      fallbackName: file.name.replaceAll(RegExp(r'\.jsonc?$'), ''),
+                    );
+                    if (!context.mounted) return;
+                    if (theme == null) {
+                      showToast(
+                        context,
+                        title: "That file isn't a color theme Helmy can read",
+                        description: 'A VS Code color theme has editor colors in a "colors" list.',
+                        type: .error,
+                      );
+                      return;
+                    }
+                    await vm.update(
+                      s.copyWith(palette: .imported, themeImport: importedThemeToJson(theme)),
+                    );
+                    if (!context.mounted) return;
                     showToast(
                       context,
-                      title: "That file isn't a color theme Helmy can read",
-                      description: 'A VS Code color theme has editor colors in a "colors" list.',
-                      type: .error,
+                      title: '${theme.name} in use',
+                      description: 'For ${theme.dark ? 'dark' : 'light'}; pick Theme to see it.',
                     );
-                    return;
-                  }
-                  await vm.update(
-                    s.copyWith(palette: .imported, themeImport: importedThemeToJson(theme)),
-                  );
-                  if (!context.mounted) return;
-                  showToast(
-                    context,
-                    title: '${theme.name} in use',
-                    description: 'For ${theme.dark ? 'dark' : 'light'}; pick Theme to see it.',
-                  );
-                },
-                child: Text(imported == null ? 'Import...' : 'Another...'),
-              ),
-              Button(
-                variant: .outline,
-                size: .sm,
-                onPressed: () => _findTheme(context, vm),
-                child: const Text('Find one...'),
-              ),
-            ],
+                  },
+                  child: Text(imported == null ? 'Import...' : 'Another...'),
+                ),
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: () => _findTheme(context, vm),
+                  child: const Text('Find one...'),
+                ),
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: () => _editTheme(context, vm),
+                  child: Text(imported == null ? 'Make one...' : 'Edit...'),
+                ),
+              ],
+            ),
           ),
         ),
         _Row(
@@ -599,6 +608,189 @@ class _FindThemeState extends State<_FindTheme> {
         actions: [
           if (themes != null) DialogButton('Back', onPressed: () => setState(() => _themes = null)),
           DialogButton('Cancel', onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The colors a theme of Helmy's own sets, by name, with what each is for.
+const _themeColors = [
+  ('background', 'Page'),
+  ('foreground', 'Text'),
+  ('card', 'Cards and panels'),
+  ('popover', 'Menus and dialogs'),
+  ('sidebar', 'The list of chats'),
+  ('muted', 'Fields and quiet fills'),
+  ('mutedForeground', 'Quiet text'),
+  ('border', 'Lines and borders'),
+  ('primary', 'Main buttons'),
+  ('primaryForeground', 'Text on main buttons'),
+  ('accent', 'Hover and chosen'),
+  ('ring', 'Focus'),
+  ('destructive', 'Warnings and removing'),
+];
+
+/// Edits the imported theme's colors, or makes one from Helmy's own, by
+/// hex: each color with a swatch, as it would look.
+Future<void> _editTheme(BuildContext context, SettingsViewModel vm) async {
+  final now = importedThemeFromJson(vm.settings.themeImport);
+  final dark = now?.dark ?? AshlarTheme.of(context).brightness == Brightness.dark;
+  final base = themeFor(dark ? Brightness.dark : Brightness.light).colors;
+  final start = <String, int>{
+    for (final (k, _) in _themeColors) k: now?.colors[k] ?? _colorOf(base, k).toARGB32(),
+  };
+  final edited = await showAshlarDialog<ImportedTheme>(
+    context: context,
+    builder: (context) => _EditTheme(name: now?.name ?? 'Mine', dark: dark, colors: start),
+  );
+  if (edited == null) return;
+  await vm.update(
+    vm.settings.copyWith(palette: .imported, themeImport: importedThemeToJson(edited)),
+  );
+}
+
+Color _colorOf(AshlarColors c, String k) => switch (k) {
+  'background' => c.background,
+  'foreground' => c.foreground,
+  'card' => c.card,
+  'popover' => c.popover,
+  'sidebar' => c.sidebar,
+  'muted' => c.muted,
+  'mutedForeground' => c.mutedForeground,
+  'border' => c.border,
+  'primary' => c.primary,
+  'primaryForeground' => c.primaryForeground,
+  'accent' => c.accent,
+  'ring' => c.ring,
+  _ => c.destructive,
+};
+
+class _EditTheme extends StatefulWidget {
+  const _EditTheme({required this.name, required this.dark, required this.colors});
+  final String name;
+  final bool dark;
+  final Map<String, int> colors;
+
+  @override
+  State<_EditTheme> createState() => _EditThemeState();
+}
+
+class _EditThemeState extends State<_EditTheme> {
+  late final _name = TextEditingController(text: widget.name);
+  late final Map<String, int> _colors = {...widget.colors};
+  late bool _dark = widget.dark;
+  late final _fields = {
+    for (final (k, _) in _themeColors) k: TextEditingController(text: _hex(_colors[k]!)),
+  };
+
+  static String _hex(int argb) {
+    final rgb = (argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0');
+    final a = (argb >> 24) & 0xff;
+    return '#$rgb${a == 0xff ? '' : a.toRadixString(16).padLeft(2, '0')}';
+  }
+
+  static int? _parse(String text) {
+    final h = text.trim().replaceFirst('#', '');
+    if (!RegExp(r'^([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$').hasMatch(h)) return null;
+    final v = int.parse(h, radix: 16);
+    return h.length == 6 ? 0xFF000000 | v : ((v & 0xff) << 24) | (v >> 8);
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    for (final f in _fields.values) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context)},
+      child: HelmyDialog(
+        title: 'Theme colors',
+        body: 'Each as a hex value, #RRGGBB, with an alpha after it if wanted.',
+        icon: AshlarIconsRoundedStroke.palette,
+        maxWidth: 520,
+        content: Column(
+          crossAxisAlignment: .stretch,
+          mainAxisSize: .min,
+          spacing: 8,
+          children: [
+            Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: Input(controller: _name, size: .sm, semanticLabel: 'Theme name'),
+                ),
+                _Choice<bool>(
+                  value: _dark,
+                  label: 'For',
+                  options: const {true: 'Dark', false: 'Light'},
+                  onChanged: (v) => setState(() => _dark = v),
+                ),
+              ],
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 340),
+              child: ScrollArea(
+                child: Column(
+                  spacing: 6,
+                  children: [
+                    for (final (k, what) in _themeColors)
+                      Row(
+                        spacing: 10,
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Color(_colors[k]!),
+                              borderRadius: .circular(5),
+                              border: Border.all(color: t.colors.border),
+                            ),
+                          ),
+                          Expanded(child: Text(what, style: t.text.sm)),
+                          SizedBox(
+                            width: 120,
+                            child: Input(
+                              controller: _fields[k],
+                              size: .sm,
+                              semanticLabel: '$what color',
+                              onChanged: (v) {
+                                final c = _parse(v);
+                                if (c != null) setState(() => _colors[k] = c);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Text(
+              'Saved, it is used for ${_dark ? 'dark' : 'light'}; Helmy\'s own for the other.',
+              style: muted,
+            ),
+          ],
+        ),
+        actions: [
+          DialogButton('Cancel', onPressed: () => Navigator.pop(context)),
+          DialogButton(
+            'Save',
+            main: true,
+            onPressed: () => Navigator.pop(context, (
+              name: _name.text.trim().isEmpty ? 'Mine' : _name.text.trim(),
+              dark: _dark,
+              colors: _colors,
+            )),
+          ),
         ],
       ),
     );

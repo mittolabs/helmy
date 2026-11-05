@@ -12,7 +12,10 @@ void main() {
     final official = found!.firstWhere((l) => l.id == 'dracula-theme.theme-dracula');
     final themes = await market.themesIn(official.download);
     // ignore: avoid_print
-    print([for (final t in themes) '${t.name} dark=${t.dark} ${t.colors['background']?.toRadixString(16)}']);
+    print([
+      for (final t in themes)
+        '${t.name} dark=${t.dark} ${t.colors['background']?.toRadixString(16)}',
+    ]);
     expect(themes, isNotEmpty);
     expect(themes.first.dark, isTrue);
     expect(themes.first.colors['background'], 0xFF282A36);
