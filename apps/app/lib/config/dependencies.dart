@@ -54,6 +54,7 @@ import '../data/services/storage_service.dart';
 import '../data/services/helmy_tools.dart';
 import '../data/services/watch_service.dart';
 import '../data/services/worktrees.dart';
+import '../data/services/storage_cleanup.dart';
 import '../data/repositories/restart_keeper.dart';
 import '../data/services/connections_setup.dart';
 import '../data/repositories/ship_repository.dart';
@@ -118,6 +119,15 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => HistoryImport()),
   // Any app's window, snapshotted into the message being written.
   Provider(create: (_) => WindowSnapshots(appData: getApplicationSupportDirectory)),
+  // Helmy's own leftovers, old and referred to by nothing: once a day.
+  Provider(
+    lazy: false,
+    create: (context) {
+      final cleanup = StorageCleanup(context.read(), appData: getApplicationSupportDirectory);
+      unawaited(cleanup.runIfDue());
+      return cleanup;
+    },
+  ),
   // The apps a project opens in, asked of macOS once.
   Provider(create: (_) => EditorService()),
   // A Chromium browser for Preview, once asked for; ended with the app.

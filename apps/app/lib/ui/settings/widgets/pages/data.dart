@@ -112,6 +112,7 @@ class _DataState extends State<_Data> {
               ],
             ),
           ),
+        const _Cleanup(),
         Padding(
           padding: const .only(top: 8),
           child: Text(
@@ -267,6 +268,64 @@ class _RunningState extends State<_Running> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The daily tidy of Helmy's own leftovers: when it last ran and what it
+/// removed, and a way to run it now.
+class _Cleanup extends StatefulWidget with _Setting {
+  const _Cleanup();
+
+  @override
+  State<_Cleanup> createState() => _CleanupState();
+}
+
+class _CleanupState extends State<_Cleanup> {
+  CleanupRun? _last;
+  bool _running = false;
+
+  StorageCleanup? get _cleanup {
+    try {
+      return context.read<StorageCleanup>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_cleanup?.last().then((l) => mounted ? setState(() => _last = l) : null));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = _last;
+    return _Row(
+      title: 'Tidy old leftovers',
+      description:
+          'Once a day, pasted pictures, page marks and snapshots over 30 days old that no chat '
+          'still shows are removed. '
+          '${l == null ? 'Not run yet.' : 'Last ${ago(l.at, now: DateTime.now())} ago: '
+                    '${l.files == 0 ? 'nothing to remove' : '${l.files} files, ${_size(l.bytes)}'}.'}',
+      control: Button(
+        variant: .outline,
+        size: .sm,
+        onPressed: _running || _cleanup == null
+            ? null
+            : () async {
+                setState(() => _running = true);
+                final done = await _cleanup!.run();
+                if (mounted) {
+                  setState(() {
+                    _running = false;
+                    _last = done;
+                  });
+                }
+              },
+        child: Text(_running ? 'Tidying...' : 'Tidy now'),
       ),
     );
   }
