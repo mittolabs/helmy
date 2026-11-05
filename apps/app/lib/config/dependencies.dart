@@ -141,6 +141,20 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     ),
     dispose: (_, tools) => unawaited(tools.close()),
   ),
+  // Threads' own copies, made as Settings says.
+  Provider(
+    create: (_) => Worktrees(
+      rules: () {
+        final s = loaded.settings.settings;
+        return CopyRules(
+          prefix: s.copyPrefix,
+          semantic: s.copySemantic,
+          fromRemote: s.copyFromRemote,
+          folder: s.copyFolder,
+        );
+      },
+    ),
+  ),
   // Add an engine here and the router starts using it. The order breaks ties
   // before any engine has reported its usage.
   Provider(
@@ -185,7 +199,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         enabled: (id) => !loaded.settings.settings.disabledEngines.contains(id),
         rules: () => loaded.settings.settings.rules,
         snapshots: Snapshots(),
-        worktrees: Worktrees(),
+        worktrees: context.read<Worktrees>(),
         log: context.read(),
         ownCopies: (repo) => loaded.settings.settings.ownCopiesIn(repo),
         decider: Decider(model: () => loaded.settings.settings.ollamaModel),
@@ -242,7 +256,9 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(
     create: (context) => Fixes(context.read(), context.read(), context.read<DeviceService>()),
   ),
-  Provider<ProjectRepository>(create: (context) => ProjectRepositoryGit(context.read())),
+  Provider<ProjectRepository>(
+    create: (context) => ProjectRepositoryGit(context.read(), worktrees: context.read<Worktrees>()),
+  ),
   // Not lazy: tasks run on time whether or not their page was opened.
   ChangeNotifierProvider<ScheduleRepository>(
     lazy: false,

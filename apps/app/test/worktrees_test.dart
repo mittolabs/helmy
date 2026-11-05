@@ -106,4 +106,34 @@ void main() {
     expect(back.project('/code/app').level, PermissionLevel.edit);
     expect(back.project('/code/other').ownCopies, isNull);
   });
+
+  test('branches named by kind of change, or after a prefix; copies from the remote', () async {
+    expect(Worktrees.kindOf('Fix the login page'), 'fix');
+    expect(Worktrees.kindOf('Add a dark mode'), 'feat');
+    expect(Worktrees.kindOf('Update the README'), 'docs');
+    expect(
+      Worktrees.branchFor('Fix the login page', semantic: true),
+      matches(RegExp(r'^fix/fix-the-login-page-[0-9a-f]{4}$')),
+    );
+    expect(Worktrees.branchFor('Dark mode', prefix: 'tito/'), startsWith('tito/dark-mode-'));
+
+    // A remote one commit ahead of the checkout: a copy from the remote has it.
+    final upstream = await _repo(root);
+    final clone = '${root.path}/clone';
+    await Process.run('git', ['clone', '-q', upstream, clone]);
+    await File('$upstream/NEW.md').writeAsString('newer\n');
+    await Process.run('git', ['add', '.'], workingDirectory: upstream);
+    await Process.run('git', [
+      '-c', 'user.name=Test', '-c', 'user.email=test@helmy.test', 'commit', '-qm', 'second', //
+    ], workingDirectory: upstream);
+    await Process.run('git', ['checkout', '-q', '-b', 'mine'], workingDirectory: clone);
+    final copies = Worktrees(
+      root: '${root.path}/copies',
+      rules: () => const CopyRules(semantic: true, fromRemote: true),
+    );
+    final made = await copies.create(clone, 'Add a dark mode');
+    expect(made.error, isNull);
+    expect(made.branch, startsWith('feat/'));
+    expect(File('${made.path}/NEW.md').existsSync(), isTrue, reason: "from the remote's newest");
+  });
 }

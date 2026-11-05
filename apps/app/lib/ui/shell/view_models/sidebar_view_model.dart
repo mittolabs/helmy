@@ -297,9 +297,14 @@ class SidebarViewModel extends ChangeNotifier {
   Timer? _tidyTimer, _firstSettle;
   bool _tidying = false;
 
-  Future<void> _tidy() async {
+  Future<void> _tidy() async => tidyNow();
+
+  /// Tidies threads' copies now: those archived, merged, of no thread, and
+  /// (as set) of settled chats. What was done; empty when nothing was, or
+  /// a tidy was already under way.
+  Future<List<String>> tidyNow() async {
     final projects = _projects;
-    if (projects == null || _tidying) return;
+    if (projects == null || _tidying) return const [];
     _tidying = true;
     try {
       // Never a copy a session is working in right now.
@@ -307,9 +312,15 @@ class SidebarViewModel extends ChangeNotifier {
         for (final s in _sessions.sessions)
           if (_conversations.of(s.id).busy) s.id,
       };
-      await projects.tidy(_sessions.sessions, working: working);
+      final settled = {
+        if (settings.tidySettled)
+          for (final s in _sessions.sessions)
+            if (s.chatId != null && (_chats?.byId(s.chatId!)?.settled ?? false)) s.id,
+      };
+      return await projects.tidy(_sessions.sessions, working: working, settled: settled);
     } on Object {
       // Tried again next time.
+      return const [];
     } finally {
       _tidying = false;
     }

@@ -27,7 +27,12 @@ abstract class ProjectRepository {
   /// with uncommitted work; branches stay), and default branches are brought
   /// up to date where that can do no harm. Sessions in [working] are at work
   /// now: their copies count as theirs and are not touched. What was done.
-  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}});
+  /// [settled]: sessions whose chat settled, whose copies go too.
+  Future<List<String>> tidy(
+    List<Session> sessions, {
+    Set<String> working = const {},
+    Set<String> settled = const {},
+  });
 }
 
 class ProjectRepositoryGit implements ProjectRepository {
@@ -55,7 +60,11 @@ class ProjectRepositoryGit implements ProjectRepository {
   }
 
   @override
-  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}}) async {
+  Future<List<String>> tidy(
+    List<Session> sessions, {
+    Set<String> working = const {},
+    Set<String> settled = const {},
+  }) async {
     final done = <String>[];
     final copies = [
       for (final s in sessions)
@@ -65,6 +74,8 @@ class ProjectRepositoryGit implements ProjectRepository {
       if (working.contains(s.id) || !Directory(s.cwd).existsSync()) continue;
       final why = s.archived
           ? 'archived'
+          : settled.contains(s.id)
+          ? 'settled'
           : await _git.merged(s.repo!, s.branch!)
           ? 'merged'
           : null;

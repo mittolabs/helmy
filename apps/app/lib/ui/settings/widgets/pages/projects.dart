@@ -40,6 +40,113 @@ class _Projects extends StatelessWidget {
               ),
             ),
             if (s.commitStyle == 'custom') _CommitNote(vm: vm),
+            const _Heading("Threads' own copies"),
+            _Row(
+              title: 'Branch names',
+              description: s.copySemantic
+                  ? 'By the kind of change: fix/the-login-3f9a, feat/dark-mode-1c2d.'
+                  : 'After "${s.copyPrefix}": ${s.copyPrefix}the-login-3f9a.',
+              control: Row(
+                mainAxisSize: .min,
+                spacing: 8,
+                children: [
+                  if (!s.copySemantic) _PrefixBox(vm: vm),
+                  SizedBox(
+                    width: 170,
+                    child: Select<bool>(
+                      size: .sm,
+                      value: s.copySemantic,
+                      semanticLabel: 'Branch names',
+                      options: const [
+                        SelectOption(true, 'Kind of change'),
+                        SelectOption(false, 'A prefix'),
+                      ],
+                      onChanged: (v) => vm.update(s.copyWith(copySemantic: v)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _Row(
+              title: 'Start copies from',
+              description: s.copyFromRemote
+                  ? "The remote's default branch, fetched first: always the newest."
+                  : 'Where the checkout is: its unpushed work too, else the newest from its remote.',
+              control: SizedBox(
+                width: 200,
+                child: Select<bool>(
+                  size: .sm,
+                  value: s.copyFromRemote,
+                  semanticLabel: 'Start copies from',
+                  options: const [
+                    SelectOption(false, 'Where the checkout is'),
+                    SelectOption(true, "The remote's default"),
+                  ],
+                  onChanged: (v) => vm.update(s.copyWith(copyFromRemote: v)),
+                ),
+              ),
+            ),
+            _Row(
+              title: 'Where copies are kept',
+              description: tildePath(s.copyFolder ?? '$homeDir/.helmy/worktrees'),
+              control: Row(
+                mainAxisSize: .min,
+                spacing: 6,
+                children: [
+                  if (s.copyFolder != null)
+                    Button(
+                      variant: .ghost,
+                      size: .sm,
+                      onPressed: () => vm.update(s.copyWith(copyFolder: '')),
+                      child: const Text('Usual place'),
+                    ),
+                  Button(
+                    variant: .outline,
+                    size: .sm,
+                    onPressed: () async {
+                      final dir = await getDirectoryPath(
+                        initialDirectory: s.copyFolder ?? homeDir,
+                        confirmButtonText: 'Keep copies here',
+                      );
+                      if (dir != null) await vm.update(s.copyWith(copyFolder: dir));
+                    },
+                    child: const Text('Choose...'),
+                  ),
+                ],
+              ),
+            ),
+            _Row(
+              title: 'Tidy away copies of settled chats',
+              description:
+                  'Copies go when their chat is archived or its branch merged. On, they go when '
+                  'the chat settles too. Never one with work not yet committed; branches stay.',
+              control: Row(
+                mainAxisSize: .min,
+                spacing: 10,
+                children: [
+                  Button(
+                    variant: .outline,
+                    size: .sm,
+                    onPressed: () async {
+                      final list = context.read<SidebarViewModel?>();
+                      final done = await list?.tidyNow() ?? const <String>[];
+                      if (!context.mounted) return;
+                      showToast(
+                        context,
+                        title: done.isEmpty ? 'Nothing to tidy' : 'Tidied ${done.length}',
+                        description: done.isEmpty ? null : done.take(4).join('\n'),
+                      );
+                    },
+                    child: const Text('Tidy now'),
+                  ),
+                  Switch(
+                    value: s.tidySettled,
+                    semanticLabel: 'Tidy away copies of settled chats',
+                    onChanged: (v) => vm.update(s.copyWith(tidySettled: v)),
+                  ),
+                ],
+              ),
+            ),
             const _Heading('Each project'),
             Text(
               'Every git repository your chats have worked in. What is set here is for '
@@ -130,6 +237,37 @@ class _CommitNoteState extends State<_CommitNote> {
       maxLines: 5,
       placeholder: 'Short subjects in the imperative; a body that says why.',
       onChanged: (v) => widget.vm.update(widget.vm.settings.copyWith(commitNote: v)),
+    ),
+  );
+}
+
+/// The prefix before branch names, saved as typed.
+class _PrefixBox extends StatefulWidget {
+  const _PrefixBox({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_PrefixBox> createState() => _PrefixBoxState();
+}
+
+class _PrefixBoxState extends State<_PrefixBox> {
+  late final _text = TextEditingController(text: widget.vm.settings.copyPrefix);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 110,
+    child: Input(
+      controller: _text,
+      size: .sm,
+      semanticLabel: 'Branch prefix',
+      placeholder: 'helmy/',
+      onChanged: (v) => widget.vm.update(widget.vm.settings.copyWith(copyPrefix: v.trim())),
     ),
   );
 }

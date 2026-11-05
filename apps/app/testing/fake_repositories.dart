@@ -201,6 +201,9 @@ class FakeProjectRepository implements ProjectRepository {
   final restored = <String>[];
   var tidied = 0;
 
+  /// The settled sessions the last tidy was given.
+  Set<String> lastSettled = const {};
+
   @override
   Future<bool> restoreCopy(Session session) async {
     restored.add(session.cwd);
@@ -208,8 +211,13 @@ class FakeProjectRepository implements ProjectRepository {
   }
 
   @override
-  Future<List<String>> tidy(List<Session> sessions, {Set<String> working = const {}}) async {
+  Future<List<String>> tidy(
+    List<Session> sessions, {
+    Set<String> working = const {},
+    Set<String> settled = const {},
+  }) async {
     tidied++;
+    lastSettled = settled;
     return const [];
   }
 }

@@ -8,8 +8,15 @@ import '../../utils/platform.dart';
 /// repository at once without changing each other's files. Copies live in
 /// `~/.helmy/worktrees/<repository>/`, outside the repository itself.
 class Worktrees {
-  Worktrees({String? root}) : _root = root ?? '$homeDir/.helmy/worktrees';
-  final String _root;
+  Worktrees({String? root, CopyRules Function()? rules})
+    : _fixedRoot = root,
+      _rules = rules ?? (() => const CopyRules());
+
+  final String? _fixedRoot;
+  final CopyRules Function() _rules;
+
+  /// Where copies go: as given, else as set, else ~/.helmy/worktrees.
+  String get _root => _fixedRoot ?? _rules().folder ?? '$homeDir/.helmy/worktrees';
 
   Future<ProcessResult> _git(String dir, List<String> args, {Duration? timeout}) {
     final run = Process.run(
@@ -67,6 +74,21 @@ class Worktrees {
     await _git(repo, ['fetch', '--quiet', remote, branch], timeout: const Duration(seconds: 15));
     final ahead = await _ahead(repo, 'HEAD', upstream);
     return ahead == 0 ? upstream : 'HEAD';
+  }
+
+  /// The remote's default branch, fetched: where a copy starts when set to
+  /// start from the remote. Null when there is no remote.
+  Future<String?> remoteStart(String repo) async {
+    final def = await defaultBranch(repo);
+    final remote = (await _out(repo, ['remote']))?.split('\n').firstOrNull;
+    if (def == null || remote == null || remote.isEmpty) return null;
+    final r = await _git(repo, [
+      'fetch',
+      '--quiet',
+      remote,
+      def,
+    ], timeout: const Duration(seconds: 15));
+    return r.exitCode == 0 ? '$remote/$def' : null;
   }
 
   /// Brings [repo]'s default branch up to its remote, fast-forward only, and
@@ -157,8 +179,10 @@ class Worktrees {
     }
   }
 
-  /// A branch name from what the session is about: `helmy/fix-the-login-3f9a`.
-  static String branchFor(String about) {
+  /// A branch name from what the session is about: `helmy/fix-the-login-3f9a`
+  /// with a [prefix], or by kind of change (`fix/the-login-3f9a`,
+  /// `feat/...`) when [semantic].
+  static String branchFor(String about, {String prefix = 'helmy/', bool semantic = false}) {
     final words = about
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
@@ -168,17 +192,37 @@ class Worktrees {
         .take(5)
         .join('-');
     final tag = Random().nextInt(0x10000).toRadixString(16).padLeft(4, '0');
-    return 'helmy/${words.isEmpty ? 'session' : words}-$tag';
+    final p = semantic ? '${kindOf(about)}/' : prefix;
+    return '$p${words.isEmpty ? 'session' : words}-$tag';
+  }
+
+  /// The kind of change [about] asks for, as Conventional Commits names it.
+  static String kindOf(String about) {
+    final a = about.toLowerCase();
+    if (RegExp(r'\b(fix|bug|broken|crash|error|wrong|fails?|failing)\b').hasMatch(a)) return 'fix';
+    if (RegExp(r'\b(docs?|readme|document)\b').hasMatch(a)) return 'docs';
+    if (RegExp(r'\b(refactor|clean ?up|tidy|rename)\b').hasMatch(a)) return 'refactor';
+    if (RegExp(r'\b(tests?)\b').hasMatch(a)) return 'test';
+    return 'feat';
   }
 
   /// A new working copy of [repo] on a new branch from where [repo] is now,
   /// named from [about]. Null, with git's words, when git would not.
   Future<({String? path, String? branch, String? error})> create(String repo, String about) async {
-    final branch = branchFor(about);
+    final rules = _rules();
+    final branch = branchFor(about, prefix: rules.prefix, semantic: rules.semantic);
     final name = repo.split(RegExp(r'[/\\]')).where((p) => p.isNotEmpty).last;
-    final path = '$_root/$name/${branch.substring('helmy/'.length)}';
+    final path = '$_root/$name/${branch.split('/').last}';
     await Directory('$_root/$name').create(recursive: true);
-    final r = await _git(repo, ['worktree', 'add', '-b', branch, path, await startPoint(repo)]);
+    final from = rules.fromRemote ? await remoteStart(repo) : null;
+    final r = await _git(repo, [
+      'worktree',
+      'add',
+      '-b',
+      branch,
+      path,
+      from ?? await startPoint(repo),
+    ]);
     if (r.exitCode != 0) return (path: null, branch: null, error: '${r.stderr}'.trim());
     return (path: path, branch: branch, error: null);
   }
@@ -199,4 +243,26 @@ class Worktrees {
     final r = await _git(repo, ['worktree', 'remove', path]);
     return r.exitCode == 0;
   }
+}
+
+/// How threads' own copies are made, from Settings.
+class CopyRules {
+  const CopyRules({
+    this.prefix = 'helmy/',
+    this.semantic = false,
+    this.fromRemote = false,
+    this.folder,
+  });
+
+  /// Before each branch's name, unless [semantic].
+  final String prefix;
+
+  /// Branches named by kind of change: fix/, feat/, docs/.
+  final bool semantic;
+
+  /// Start from the remote's default branch, not the checkout.
+  final bool fromRemote;
+
+  /// Where copies go; null for ~/.helmy/worktrees.
+  final String? folder;
 }
