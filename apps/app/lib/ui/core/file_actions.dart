@@ -23,6 +23,9 @@ abstract interface class MediaActions implements FileActions {
   /// A picture of a document's first page, where this computer can make one.
   Future<String?> documentPicture(String path);
 
+  /// A rich text document's words, as plain text; null where they cannot be read.
+  Future<String?> documentText(String path);
+
   /// [count] small frames along the video at [path], for its bar.
   Future<List<Frame>> frames(String path, {int count, int width});
 }

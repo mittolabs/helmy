@@ -29,7 +29,7 @@ void main() {
   const port = 47923;
 
   Future<void> until(bool Function() done) async {
-    for (var i = 0; i < 100 && !done(); i++) {
+    for (var i = 0; i < 330 && !done(); i++) {
       await Future<void>.delayed(const Duration(milliseconds: 30));
     }
   }

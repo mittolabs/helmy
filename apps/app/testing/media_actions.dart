@@ -28,6 +28,8 @@ class TestMediaActions implements MediaActions {
 
   @override
   Future<String?> documentPicture(String path) async => desktop?.documentPicture(path);
+  @override
+  Future<String?> documentText(String path) async => null;
 
   @override
   Future<List<Frame>> frames(String path, {int count = 40, int width = 240}) async =>

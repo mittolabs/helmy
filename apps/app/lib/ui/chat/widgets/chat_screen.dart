@@ -59,6 +59,7 @@ import 'saved_toast.dart';
 import 'webhook_dialog.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
+import 'file_popup.dart';
 
 part 'screen/composer_area.dart';
 part 'screen/empty.dart';

@@ -113,7 +113,8 @@ class RemoteLink extends ChangeNotifier {
 
   Future<void> _receive(Object? data) async {
     final m = data is String ? await _sealer.open(data) : null;
-    if (m == null) return;
+    // Closed while it was being opened: nothing left to tell.
+    if (m == null || _closed) return;
     if (state != LinkState.connected) {
       state = LinkState.connected;
       trouble = null;

@@ -46,6 +46,7 @@ import 'saved_toast.dart';
 import '../../../domain/problem.dart';
 import '../../../utils/platform.dart';
 import 'diff_view.dart';
+import 'file_popup.dart';
 
 part 'rows/answer.dart';
 part 'rows/approvals.dart';

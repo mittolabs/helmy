@@ -26,6 +26,18 @@ class DesktopService {
     }
   }();
 
+  /// [path]'s words as plain text (RTF, Word, Pages and the like), by
+  /// macOS's textutil; null where that cannot read it.
+  Future<String?> documentText(String path) async {
+    if (!Platform.isMacOS) return null;
+    try {
+      final r = await Process.run('/usr/bin/textutil', ['-convert', 'txt', '-stdout', path]);
+      return r.exitCode == 0 ? r.stdout as String : null;
+    } on Object {
+      return null;
+    }
+  }
+
   /// Puts the picture at [path] on the clipboard. False when it could not.
   Future<bool> copyImage(String path) async {
     try {

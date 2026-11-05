@@ -27,6 +27,7 @@ import '../../../utils/platform.dart';
 import '../../../data/repositories/project_repository.dart';
 import '../../../data/services/desktop_service.dart';
 import '../../../data/services/editors.dart';
+import '../widgets/file_popup.dart' show EditorChoice;
 import '../../../data/services/window_snapshots.dart';
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/services/turn_log.dart';
@@ -592,6 +593,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   Future<String?> documentPicture(String path) async => _desktop?.documentPicture(path);
 
+  @override
+  Future<String?> documentText(String path) async => _desktop?.documentText(path);
+
   /// Chromium browsers for Preview, when this computer can run them.
   final ChromiumService? chromium;
 
@@ -997,6 +1001,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  /// The apps a file can open in, for the file popup.
+  EditorChoice get editorChoice => (all: editors, usual: editor, open: openIn);
+
   /// Opens the project (or the file at [path] in it) in [app], else the
   /// usual one; a chosen app becomes the usual one. False when it could not.
   Future<bool> openIn([Editor? app, String? path]) async {
@@ -1065,14 +1072,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// An attached file shown: beside the conversation where there is a web
   /// view (pictures, PDFs and text show there), else in its own app.
-  void showFile(String path) {
-    if (!File(path).existsSync()) return;
-    if (webViewHere) {
-      add(.preview, url: Uri.file(path).toString());
-    } else {
-      unawaited(open(path));
-    }
-  }
 
   /// Shows [url] in a browser tab beside the conversation: the one showing,
   /// else the last one, else a new one.
