@@ -85,6 +85,11 @@ const List<SettingEntry> settingsIndex = [
     section: .agents,
     keywords: 'routing switching limits usage headroom',
   ),
+  (
+    title: 'Best at',
+    section: .agents,
+    keywords: 'advanced code writing research pictures quick questions which connection strengths',
+  ),
   (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
   (title: 'Always allowed', section: .agents, keywords: 'rules permissions allow commands'),
   // Skills and tools.

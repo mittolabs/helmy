@@ -18,6 +18,7 @@ import '../services/engines/ollama/ollama_chat_engine.dart';
 import '../services/engines/engine_router.dart';
 import '../services/engines/handoff.dart';
 import '../services/engines/needs.dart';
+import '../../domain/models/work.dart';
 import '../services/engines/usage_meter.dart';
 import '../services/snapshots.dart';
 import '../services/worktrees.dart';
@@ -31,7 +32,12 @@ import '../../utils/platform.dart';
 /// which engines already failed it.
 class _Turn {
   new(this.text, this.start, {this.attachments = const [], Set<Capability> needs = const {}})
-    : needs = {...needsOf(text), ...needs};
+    : needs = {...needsOf(text), ...needs} {
+    kind = kindOf(text, this.needs);
+  }
+
+  /// What kind of work it is, for the connection best at that.
+  late final WorkKind? kind;
   final String text;
   final List<String> attachments;
 
@@ -343,6 +349,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
         candidates: eligible(candidates, turn.needs),
         current: session.lastEngineId,
         needs: turn.needs,
+        kind: turn.kind,
         // Its connection still holds it in cache: within minutes of its last turn.
         warm: ended != null && DateTime.now().difference(ended) < cacheLife,
       );

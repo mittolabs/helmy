@@ -19,6 +19,7 @@ import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
+import 'package:helmy/domain/models/work.dart';
 import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/domain/models/permission_rule.dart';
 import 'package:helmy/utils/result.dart';
@@ -491,6 +492,7 @@ class _Scripted implements EngineRouter {
     required List<EngineInfo> candidates,
     required String? current,
     Set<Capability> needs = const {},
+    WorkKind? kind,
     bool warm = false,
   }) {
     final ids = [for (final c in candidates) c.id];

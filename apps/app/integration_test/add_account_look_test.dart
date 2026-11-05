@@ -28,10 +28,9 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets('adding a folder already signed in', (tester) async {
     final settings = FakeSettingsRepository(const AppSettings());
-    final engines = EngineRegistry(
-      [ClaudeEngine(CliLocator())],
-      account: (a) => ClaudeEngine(CliLocator(), id: a.id, name: a.name, configDir: a.folder),
-    );
+    final engines = EngineRegistry([
+      ClaudeEngine(CliLocator()),
+    ], account: (a) => ClaudeEngine(CliLocator(), id: a.id, name: a.name, configDir: a.folder));
     final vm = SettingsViewModel(
       settings: settings,
       engines: engines,
@@ -46,13 +45,15 @@ void main() {
       }
     }
 
-    Future<void> shot(String name) => tester.runAsync(() async {
-      final id = (await Process.run('swift', [
-        '$shots/../winpid.swift',
-        '$pid',
-      ])).stdout.toString().trim();
-      await Process.run('screencapture', ['-x', '-o', '-l', id, '$shots/$name.png']);
-    }).then((_) {});
+    Future<void> shot(String name) => tester
+        .runAsync(() async {
+          final id = (await Process.run('swift', [
+            '$shots/../winpid.swift',
+            '$pid',
+          ])).stdout.toString().trim();
+          await Process.run('screencapture', ['-x', '-o', '-l', id, '$shots/$name.png']);
+        })
+        .then((_) {});
 
     await tester.pumpWidget(
       AshlarApp(

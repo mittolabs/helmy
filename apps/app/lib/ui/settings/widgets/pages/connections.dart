@@ -29,6 +29,8 @@ class _Agents extends StatelessWidget {
             ),
           ),
         ),
+        const _Heading('Advanced'),
+        ..._bestAt(vm),
         const _Heading('Local model'),
         _Row(
           title: 'Ollama model',
@@ -541,4 +543,46 @@ class _Version extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Which kind of connection is best at each kind of work: Mittolabs's
+/// choice until the user makes their own. Folded away until asked for.
+List<Widget> _bestAt(SettingsViewModel vm) {
+  final s = vm.settings;
+  final families = vm.families;
+  return [
+    _Row(
+      title: 'Best at',
+      description:
+          'Which connection each kind of message goes to first, while it has room. '
+          "Helmy's choices are Mittolabs's judgment, not a measurement: change any of them.",
+      control: Button(
+        variant: .outline,
+        size: .sm,
+        onPressed: vm.toggleBestAt,
+        child: Text(vm.bestAtOpen ? 'Hide' : 'Show'),
+      ),
+    ),
+    if (vm.bestAtOpen)
+      for (final kind in WorkKind.values)
+        _Row(
+          title: kind.label,
+          description: kind.description,
+          control: SizedBox(
+            width: 150,
+            child: Select<String>(
+              size: .sm,
+              value: s.bestFor(kind) ?? 'any',
+              semanticLabel: 'Best at ${kind.label}',
+              options: [
+                const SelectOption('any', 'Any, by room'),
+                for (final MapEntry(:key, :value) in families.entries) SelectOption(key, value),
+                // Chosen once, though not here now: kept, and named.
+                if (s.bestFor(kind) case final f? when !families.containsKey(f)) SelectOption(f, f),
+              ],
+              onChanged: (v) => vm.setBestAt(kind, v == 'any' ? null : v),
+            ),
+          ),
+        ),
+  ];
 }

@@ -164,8 +164,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     ),
   ),
   Provider<EngineRouter>(
-    create: (context) =>
-        HeadroomRouter(context.read(), margin: () => loaded.settings.settings.switching.margin),
+    create: (context) => HeadroomRouter(
+      context.read(),
+      margin: () => loaded.settings.settings.switching.margin,
+      bestAt: (kind) => loaded.settings.settings.bestFor(kind),
+    ),
   ),
   Provider<MemoryRepository>(create: (context) => MemoryRepositoryEngines(context.read())),
   ChangeNotifierProvider<SessionRepository>.value(value: loaded.sessions),

@@ -1,4 +1,5 @@
 import '../../../domain/models/engine.dart';
+import '../../../domain/models/work.dart';
 
 /// What a message needs that only some engines have. Rules over the words, not
 /// a model call: free and instant, and wrong now and then, in which case the
@@ -59,3 +60,36 @@ bool _wantsPicture(String message) {
   final head = message.length > 400 ? message.substring(0, 400) : message;
   return _pictureRequest.hasMatch(head) || _drawSomething.hasMatch(head);
 }
+
+/// What kind of work [message] is, by its words; null when it is none of
+/// them clearly, and room alone decides. [needs]: what it needs, from
+/// [needsOf].
+WorkKind? kindOf(String message, Set<Capability> needs) {
+  if (needs.contains(Capability.imageGeneration)) return WorkKind.pictures;
+  if (needs.isNotEmpty) return WorkKind.accounts;
+  final head = message.length > 600 ? message.substring(0, 600) : message;
+  if (_code.hasMatch(head)) return WorkKind.code;
+  if (_research.hasMatch(head)) return WorkKind.research;
+  if (_writing.hasMatch(head)) return WorkKind.writing;
+  final words = head.trim().split(RegExp(r'\s+')).length;
+  if (words <= 14 && head.trim().endsWith('?')) return WorkKind.quick;
+  return null;
+}
+
+final _code = RegExp(
+  r'```|\b(code|bug|bugs|function|class|method|compile|compiler|build fails?|stack ?trace|'
+  r'exception|refactor|unit tests?|tests? (fail|pass)|repo|repository|commit|branch|merge|'
+  r'pull request|PR|lint|typescript|javascript|python|dart|flutter|swift|kotlin|rust|golang|'
+  r'sql|api|endpoint|regex|npm|pip|dependency|deploy)\b|\b\w+\.(dart|ts|tsx|js|py|swift|kt|rs|go|java|rb|php|c|cpp|h|json|yaml|yml|toml|sh)\b',
+  caseSensitive: false,
+);
+final _research = RegExp(
+  r'\b(research|look up|find out|search (the web|online|for)|what are the (best|latest)|'
+  r'compare|comparison|sources?|citations?|latest news|is it true|fact.?check|summari[sz]e (this|the) (article|paper|page))\b',
+  caseSensitive: false,
+);
+final _writing = RegExp(
+  r'\b(write|draft|rewrite|reword|proofread|polish|essay|blog post|post for|tweet|caption|'
+  r'letter|cover letter|email to|reply to|speech|story|poem|tagline|copy for|newsletter)\b',
+  caseSensitive: false,
+);

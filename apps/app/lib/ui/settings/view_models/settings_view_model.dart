@@ -1,3 +1,6 @@
+import '../../../domain/models/work.dart';
+import '../../../data/services/engines/engine_router.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -349,6 +352,33 @@ class SettingsViewModel extends ChangeNotifier {
     _ when engineId.startsWith('codex-') => 'codex',
     _ => null,
   };
+
+  /// The kinds of connection here, for "best at": 'claude' to "Claude
+  /// Code", one entry for every account of it.
+  Map<String, String> get families => {
+    for (final e in _engines.engines)
+      if (!e.info.localOnly) HeadroomRouter.familyOf(e.info.id): e.info.name.split(' (').first,
+  };
+
+  /// Whether "Best at" is unfolded.
+  bool bestAtOpen = false;
+
+  void toggleBestAt() {
+    bestAtOpen = !bestAtOpen;
+    notifyListeners();
+  }
+
+  /// Sets the kind of connection best at [kind]; null for any.
+  Future<void> setBestAt(WorkKind kind, String? family) {
+    final next = {...settings.bestAt};
+    final mine = family ?? 'any';
+    if (mine == (defaultBestAt[kind] ?? 'any')) {
+      next.remove(kind.name);
+    } else {
+      next[kind.name] = mine;
+    }
+    return update(settings.copyWith(bestAt: next));
+  }
 
   Set<String> get _taken => {for (final e in _engines.engines) e.info.id};
 

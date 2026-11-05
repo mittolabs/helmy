@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'engine.dart';
 import 'permission_rule.dart';
 import 'project_action.dart';
+import 'work.dart';
 
 /// Where a new session starts.
 enum FolderMode { last, fixed }
@@ -178,6 +179,11 @@ class const AppSettings({
 
   /// Accounts added beside the usual Claude Code and Codex ones.
   final List<ConnectionAccount> accounts = const [],
+
+  /// The user's choice of which kind of connection is best at a kind of
+  /// work, by the kind's name: 'claude', 'codex', or 'any'. Kinds not here
+  /// keep Mittolabs's choice ([defaultBestAt]).
+  final Map<String, String> bestAt = const {},
   final Switching switching = .balanced,
   final bool notify = true,
   final ThemeChoice theme = .system,
@@ -266,6 +272,14 @@ class const AppSettings({
   final bool groupingReviewed = false,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
+  /// The kind of connection best at [kind]: the user's choice, else
+  /// Mittolabs's; null for any.
+  String? bestFor(WorkKind kind) => switch (bestAt[kind.name]) {
+    'any' => null,
+    final String family => family,
+    null => defaultBestAt[kind],
+  };
+
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
 
   /// Whether sessions in [repo] each get their own working copy.
@@ -277,6 +291,7 @@ class const AppSettings({
     String? fixedFolder,
     Set<String>? disabledEngines,
     List<ConnectionAccount>? accounts,
+    Map<String, String>? bestAt,
     Switching? switching,
     bool? notify,
     ThemeChoice? theme,
@@ -318,6 +333,7 @@ class const AppSettings({
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
     accounts: accounts ?? this.accounts,
+    bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
     notify: notify ?? this.notify,
     theme: theme ?? this.theme,
@@ -361,6 +377,7 @@ class const AppSettings({
     'fixedFolder': fixedFolder,
     'disabledEngines': disabledEngines.toList(),
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
+    'bestAt': bestAt,
     'switching': switching.name,
     'notify': notify,
     'theme': theme.name,
@@ -403,6 +420,9 @@ class const AppSettings({
     folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .last,
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
+    bestAt: {
+      for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
+    },
     accounts: [
       for (final a in (json['accounts'] as List?) ?? const [])
         if (a is Map) ConnectionAccount.fromJson(a.cast<String, Object?>()),
@@ -481,6 +501,7 @@ const restorableSettings = <String, List<String>>{
   'Chromium browser': ['chromiumBrowser'],
   'Editor projects open in': ['editor'],
   'Chat list': ['show', 'group', 'sort', 'recency'],
+  'Best at': ['bestAt'],
 };
 
 /// The names of the settings in [s] that differ from Helmy's own, in the

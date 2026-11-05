@@ -24,6 +24,7 @@ import '../../../domain/models/engine.dart';
 import '../../../domain/models/memory.dart';
 import '../../../data/services/chromium/chromium_service.dart';
 import '../../../domain/models/settings.dart';
+import '../../../domain/models/work.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/app_theme.dart';
 import '../../../routing/settings_route.dart';

@@ -1,4 +1,5 @@
 import '../../../domain/models/engine.dart';
+import '../../../domain/models/work.dart';
 import 'usage_meter.dart';
 
 /// Picks the engine for each message.
@@ -11,6 +12,7 @@ abstract class EngineRouter {
     required List<EngineInfo> candidates,
     required String? current,
     Set<Capability> needs = const {},
+    WorkKind? kind,
     bool warm = false,
   });
 }
@@ -25,9 +27,19 @@ abstract class EngineRouter {
 /// Code account) where one has room. Engines that have reported nothing yet
 /// count as half used: unknown, not empty.
 class HeadroomRouter implements EngineRouter {
-  new(this._meter, {double Function()? margin, this.nearlyOut = .95, DateTime Function()? now})
-    : _margin = margin ?? (() => .15),
-      _now = now ?? DateTime.now;
+  new(
+    this._meter, {
+    double Function()? margin,
+    this.nearlyOut = .95,
+    DateTime Function()? now,
+    String? Function(WorkKind)? bestAt,
+  }) : _margin = margin ?? (() => .15),
+       _now = now ?? DateTime.now,
+       _bestAt = bestAt ?? ((k) => defaultBestAt[k]);
+
+  /// The kind of connection best at a kind of work; null for any. Read on
+  /// every choice, so a change in settings applies at once.
+  final String? Function(WorkKind) _bestAt;
 
   final DateTime Function() _now;
 
@@ -41,7 +53,8 @@ class HeadroomRouter implements EngineRouter {
   }
 
   /// The kind of engine: every Claude Code account is "claude".
-  static String _family(String id) => id.split('-').first;
+  static String familyOf(String id) => id.split('-').first;
+  static String _family(String id) => familyOf(id);
 
   final UsageMeter _meter;
 
@@ -57,11 +70,27 @@ class HeadroomRouter implements EngineRouter {
     required List<EngineInfo> candidates,
     required String? current,
     Set<Capability> needs = const {},
+    WorkKind? kind,
     bool warm = false,
   }) {
+    final best = kind == null ? null : _bestAt(kind);
+    // One that says nothing of itself answers only what it is set best at.
+    final known = [
+      for (final e in candidates)
+        if (!e.assignedOnly || (best != null && _family(e.id) == best)) e,
+    ];
     // When nobody has what is needed, the best any engine can do still beats nothing.
-    final able = candidates.where((e) => e.capabilities.containsAll(needs)).toList();
-    final pool = [for (final e in able.isEmpty ? candidates : able) e.id];
+    final able = known.where((e) => e.capabilities.containsAll(needs)).toList();
+    var pool = [for (final e in able.isEmpty ? known : able) e.id];
+    // Then the kind of connection best at this kind of work, while one of
+    // them has room.
+    if (best != null) {
+      final theirs = [
+        for (final id in pool)
+          if (_family(id) == best && _used(id) < nearlyOut) id,
+      ];
+      if (theirs.isNotEmpty) pool = theirs;
+    }
     if (pool.isEmpty) return null;
     String roomiestOf(List<String> ids) => ids.reduce((a, b) => _used(b) < _used(a) ? b : a);
     // Where a thread may start: not where it would soon have to move from.

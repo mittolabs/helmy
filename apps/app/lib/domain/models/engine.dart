@@ -67,6 +67,11 @@ class const EngineInfo({
   /// other engine can answer: a local model has no limit to run out of, so on
   /// room alone it would always win.
   final bool localOnly = false,
+
+  /// Says nothing of its room or what it is good at (an agent from the ACP
+  /// registry), so it answers only the kinds of work it is set best at,
+  /// never on room alone.
+  final bool assignedOnly = false,
 });
 
 /// A command or skill an engine runs when a message starts with /name.
