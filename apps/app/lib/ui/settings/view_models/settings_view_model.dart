@@ -24,6 +24,7 @@ import '../../../utils/format.dart';
 import '../../../domain/models/session.dart';
 import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/project_repository.dart';
+import 'settings_index.dart';
 import '../../core/file_actions.dart';
 
 enum SettingsSection {
@@ -74,15 +75,63 @@ class SettingsViewModel extends ChangeNotifier {
   void show(SettingsSection s) {
     section = s;
     query = '';
+    target = null;
     notifyListeners();
   }
 
-  /// What is typed in the search box; the page shows the settings that
-  /// match it while it is not empty.
+  /// What is typed in the search box. While it is not empty the list beside
+  /// the page shows what matches, and the page follows the one picked.
   String query = '';
+
+  /// The page names, for matching a search against them: set by the screen.
+  String Function(SettingsSection) pageName = (s) => s.name;
+
+  /// What matches [query], best first.
+  List<SettingEntry> get results => searchSettings(query, pageName);
+
+  /// Which result is picked: moved with ↑ and ↓.
+  int picked = 0;
+
+  /// The setting the page brings into view and lights up, and a count that
+  /// changes each time it is asked for (the same one twice lights it twice).
+  String? target;
+  int targetTick = 0;
+
+  /// Its control takes the keyboard when it comes into view: true once the
+  /// search is done with, false while only looking through the results.
+  bool focusTarget = false;
 
   void search(String q) {
     query = q;
+    picked = 0;
+    _follow(results.firstOrNull, focus: false);
+  }
+
+  /// Moves the pick by [by], the page following it.
+  void move(int by) {
+    final r = results;
+    if (r.isEmpty) return;
+    picked = (picked + by).clamp(0, r.length - 1);
+    _follow(r[picked], focus: false);
+  }
+
+  /// Goes to [e] (else the picked result): the search is done with, the page
+  /// shows it, lit, its control taking the keyboard.
+  void choose([SettingEntry? e]) {
+    final r = results;
+    final to = e ?? (r.isEmpty ? null : r[picked.clamp(0, r.length - 1)]);
+    if (to == null) return;
+    query = '';
+    _follow(to, focus: true);
+  }
+
+  void _follow(SettingEntry? e, {required bool focus}) {
+    if (e != null) {
+      section = e.section;
+      target = e.title;
+      targetTick++;
+      focusTarget = focus;
+    }
     notifyListeners();
   }
 

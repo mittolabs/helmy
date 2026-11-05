@@ -45,6 +45,7 @@ import '../../core/helmy_dialog.dart';
 import '../../core/markdown_preview.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
+import '../view_models/settings_index.dart';
 import '../view_models/settings_view_model.dart';
 import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
@@ -75,6 +76,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   SettingsViewModel get vm => widget.viewModel;
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    vm.pageName = (s) => _sections[s]!.label;
+  }
+
+  /// A result chosen: the search box empties and the setting is gone to.
+  void _choose([SettingEntry? e]) {
+    vm.choose(e);
+    _search.clear();
+  }
 
   @override
   void dispose() {
@@ -128,32 +141,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     builder: (context, _) => LayoutBuilder(
                       builder: (context, box) {
                         final across = box.maxWidth < _Nav.besideFrom;
-                        final page = vm.query.trim().isNotEmpty
-                            ? _Results(vm: vm)
-                            : switch (vm.section) {
-                                .general => _General(vm: vm),
-                                .appearance => _Appearance(vm: vm),
-                                .preview => _Preview(vm: vm),
-                                .projects => _Projects(vm: vm),
-                                .agents => _Agents(vm: vm),
-                                .tools => _Tools(vm: vm),
-                                .memory => _Memory(vm: vm),
-                                .data => _Data(vm: vm),
-                                .keyboard => const _Keyboard(),
-                                .phone => _Phone(vm: vm),
-                              };
-                        final search = _SearchBox(
-                          controller: _search,
-                          focusNode: _searchFocus,
-                          onChanged: vm.search,
+                        final searching = vm.query.trim().isNotEmpty;
+                        final page = _Target(
+                          title: vm.target,
+                          tick: vm.targetTick,
+                          focus: vm.focusTarget,
+                          child: switch (vm.section) {
+                            .general => _General(vm: vm),
+                            .appearance => _Appearance(vm: vm),
+                            .preview => _Preview(vm: vm),
+                            .projects => _Projects(vm: vm),
+                            .agents => _Agents(vm: vm),
+                            .tools => _Tools(vm: vm),
+                            .memory => _Memory(vm: vm),
+                            .data => _Data(vm: vm),
+                            .keyboard => const _Keyboard(),
+                            .phone => _Phone(vm: vm),
+                          },
                         );
+                        // ↑ and ↓ move through the results, the page following;
+                        // Enter goes to the one picked.
+                        final search = CallbackShortcuts(
+                          bindings: {
+                            const SingleActivator(LogicalKeyboardKey.arrowDown): () => vm.move(1),
+                            const SingleActivator(LogicalKeyboardKey.arrowUp): () => vm.move(-1),
+                            const SingleActivator(LogicalKeyboardKey.enter): _choose,
+                          },
+                          child: _SearchBox(
+                            controller: _search,
+                            focusNode: _searchFocus,
+                            onChanged: vm.search,
+                          ),
+                        );
+                        final list = searching ? _Found(vm: vm, onChoose: _choose) : null;
                         final content = Column(
                           crossAxisAlignment: .stretch,
                           children: [
                             _Crumb(vm: vm, onClose: () => closeSettings(context)),
                             if (across) ...[
                               Padding(padding: const .fromLTRB(16, 12, 16, 8), child: search),
-                              _Nav(vm: vm, across: true),
+                              if (list != null)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxHeight: 220),
+                                  child: ScrollArea(child: list),
+                                )
+                              else
+                                _Nav(vm: vm, across: true),
                             ],
                             Expanded(
                               child: Padding(
@@ -178,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 children: [
                                   Padding(padding: const .fromLTRB(12, 12, 12, 8), child: search),
                                   Expanded(
-                                    child: ScrollArea(child: _Nav(vm: vm)),
+                                    child: ScrollArea(child: list ?? _Nav(vm: vm)),
                                   ),
                                 ],
                               ),
@@ -240,7 +273,7 @@ class _Crumb extends StatelessWidget {
           Text('/', style: muted),
           Expanded(
             child: Text(
-              vm.query.trim().isNotEmpty ? 'Search' : _sections[vm.section]!.label,
+              _sections[vm.section]!.label,
               maxLines: 1,
               overflow: .ellipsis,
               style: t.text.sm.copyWith(fontWeight: .w500),
@@ -401,72 +434,6 @@ class _Nav extends StatelessWidget {
   }
 }
 
-/// Every setting that matches the search, under its section; and the
-/// sections whose name matches, to open.
-class _Results extends StatelessWidget {
-  const new({required this.vm});
-  final SettingsViewModel vm;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final q = vm.query.trim().toLowerCase();
-    bool matches(String s) => s.toLowerCase().contains(q);
-    final out = <Widget>[];
-    // Pages that are a plain list of settings give their rows; the others
-    // (lists of files, of projects) are found by their name.
-    final pages = <SettingsSection, Widget>{
-      .general: _General(vm: vm),
-      .appearance: _Appearance(vm: vm),
-      .agents: _Agents(vm: vm),
-      .keyboard: const _Keyboard(),
-    };
-    for (final s in _sections.keys) {
-      final label = _sections[s]!.label;
-      final page = pages[s];
-      final built = page is StatelessWidget ? page.build(context) : null;
-      final rows = built is _Page
-          ? [
-              for (final r in built.children.whereType<_Row>())
-                if (matches('${r.title} ${r.description ?? ''}')) r,
-            ]
-          : const <_Row>[];
-      if (rows.isEmpty && !matches(label)) continue;
-      out.add(
-        Padding(
-          padding: .only(top: out.isEmpty ? 0 : 28, bottom: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(label, style: t.text.base.copyWith(fontWeight: .w600)),
-              ),
-              Button(
-                variant: .ghost,
-                size: .sm,
-                onPressed: () => vm.show(s),
-                child: const Text('Open'),
-              ),
-            ],
-          ),
-        ),
-      );
-      out.addAll(rows);
-    }
-    if (out.isEmpty) {
-      return _Page(
-        children: [
-          Text(
-            'No setting matches "${vm.query.trim()}".',
-            style: t.text.sm.copyWith(color: t.colors.mutedForeground),
-          ),
-        ],
-      );
-    }
-    return _Page(children: out);
-  }
-}
-
-/// A setting: what it is and what it does on the left, its control on the right.
 /// A setting, shown in a card with the settings next to it. A row that is
 /// more than [_Row] (one that checks what macOS allows, say) says so too, or
 /// it breaks its group's card in two.
@@ -508,60 +475,63 @@ class _Row extends StatelessWidget with _Setting {
     final settings = context.watch<SettingsRepository>();
     // Changed from Helmy's own: a quiet way back beside its name.
     final changed = changedSettings(settings.settings).contains(title);
-    return Padding(
-      padding: const .symmetric(horizontal: 18, vertical: 14),
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final words = Column(
-            crossAxisAlignment: .start,
-            spacing: 2,
-            children: [
-              Row(
-                spacing: 4,
-                children: [
-                  Flexible(
-                    child: Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
-                  ),
-                  if (changed)
-                    Tooltip(
-                      message: 'Back to how Helmy has it',
-                      child: Button(
-                        variant: .ghost,
-                        size: .iconXs,
-                        semanticLabel: 'Put $title back to how Helmy has it',
-                        onPressed: () => settings.save(withDefaults(settings.settings, [title])),
-                        child: AshlarIcon(
-                          AshlarIconsRoundedStroke.undo2,
-                          size: 12,
-                          color: t.colors.mutedForeground,
+    return _Lit(
+      title: title,
+      child: Padding(
+        padding: const .symmetric(horizontal: 18, vertical: 14),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final words = Column(
+              crossAxisAlignment: .start,
+              spacing: 2,
+              children: [
+                Row(
+                  spacing: 4,
+                  children: [
+                    Flexible(
+                      child: Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+                    ),
+                    if (changed)
+                      Tooltip(
+                        message: 'Back to how Helmy has it',
+                        child: Button(
+                          variant: .ghost,
+                          size: .iconXs,
+                          semanticLabel: 'Put $title back to how Helmy has it',
+                          onPressed: () => settings.save(withDefaults(settings.settings, [title])),
+                          child: AshlarIcon(
+                            AshlarIconsRoundedStroke.undo2,
+                            size: 12,
+                            color: t.colors.mutedForeground,
+                          ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              if (description != null)
-                Text(
-                  description!,
-                  style: t.text.xs.copyWith(
-                    fontSize: 13,
-                    height: 18 / 13,
-                    color: t.colors.mutedForeground,
-                  ),
+                  ],
                 ),
-            ],
-          );
-          // Narrow: the control under the words, rather than squeezing them.
-          if (box.maxWidth < 440) {
-            return Column(crossAxisAlignment: .start, spacing: 10, children: [words, control]);
-          }
-          return Row(
-            spacing: 24,
-            children: [
-              Expanded(child: words),
-              control,
-            ],
-          );
-        },
+                if (description != null)
+                  Text(
+                    description!,
+                    style: t.text.xs.copyWith(
+                      fontSize: 13,
+                      height: 18 / 13,
+                      color: t.colors.mutedForeground,
+                    ),
+                  ),
+              ],
+            );
+            // Narrow: the control under the words, rather than squeezing them.
+            if (box.maxWidth < 440) {
+              return Column(crossAxisAlignment: .start, spacing: 10, children: [words, control]);
+            }
+            return Row(
+              spacing: 24,
+              children: [
+                Expanded(child: words),
+                control,
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -632,9 +602,12 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    return Padding(
-      padding: .only(top: first ? 0 : 28, bottom: 10),
-      child: Text(text, style: t.text.base.copyWith(fontWeight: .w600)),
+    return _Lit(
+      title: text,
+      child: Padding(
+        padding: .only(top: first ? 0 : 28, bottom: 10),
+        child: Text(text, style: t.text.base.copyWith(fontWeight: .w600)),
+      ),
     );
   }
 }
@@ -703,6 +676,172 @@ class _RestoreDefaults extends StatelessWidget {
         child: compact
             ? const AshlarIcon(AshlarIconsRoundedStroke.rotateCcw, size: 14)
             : const Text('Restore defaults'),
+      ),
+    );
+  }
+}
+
+/// The setting a page brings into view and lights up (see [_Lit]).
+class _Target extends InheritedWidget {
+  const _Target({
+    required this.title,
+    required this.tick,
+    required this.focus,
+    required super.child,
+  });
+  final String? title;
+  final int tick;
+  final bool focus;
+
+  static _Target? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_Target>();
+
+  @override
+  bool updateShouldNotify(_Target old) =>
+      old.title != title || old.tick != tick || old.focus != focus;
+}
+
+/// A row or heading that, when it is what a search went to, scrolls into
+/// view and glows a moment; chosen (not only looked at), its control takes
+/// the keyboard.
+class _Lit extends StatefulWidget {
+  const _Lit({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  State<_Lit> createState() => _LitState();
+}
+
+class _LitState extends State<_Lit> {
+  int _seen = -1;
+  bool _on = false;
+  Timer? _off;
+  final _node = FocusNode(skipTraversal: true);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final target = _Target.of(context);
+    if (target == null || target.title != widget.title || target.tick == _seen) return;
+    _seen = target.tick;
+    final focus = target.focus;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          alignment: .3,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+      setState(() => _on = true);
+      _off?.cancel();
+      _off = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) setState(() => _on = false);
+      });
+      // Its control next in the keyboard's order: a switch, a select.
+      if (focus) {
+        _node.requestFocus();
+        _node.nextFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _off?.cancel();
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return Focus(
+      focusNode: _node,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        decoration: BoxDecoration(
+          color: _on
+              ? t.colors.primary.withValues(alpha: .08)
+              : t.colors.primary.withValues(alpha: 0),
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// What the search found, in place of the sections: each setting by its
+/// page's icon, its name and its page. The picked one is the page shown.
+class _Found extends StatelessWidget {
+  const _Found({required this.vm, required this.onChoose});
+  final SettingsViewModel vm;
+  final ValueChanged<SettingEntry> onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final results = vm.results;
+    if (results.isEmpty) {
+      return Padding(
+        padding: const .fromLTRB(22, 8, 22, 12),
+        child: Text(
+          'No setting matches "${vm.query.trim()}".',
+          style: t.text.sm.copyWith(color: c.mutedForeground),
+        ),
+      );
+    }
+    return Padding(
+      padding: const .fromLTRB(12, 0, 12, 12),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 2,
+        children: [
+          for (final (i, e) in results.indexed)
+            Pressable(
+              onPressed: () => onChoose(e),
+              selected: i == vm.picked,
+              semanticLabel: '${e.title}, in ${_sections[e.section]!.label}',
+              builder: (context, state) => Container(
+                padding: const .symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: i == vm.picked
+                      ? c.accent
+                      : state.hovered
+                      ? c.accent.withValues(alpha: .5)
+                      : null,
+                  borderRadius: .circular(t.radiusMd),
+                ),
+                child: Row(
+                  crossAxisAlignment: .start,
+                  spacing: 10,
+                  children: [
+                    Padding(
+                      padding: const .only(top: 1),
+                      child: TintedIcon(_sections[e.section]!.icon, hue: 0, size: 20, muted: true),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: .start,
+                        spacing: 1,
+                        children: [
+                          Text(e.title, maxLines: 1, overflow: .ellipsis, style: t.text.sm),
+                          Text(
+                            _sections[e.section]!.label,
+                            style: t.text.xs.copyWith(color: c.mutedForeground),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
