@@ -191,9 +191,16 @@ class SidebarViewModel extends ChangeNotifier {
       final folder = folderOf.putIfAbsent(_key(x), () => x.cwd);
       byFolder.putIfAbsent(folder, () => []).add(x);
     }
+    // Pinned projects' folders first, the rest as they come.
+    final folders = byFolder.entries.toList();
+    final pinned = [
+      for (final e in folders)
+        if (settings.projectAt(e.key).pinned) e,
+    ];
     return [
       ...out,
-      for (final e in byFolder.entries) (label: null, folder: e.key, sessions: e.value),
+      for (final e in [...pinned, ...folders.where((e) => !pinned.contains(e))])
+        (label: null, folder: e.key, sessions: e.value),
       ...last,
     ];
   }

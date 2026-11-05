@@ -203,6 +203,27 @@ class _Projects extends StatelessWidget {
                 ),
               ),
               _Row(
+                title: 'Icon and pin',
+                description:
+                    'An emoji it goes by in the list, and pinned, its chats first when the list '
+                    'is grouped by folder.',
+                control: Row(
+                  mainAxisSize: .min,
+                  spacing: 8,
+                  children: [
+                    _IconBox(vm: vm, repo: repo),
+                    Tooltip(
+                      message: 'Pinned',
+                      child: Switch(
+                        value: s.project(repo).pinned,
+                        semanticLabel: 'Pin ${folderName(repo)}',
+                        onChanged: (v) => vm.setProject(repo, pinned: v),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _Row(
                 title: "The assistant's browser",
                 description: 'Opening and using web pages in the Preview panel, in chats here.',
                 control: Switch(
@@ -277,6 +298,41 @@ class _PrefixBoxState extends State<_PrefixBox> {
       semanticLabel: 'Branch prefix',
       placeholder: 'helmy/',
       onChanged: (v) => widget.vm.update(widget.vm.settings.copyWith(copyPrefix: v.trim())),
+    ),
+  );
+}
+
+/// A project's emoji, saved as typed: one character's worth.
+class _IconBox extends StatefulWidget {
+  const _IconBox({required this.vm, required this.repo});
+  final SettingsViewModel vm;
+  final String repo;
+
+  @override
+  State<_IconBox> createState() => _IconBoxState();
+}
+
+class _IconBoxState extends State<_IconBox> {
+  late final _text = TextEditingController(text: widget.vm.settings.project(widget.repo).icon);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 56,
+    child: Input(
+      controller: _text,
+      size: .sm,
+      placeholder: '🚀',
+      semanticLabel: 'Icon for ${folderName(widget.repo)}',
+      onChanged: (v) {
+        final chars = v.trim().characters;
+        widget.vm.setProject(widget.repo, icon: chars.isEmpty ? '' : chars.first);
+      },
     ),
   );
 }

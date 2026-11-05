@@ -178,4 +178,25 @@ void main() {
     );
     expect(AppSettings.fromJson({'palette': 'mist', 'accent': 'rose'}).accent, AccentChoice.rose);
   });
+
+  test('grouped by folder, a pinned project comes first', () async {
+    await sessions.create(cwd: '/w/alpha', title: 'A');
+    await sessions.create(cwd: '/w/beta', title: 'B');
+    final settings = FakeSettingsRepository(
+      const AppSettings(
+        group: .folder,
+        projects: {'/w/beta': ProjectSettings(pinned: true, icon: '🚀')},
+      ),
+    );
+    final grouped = SidebarViewModel(
+      sessions: sessions,
+      conversations: repo,
+      settings: settings,
+      chats: chats,
+    );
+    addTearDown(grouped.dispose);
+    final folders = [for (final g in grouped.groups) ?g.folder];
+    expect(folders.take(2), ['/w/beta', '/w/alpha']);
+    expect(settings.settings.projectAt('/w/beta/app').icon, '🚀');
+  });
 }

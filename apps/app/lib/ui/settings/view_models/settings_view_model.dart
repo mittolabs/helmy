@@ -179,6 +179,8 @@ class SettingsViewModel extends ChangeNotifier {
     bool? ownCopies,
     PermissionLevel? level,
     bool? browser,
+    String? icon,
+    bool? pinned,
     bool clearOwn = false,
     bool clearLevel = false,
   }) {
@@ -188,6 +190,8 @@ class SettingsViewModel extends ChangeNotifier {
       level: clearLevel ? null : level ?? now.level,
       actions: now.actions,
       browser: browser ?? now.browser,
+      icon: icon ?? now.icon,
+      pinned: pinned ?? now.pinned,
     );
     return update(settings.copyWith(projects: {...settings.projects, repo: next}));
   }

@@ -109,6 +109,7 @@ const List<SettingEntry> settingsIndex = [
     section: .appearance,
     keywords: 'diff expanded collapsed files',
   ),
+  (title: 'Icon and pin', section: .projects, keywords: 'project emoji icon pin first'),
   (title: 'Branch names', section: .projects, keywords: 'worktree branch prefix semantic feat fix'),
   (title: 'Start copies from', section: .projects, keywords: 'worktree remote origin base'),
   (title: 'Where copies are kept', section: .projects, keywords: 'worktree folder location path'),

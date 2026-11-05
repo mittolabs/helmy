@@ -151,17 +151,27 @@ class const ProjectSettings({
   /// Whether the assistant may use its browser here; null as everywhere
   /// (it may).
   final bool? browser,
+
+  /// An emoji the project goes by in the list; empty for none.
+  final String icon = '',
+
+  /// Pinned: its chats come first when the list is grouped by folder.
+  final bool pinned = false,
 }) {
   ProjectSettings copyWith({
     bool? ownCopies,
     PermissionLevel? level,
     List<ProjectAction>? actions,
     bool? browser,
+    String? icon,
+    bool? pinned,
   }) => ProjectSettings(
     ownCopies: ownCopies ?? this.ownCopies,
     level: level ?? this.level,
     actions: actions ?? this.actions,
     browser: browser ?? this.browser,
+    icon: icon ?? this.icon,
+    pinned: pinned ?? this.pinned,
   );
 
   Map<String, Object?> toJson() => {
@@ -169,6 +179,8 @@ class const ProjectSettings({
     'level': ?level?.id,
     if (actions.isNotEmpty) 'actions': [for (final a in actions) a.toJson()],
     'browser': ?browser,
+    if (icon.isNotEmpty) 'icon': icon,
+    if (pinned) 'pinned': true,
   };
 
   static ProjectSettings fromJson(Map<String, Object?> json) => ProjectSettings(
@@ -179,6 +191,8 @@ class const ProjectSettings({
         if (a is Map) ProjectAction.fromJson(a.cast<String, Object?>()),
     ],
     browser: json['browser'] as bool?,
+    icon: json['icon'] as String? ?? '',
+    pinned: json['pinned'] as bool? ?? false,
   );
 }
 
@@ -431,6 +445,15 @@ class const AppSettings({
   };
 
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
+
+  /// The project [folder] is in, by its settings: the one whose folder holds
+  /// it; empty settings when none does.
+  ProjectSettings projectAt(String folder) {
+    for (final e in projects.entries) {
+      if (folder == e.key || folder.startsWith('${e.key}/')) return e.value;
+    }
+    return const ProjectSettings();
+  }
 
   /// Whether the assistant may use its browser in [folder]: no where a
   /// project it is in says so.

@@ -270,7 +270,14 @@ class ShellScreen extends StatelessWidget {
                                       Padding(
                                         padding: const .fromLTRB(10, 10, 10, 2),
                                         child: Text(
-                                          tildePath(g.folder!),
+                                          [
+                                            if (viewModel.settings.projectAt(g.folder!) case final p
+                                                when p.icon.isNotEmpty)
+                                              p.icon,
+                                            tildePath(g.folder!),
+                                            if (viewModel.settings.projectAt(g.folder!).pinned)
+                                              '·  pinned',
+                                          ].join(' '),
                                           maxLines: 1,
                                           overflow: .ellipsis,
                                           style: t.text.xs.copyWith(
