@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import '../../data/repositories/remote/remote_repositories.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/remote/remote_link.dart';
-import '../../domain/chat_icons.dart';
 import '../../domain/models/settings.dart';
 import '../../utils/format.dart';
 import '../../version.dart';
@@ -23,7 +22,6 @@ import '../core/ashlar/pressable.dart';
 import '../core/ashlar/sheet.dart';
 import '../core/ashlar/spinner.dart';
 import '../core/ashlar/theme.dart';
-import '../core/tinted_icon.dart';
 import 'mac_screen_view.dart';
 import 'phone_app.dart' show PhoneSafeArea;
 
@@ -498,7 +496,13 @@ class _Drawer extends StatelessWidget {
                     if (chat.threads.any((x) => !x.archived)) chat,
                 ]..sort((a, b) => _latest(b).compareTo(_latest(a)));
                 final waiting = chats.where((r) => r.threads.any((x) => x.needsYou)).toList();
-                final rest = chats.where((r) => !waiting.contains(r)).toList();
+                // As the Mac's sidebar groups them.
+                final working = chats
+                    .where((r) => !waiting.contains(r) && r.threads.any((x) => x.busy))
+                    .toList();
+                final rest = chats
+                    .where((r) => !waiting.contains(r) && !working.contains(r))
+                    .toList();
                 return Stack(
                   children: [
                     ListView(
@@ -535,8 +539,14 @@ class _Drawer extends StatelessWidget {
                           for (final r in waiting) _Row(row: r, open: open, onOpen: onOpen),
                         ],
                         if (rest.isNotEmpty) ...[
-                          const _Section('Recents'),
+                          _Section(
+                            waiting.isEmpty && working.isEmpty ? 'Chats' : 'Everything else',
+                          ),
                           for (final r in rest) _Row(row: r, open: open, onOpen: onOpen),
+                        ],
+                        if (working.isNotEmpty) ...[
+                          const _Section('Working'),
+                          for (final r in working) _Row(row: r, open: open, onOpen: onOpen),
                         ],
                       ],
                     ),
@@ -670,7 +680,9 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// A chat in the drawer: its title, what it is doing, and when.
+/// A chat in the drawer, as the Mac's sidebar has it: a spinner or a dot
+/// when something goes on, its title and when, and one quiet line of what it
+/// waits on or how it last answered.
 class _Row extends StatelessWidget {
   const _Row({required this.row, required this.open, required this.onOpen});
   final RemoteChat row;
@@ -686,59 +698,54 @@ class _Row extends StatelessWidget {
     final needsYou = row.threads.any((x) => x.needsYou);
     final busy = row.threads.any((x) => x.busy);
     final here = row.threads.any((x) => x.id == open);
+    final line = needsYou
+        ? 'Waiting for your approval'
+        : row.chat.description.isNotEmpty
+        ? row.chat.description
+        : latest.last;
+    final muted = t.text.sm.copyWith(color: c.mutedForeground);
     return Pressable(
       onPressed: () => onOpen(latest.id),
       semanticLabel: row.chat.title,
       builder: (context, state) => Container(
-        padding: const .symmetric(horizontal: 8, vertical: 10),
+        padding: const .fromLTRB(10, 10, 10, 11),
         decoration: BoxDecoration(
           color: state.pressed || here ? c.accent : null,
           borderRadius: .circular(t.radiusMd),
         ),
-        child: Row(
-          spacing: 12,
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 3,
           children: [
-            TintedIcon(
-              chatIconOf(row.chat.icon),
-              hue: hueOf(row.chat.topic),
-              muted: row.chat.topic.isEmpty,
-              size: 22,
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                spacing: 2,
-                children: [
-                  Text(
+            Row(
+              spacing: 8,
+              children: [
+                if (busy)
+                  const Spinner(size: 12)
+                else if (needsYou)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(color: c.foreground, shape: .circle),
+                  ),
+                Expanded(
+                  child: Text(
                     row.chat.title,
                     maxLines: 1,
                     overflow: .ellipsis,
-                    style: t.text.base.copyWith(fontWeight: needsYou ? .w600 : .w400),
+                    style: t.text.base.copyWith(fontWeight: here ? .w600 : .w500),
                   ),
-                  Text(
-                    needsYou
-                        ? 'Waiting for your approval'
-                        : busy
-                        ? 'Working'
-                        : row.chat.topic.isNotEmpty
-                        ? row.chat.topic
-                        : folderName(latest.cwd),
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                    style: t.text.xs.copyWith(color: needsYou ? c.foreground : c.mutedForeground),
-                  ),
-                ],
-              ),
+                ),
+                Text(ago(latest.updatedAt), style: muted),
+              ],
             ),
-            if (busy) const Spinner(size: 12),
-            if (needsYou)
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: c.primary, shape: .circle),
-              )
-            else
-              Text(ago(latest.updatedAt), style: t.text.xs.copyWith(color: c.mutedForeground)),
+            if (line.isNotEmpty)
+              Text(
+                line,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: muted.copyWith(color: needsYou ? c.foreground : c.mutedForeground),
+              ),
           ],
         ),
       ),
