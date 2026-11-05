@@ -34,6 +34,9 @@ class _AddAccountState extends State<_AddAccount> {
   final _folder = TextEditingController();
   _How _how = .browser;
 
+  /// For Codex: the new account shares the usual one's conversations.
+  bool _share = true;
+
   /// Who the folder is signed in as, once checked; '' when nobody is.
   String? _who;
   bool _checking = false;
@@ -83,7 +86,7 @@ class _AddAccountState extends State<_AddAccount> {
       _signingIn = true;
       _failed = false;
     });
-    final ok = await widget.vm.addAccount(_kind, name);
+    final ok = await widget.vm.addAccount(_kind, name, shareHistory: _kind == 'codex' && _share);
     if (!mounted) return;
     if (ok) {
       _signingIn = false;
@@ -180,8 +183,27 @@ class _AddAccountState extends State<_AddAccount> {
                       : 'Your browser opens to sign in. Choose the other account there; '
                             'its sign-in is kept in a folder of its own.',
                   style: muted.copyWith(color: _failed ? t.colors.destructive : null),
-                )
-              else ...[
+                ),
+              if (_how == .browser && _kind == 'codex') ...[
+                const SizedBox(height: 10),
+                Row(
+                  spacing: 10,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "Share the usual account's conversations and setup, signed in apart.",
+                        style: muted,
+                      ),
+                    ),
+                    Switch(
+                      value: _share,
+                      semanticLabel: 'Share conversations with the usual account',
+                      onChanged: _signingIn ? null : (v) => setState(() => _share = v),
+                    ),
+                  ],
+                ),
+              ],
+              if (_how != .browser) ...[
                 Text(
                   'A folder $_product keeps a sign-in in, as '
                   '${_kind == 'claude' ? 'CLAUDE_CONFIG_DIR' : 'CODEX_HOME'} points to.',

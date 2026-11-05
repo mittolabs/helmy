@@ -419,12 +419,12 @@ class SettingsViewModel extends ChangeNotifier {
   /// Signs a new account of [kind] in through the browser, under [name];
   /// false when sign-in did not finish or was stopped. Used from the next
   /// message on.
-  Future<bool> addAccount(String kind, String name) async {
+  Future<bool> addAccount(String kind, String name, {bool shareHistory = false}) async {
     final s = setup;
     if (s == null || adding != null) return false;
     adding = kind;
     notifyListeners();
-    final made = await s.addAccount(kind, name, taken: _taken);
+    final made = await s.addAccount(kind, name, taken: _taken, shareHistory: shareHistory);
     if (made != null) await _keep(made);
     adding = null;
     notifyListeners();

@@ -219,6 +219,7 @@ class ConnectionsSetup {
     String name, {
     String? home,
     Set<String> taken = const {},
+    bool shareHistory = false,
   }) async {
     final base = home ?? homeDir;
     if (base.isEmpty) return null;
@@ -230,11 +231,37 @@ class ConnectionsSetup {
     final dir = Directory('$base/.$id');
     await dir.create(recursive: true);
     await File('${dir.path}/$addedMark').writeAsString('Added by Helmy.\n');
+    if (kind == 'codex' && shareHistory) await shareCodexHistory('$base/.codex', dir.path);
     if (!await signIn(kind, configDir: dir.path)) {
       await dir.delete(recursive: true);
       return null;
     }
     return ConnectionAccount(id: id, kind: kind, name: name, folder: dir.path, made: true);
+  }
+
+  /// What a Codex account shares with the usual one when asked: its
+  /// conversations and how it is set up. Its sign-in, sockets, locks and
+  /// Codex's own state stay its own.
+  static const codexShared = [
+    'sessions',
+    'session_index.jsonl',
+    'history.jsonl',
+    'config.toml',
+    'AGENTS.md',
+    'skills',
+    'generated_images',
+  ];
+
+  /// Links [codexShared] from [usual] into [account], where the usual one
+  /// has them: the same conversations and setup, signed in apart.
+  static Future<void> shareCodexHistory(String usual, String account) async {
+    for (final name in codexShared) {
+      final from = '$usual/$name';
+      if (FileSystemEntity.typeSync(from) == FileSystemEntityType.notFound) continue;
+      final at = Link('$account/$name');
+      if (FileSystemEntity.typeSync(at.path, followLinks: false) != .notFound) continue;
+      await at.create(from);
+    }
   }
 
   /// [name] as it can stand in a folder's name and an id: "Work (2026)" is

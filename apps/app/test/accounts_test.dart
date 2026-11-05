@@ -143,4 +143,29 @@ void main() {
     expect(SettingsViewModel.kindOf('codex-work'), 'codex');
     expect(SettingsViewModel.kindOf('ollama'), isNull);
   });
+
+  test(
+    "a Codex account sharing history links the usual one's, and removing it leaves them",
+    () async {
+      final usual = Directory('${home.path}/.codex')..createSync();
+      Directory('${usual.path}/sessions/2026').createSync(recursive: true);
+      File('${usual.path}/sessions/2026/talk.jsonl').writeAsStringSync('mine');
+      File('${usual.path}/config.toml').writeAsStringSync('model = "x"');
+      File('${usual.path}/auth.json').writeAsStringSync('{"usual": true}');
+      final setup = _Setup(true);
+      final made = await setup.addAccount('codex', 'Work', home: home.path, shareHistory: true);
+      final folder = made!.folder;
+      expect(FileSystemEntity.isLinkSync('$folder/sessions'), isTrue);
+      expect(File('$folder/sessions/2026/talk.jsonl').readAsStringSync(), 'mine');
+      expect(FileSystemEntity.isLinkSync('$folder/config.toml'), isTrue);
+      expect(File('$folder/auth.json').existsSync(), isFalse, reason: 'its sign-in is its own');
+
+      // Removed: its links go, never what they point at.
+      expect(await setup.removeAccount(folder), isTrue);
+      expect(Directory(folder).existsSync(), isFalse);
+      expect(File('${usual.path}/sessions/2026/talk.jsonl').readAsStringSync(), 'mine');
+      expect(File('${usual.path}/config.toml').existsSync(), isTrue);
+      expect(File('${usual.path}/auth.json').existsSync(), isTrue);
+    },
+  );
 }
