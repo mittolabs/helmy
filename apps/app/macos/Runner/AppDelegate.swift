@@ -9,7 +9,21 @@ class AppDelegate: FlutterAppDelegate {
   /// Set once Quit is under way, so the window really closes then.
   static var quitting = false
 
+  /// Set by Dart while chats are working and the setting asks for it: the
+  /// first ⌘Q only warns, a second within a few seconds quits.
+  static var guardQuit = false
+  private var warnedAt: Date?
+
   override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    if AppDelegate.guardQuit, !AppDelegate.quitting {
+      if let at = warnedAt, Date().timeIntervalSince(at) < 4 {
+        warnedAt = nil
+      } else {
+        warnedAt = Date()
+        Notifier.shared.tell("quitAsked", nil)
+        return .terminateCancel
+      }
+    }
     AppDelegate.quitting = true
     return .terminateNow
   }

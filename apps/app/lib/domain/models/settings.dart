@@ -56,6 +56,16 @@ enum TextSize {
   final double scale;
 }
 
+/// How a chat that finishes or needs you is told, when not on screen.
+enum AlertStyle {
+  both('A notification with a sound'),
+  banner('A notification only'),
+  sound('A sound only');
+
+  const AlertStyle(this.label);
+  final String label;
+}
+
 /// How clock times read.
 enum ClockFormat {
   system('As the system has it'),
@@ -213,6 +223,14 @@ class const AppSettings({
 
   /// How much firmer borders and quiet text are: 0 as designed, up to 1.
   final double contrast = 0,
+
+  /// How a notification comes, and whether one shows inside Helmy when it
+  /// is in front.
+  final AlertStyle alertStyle = .both,
+  final bool inAppNotices = true,
+
+  /// While chats work, ⌘Q quits on a second press, not the first.
+  final bool quitTwice = true,
   final ClockFormat clock = .system,
 
   /// Accounts added beside the usual Claude Code and Codex ones.
@@ -333,6 +351,9 @@ class const AppSettings({
     String? codeFont,
     String? promptFont,
     double? contrast,
+    AlertStyle? alertStyle,
+    bool? inAppNotices,
+    bool? quitTwice,
     ClockFormat? clock,
     Map<String, String>? bestAt,
     Switching? switching,
@@ -380,6 +401,9 @@ class const AppSettings({
     codeFont: codeFont == '' ? null : codeFont ?? this.codeFont,
     promptFont: promptFont == '' ? null : promptFont ?? this.promptFont,
     contrast: contrast ?? this.contrast,
+    alertStyle: alertStyle ?? this.alertStyle,
+    inAppNotices: inAppNotices ?? this.inAppNotices,
+    quitTwice: quitTwice ?? this.quitTwice,
     clock: clock ?? this.clock,
     bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
@@ -430,6 +454,9 @@ class const AppSettings({
     'codeFont': codeFont,
     'promptFont': promptFont,
     'contrast': contrast,
+    'alertStyle': alertStyle.name,
+    'inAppNotices': inAppNotices,
+    'quitTwice': quitTwice,
     'clock': clock.name,
     'switching': switching.name,
     'notify': notify,
@@ -477,6 +504,9 @@ class const AppSettings({
     codeFont: json['codeFont'] as String?,
     promptFont: json['promptFont'] as String?,
     contrast: (json['contrast'] as num?)?.toDouble() ?? 0,
+    alertStyle: AlertStyle.values.asNameMap()[json['alertStyle']] ?? .both,
+    inAppNotices: json['inAppNotices'] as bool? ?? true,
+    quitTwice: json['quitTwice'] as bool? ?? true,
     clock: ClockFormat.values.asNameMap()[json['clock']] ?? .system,
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
@@ -565,6 +595,9 @@ const restorableSettings = <String, List<String>>{
   'Message font': ['promptFont'],
   'Contrast': ['contrast'],
   'Time format': ['clock'],
+  'How it tells you': ['alertStyle'],
+  'Notices inside Helmy': ['inAppNotices'],
+  'Quit on a second press while chats work': ['quitTwice'],
 };
 
 /// The names of the settings in [s] that differ from Helmy's own, in the

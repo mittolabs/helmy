@@ -75,6 +75,8 @@ class _Notes extends NotifyService {
     required String title,
     required String body,
     bool thumbsUp = false,
+    bool banner = true,
+    bool sound = true,
   }) async => said.add(body);
 }
 

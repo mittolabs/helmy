@@ -14,6 +14,13 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'notifications alerts badge sound done finished approval',
   ),
+  (title: 'How it tells you', section: .general, keywords: 'notification sound banner alert quiet'),
+  (title: 'Notices inside Helmy', section: .general, keywords: 'toast in-app notice popup'),
+  (
+    title: 'Quit on a second press while chats work',
+    section: .general,
+    keywords: 'quit confirm close command q twice hold',
+  ),
   (
     title: 'Keep chats working when the window closes',
     section: .general,

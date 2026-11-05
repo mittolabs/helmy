@@ -1,4 +1,5 @@
 import 'version.dart';
+import 'ui/core/ashlar/toast.dart';
 import 'utils/platform.dart';
 
 import 'dart:async';
@@ -104,6 +105,8 @@ class _HelmyAppState extends State<HelmyApp> {
     _opened = context.read<NotifyService>().opened.listen((id) => _router.go('/s/$id'));
     // About Helmy, from the app's menu.
     aboutRequests.addListener(_about);
+    // ⌘Q held back while chats work: say what a second press does.
+    quitAsked.addListener(_quitAsked);
     // Both Shift keys, in any app: that window into the message being written,
     // in the conversation on screen (else the last one).
     final snaps = context.read<WindowSnapshots>();
@@ -131,6 +134,16 @@ class _HelmyAppState extends State<HelmyApp> {
     });
   }
 
+  void _quitAsked() {
+    final context = _router.routerDelegate.navigatorKey.currentContext;
+    if (context == null) return;
+    showToast(
+      context,
+      title: 'Chats are still working',
+      description: 'Press ${Desktop.current.keys('⌘Q')} again to quit and stop them.',
+    );
+  }
+
   void _about() {
     final context = _router.routerDelegate.navigatorKey.currentContext;
     if (context == null) return;
@@ -140,6 +153,7 @@ class _HelmyAppState extends State<HelmyApp> {
   @override
   void dispose() {
     aboutRequests.removeListener(_about);
+    quitAsked.removeListener(_quitAsked);
     _opened?.cancel();
     _snapKeys?.cancel();
     _history.dispose();

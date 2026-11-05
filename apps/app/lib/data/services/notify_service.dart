@@ -10,6 +10,9 @@ import '../../ui/core/window_layout.dart';
 /// Counts presses of About Helmy in the app's menu.
 final aboutRequests = ValueNotifier<int>(0);
 
+/// Counts ⌘Q pressed once while chats work, held back for a second press.
+final quitAsked = ValueNotifier<int>(0);
+
 class NotifyService {
   new() {
     _channel.setMethodCallHandler((call) async {
@@ -17,6 +20,7 @@ class NotifyService {
       if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
       if (call.method == 'inSight') _inSight.add(call.arguments == true);
       if (call.method == 'about') aboutRequests.value++;
+      if (call.method == 'quitAsked') quitAsked.value++;
       if (call.method == 'snapshot' && call.arguments is Map) {
         _snapshots.add((call.arguments as Map).cast<String, Object?>());
       }
@@ -58,8 +62,19 @@ class NotifyService {
     required String title,
     required String body,
     bool thumbsUp = false,
-  }) =>
-      _call('notify', {'sessionId': sessionId, 'title': title, 'body': body, 'thumbsUp': thumbsUp});
+    bool banner = true,
+    bool sound = true,
+  }) => _call('notify', {
+    'sessionId': sessionId,
+    'title': title,
+    'body': body,
+    'thumbsUp': thumbsUp,
+    'banner': banner,
+    'sound': sound,
+  });
+
+  /// Whether the first ⌘Q only warns: on while chats work, if so set.
+  Future<void> quitGuard(bool on) => _call('quitGuard', {'on': on});
 
   /// Whether the app is in front, as macOS says; null when it cannot be asked.
   Future<bool?> isActive() async {

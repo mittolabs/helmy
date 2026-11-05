@@ -194,7 +194,12 @@ class _Quiet extends NotifyService {
     required String title,
     required String body,
     bool thumbsUp = false,
+    bool banner = true,
+    bool sound = true,
   }) async {}
+  @override
+  Future<void> quitGuard(bool on) async => guarded = on;
+  bool? guarded;
   @override
   Future<void> badge(int count) async {}
   @override

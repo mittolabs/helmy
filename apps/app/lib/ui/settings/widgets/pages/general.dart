@@ -21,6 +21,32 @@ class _General extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(notify: v)),
           ),
         ),
+        if (s.notify) ...[
+          _Row(
+            title: 'How it tells you',
+            control: SizedBox(
+              width: 230,
+              child: Select<AlertStyle>(
+                size: .sm,
+                value: s.alertStyle,
+                semanticLabel: 'How it tells you',
+                options: [for (final a in AlertStyle.values) SelectOption(a, a.label)],
+                onChanged: (a) => vm.update(s.copyWith(alertStyle: a)),
+              ),
+            ),
+          ),
+          _Row(
+            title: 'Notices inside Helmy',
+            description:
+                'While Helmy is in front, a notice in its corner when another chat finishes '
+                'or needs you.',
+            control: Switch(
+              value: s.inAppNotices,
+              semanticLabel: 'Notices inside Helmy',
+              onChanged: (v) => vm.update(s.copyWith(inAppNotices: v)),
+            ),
+          ),
+        ],
         const _Heading('Behavior'),
         _Row(
           title: 'Keep chats working when the window closes',
@@ -34,6 +60,19 @@ class _General extends StatelessWidget {
             onChanged: (v) => vm.update(s.copyWith(keepRunning: v)),
           ),
         ),
+        // The Mac's own Quit is held back natively; elsewhere there is none.
+        if (Desktop.current == .mac)
+          _Row(
+            title: 'Quit on a second press while chats work',
+            description:
+                'Quitting stops every chat at work. While one is, the first '
+                '${Desktop.current.keys('⌘Q')} only says so; a second quits.',
+            control: Switch(
+              value: s.quitTwice,
+              semanticLabel: 'Quit on a second press while chats work',
+              onChanged: (v) => vm.update(s.copyWith(quitTwice: v)),
+            ),
+          ),
         _Row(
           title: 'Send with',
           description: s.sendWithEnter

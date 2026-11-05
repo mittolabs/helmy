@@ -277,11 +277,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         Splash.shared.say(args["text"] as? String ?? "")
         result(nil)
       case "notify":
-        self?.post(
-          title: args["title"] as? String ?? "",
-          body: args["body"] as? String ?? "",
-          sessionId: args["sessionId"] as? String ?? "",
-          thumbsUp: args["thumbsUp"] as? Bool ?? false)
+        let banner = args["banner"] as? Bool ?? true
+        let sound = args["sound"] as? Bool ?? true
+        if banner {
+          self?.post(
+            title: args["title"] as? String ?? "",
+            body: args["body"] as? String ?? "",
+            sessionId: args["sessionId"] as? String ?? "",
+            thumbsUp: args["thumbsUp"] as? Bool ?? false,
+            sound: sound)
+        } else if sound {
+          NSSound(named: "Glass")?.play()
+        }
+        result(nil)
+      case "quitGuard":
+        AppDelegate.guardQuit = args["on"] as? Bool ?? false
         result(nil)
       case "copyImage":
         // Flutter's clipboard holds text only; a picture goes through AppKit.
@@ -535,14 +545,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
   }
 
-  private func post(title: String, body: String, sessionId: String, thumbsUp: Bool) {
+  private func post(title: String, body: String, sessionId: String, thumbsUp: Bool, sound: Bool) {
     let center = UNUserNotificationCenter.current()
     center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
       guard granted else { return }
       let content = UNMutableNotificationContent()
       content.title = title
       content.body = body
-      content.sound = .default
+      content.sound = sound ? .default : nil
       content.userInfo = ["sessionId": sessionId]
       if thumbsUp, let picture = Notifier.thumbsUp() {
         content.attachments = [picture]
@@ -559,7 +569,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([.banner, .sound])
+    completionHandler(notification.request.content.sound == nil ? [.banner] : [.banner, .sound])
   }
 
   func userNotificationCenter(

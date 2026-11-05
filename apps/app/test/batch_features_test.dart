@@ -28,7 +28,12 @@ class _Notes extends NotifyService {
     required String title,
     required String body,
     bool thumbsUp = false,
+    bool banner = true,
+    bool sound = true,
   }) async => sent.add('$title: $body');
+  @override
+  Future<void> quitGuard(bool on) async => guarded = on;
+  bool? guarded;
   @override
   Future<void> badge(int count) async => badgeCount = count;
   String? dockFace;
@@ -135,6 +140,7 @@ void main() {
     s.repo.notifyListeners();
     await settle();
     expect(notes.dockFace, 'thinking');
+    expect(notes.guarded, isTrue, reason: 'working: the first ⌘Q only warns');
     c.thinking = false;
     s.repo.notifyListeners();
     expect(notes.dockFace, 'answering');
@@ -143,6 +149,7 @@ void main() {
     s.repo.notifyListeners();
     await settle();
     expect(notes.sent, ['${session.title}: Finished']);
+    expect(notes.guarded, isFalse, reason: 'nothing working: ⌘Q quits at once');
     expect(notes.dockFace, 'done');
     expect(attention.isUnread(session.id), isTrue);
     expect(notes.badgeCount, 1);

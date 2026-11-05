@@ -184,7 +184,16 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
     return null;
   }
 
+  bool? _guarding;
+
   void _showFace() {
+    // ⌘Q warns first while something works, if the setting asks.
+    final working =
+        _settings.settings.quitTwice && _sessions.sessions.any((s) => _conversations.of(s.id).busy);
+    if (working != _guarding) {
+      _guarding = working;
+      unawaited(_notify.quitGuard(working));
+    }
     final idle = faceNow();
     final face = idle == null || idle == 'offline'
         ? (_wakingUp?.isActive ?? false ? 'waking' : idle)
@@ -259,11 +268,19 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
 
   Future<void> _send(String sessionId, String title, String body, {bool thumbsUp = false}) async {
     if (!_settings.settings.notify) return;
+    final s = _settings.settings;
     if (await _notify.isActive() ?? _active) {
-      _inApp.add((sessionId: sessionId, title: title, body: body));
+      if (s.inAppNotices) _inApp.add((sessionId: sessionId, title: title, body: body));
       return;
     }
-    _notify.notify(sessionId: sessionId, title: title, body: body, thumbsUp: thumbsUp);
+    _notify.notify(
+      sessionId: sessionId,
+      title: title,
+      body: body,
+      thumbsUp: thumbsUp,
+      banner: s.alertStyle != .sound,
+      sound: s.alertStyle != .banner,
+    );
   }
 
   void _changed() {
