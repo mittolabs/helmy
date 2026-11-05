@@ -192,4 +192,18 @@ void main() {
     await until(() => link.state == LinkState.unreachable);
     expect(link.state, LinkState.unreachable);
   });
+
+  test('starting changes no settings while it is being made', () async {
+    await server.stop();
+    // No code waiting: one is made and saved, but only once the host exists,
+    // since a save in the middle of building stopped the app opening.
+    final settings = FakeSettingsRepository(const AppSettings(remoteOn: true));
+    var told = 0;
+    settings.addListener(() => told++);
+    final host = RemoteHost(server, settings);
+    addTearDown(host.dispose);
+    expect(told, 0);
+    await until(() => host.pairing?.device != null);
+    expect(told, greaterThan(0));
+  });
 }

@@ -16,7 +16,9 @@ class RemoteHost extends ChangeNotifier {
       ..keyOf = _keyOf
       ..onHello = _hello;
     _settings.addListener(_apply);
-    unawaited(_apply());
+    // After it is made, not while: applying can save settings, and saving
+    // tells their listeners, which must not happen in the middle of building.
+    unawaited(Future(_apply));
   }
 
   String? _keyOf(String device) =>
@@ -89,7 +91,10 @@ class RemoteHost extends ChangeNotifier {
   bool _applying = false, _again = false;
   String? _runningWith;
 
+  bool _disposed = false;
+
   Future<void> _apply() async {
+    if (_disposed) return;
     // A change while one is being applied: applied after it.
     if (_applying) {
       _again = true;
@@ -169,6 +174,7 @@ class RemoteHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _settings.removeListener(_apply);
     unawaited(_server.stop());
     super.dispose();
