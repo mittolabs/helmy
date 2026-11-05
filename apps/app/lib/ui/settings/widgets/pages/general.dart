@@ -156,14 +156,58 @@ class _General extends StatelessWidget {
         _Row(
           title: 'Mark chats done on their own',
           description:
-              'A chat moves to Done when its pull request merges, or after three days '
-              'untouched. Anything new in it brings it back.',
-          control: Switch(
-            value: s.settleOnItsOwn,
-            semanticLabel: 'Mark chats done on their own',
-            onChanged: (v) => vm.update(s.copyWith(settleOnItsOwn: v)),
+              'A chat moves to Done when its pull request merges, or after ${s.settleDays} '
+              'day${s.settleDays == 1 ? '' : 's'} untouched. Anything new in it brings it back.',
+          control: Row(
+            mainAxisSize: .min,
+            spacing: 10,
+            children: [
+              if (s.settleOnItsOwn)
+                SizedBox(
+                  width: 110,
+                  child: Select<int>(
+                    size: .sm,
+                    value: s.settleDays,
+                    semanticLabel: 'Days untouched',
+                    options: [
+                      for (final d in {1, 2, 3, 5, 7, 14, 30, s.settleDays}.toList()..sort())
+                        SelectOption(d, '$d day${d == 1 ? '' : 's'}'),
+                    ],
+                    onChanged: (d) => vm.update(s.copyWith(settleDays: d)),
+                  ),
+                ),
+              Switch(
+                value: s.settleOnItsOwn,
+                semanticLabel: 'Mark chats done on their own',
+                onChanged: (v) => vm.update(s.copyWith(settleOnItsOwn: v)),
+              ),
+            ],
           ),
         ),
+        if (s.settleOnItsOwn)
+          _Row(
+            title: 'Keep chats with an open pull request',
+            description:
+                'A pull request still open means the work is not done: it does not settle.',
+            control: Switch(
+              value: s.keepWithPr,
+              semanticLabel: 'Keep chats with an open pull request',
+              onChanged: (v) => vm.update(s.copyWith(keepWithPr: v)),
+            ),
+          ),
+        _Row(
+          title: 'A message sent while a chat works',
+          description: s.steerByDefault
+              ? 'Goes in now and redirects it. ${Desktop.current.keys('⇧⌘Enter')} has one wait its turn.'
+              : 'Waits its turn. ${Desktop.current.keys('⇧⌘Enter')} sends one now, redirecting it.',
+          control: _Choice<bool>(
+            value: s.steerByDefault,
+            label: 'A message sent while a chat works',
+            options: const {false: 'Waits', true: 'Redirects'},
+            onChanged: (v) => vm.update(s.copyWith(steerByDefault: v)),
+          ),
+        ),
+        _NamingNote(vm: vm),
         const _Heading('New chats'),
         _Row(
           title: 'Permissions',
@@ -453,4 +497,48 @@ class _SnapshotRowState extends State<_SnapshotRow> {
       ],
     );
   }
+}
+
+/// What the person wants of chats' names, in their words, added to how
+/// Helmy names them. Saved as it is typed.
+class _NamingNote extends StatefulWidget with _Setting {
+  const _NamingNote({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_NamingNote> createState() => _NamingNoteState();
+}
+
+class _NamingNoteState extends State<_NamingNote> {
+  late final _text = TextEditingController(text: widget.vm.settings.namingNote);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _Block(
+    title: 'How chats are named',
+    child: Column(
+      crossAxisAlignment: .stretch,
+      spacing: 6,
+      children: [
+        Text(
+          'Anything you want of the names Helmy gives chats, in your own words: '
+          '"Short, no articles", "In Spanish", "Start with the client\'s name".',
+          style: AshlarTheme.of(context).text.xs
+              .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
+        ),
+        Textarea(
+          controller: _text,
+          minLines: 2,
+          maxLines: 4,
+          placeholder: 'Nothing: as Helmy names them',
+          onChanged: (v) => widget.vm.update(widget.vm.settings.copyWith(namingNote: v)),
+        ),
+      ],
+    ),
+  );
 }

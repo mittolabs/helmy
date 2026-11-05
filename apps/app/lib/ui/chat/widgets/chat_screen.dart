@@ -259,7 +259,12 @@ class _ChatScreenState extends State<ChatScreen> {
       _text.clear();
       _back = null;
       setState(() => _suggestions = const []);
-      vm.sendNow(text);
+      // The other of what Enter does while it works.
+      if (context.read<SettingsRepository>().settings.steerByDefault) {
+        vm.send.execute(text);
+      } else {
+        vm.sendNow(text);
+      }
       return .handled;
     }
     final withMeta = !context.read<SettingsRepository>().settings.sendWithEnter;
@@ -352,6 +357,11 @@ class _ChatScreenState extends State<ChatScreen> {
     _text.clear();
     _back = null;
     setState(() => _suggestions = const []);
+    // Set to redirect: sent now while it works, rather than waiting its turn.
+    if (vm.busy && context.read<SettingsRepository>().settings.steerByDefault) {
+      vm.sendNow(text);
+      return;
+    }
     vm.send.execute(text);
   }
 
@@ -680,7 +690,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           status: vm.heldUntil != null
                               ? 'Waiting for room. What you send waits its turn.'
                               : vm.busy
-                              ? 'Working. What you send waits its turn; ${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
+                              ? context.watch<SettingsRepository>().settings.steerByDefault
+                                    ? 'Working. What you send goes in now, redirecting it; '
+                                          '${Desktop.current.keys('⇧⌘Enter')} has it wait its turn instead.'
+                                    : 'Working. What you send waits its turn; '
+                                          '${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
                               : null,
                           attachments: [
                             for (final path in vm.attachments) _Attached(path: path, vm: vm),

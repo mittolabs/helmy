@@ -49,6 +49,13 @@ const List<SettingEntry> settingsIndex = [
   ),
   (title: 'Open at login', section: .general, keywords: 'startup launch boot start automatically'),
   (title: 'Ask before deleting a chat', section: .general, keywords: 'confirm confirmation delete'),
+  (title: 'Keep chats with an open pull request', section: .general, keywords: 'pr settle done'),
+  (
+    title: 'A message sent while a chat works',
+    section: .general,
+    keywords: 'queue steer follow up redirect interrupt',
+  ),
+  (title: 'How chats are named', section: .general, keywords: 'names titles naming instructions'),
   (
     title: 'Mark chats done on their own',
     section: .general,

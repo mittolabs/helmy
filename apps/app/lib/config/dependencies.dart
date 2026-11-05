@@ -228,6 +228,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         context.read(),
         (id) => !loaded.settings.settings.disabledEngines.contains(id),
       ),
+      naming: () => loaded.settings.settings.namingNote,
     ),
     dispose: (_, k) => k.dispose(),
   ),

@@ -264,6 +264,22 @@ class SidebarViewModel extends ChangeNotifier {
   Future<void> wake(Session s) => _sessions.save(s.copyWith(wake: true));
 
   /// When "until tomorrow" ends: 9 in the morning.
+  /// The snooze choices from [now]: in an hour, in three, this evening
+  /// while it is still ahead, tomorrow morning, and Monday morning.
+  static List<(String, DateTime)> snoozeChoices([DateTime? from]) {
+    final now = from ?? DateTime.now();
+    final evening = DateTime(now.year, now.month, now.day, 18);
+    final monday = DateTime(now.year, now.month, now.day + (8 - now.weekday), 9);
+    return [
+      ('Snooze for an hour', now.add(const Duration(hours: 1))),
+      ('Snooze for 3 hours', now.add(const Duration(hours: 3))),
+      if (evening.difference(now) > const Duration(hours: 1))
+        ('Snooze until this evening', evening),
+      ('Snooze until tomorrow', tomorrowMorning(now)),
+      if (now.weekday < 5) ('Snooze until Monday', monday),
+    ];
+  }
+
   static DateTime tomorrowMorning([DateTime? from]) {
     final now = from ?? DateTime.now();
     return DateTime(now.year, now.month, now.day + 1, 9);
@@ -569,11 +585,12 @@ class SidebarViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// How long untouched before a chat settles by itself.
-  static const idleSettles = Duration(days: 3);
+  /// How long untouched before a chat settles by itself, as set.
+  Duration get idleSettles => Duration(days: settings.settleDays);
 
   /// Settles every chat untouched for [idleSettles]: none waiting on you,
-  /// working, pinned or snoozed. Only when settings let it.
+  /// working, pinned, snoozed, or (as set) with a pull request open. Only
+  /// when settings let it.
   Future<void> settleIdle({DateTime? now}) async {
     final chats = _chats;
     if (chats == null || !settings.settleOnItsOwn) return;
@@ -583,6 +600,9 @@ class SidebarViewModel extends ChangeNotifier {
       final threads = chats.threadsOf(c.id);
       if (threads.isEmpty || threads.every((t) => t.archived)) continue;
       if (threads.any((t) => t.pinned || t.snoozed)) continue;
+      if (settings.keepWithPr && threads.any((t) => _ship?.stateOf(t.id)?.pr?.state == 'OPEN')) {
+        continue;
+      }
       if (activityOfAll(threads) != .idle) continue;
       if (at.difference(chats.lastTouched(c.id)) < idleSettles) continue;
       await chats.settle(c.id, at: at);

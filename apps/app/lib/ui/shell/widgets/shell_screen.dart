@@ -503,10 +503,7 @@ class ShellScreen extends StatelessWidget {
             child: const Text('Wake now'),
           )
         else ...[
-          for (final (label, until) in [
-            ('Snooze for an hour', DateTime.now().add(const Duration(hours: 1))),
-            ('Snooze until tomorrow', SidebarViewModel.tomorrowMorning()),
-          ])
+          for (final (label, until) in SidebarViewModel.snoozeChoices())
             MenuItem(
               leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
               onPressed: () async {

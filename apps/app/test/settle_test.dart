@@ -185,4 +185,50 @@ void main() {
     merging.dispose();
     ship.dispose();
   });
+
+  test('days are as set, and a chat with a pull request open stays', () async {
+    final shipping = _Shipping();
+    final ship = ShipRepositoryGit(
+      shipping: shipping,
+      sessions: sessions,
+      conversations: repo,
+      notify: NotifyService(),
+    );
+    final week = SidebarViewModel(
+      sessions: sessions,
+      conversations: repo,
+      settings: FakeSettingsRepository(const AppSettings(settleDays: 7)),
+      chats: chats,
+      ship: ship,
+    );
+    final quiet = await thread('Old trip', ago: const Duration(days: 4));
+    final open = await thread('Budget page', ago: const Duration(days: 9));
+    await ship.refresh(open);
+    final old = await thread('Older trip', ago: const Duration(days: 9));
+    await week.settleIdle();
+    expect(chatOf(quiet).settled, isFalse, reason: 'four days, under the seven set');
+    expect(chatOf(old).settled, isTrue);
+    expect(chatOf(open).settled, isFalse, reason: 'its pull request is open');
+    week.dispose();
+    ship.dispose();
+  });
+
+  test('snooze choices: this evening only while it is ahead, Monday only on a weekday', () {
+    final tuesdayMorning = DateTime(2026, 11, 3, 9);
+    final labels = [for (final (l, _) in SidebarViewModel.snoozeChoices(tuesdayMorning)) l];
+    expect(labels, [
+      'Snooze for an hour',
+      'Snooze for 3 hours',
+      'Snooze until this evening',
+      'Snooze until tomorrow',
+      'Snooze until Monday',
+    ]);
+    final monday = SidebarViewModel.snoozeChoices(tuesdayMorning).last.$2;
+    expect((monday.weekday, monday.hour, monday.day), (DateTime.monday, 9, 9));
+    final saturdayNight = DateTime(2026, 11, 7, 21);
+    expect(
+      [for (final (l, _) in SidebarViewModel.snoozeChoices(saturdayNight)) l],
+      ['Snooze for an hour', 'Snooze for 3 hours', 'Snooze until tomorrow'],
+    );
+  });
 }

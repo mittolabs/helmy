@@ -25,6 +25,7 @@ class ChatKeeper {
     this._cloud,
     this.quiet = const Duration(seconds: 90),
     Duration catchUpAfter = const Duration(seconds: 8),
+    this._naming,
   }) {
     _conversations.addListener(_watch);
     // Chats from before Helmy named them, named once, in the background.
@@ -33,6 +34,9 @@ class ChatKeeper {
 
   final CloudWriter? _cloud;
   Timer? _catchUp;
+
+  /// What the person wants of names, from settings; read at each naming.
+  final String Function()? _naming;
 
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
@@ -217,6 +221,8 @@ class ChatKeeper {
         'Thread: <2 to 5 words naming this conversation>',
         'Use only what the conversation says. If nothing has been asked yet, the title is '
             'New chat and About is empty.',
+        if (_naming?.call().trim() case final note? when note.isNotEmpty)
+          'The person asks this of the title and the thread name: $note',
         'Two examples from other conversations, for the form only:\n'
             'Topic: Money\nIcon: savings\nTitle: Food budget\n'
             'About: \$400 a month agreed; how to split groceries still open\n'

@@ -231,6 +231,19 @@ class const AppSettings({
 
   /// While chats work, ⌘Q quits on a second press, not the first.
   final bool quitTwice = true,
+
+  /// Days untouched before a chat settles by itself.
+  final int settleDays = 3,
+
+  /// A chat with an open pull request is not done: it does not settle.
+  final bool keepWithPr = true,
+
+  /// What the user wants of chats' names, added to how Helmy names them.
+  final String namingNote = '',
+
+  /// A message sent while a chat works redirects it at once, rather than
+  /// waiting its turn; ⇧⌘Enter does the other.
+  final bool steerByDefault = false,
   final ClockFormat clock = .system,
 
   /// Accounts added beside the usual Claude Code and Codex ones.
@@ -354,6 +367,10 @@ class const AppSettings({
     AlertStyle? alertStyle,
     bool? inAppNotices,
     bool? quitTwice,
+    int? settleDays,
+    bool? keepWithPr,
+    String? namingNote,
+    bool? steerByDefault,
     ClockFormat? clock,
     Map<String, String>? bestAt,
     Switching? switching,
@@ -404,6 +421,10 @@ class const AppSettings({
     alertStyle: alertStyle ?? this.alertStyle,
     inAppNotices: inAppNotices ?? this.inAppNotices,
     quitTwice: quitTwice ?? this.quitTwice,
+    settleDays: settleDays ?? this.settleDays,
+    keepWithPr: keepWithPr ?? this.keepWithPr,
+    namingNote: namingNote ?? this.namingNote,
+    steerByDefault: steerByDefault ?? this.steerByDefault,
     clock: clock ?? this.clock,
     bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
@@ -457,6 +478,10 @@ class const AppSettings({
     'alertStyle': alertStyle.name,
     'inAppNotices': inAppNotices,
     'quitTwice': quitTwice,
+    'settleDays': settleDays,
+    'keepWithPr': keepWithPr,
+    'namingNote': namingNote,
+    'steerByDefault': steerByDefault,
     'clock': clock.name,
     'switching': switching.name,
     'notify': notify,
@@ -507,6 +532,10 @@ class const AppSettings({
     alertStyle: AlertStyle.values.asNameMap()[json['alertStyle']] ?? .both,
     inAppNotices: json['inAppNotices'] as bool? ?? true,
     quitTwice: json['quitTwice'] as bool? ?? true,
+    settleDays: (json['settleDays'] as num?)?.toInt() ?? 3,
+    keepWithPr: json['keepWithPr'] as bool? ?? true,
+    namingNote: json['namingNote'] as String? ?? '',
+    steerByDefault: json['steerByDefault'] as bool? ?? false,
     clock: ClockFormat.values.asNameMap()[json['clock']] ?? .system,
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
@@ -580,7 +609,10 @@ const restorableSettings = <String, List<String>>{
   'Send error reports': ['sendErrors'],
   'Show steps open': ['stepsOpen'],
   'Ask before deleting a chat': ['confirmDelete'],
-  'Mark chats done on their own': ['settleOnItsOwn'],
+  'Mark chats done on their own': ['settleOnItsOwn', 'settleDays'],
+  'Keep chats with an open pull request': ['keepWithPr'],
+  'How chats are named': ['namingNote'],
+  'A message sent while a chat works': ['steerByDefault'],
   'Reach Helmy from your phone': ['remoteOn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],

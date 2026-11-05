@@ -23,6 +23,7 @@ class _Writer extends LocalWriter {
   _Writer(this.answers) : super(model: () => null);
   final List<String>? answers;
   var asked = 0;
+  final prompts = <String>[];
 
   @override
   Future<String?> model() async => answers == null ? null : 'qwen3:0.6b';
@@ -33,6 +34,7 @@ class _Writer extends LocalWriter {
     int maxTokens = 400,
     Duration timeout = const Duration(seconds: 90),
   }) async {
+    prompts.add(prompt);
     final a = answers;
     if (a == null || asked >= a.length) return null;
     return (text: a[asked++], model: 'qwen3:0.6b', promptTokens: 300, outputTokens: 40);
@@ -120,18 +122,26 @@ void main() {
 
   test('a quiet thread gets its summary, and its chat its brief, on the model here', () async {
     final s = await talk('Plan the November budget', 'Set at 2,000; the car loan is still open.');
+    final writer = _Writer([
+      'November budget, set at 2,000',
+      'Decided: budget is 2,000\nOpen: the car loan',
+    ]);
     final keeper = ChatKeeper(
       sessions: sessions,
       conversations: repo,
       chats: chats,
-      writer: _Writer([
-        'November budget, set at 2,000',
-        'Decided: budget is 2,000\nOpen: the car loan',
-      ]),
+      writer: writer,
       log: log,
+      naming: () => 'In Spanish',
     );
     addTearDown(keeper.dispose);
     await keeper.keep(s.id);
+    // What the person asked of names goes with the naming, and only there.
+    final naming = writer.prompts.where((p) => p.startsWith('Name this conversation'));
+    expect(
+      naming.single,
+      contains('The person asks this of the title and the thread name: In Spanish'),
+    );
     final now = sessions.byId(s.id)!;
     expect(now.summary, 'November budget, set at 2,000');
     expect(chats.byId(now.chatId!)!.brief, 'Decided: budget is 2,000\nOpen: the car loan');
