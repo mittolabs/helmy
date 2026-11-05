@@ -94,6 +94,10 @@ class const ScheduledTask({
   required final DateTime createdAt,
   final bool enabled = true,
   final DateTime? lastRunAt,
+
+  /// Each run works in a copy of its project of its own, on a branch of its
+  /// own, so runs never disturb the folder or each other.
+  final bool ownCopy = false,
 }) {
   /// When it runs next; null when it will not (a one-off already run, or off).
   DateTime? get next => enabled ? schedule.nextAfter(lastRunAt ?? createdAt) : null;
@@ -113,6 +117,7 @@ class const ScheduledTask({
     Schedule? schedule,
     bool? enabled,
     DateTime? lastRunAt,
+    bool? ownCopy,
   }) => ScheduledTask(
     id: id,
     name: name ?? this.name,
@@ -123,6 +128,7 @@ class const ScheduledTask({
     createdAt: createdAt,
     enabled: enabled ?? this.enabled,
     lastRunAt: lastRunAt ?? this.lastRunAt,
+    ownCopy: ownCopy ?? this.ownCopy,
   );
 
   Map<String, Object?> toJson() => {
@@ -135,6 +141,7 @@ class const ScheduledTask({
     'createdAt': createdAt.toIso8601String(),
     'enabled': enabled,
     'lastRunAt': lastRunAt?.toIso8601String(),
+    if (ownCopy) 'ownCopy': true,
   };
 
   static ScheduledTask fromJson(Map<String, Object?> json) => ScheduledTask(
@@ -147,5 +154,6 @@ class const ScheduledTask({
     createdAt: DateTime.parse(json['createdAt']! as String),
     enabled: json['enabled'] != false,
     lastRunAt: DateTime.tryParse('${json['lastRunAt']}'),
+    ownCopy: json['ownCopy'] == true,
   );
 }

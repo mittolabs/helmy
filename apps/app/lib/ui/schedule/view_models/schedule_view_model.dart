@@ -30,7 +30,17 @@ class ScheduleViewModel extends ChangeNotifier {
     required String cwd,
     required PermissionLevel level,
     required Schedule schedule,
-  }) => _schedules.add(name: name, prompt: prompt, cwd: cwd, level: level, schedule: schedule);
+    bool ownCopy = false,
+  }) async {
+    final task = await _schedules.add(
+      name: name,
+      prompt: prompt,
+      cwd: cwd,
+      level: level,
+      schedule: schedule,
+    );
+    if (ownCopy) await _schedules.update(task.copyWith(ownCopy: true));
+  }
 
   Future<void> save(ScheduledTask task) => _schedules.update(task);
 

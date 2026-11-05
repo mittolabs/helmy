@@ -251,6 +251,8 @@ class _TaskEditorState extends State<_TaskEditor> {
       : widget.task!.schedule.at.hour * 60 + widget.task!.schedule.at.minute;
   late int _weekday = widget.task?.schedule.at.weekday ?? DateTime.monday;
 
+  late bool _ownCopy = widget.task?.ownCopy ?? false;
+
   /// For chosen days: which, Monday 1 to Sunday 7.
   late Set<int> _days = {...?widget.task?.schedule.days};
 
@@ -301,10 +303,18 @@ class _TaskEditorState extends State<_TaskEditor> {
         cwd: _cwd,
         level: _level,
         schedule: _schedule,
+        ownCopy: _ownCopy,
       );
     } else {
       await widget.vm.save(
-        task.copyWith(name: name, prompt: prompt, cwd: _cwd, level: _level, schedule: _schedule),
+        task.copyWith(
+          name: name,
+          prompt: prompt,
+          cwd: _cwd,
+          level: _level,
+          schedule: _schedule,
+          ownCopy: _ownCopy,
+        ),
       );
     }
     if (mounted) Navigator.pop(context);
@@ -506,6 +516,23 @@ class _TaskEditorState extends State<_TaskEditor> {
                     onChanged: (l) => setState(() => _level = l),
                   ),
                 ),
+              ),
+            ],
+          ),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: Text(
+                  'Each run in a copy of its own, on its own branch, when the folder is a git '
+                  'repository: runs never disturb the folder or each other.',
+                  style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+                ),
+              ),
+              Switch(
+                value: _ownCopy,
+                semanticLabel: 'Each run in a copy of its own',
+                onChanged: (v) => setState(() => _ownCopy = v),
               ),
             ],
           ),

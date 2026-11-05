@@ -295,6 +295,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       storage: context.read(),
       sessions: context.read(),
       conversations: context.read(),
+      worktrees: context.read<Worktrees>(),
     )..start(),
   ),
   // Not lazy: it has to be listening before anything finishes.

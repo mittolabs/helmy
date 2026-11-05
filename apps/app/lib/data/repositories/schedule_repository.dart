@@ -9,6 +9,7 @@ import '../../utils/format.dart';
 import '../../domain/models/session.dart';
 import '../../utils/result.dart';
 import '../services/storage_service.dart';
+import '../services/worktrees.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
 
@@ -38,7 +39,11 @@ class ScheduleRepositoryLocal extends ScheduleRepository {
     required this._sessions,
     required this._conversations,
     DateTime Function()? now,
+    this._worktrees,
   }) : _now = now ?? DateTime.now;
+
+  /// Makes a run's own copy, for a task that asks for one.
+  final Worktrees? _worktrees;
 
   final StorageService _storage;
   final SessionRepository _sessions;
@@ -137,7 +142,18 @@ class ScheduleRepositoryLocal extends ScheduleRepository {
       taskId: task.id,
     );
     if (created case Ok(:final value)) {
-      unawaited(_conversations.send(value, task.prompt));
+      var session = value;
+      // Its own copy, where the task asks and the folder is a repository.
+      final repo = task.ownCopy ? await _worktrees?.repoOf(task.cwd) : null;
+      if (repo != null) {
+        final made = await _worktrees!.create(repo, task.name);
+        if (made.path != null) {
+          session = session.copyWith(cwd: made.path, repo: repo, branch: made.branch);
+          await _sessions.save(session);
+        }
+      }
+      unawaited(_conversations.send(session, task.prompt));
+      return Ok(session);
     }
     return created;
   }

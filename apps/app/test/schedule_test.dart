@@ -12,6 +12,12 @@ import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/scheduled_task.dart';
 
+import 'support/storage.dart';
+
+import 'package:helmy/utils/result.dart';
+import 'package:helmy/domain/models/session.dart';
+import 'package:helmy/data/services/worktrees.dart';
+
 void main() {
   // Tuesday, Nov 3 2026, 10:15.
   final tue = DateTime(2026, 11, 3, 10, 15);
@@ -132,5 +138,58 @@ void main() {
     conversations.dispose();
     await storage.flush();
     await root.delete(recursive: true);
+  });
+
+  test('a task set to its own copy runs each time on a branch of its own', () async {
+    final root = await Directory.systemTemp.createTemp('schedule-copy');
+    final project = await Directory('${root.path}/site').create();
+    Future<void> git(List<String> args) async =>
+        expect((await Process.run('git', args, workingDirectory: project.path)).exitCode, 0);
+    await git(['init', '-q', '-b', 'main']);
+    await File('${project.path}/README.md').writeAsString('hi\n');
+    await git(['add', '.']);
+    await git([
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@helmy.test',
+      'commit',
+      '-qm',
+      'first',
+    ]);
+    final storage = StorageService(root: () async => root);
+    final sessions = SessionRepositoryLocal(storage);
+    final meter = UsageMeter();
+    final repo = ScheduleRepositoryLocal(
+      storage: storage,
+      sessions: sessions,
+      conversations: ConversationRepositoryEngines(
+        engines: EngineRegistry([]),
+        router: HeadroomRouter(meter),
+        meter: meter,
+        storage: storage,
+        sessions: sessions,
+      ),
+      worktrees: Worktrees(
+        root: '${root.path}/copies',
+        rules: () => const CopyRules(semantic: true),
+      ),
+    );
+    await repo.start();
+    final task = await repo.add(
+      name: 'Check the links',
+      prompt: 'Check every link',
+      cwd: project.resolveSymbolicLinksSync(),
+      level: .readOnly,
+      schedule: Schedule(.daily, DateTime(2026, 1, 1, 9)),
+    );
+    await repo.update(task.copyWith(ownCopy: true));
+    final ran = await repo.run(task.id);
+    final s = (ran as Ok).value as Session;
+    expect(s.cwd, startsWith('${root.path}/copies/site/'));
+    expect(s.branch, startsWith('feat/check-the-links-'));
+    expect(ScheduledTask.fromJson(repo.tasks.single.toJson()).ownCopy, isTrue);
+    await storage.flush();
+    await deleteFolder(root);
   });
 }
