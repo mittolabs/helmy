@@ -265,11 +265,18 @@ class RemoteServer {
       'type': 'conversation',
       'id': id,
       'from': from,
-      'items': [for (final i in c.items.skip(from)) i.toJson()],
+      'items': [for (final i in c.items.skip(from)) _live(i)],
       'busy': c.busy,
       'heldUntil': c.heldUntil?.toIso8601String(),
     };
   }
+
+  /// An item as it is now. Saved, a waiting approval reads as cancelled (a
+  /// restart ends what asked); sent live, it still waits, so the phone can answer it.
+  static Map<String, Object?> _live(ChatItem i) => switch (i) {
+    PermissionPrompt(decision: .pending) => {...i.toJson(), 'decision': 'pending'},
+    _ => i.toJson(),
+  };
 
   /// A file a conversation shows (a picture made, one in an answer), for
   /// the phone to show too. Only a file that conversation names is given:

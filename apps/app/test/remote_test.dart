@@ -101,6 +101,33 @@ void main() {
     expect(link.of(s.id).items.whereType<UserMessage>().last.text, 'And next month?');
   });
 
+  test('an approval waiting on the Mac waits on the phone too, to be answered there', () async {
+    final s = (await sessions.create(cwd: root.path, title: 'Pictures') as Ok).value as Session;
+    repo.of(s.id)
+      ..loaded = true
+      ..items.addAll([
+        UserMessage('List them'),
+        PermissionPrompt(
+          requestId: '0',
+          toolName: 'Shell',
+          input: {'command': 'ls'},
+          suggestions: [],
+        ),
+      ]);
+    final link = RemoteLink(
+      Pairing(hosts: const ['127.0.0.1'], port: port, key: key, name: 'Studio'),
+    );
+    addTearDown(link.dispose);
+    await link.connect();
+    await until(() => link.chats.isNotEmpty);
+    await link.open(s.id);
+    await until(() => link.of(s.id).items.length >= 2);
+    expect(
+      link.of(s.id).items.whereType<PermissionPrompt>().single.decision,
+      PermissionDecision.pending,
+    );
+  });
+
   test('a phone without the key is closed on, and told nothing', () async {
     final ws = await WebSocket.connect('ws://127.0.0.1:$port/ws');
     final got = <Object?>[];
