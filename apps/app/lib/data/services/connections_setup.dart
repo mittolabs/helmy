@@ -37,6 +37,9 @@ class ConnectionsSetup {
     'ollama': ('Ollama', 'A model on this computer: answers when nothing online can'),
   };
 
+  /// Where [name]'s program is, as found now; null when it is not.
+  Future<String?> programOf(String name) => _find(name);
+
   Future<String?> _find(String name) async {
     _locator.forget(name);
     return _locator.find(name);

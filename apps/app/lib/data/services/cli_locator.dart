@@ -6,6 +6,12 @@ import 'dart:io';
 /// neither the CLI nor the tools it calls would be found. Ask a login shell
 /// once and reuse the answer.
 class CliLocator {
+  CliLocator({Map<String, String> Function()? chosen}) : _chosen = chosen ?? (() => const {});
+
+  /// Programs the user pointed at in Settings, by name, for where finding
+  /// them fails: used first, while the file is there.
+  final Map<String, String> Function() _chosen;
+
   Future<Map<String, String>>? _environment;
   final Map<String, String?> _binaries = {};
 
@@ -34,6 +40,7 @@ class CliLocator {
 
   /// The absolute path of [name], or null if it is not installed.
   Future<String?> find(String name) async {
+    if (_chosen()[name] case final path? when File(path).existsSync()) return path;
     if (_binaries.containsKey(name)) return _binaries[name];
     final env = await environment();
     final windows = Platform.isWindows;

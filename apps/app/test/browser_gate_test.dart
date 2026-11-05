@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/services/browser/browser_host.dart';
 import 'package:helmy/data/services/browser/browser_tools.dart';
@@ -25,5 +27,16 @@ void main() {
     final result = r['result'] as Map;
     expect(result['isError'], isTrue);
     expect('${result['content']}', contains('Settings > Projects'));
+  });
+
+  test('a program chosen by hand is used while it is there', () async {
+    final dir = await Directory.systemTemp.createTemp('programs');
+    addTearDown(() => dir.delete(recursive: true));
+    final mine = File('${dir.path}/claude')..writeAsStringSync('#!/bin/sh\n');
+    var chosen = <String, String>{'claude': mine.path};
+    final locator = CliLocator(chosen: () => chosen);
+    expect(await locator.find('claude'), mine.path);
+    chosen = {'claude': '${dir.path}/gone'};
+    expect(await locator.find('claude'), isNot('${dir.path}/gone'));
   });
 }

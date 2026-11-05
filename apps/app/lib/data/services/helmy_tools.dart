@@ -27,6 +27,9 @@ class HelmyTools {
   /// says so in Settings. Set once settings and sessions are ready.
   bool Function(String? session) browserAllowed = (_) => true;
 
+  /// Whether agents may use the Device panel's devices, as Settings says.
+  bool Function() devicesAllowed = () => true;
+
   /// Shows a session's Device panel; true when it could.
   final bool Function(String? session)? _showDevice;
 
@@ -145,7 +148,7 @@ class HelmyTools {
                 },
                 'annotations': {'readOnlyHint': true, 'title': 'Watch a video'},
               },
-              if (_devices != null) ..._deviceToolList,
+              if (_devices != null && devicesAllowed()) ..._deviceToolList,
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
             ],
@@ -179,6 +182,13 @@ class HelmyTools {
       return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (deviceTools.contains(name) && _devices != null) {
+      if (!devicesAllowed()) {
+        return says(
+          'Using devices is turned off in Settings > General. Ask the user to turn it on if '
+          'the app needs trying on a device.',
+          error: true,
+        );
+      }
       return _device(name, (params['arguments'] as Map?) ?? const {}, says, session);
     }
     if (name != 'watch_video') return says('No such tool.', error: true);

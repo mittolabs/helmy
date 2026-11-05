@@ -306,6 +306,14 @@ class const AppSettings({
   /// A VS Code theme brought in, as `importedThemeToJson` writes it.
   final Map<String, Object?>? themeImport,
 
+  /// Programs pointed at by hand, by name ('claude', 'codex'), for when
+  /// Helmy cannot find them.
+  final Map<String, String> programs = const {},
+
+  /// Whether the assistant may use the simulators, emulators and phones in
+  /// the Device panel.
+  final bool agentDevices = true,
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -453,6 +461,8 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    Map<String, String>? programs,
+    bool? agentDevices,
     Map<String, Object?>? themeImport,
     bool? carryOnAfterRestart,
     String? snapshotSound,
@@ -525,6 +535,8 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    programs: programs ?? this.programs,
+    agentDevices: agentDevices ?? this.agentDevices,
     themeImport: themeImport ?? this.themeImport,
     carryOnAfterRestart: carryOnAfterRestart ?? this.carryOnAfterRestart,
     snapshotSound: snapshotSound ?? this.snapshotSound,
@@ -600,6 +612,8 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'programs': programs,
+    'agentDevices': agentDevices,
     'themeImport': themeImport,
     'carryOnAfterRestart': carryOnAfterRestart,
     'snapshotSound': snapshotSound,
@@ -672,6 +686,10 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    programs: {
+      for (final e in ((json['programs'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
+    },
+    agentDevices: json['agentDevices'] as bool? ?? true,
     themeImport: (json['themeImport'] as Map?)?.cast<String, Object?>(),
     carryOnAfterRestart: json['carryOnAfterRestart'] as bool? ?? true,
     snapshotSound: json['snapshotSound'] as String? ?? 'Pop',
@@ -769,6 +787,7 @@ const restorableSettings = <String, List<String>>{
   'Commits and pull requests': ['commitStyle', 'commitNote'],
   'Branch names': ['copySemantic', 'copyPrefix'],
   'Zoom': ['previewZoom'],
+  'The assistant uses devices': ['agentDevices'],
   'Carry on after a restart': ['carryOnAfterRestart'],
   'When a snapshot is taken': ['snapshotSound', 'snapshotFlash'],
   'Pages appear': ['previewAppearance'],

@@ -94,7 +94,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.chats),
   // Drafts put aside with ⌘S, to go on with in any chat.
   ChangeNotifierProvider(create: (context) => StashRepository(loaded.storage)..load()),
-  Provider(create: (_) => CliLocator()),
+  Provider(create: (_) => CliLocator(chosen: () => loaded.settings.settings.programs)),
   Provider(create: (context) => WatchService(context.read())),
   // Taps on iOS simulators through Helmy's resident helper: milliseconds.
   Provider(
@@ -217,6 +217,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     create: (context) {
       final tools = context.read<HelmyTools>();
       final sessions = context.read<SessionRepository>();
+      tools.devicesAllowed = () => loaded.settings.settings.agentDevices;
       tools.browserAllowed = (id) {
         final s = id == null ? null : sessions.byId(id);
         return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);

@@ -361,7 +361,10 @@ class _AgentCard extends StatelessWidget {
                 ),
             ],
           ),
-          if (ConnectionsSetup.kindOf(row.info.id) case final kind?) _Version(vm: vm, kind: kind),
+          if (ConnectionsSetup.kindOf(row.info.id) case final kind?) ...[
+            _Version(vm: vm, kind: kind),
+            _Program(vm: vm, kind: kind),
+          ],
           if (row.info.localOnly)
             Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
           else if (row.info.assignedOnly)
@@ -644,4 +647,60 @@ List<Widget> _bestAt(SettingsViewModel vm) {
           ),
         ),
   ];
+}
+
+/// Where a connection's program is, as found; and, for when it is not
+/// found or the wrong one is, a program chosen by hand.
+class _Program extends StatelessWidget {
+  const _Program({required this.vm, required this.kind});
+  final SettingsViewModel vm;
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
+    final chosen = vm.settings.programs[kind];
+    return FutureBuilder(
+      future: vm.setup?.programOf(kind),
+      builder: (context, snap) => Row(
+        spacing: 8,
+        children: [
+          Expanded(
+            child: Text(
+              snap.connectionState != .done
+                  ? 'Finding its program...'
+                  : snap.data == null
+                  ? 'Its program was not found.'
+                  : '${chosen != null ? 'Chosen' : 'Found'}: ${tildePath(snap.data!)}',
+              style: muted,
+              maxLines: 2,
+              overflow: .ellipsis,
+            ),
+          ),
+          if (chosen != null)
+            Button(
+              variant: .ghost,
+              size: .xs,
+              onPressed: () => vm.update(
+                vm.settings.copyWith(programs: {...vm.settings.programs}..remove(kind)),
+              ),
+              child: const Text('Find it again'),
+            ),
+          Button(
+            variant: .outline,
+            size: .xs,
+            onPressed: () async {
+              final file = await openFile(confirmButtonText: 'Use this program');
+              if (file == null) return;
+              await vm.update(
+                vm.settings.copyWith(programs: {...vm.settings.programs, kind: file.path}),
+              );
+            },
+            child: const Text('Choose...'),
+          ),
+        ],
+      ),
+    );
+  }
 }

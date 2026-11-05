@@ -74,6 +74,17 @@ class _General extends StatelessWidget {
             ),
           ),
         _Row(
+          title: 'The assistant uses devices',
+          description:
+              'Simulators, emulators and phones in the Device panel: it opens apps there, taps '
+              'through them and reads the screen. Off, it asks you to.',
+          control: Switch(
+            value: s.agentDevices,
+            semanticLabel: 'The assistant uses devices',
+            onChanged: (v) => vm.update(s.copyWith(agentDevices: v)),
+          ),
+        ),
+        _Row(
           title: 'Carry on after a restart',
           description:
               'Chats at work when Helmy closed (quit, an update, a crash) pick up where they '
