@@ -14,7 +14,7 @@ class _Memory extends StatelessWidget {
         child: Padding(
           padding: const .symmetric(horizontal: 32),
           child: Text(
-            'No memory yet. What the agents keep between sessions, their instructions '
+            'No memory yet. What the agents keep between conversations, their instructions '
             'and notes, shows here once there is some.',
             textAlign: .center,
             style: t.text.sm.copyWith(color: t.colors.mutedForeground),

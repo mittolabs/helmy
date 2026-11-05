@@ -270,7 +270,7 @@ class _ActionDialogState extends State<_ActionDialog> {
         title: editing ? 'Change the action' : 'Add an action',
         body:
             'A command this project is worked with. It runs in a terminal beside the '
-            'conversation, in the session\'s folder.',
+            'conversation, in the thread\'s folder.',
         icon: AshlarIconsRoundedStroke.play,
         content: ListenableBuilder(
           listenable: Listenable.merge([_name, _command]),
@@ -303,7 +303,7 @@ class _ActionDialogState extends State<_ActionDialog> {
                           Text('Run in each new copy', style: label),
                           const SizedBox(height: 2),
                           Text(
-                            'When a session gets its own copy of the project, this runs '
+                            'When a thread gets its own copy of the project, this runs '
                             'there first: to install what it needs, say.',
                             style: muted,
                           ),

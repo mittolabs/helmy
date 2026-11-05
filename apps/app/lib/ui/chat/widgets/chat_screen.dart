@@ -445,7 +445,7 @@ class _ChatScreenState extends State<ChatScreen> {
           builder: (context, _) {
             final session = vm.session;
             if (session == null) {
-              return const Center(child: Text('This session no longer exists.'));
+              return const Center(child: Text('This chat no longer exists.'));
             }
             // The chat's earlier threads above, folded; then this one.
             final rows = [...threadRows(vm), ...buildRows(vm)];

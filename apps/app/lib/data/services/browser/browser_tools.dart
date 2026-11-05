@@ -218,9 +218,9 @@ class BrowserTools {
         final page = await _host.open(session, url);
         if (page == null) {
           return _says(
-            "The page couldn't be opened: this session's conversation is not on screen, and "
+            "The page couldn't be opened: this chat's conversation is not on screen, and "
             'no Chromium-based browser is installed to open it in the background. Ask the '
-            'user to open this session in Helmy.',
+            'user to open this chat in Helmy.',
             error: true,
           );
         }

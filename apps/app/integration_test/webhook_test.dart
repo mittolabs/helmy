@@ -82,7 +82,7 @@ void main() {
       await tester.pump();
     }
 
-    await tester.tap(find.bySemanticsLabel('Session actions'));
+    await tester.tap(find.bySemanticsLabel('Chat actions'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Webhook...'));
     await tester.pumpAndSettle();

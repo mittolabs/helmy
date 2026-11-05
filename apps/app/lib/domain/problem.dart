@@ -108,7 +108,7 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
   if (RegExp(r'context|too long|too large|max(imum)? tokens|prompt is too').hasMatch(e)) {
     return p(
       'This conversation has grown too long for me to take in at once. '
-      'Compact it from the menu, or start a new session.',
+      'Compact it from the menu, or start a new thread (⇧⌘N).',
       .retry,
     );
   }

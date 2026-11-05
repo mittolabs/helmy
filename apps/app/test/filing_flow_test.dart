@@ -52,7 +52,7 @@ void main() {
   });
 
   Future<ChatViewModel> fresh() async {
-    final t = await thread('New session in w');
+    final t = await thread('New chat');
     repo.of(t.id).loaded = true;
     return ChatViewModel(
       sessionId: t.id,
@@ -105,7 +105,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect((vm.session!.chatId, vm.filing), (own, null));
 
-    final inChat = await thread('New session in w', chatId: finances());
+    final inChat = await thread('New chat', chatId: finances());
     repo.of(inChat.id).loaded = true;
     final vm2 = ChatViewModel(
       sessionId: inChat.id,

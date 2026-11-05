@@ -36,7 +36,7 @@ class _ImportListState extends State<ImportList> {
       title: n == 0 ? 'Nothing was brought in' : '$n conversation${n == 1 ? '' : 's'} brought in',
       description: n == 0
           ? "Those conversations couldn't be read."
-          : 'Each is a session in the sidebar, and goes on where it left off.',
+          : 'Each is a chat in the sidebar, and goes on where it left off.',
       type: n == 0 ? .error : .success,
     );
   }
@@ -152,7 +152,7 @@ class _ImportListState extends State<ImportList> {
                 Expanded(
                   child: Text(
                     progress == null
-                        ? 'Each comes in as a session, and goes on where it left off.'
+                        ? 'Each comes in as a chat, and goes on where it left off.'
                         : 'Bringing in ${progress.$1} of ${progress.$2}...',
                     style: muted,
                   ),

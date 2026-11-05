@@ -47,7 +47,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Show, group and sort sessions'));
+    await tester.tap(find.bySemanticsLabel('Show, group and sort chats'));
     await tester.pumpAndSettle();
     for (final name in ['Show', 'Group by', 'Sort by']) {
       expect(find.text(name), findsOneWidget);

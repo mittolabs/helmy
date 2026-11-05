@@ -57,7 +57,7 @@ class _Appearance extends StatelessWidget {
         _Row(
           title: 'Colors for changes',
           description:
-              'What a session added and removed in files. Blue and orange read apart for the '
+              'What a thread added and removed in files. Blue and orange read apart for the '
               'commonest kinds of color blindness.',
           control: SizedBox(
             width: 230,

@@ -57,7 +57,14 @@ enum SnapResult {
 }
 
 /// The note a side chat begins with, after what it was copied from.
-const sideChatNote = 'A side chat: it knows what was said in the session, which goes on as it is.';
+const sideChatNote = 'A side chat: it knows what was said in the thread, which goes on as it is.';
+
+/// Where a side chat's own part begins: its note, as it reads now or read
+/// before chats.
+bool isSideChatNote(ChatItem i) =>
+    i is Notice &&
+    (i.text == sideChatNote ||
+        i.text == 'A side chat: it knows what was said in the session, which goes on as it is.');
 
 /// One tab in the panel beside the conversation: what it shows, and for a
 /// browser tab, where it is.
@@ -420,7 +427,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Where a side chat's own part begins (its first note); 0 for a session.
   int get firstShown {
     if (session?.sideOf == null) return 0;
-    final at = items.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    final at = items.lastIndexWhere(isSideChatNote);
     return at < 0 ? 0 : at;
   }
 
@@ -480,7 +487,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Whether side chat [id] has nothing asked in it yet.
   bool sideUnused(String id) {
     final c = _conversations.of(id);
-    final start = c.items.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    final start = c.items.lastIndexWhere(isSideChatNote);
     return !c.busy && !c.items.skip(start + 1).any((i) => i is UserMessage);
   }
 
@@ -490,7 +497,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<bool> bringBack(String id) async {
     if (busy) return false;
     final side = _conversations.of(id).items;
-    final start = side.lastIndexWhere((i) => i is Notice && i.text == sideChatNote);
+    final start = side.lastIndexWhere(isSideChatNote);
     final title = sideTitle(id);
     final text = transcriptMarkdown('Side chat: $title', side.skip(start + 1).toList());
     final dir = await Directory.systemTemp.createTemp('helmy-side');
@@ -562,7 +569,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   Future<Result<void>> compact() async {
     final s = session;
-    if (s == null) return .error(Exception('No session'));
+    if (s == null) return .error(Exception('No thread'));
     return _conversations.compact(s);
   }
 
@@ -1041,7 +1048,13 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<String?> fork(int upTo) async {
     final s = session;
     if (s == null) return null;
-    final made = await _sessions.create(cwd: s.cwd, level: s.level, title: '${s.title} fork');
+    // A thread of the same chat.
+    final made = await _sessions.create(
+      cwd: s.cwd,
+      level: s.level,
+      title: '${s.title} fork',
+      chatId: s.chatId,
+    );
     if (made case Ok(:final value)) {
       await _conversations.copy(s.id, value.id, upTo: upTo, note: 'Forked from "${s.title}"');
       return value.id;
@@ -1508,7 +1521,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Shows version [to] of the conversation from [index] on.
   Future<Result<void>> showBranch(int index, int to) async {
     final s = session;
-    if (s == null) return .error(Exception('No session'));
+    if (s == null) return .error(Exception('No thread'));
     editing = null;
     return _conversations.showBranch(s, index, to);
   }

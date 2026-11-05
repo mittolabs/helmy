@@ -79,7 +79,7 @@ class ProjectRepositoryGit implements ProjectRepository {
     for (final repo in repos) {
       for (final path in await _git.copiesOf(repo)) {
         if (!owned.contains(path) && await _git.remove(repo, path)) {
-          done.add('Removed $path (no session)');
+          done.add('Removed $path (no thread)');
         }
       }
     }

@@ -37,7 +37,7 @@ class _FindBar extends StatelessWidget {
                 controller: controller,
                 focusNode: focus,
                 autofocus: true,
-                placeholder: 'Find in this session',
+                placeholder: 'Find in this thread',
                 leading: const AshlarIcon(AshlarIconsRoundedStroke.search, size: 14),
                 onChanged: (_) => onChanged(),
               ),

@@ -9,7 +9,7 @@ class DeleteDialogShot extends StatelessWidget {
   @override
   Widget build(BuildContext context) => HelmyDialog(
     title: 'Delete this session?',
-    body: '"New session in mitto" and its conversation leave Helmy. Files in the folder stay as they are.',
+    body: '"New chat" and its conversation leave Helmy. Files in the folder stay as they are.',
     destructive: true,
     icon: AshlarIconsRoundedStroke.trash,
     actions: [

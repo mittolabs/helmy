@@ -203,7 +203,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
           await _sessions.save(session);
           copied =
               'Working on my own branch, ${made.branch}, in a copy of ${folderName(repo)}: '
-              'other sessions here are not disturbed.';
+              'other threads here are not disturbed.';
         } else {
           copied = "I couldn't make a separate copy, so I'm working in the folder itself.";
         }

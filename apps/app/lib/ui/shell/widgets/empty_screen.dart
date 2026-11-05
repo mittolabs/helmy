@@ -23,7 +23,7 @@ class EmptyScreen extends StatelessWidget {
             mainAxisSize: .min,
             spacing: 8,
             children: [
-              Text('Start a session', style: t.text.xl.copyWith(fontWeight: .w600)),
+              Text('Start a chat', style: t.text.xl.copyWith(fontWeight: .w600)),
               Text(
                 'It keeps going in the background while you look at others.',
                 textAlign: .center,

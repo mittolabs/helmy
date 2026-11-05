@@ -366,7 +366,7 @@ class SettingsViewModel extends ChangeNotifier {
     final d = _desktop;
     if (d == null) return;
     final list = [
-      (label: 'Helmy', path: supportDir, note: 'Sessions, conversations, settings'),
+      (label: 'Helmy', path: supportDir, note: 'Chats, conversations, settings'),
       (
         label: 'Pasted pictures',
         path: '${Directory.systemTemp.path}/helmy-pasted',

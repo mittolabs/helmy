@@ -299,7 +299,7 @@ class _Step extends StatelessWidget {
                   size: .sm,
                   variant: .outline,
                   onPressed: () => vm.allow(p, forSession: true),
-                  child: const Text('Allow for this session'),
+                  child: const Text('Allow in this thread'),
                 ),
               if (vm.ruleFor(p) case final rule?)
                 Button(

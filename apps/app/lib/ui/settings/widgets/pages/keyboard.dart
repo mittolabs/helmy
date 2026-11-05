@@ -4,25 +4,26 @@ class _Keyboard extends StatelessWidget {
   const new();
 
   static const _keys = [
-    ('⌘N', 'New session'),
-    ('⌘K', 'Search sessions and run actions'),
+    ('⌘N', 'New chat'),
+    ('⇧⌘N', 'New thread in this chat'),
+    ('⌘K', 'Search chats and run actions'),
     ('⌘B', 'Show or hide the sidebar'),
     ('⌘,', 'Settings'),
-    ('⌘1 to ⌘9', 'Open the sessions in the order the list shows them'),
+    ('⌘1 to ⌘9', 'Open the chats in the order the list shows them'),
     ('⌘[ / ⌘]', 'Back and forward through where you have been'),
-    ('⌘F', 'Find in this session; Enter for the next, Shift+Enter the one before'),
-    ('⌘Z', 'Undo archiving a session (outside a text box)'),
+    ('⌘F', 'Find in this thread; Enter for the next, Shift+Enter the one before'),
+    ('⌘Z', 'Undo archiving or snoozing a chat (outside a text box)'),
     ('Enter', 'Send (or ⌘Enter, as set in General)'),
     ('Shift+Enter', 'New line in a message'),
     ('⇧⌘Enter', 'While the agent works: send now, redirecting it'),
     ('/', 'Commands and skills, at the start of a message'),
-    ('@', 'Pick a file from the session folder'),
+    ('@', "Pick a file from the thread's folder"),
     ('Tab', 'Take the first suggestion'),
     ('↑ / ↓', 'Your earlier messages, from an empty box'),
     ('⌘V', 'Paste a picture as an attachment, or text'),
     ('!', 'Run a command in the folder yourself, at the start of a message'),
     ('Esc', 'Close a dialog or the suggestions'),
-    ('⌘Q', 'Quit, ending every session'),
+    ('⌘Q', 'Quit, stopping every chat at work'),
   ];
 
   @override

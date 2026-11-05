@@ -468,11 +468,11 @@ class _Row extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final (letter, color, what) = switch (change) {
-      'added' || 'new' || 'untracked' => ('A', const Color(0xFF57AB5A), 'Added this session'),
-      'deleted' || 'removed' => ('D', c.destructive, 'Deleted this session'),
-      'inside' => ('•', const Color(0xFFC69026), 'Something in it changed this session'),
+      'added' || 'new' || 'untracked' => ('A', const Color(0xFF57AB5A), 'Added in this thread'),
+      'deleted' || 'removed' => ('D', c.destructive, 'Deleted in this thread'),
+      'inside' => ('•', const Color(0xFFC69026), 'Something in it changed in this thread'),
       null => ('', c.mutedForeground, ''),
-      _ => ('M', const Color(0xFFC69026), 'Changed this session'),
+      _ => ('M', const Color(0xFFC69026), 'Changed in this thread'),
     };
     return Pressable(
       onPressed: onPressed,

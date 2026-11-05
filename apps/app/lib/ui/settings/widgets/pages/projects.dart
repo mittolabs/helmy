@@ -17,7 +17,7 @@ class _Projects extends StatelessWidget {
           children: [
             const _Heading('Projects', first: true),
             Text(
-              'Every git repository your sessions have worked in. What is set here is for '
+              'Every git repository your chats have worked in. What is set here is for '
               'that project alone; "As everywhere" follows General.',
               style: t.text.sm.copyWith(color: t.colors.mutedForeground),
             ),
@@ -30,7 +30,7 @@ class _Projects extends StatelessWidget {
               Padding(
                 padding: const .symmetric(vertical: 16),
                 child: Text(
-                  'None yet: start a session in a git repository and it shows here.',
+                  'None yet: start a chat in a git repository and it shows here.',
                   style: t.text.sm.copyWith(color: t.colors.mutedForeground),
                 ),
               ),
@@ -44,11 +44,11 @@ class _Projects extends StatelessWidget {
                 ),
               ),
               _Row(
-                title: 'Each session on its own branch',
-                description: 'Its own branch and copy, so sessions here do not collide.',
+                title: 'Each thread on its own branch',
+                description: 'Its own branch and copy, so threads here do not collide.',
                 control: _Choice<bool?>(
                   value: s.project(repo).ownCopies,
-                  label: 'Each session on its own branch in ${folderName(repo)}',
+                  label: 'Each thread on its own branch in ${folderName(repo)}',
                   options: {
                     null: 'As everywhere (${s.ownCopies ? 'on' : 'off'})',
                     true: 'On',
@@ -59,7 +59,7 @@ class _Projects extends StatelessWidget {
               ),
               _Row(
                 title: 'What Helmy may do without asking',
-                description: 'For new sessions here.',
+                description: 'For new chats here.',
                 control: _Choice<PermissionLevel?>(
                   value: s.project(repo).level,
                   label: 'Permission level in ${folderName(repo)}',

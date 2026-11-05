@@ -11,9 +11,9 @@ class _General extends StatelessWidget {
       children: [
         const _Heading('Notifications', first: true),
         _Row(
-          title: 'When a session needs you or finishes',
+          title: 'When a chat needs you or finishes',
           description:
-              'A notification when a session in the background finishes or waits for '
+              'A notification when a chat in the background finishes or waits for '
               'your approval, and a count on Helmy\'s icon.',
           control: Switch(
             value: s.notify,
@@ -23,14 +23,14 @@ class _General extends StatelessWidget {
         ),
         const _Heading('Behavior'),
         _Row(
-          title: 'Keep sessions running when the window closes',
+          title: 'Keep chats working when the window closes',
           description:
-              'Closing the window hides it and sessions keep working. Click Helmy in '
+              'Closing the window hides it and chats keep working. Click Helmy in '
               '${Desktop.current.appBar} to bring it back; Quit (${Desktop.current.keys('⌘Q')}) ends them. Off, '
               'closing the window quits.',
           control: Switch(
             value: s.keepRunning,
-            semanticLabel: 'Keep sessions running when the window closes',
+            semanticLabel: 'Keep chats working when the window closes',
             onChanged: (v) => vm.update(s.copyWith(keepRunning: v)),
           ),
         ),
@@ -47,14 +47,14 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Each session on its own branch',
+          title: 'Each thread on its own branch',
           description:
-              'In a git repository, each session works on its own branch in its own copy, '
+              'In a git repository, each thread works on its own branch in its own copy, '
               'so several can work at once without changing each other\'s files. '
               'Projects can say otherwise.',
           control: Switch(
             value: s.ownCopies,
-            semanticLabel: 'Each session on its own branch',
+            semanticLabel: 'Each thread on its own branch',
             onChanged: (v) => vm.update(s.copyWith(ownCopies: v)),
           ),
         ),
@@ -96,7 +96,7 @@ class _General extends StatelessWidget {
           title: 'Open at login',
           description: vm.openAtLogin == null
               ? 'This system cannot be asked.'
-              : 'Helmy opens when you log in, so sessions are there to pick up.',
+              : 'Helmy opens when you log in, so chats are there to pick up.',
           control: vm.openAtLogin == null
               ? const SizedBox.shrink()
               : Switch(
@@ -106,17 +106,17 @@ class _General extends StatelessWidget {
                 ),
         ),
         _Row(
-          title: 'Ask before deleting a session',
+          title: 'Ask before deleting a chat',
           control: Switch(
             value: s.confirmDelete,
-            semanticLabel: 'Ask before deleting a session',
+            semanticLabel: 'Ask before deleting a chat',
             onChanged: (v) => vm.update(s.copyWith(confirmDelete: v)),
           ),
         ),
-        const _Heading('New sessions'),
+        const _Heading('New chats'),
         _Row(
           title: 'Permissions',
-          description: 'What the agent may do without asking, until you change it in a session.',
+          description: 'What the agent may do without asking, until you change it in a chat.',
           control: SizedBox(
             width: 180,
             child: Select<PermissionLevel>(
@@ -131,7 +131,7 @@ class _General extends StatelessWidget {
           title: 'Start in',
           description: s.folderMode == .fixed
               ? (s.fixedFolder == null ? 'No folder chosen yet.' : tildePath(s.fixedFolder!))
-              : 'Each new session opens in the folder you last worked in.',
+              : 'Each new chat opens in the folder you last worked in.',
           control: Row(
             spacing: 8,
             children: [
@@ -152,7 +152,7 @@ class _General extends StatelessWidget {
                 width: 180,
                 child: Select<FolderMode>(
                   value: s.folderMode,
-                  semanticLabel: 'Where new sessions start',
+                  semanticLabel: 'Where new chats start',
                   options: const [
                     SelectOption(FolderMode.last, 'Last folder'),
                     SelectOption(FolderMode.fixed, 'The same folder'),

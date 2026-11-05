@@ -58,7 +58,7 @@ class _AnswerActionsState extends State<_AnswerActions> {
       if (widget.end case final end?)
         _IconAction(
           icon: AshlarIconsRoundedStroke.gitFork,
-          label: 'Fork: a new session from here',
+          label: 'Fork: a new thread from here',
           onPressed: () async {
             final id = await vm.fork(end);
             if (id != null && context.mounted) context.go('/s/$id');

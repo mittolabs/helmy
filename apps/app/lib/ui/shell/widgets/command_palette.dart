@@ -28,14 +28,14 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
   final open = vm.sessions.where((s) => s.id == openId).firstOrNull;
   await showCommandDialog(
     context: context,
-    placeholder: 'Search sessions and conversations, or run an action',
+    placeholder: 'Search chats and conversations, or run an action',
     groups: [
       if (open != null)
-        CommandGroup(heading: 'This session', [
+        CommandGroup(heading: 'This chat', [
           // (Not beside one without a project: its folder is its own.)
           if (!isScratch(open.cwd))
             CommandItem(
-              'New session in ${folderName(open.ownCopy ? open.repo! : open.cwd)}',
+              'New chat in ${folderName(open.ownCopy ? open.repo! : open.cwd)}',
               description: 'Starts beside this one, in the same folder',
               leading: const AshlarIcon(AshlarIconsRoundedStroke.squarePen, size: 16),
               onSelected: () async {

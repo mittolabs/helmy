@@ -28,7 +28,7 @@ Future<void> main() async {
   if (await _floatingPlayer() case (final window, final args)) {
     return runFloatingPlayer(window, args);
   }
-  await NotifyService.splash('Loading your sessions and settings…');
+  await NotifyService.splash('Loading your chats and settings…');
   final loaded = await load();
   await NotifyService.splash('Opening Helmy…');
   // Helmy's own errors, to Mittolabs, when this build names where and the

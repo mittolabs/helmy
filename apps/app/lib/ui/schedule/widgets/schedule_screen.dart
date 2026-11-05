@@ -57,7 +57,7 @@ class ScheduleScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'A message sent by itself on a schedule, each run in a session of its own. '
+                      'A message sent by itself on a schedule, each run a chat of its own. '
                       'Tasks run while Helmy is open; closing the window keeps it running. '
                       'A run missed while it was quit happens once when it opens again.',
                       style: muted,
@@ -147,7 +147,7 @@ class _TaskCard extends StatelessWidget {
                       final ok = await confirm(
                         context,
                         title: 'Delete "${task.name}"?',
-                        body: 'It stops running. Sessions from its earlier runs stay.',
+                        body: 'It stops running. Chats from its earlier runs stay.',
                         action: 'Delete',
                         destructive: true,
                       );
@@ -214,7 +214,7 @@ class _TaskCard extends StatelessWidget {
                 ),
               ),
             if (runs.length > 5)
-              Text('and ${runs.length - 5} earlier, in the session list', style: muted),
+              Text('and ${runs.length - 5} earlier, in the chat list', style: muted),
           ],
         ],
       ),

@@ -16,7 +16,7 @@ class _Agents extends StatelessWidget {
           title: 'Move to an agent with more room',
           description:
               'Each message goes to an agent that can do what it asks, then to the one with '
-              'the most of its usage limit left. A session stays with its agent unless another '
+              'the most of its usage limit left. A thread stays with its agent unless another '
               'has clearly more room, since each switch hands the conversation across.',
           control: SizedBox(
             width: 150,
@@ -33,7 +33,7 @@ class _Agents extends StatelessWidget {
           title: 'Ollama model',
           description: vm.localModels == null
               ? 'Ollama is not running on ${Desktop.current.thisComputer}. With it running and a model pulled, '
-                    'sessions keep working with no internet, on that model.'
+                    'chats keep working with no internet, on that model.'
               : vm.localModels!.isEmpty
               ? 'Ollama is running but has no model. Pull one, for example: ollama pull gpt-oss:20b'
               : 'Answers only when no online agent can: when offline, or out of room. '

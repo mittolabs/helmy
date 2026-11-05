@@ -70,7 +70,7 @@ class _SideChatPanelState extends State<SideChatPanel> {
     if (!mounted) return;
     showToast(
       context,
-      title: ok ? 'Brought back' : 'The session is working',
+      title: ok ? 'Brought back' : 'The thread is working',
       description: ok
           ? 'What was said here goes with your next message in the session.'
           : 'Bring this back when it has finished its turn.',
@@ -82,7 +82,7 @@ class _SideChatPanelState extends State<SideChatPanel> {
     final sure = await confirm(
       context,
       title: 'Delete this side chat?',
-      body: 'What was said in it goes. The session it is beside stays as it is.',
+      body: 'What was said in it goes. The thread it is beside stays as it is.',
       action: 'Delete',
       destructive: true,
     );
@@ -116,8 +116,8 @@ class _SideChatPanelState extends State<SideChatPanel> {
               ),
               Tooltip(
                 message: widget.vm.busy
-                    ? 'When the session has finished its turn'
-                    : 'Give what was said here to the session, with your next message there',
+                    ? 'When the thread has finished its turn'
+                    : 'Give what was said here to the thread, with your next message there',
                 child: Button(
                   variant: .ghost,
                   size: .xs,

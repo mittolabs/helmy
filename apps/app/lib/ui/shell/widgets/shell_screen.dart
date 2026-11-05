@@ -589,7 +589,7 @@ class _ListMenu extends StatelessWidget {
         child: Button(
           variant: .ghost,
           size: .iconSm,
-          semanticLabel: 'Show, group and sort sessions',
+          semanticLabel: 'Show, group and sort chats',
           onPressed: menu.open,
           child: const AshlarIcon(AshlarIconsRoundedStroke.listFilter, size: 16),
         ),

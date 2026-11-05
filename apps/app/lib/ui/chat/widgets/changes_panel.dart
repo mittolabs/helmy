@@ -123,7 +123,7 @@ class _ChangesPanelState extends State<ChangesPanel> {
                 value: vm.changesScope,
                 size: .sm,
                 options: [
-                  const SelectOption(null, 'Whole session'),
+                  const SelectOption(null, 'Whole thread'),
                   for (final i in vm.turnsWithChanges.reversed)
                     SelectOption(i, 'After "${_short((vm.items[i] as UserMessage).text)}"'),
                 ],
@@ -139,7 +139,7 @@ class _ChangesPanelState extends State<ChangesPanel> {
                         : "This folder is not a git repository, so these are only Helmy's own "
                               "edits in this turn."
                   : git
-                  ? 'Everything changed in this folder since the session started, by an '
+                  ? 'Everything changed in this folder since the thread started, by an '
                         "agent's edit or a command."
                   : "This folder is not a git repository, so these are only Helmy's own "
                         'edits. Changes made by commands are not shown.',

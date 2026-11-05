@@ -17,7 +17,7 @@ void main() {
       sidebarWidth: 400,
       sidebarOpen: false,
     );
-    expect(changedSettings(s), ['Theme', 'Start in', 'Editor projects open in', 'Session list']);
+    expect(changedSettings(s), ['Theme', 'Start in', 'Editor projects open in', 'Chat list']);
   });
 
   test('restoring puts back what was chosen and keeps what was set up', () {

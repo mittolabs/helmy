@@ -64,7 +64,7 @@ class _PullRequestsScreenState extends State<PullRequestsScreen> {
                     Text('Pull requests', style: t.text.xl.copyWith(fontWeight: .w600)),
                     const SizedBox(height: 8),
                     Text(
-                      'Open in every project your sessions work in. Search by words, or '
+                      'Open in every project your chats work in. Search by words, or '
                       'label:, author:, repo:, is:draft.',
                       style: muted,
                     ),
@@ -180,13 +180,13 @@ class _PullRequestsScreenState extends State<PullRequestsScreen> {
     if (vm.folders.isEmpty) {
       return empty(
         'No projects yet',
-        'Pull requests show here for the projects your sessions work in.',
+        'Pull requests show here for the projects your chats work in.',
       );
     }
     if (vm.all!.isEmpty) {
       return empty(
         'No pull requests',
-        'None open in the projects your sessions work in.',
+        'None open in the projects your chats work in.',
         action: Button(
           variant: .outline,
           size: .sm,
@@ -310,7 +310,7 @@ class _Row extends StatelessWidget {
               for (final l in pr.labels.take(2)) _Chip(l, color: c.mutedForeground),
               if (session != null)
                 Tooltip(
-                  message: 'Made in a session here: opens it',
+                  message: 'Made in a chat here: opens it',
                   child: AshlarIcon(
                     AshlarIconsRoundedStroke.messageSquareText,
                     size: 14,

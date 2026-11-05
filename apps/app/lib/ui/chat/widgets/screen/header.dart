@@ -101,7 +101,7 @@ class _Header extends StatelessWidget {
                       if (session.branch case final branch?)
                         Flexible(
                           child: Tooltip(
-                            message: 'Its own branch, in its own copy: other sessions here are not disturbed',
+                            message: 'Its own branch, in its own copy: other threads here are not disturbed',
                             child: Row(
                               mainAxisSize: .min,
                               spacing: 4,
@@ -140,7 +140,7 @@ class _Header extends StatelessWidget {
           for (final p in vm.notices)
             Tooltip(
               message: switch (p) {
-                .changes => 'What this session changed in the folder',
+                .changes => 'What this thread changed in the folder',
                 .background => 'Work running in the background',
                 _ => '',
               },
@@ -244,19 +244,25 @@ class _SessionMenu extends StatelessWidget {
     );
   }
 
+  /// Deletes this thread: the chat, when it is its only one.
   Future<void> _delete(BuildContext context) async {
+    final others = vm.earlierThreads;
     final ok =
         !context.read<SettingsRepository>().settings.confirmDelete ||
         await confirm(
           context,
-          title: 'Delete this session?',
-          body: 'The conversation leaves Helmy. Files in the folder stay as they are.',
+          title: others.isEmpty ? 'Delete this chat?' : 'Delete this thread?',
+          body: others.isEmpty
+              ? 'The conversation leaves Helmy. Files in the folder stay as they are.'
+              : 'This thread leaves "${vm.chatTitle}"; its other threads stay. Files in the folder stay as they are.',
           action: 'Delete',
           destructive: true,
         );
     if (!ok) return;
     await vm.delete();
-    if (context.mounted) context.go('/');
+    if (!context.mounted) return;
+    // The chat goes on in its latest other thread.
+    context.go(others.isEmpty ? '/' : '/s/${others.last.id}');
   }
 
   @override
@@ -322,15 +328,15 @@ class _SessionMenu extends StatelessWidget {
         destructive: true,
         leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),
         onPressed: vm.busy ? null : () => _delete(context),
-        child: const Text('Delete session'),
+        child: Text(vm.earlierThreads.isEmpty ? 'Delete chat' : 'Delete thread'),
       ),
     ],
     builder: (context, menu) => Tooltip(
-      message: 'Session',
+      message: 'More',
       child: Button(
         variant: .ghost,
         size: .icon,
-        semanticLabel: 'Session actions',
+        semanticLabel: 'Chat actions',
         onPressed: menu.open,
         child: const AshlarIcon(AshlarIconsRoundedStroke.ellipsis, size: 16),
       ),

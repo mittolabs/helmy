@@ -115,7 +115,7 @@ class _DataState extends State<_Data> {
         Padding(
           padding: const .only(top: 8),
           child: Text(
-            "Deleting a session in Helmy does not delete the agent's own copy. Those stay in the "
+            "Deleting a chat in Helmy does not delete the agent's own copy. Those stay in the "
             'folders above until you remove them there.',
             style: muted,
           ),
@@ -123,7 +123,7 @@ class _DataState extends State<_Data> {
         const _Heading('Your conversations'),
         _Row(
           title: 'Export all conversations',
-          description: 'Each session as a Markdown file, in a folder you choose.',
+          description: 'Each thread as a Markdown file, in a folder you choose.',
           control: Button(
             size: .sm,
             variant: .outline,
@@ -135,7 +135,7 @@ class _DataState extends State<_Data> {
           const _Heading('Bring in conversations'),
           Text(
             'The conversations you had in Claude Code and Codex on this Mac, by folder. Each '
-            'comes in as a session that goes on where it left off; the originals stay as they are.',
+            'comes in as a chat that goes on where it left off; the originals stay as they are.',
             style: muted,
           ),
           Container(
@@ -153,7 +153,7 @@ class _DataState extends State<_Data> {
           'Each message goes to the company behind the agent that answers it (Anthropic for '
           'Claude Code, OpenAI for Codex), with the files and command output that agent reads to '
           'answer. With a model on Ollama, nothing leaves. Helmy itself sends nothing anywhere: '
-          'its sessions, settings and logs stay in the folders above.',
+          'its chats, settings and logs stay in the folders above.',
           style: t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5),
         ),
       ],
