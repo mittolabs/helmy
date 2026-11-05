@@ -54,6 +54,7 @@ import '../data/services/storage_service.dart';
 import '../data/services/helmy_tools.dart';
 import '../data/services/watch_service.dart';
 import '../data/services/worktrees.dart';
+import '../data/repositories/restart_keeper.dart';
 import '../data/services/connections_setup.dart';
 import '../data/repositories/ship_repository.dart';
 import '../data/services/shipping.dart';
@@ -256,6 +257,21 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ),
   Provider(create: (_) => NotifyService()),
   Provider(create: (context) => ChatExport(context.read(), context.read())),
+  // Chats at work when Helmy closed, carried on now; then kept track of.
+  Provider(
+    lazy: false,
+    create: (context) {
+      final keeper = RestartKeeper(
+        context.read(),
+        context.read(),
+        context.read(),
+        enabled: () => loaded.settings.settings.carryOnAfterRestart,
+      );
+      unawaited(keeper.start());
+      return keeper;
+    },
+    dispose: (_, k) => k.dispose(),
+  ),
   Provider(create: (_) => DesktopService()),
   // A video popped out to a corner of the window: one for the app.
   ChangeNotifierProvider(create: (_) => PoppedOut()),

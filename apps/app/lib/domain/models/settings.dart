@@ -297,6 +297,9 @@ class const AppSettings({
   final String snapshotSound = 'Pop',
   final bool snapshotFlash = true,
 
+  /// Chats at work when Helmy closed carry on when it opens again.
+  final bool carryOnAfterRestart = true,
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -444,6 +447,7 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    bool? carryOnAfterRestart,
     String? snapshotSound,
     bool? snapshotFlash,
     double? previewZoom,
@@ -514,6 +518,7 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    carryOnAfterRestart: carryOnAfterRestart ?? this.carryOnAfterRestart,
     snapshotSound: snapshotSound ?? this.snapshotSound,
     snapshotFlash: snapshotFlash ?? this.snapshotFlash,
     previewZoom: previewZoom ?? this.previewZoom,
@@ -587,6 +592,7 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'carryOnAfterRestart': carryOnAfterRestart,
     'snapshotSound': snapshotSound,
     'snapshotFlash': snapshotFlash,
     'previewZoom': previewZoom,
@@ -657,6 +663,7 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    carryOnAfterRestart: json['carryOnAfterRestart'] as bool? ?? true,
     snapshotSound: json['snapshotSound'] as String? ?? 'Pop',
     snapshotFlash: json['snapshotFlash'] as bool? ?? true,
     previewZoom: (json['previewZoom'] as num?)?.toDouble() ?? 1,
@@ -752,6 +759,7 @@ const restorableSettings = <String, List<String>>{
   'Commits and pull requests': ['commitStyle', 'commitNote'],
   'Branch names': ['copySemantic', 'copyPrefix'],
   'Zoom': ['previewZoom'],
+  'Carry on after a restart': ['carryOnAfterRestart'],
   'When a snapshot is taken': ['snapshotSound', 'snapshotFlash'],
   'Pages appear': ['previewAppearance'],
   'Search with': ['searchEngine'],

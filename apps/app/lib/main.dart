@@ -141,7 +141,9 @@ class _HelmyAppState extends State<HelmyApp> {
     showToast(
       context,
       title: 'Chats are still working',
-      description: 'Press ${Desktop.current.keys('⌘Q')} again to quit and stop them.',
+      description: context.read<SettingsRepository>().settings.carryOnAfterRestart
+          ? 'Press ${Desktop.current.keys('⌘Q')} again to quit. They carry on when Helmy opens again.'
+          : 'Press ${Desktop.current.keys('⌘Q')} again to quit and stop them.',
     );
   }
 

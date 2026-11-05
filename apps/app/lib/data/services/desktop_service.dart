@@ -99,6 +99,71 @@ class DesktopService {
 
   /// Whether Helmy opens at login, after turning it [on] or off when given;
   /// null when this macOS cannot say.
+  /// The programs Helmy started that are still running (its connections,
+  /// browsers, terminals), with their CPU share and memory, from `ps`.
+  Future<List<({int pid, String name, String command, double cpu, int bytes})>>
+  helmysProcesses() async {
+    if (Platform.isWindows) return const [];
+    try {
+      final r = await Process.run('/bin/ps', ['-axo', 'pid=,ppid=,%cpu=,rss=,command=']);
+      final rows = <int, ({int ppid, double cpu, int kb, String command})>{};
+      for (final line in '${r.stdout}'.split('\n')) {
+        final m = RegExp(r'^\s*(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(.*)$').firstMatch(line);
+        if (m == null) continue;
+        rows[int.parse(m[1]!)] = (
+          ppid: int.parse(m[2]!),
+          cpu: double.parse(m[3]!),
+          kb: int.parse(m[4]!),
+          command: m[5]!,
+        );
+      }
+      // Helmy's own children, and theirs.
+      final mine = <int>{pid};
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final e in rows.entries) {
+          if (!mine.contains(e.key) && mine.contains(e.value.ppid)) {
+            mine.add(e.key);
+            grew = true;
+          }
+        }
+      }
+      mine.remove(pid);
+      // Not the ps that was just asked.
+      mine.removeWhere((id) => rows[id]?.command.startsWith('/bin/ps ') ?? false);
+      final out = [
+        for (final id in mine)
+          if (rows[id] case final p?)
+            (
+              pid: id,
+              name: _programName(p.command),
+              command: p.command,
+              cpu: p.cpu,
+              bytes: p.kb * 1024,
+            ),
+      ]..sort((a, b) => b.bytes.compareTo(a.bytes));
+      return out;
+    } on Object {
+      return const [];
+    }
+  }
+
+  static String _programName(String command) {
+    final exe = command.split(' ').first.split('/').last;
+    if (command.contains('--user-data-dir=') && command.contains('/chromium/profiles/')) {
+      return 'Browser for the Preview panel';
+    }
+    return exe.isEmpty ? command : exe;
+  }
+
+  /// Stops [processId], one of [helmysProcesses]; true when it was asked to.
+  Future<bool> stopProcess(int processId) async {
+    final ours = await helmysProcesses();
+    if (!ours.any((p) => p.pid == processId)) return false;
+    return Process.killPid(processId);
+  }
+
   /// The font families installed, by name, and those of them whose letters
   /// are all one width (for code). Empty where the system will not say.
   Future<({List<String> all, List<String> fixed})> fontFamilies() async {

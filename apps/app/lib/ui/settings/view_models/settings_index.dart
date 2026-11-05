@@ -22,6 +22,11 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'quit confirm close command q twice hold',
   ),
   (
+    title: 'Carry on after a restart',
+    section: .general,
+    keywords: 'resume restart crash update continue',
+  ),
+  (
     title: 'Keep chats working when the window closes',
     section: .general,
     keywords: 'background quit close window dock keep running',
@@ -156,6 +161,11 @@ const List<SettingEntry> settingsIndex = [
   (title: 'Memory', section: .memory, keywords: 'remember notes facts forget'),
   // Data and storage.
   (title: 'Where things are', section: .data, keywords: 'storage disk space folders cache clear'),
+  (
+    title: 'What Helmy is running',
+    section: .data,
+    keywords: 'processes diagnostics cpu memory stop kill logs',
+  ),
   (title: 'Your conversations', section: .data, keywords: 'export markdown backup history'),
   (title: 'Bring in conversations', section: .data, keywords: 'import history claude codex'),
   // Keyboard.

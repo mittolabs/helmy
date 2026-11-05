@@ -1,6 +1,8 @@
 // A look at one Settings page, on this Mac:
 // fvm flutter test integration_test/settings_look_test.dart -d macos \
 //   --dart-define=SHOTS=<dir> --dart-define=SECTION=general --dart-define=AT='<a title to scroll to>'
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/repositories/memory_repository.dart';
@@ -60,11 +62,18 @@ void main() {
       }
     }
 
+    // Something of Helmy's running, for Data's list of what runs.
+    final child = section == 'data'
+        ? await tester.runAsync(() => Process.start('/bin/sleep', ['20']))
+        : null;
+    await settle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 4)));
     await settle();
     if (at.isNotEmpty) {
       await tester.ensureVisible(find.text(at).first);
       await settle();
     }
     await shot(tester, '$shots/settings-$section.png');
+    child?.kill();
   });
 }

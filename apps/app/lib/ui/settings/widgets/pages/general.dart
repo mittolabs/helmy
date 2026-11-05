@@ -74,6 +74,17 @@ class _General extends StatelessWidget {
             ),
           ),
         _Row(
+          title: 'Carry on after a restart',
+          description:
+              'Chats at work when Helmy closed (quit, an update, a crash) pick up where they '
+              'stopped when it opens again.',
+          control: Switch(
+            value: s.carryOnAfterRestart,
+            semanticLabel: 'Carry on after a restart',
+            onChanged: (v) => vm.update(s.copyWith(carryOnAfterRestart: v)),
+          ),
+        ),
+        _Row(
           title: 'Send with',
           description: s.sendWithEnter
               ? 'Enter sends; Shift+Enter starts a new line.'
