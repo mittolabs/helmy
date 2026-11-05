@@ -77,6 +77,9 @@ class WindowSnapshots {
   /// Brings Helmy forward, after a snapshot taken in another app.
   Future<void> activate() => _call<void>('activate');
 
+  /// Plays one of the system's sounds by [name]: Pop, Tink.
+  Future<void> sound(String name) => _call<void>('playSound', {'name': name});
+
   /// Snapshots [w]: its picture, and its text where macOS gives it, saved
   /// as files named for the app and window. Null when it could not be taken
   /// (most often, screen recording not allowed).

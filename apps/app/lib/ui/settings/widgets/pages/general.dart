@@ -436,6 +436,38 @@ class _SnapshotRowState extends State<_SnapshotRow> {
     await _check();
   }
 
+  /// A snapshot of the first other app's window: a check that macOS lets
+  /// it be taken, said in a notice.
+  Future<void> _try() async {
+    final snaps = _snaps;
+    if (snaps == null) return;
+    final windows = await snaps.windows();
+    final w = windows.where((w) => w.app != 'Helmy').firstOrNull;
+    final shot = w == null ? null : await snaps.take(w);
+    if (!mounted) return;
+    if (shot != null) {
+      final s = widget.vm.settings;
+      if (s.snapshotSound.isNotEmpty) unawaited(snaps.sound(s.snapshotSound));
+    }
+    showToast(
+      context,
+      title: shot != null
+          ? 'Snapshot of ${shot.window.app} taken'
+          : w == null
+          ? 'No other window to snapshot'
+          : "macOS didn't let Helmy see that window",
+      description: shot != null
+          ? (shot.text != null
+                ? 'Its text came too.'
+                : 'Its picture only: Accessibility would give its text.')
+          : w == null
+          ? 'Open another app\'s window and try again.'
+          : 'Allow Helmy under Screen Recording in Privacy & Security.',
+      type: shot != null ? .success : .error,
+    );
+    await _check();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
@@ -475,6 +507,46 @@ class _SnapshotRowState extends State<_SnapshotRow> {
             onChanged: _turn,
           ),
         ),
+        if (on)
+          _Row(
+            title: 'When a snapshot is taken',
+            description:
+                'A sound and a flash say it went in. Try it takes a snapshot of the '
+                'window behind Settings, to check everything is allowed.',
+            control: Row(
+              mainAxisSize: .min,
+              spacing: 8,
+              children: [
+                Button(variant: .outline, size: .sm, onPressed: _try, child: const Text('Try it')),
+                SizedBox(
+                  width: 100,
+                  child: Select<String>(
+                    size: .sm,
+                    value: widget.vm.settings.snapshotSound,
+                    semanticLabel: 'Snapshot sound',
+                    options: const [
+                      SelectOption('Pop', 'Pop'),
+                      SelectOption('Tink', 'Tink'),
+                      SelectOption('', 'No sound'),
+                    ],
+                    onChanged: (v) {
+                      widget.vm.update(widget.vm.settings.copyWith(snapshotSound: v));
+                      if (v.isNotEmpty) unawaited(_snaps?.sound(v));
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: 'Flash',
+                  child: Switch(
+                    value: widget.vm.settings.snapshotFlash,
+                    semanticLabel: 'Snapshot flash',
+                    onChanged: (v) =>
+                        widget.vm.update(widget.vm.settings.copyWith(snapshotFlash: v)),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (on && a != null && (!a.record || !a.read))
           Padding(
             padding: const .fromLTRB(18, 0, 18, 14),

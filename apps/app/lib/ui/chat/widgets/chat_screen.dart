@@ -92,6 +92,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Find in this session (⌘F).
   bool _finding = false;
+
+  /// A snapshot was just taken: the flash shows.
+  bool _flash = false;
   final _find = TextEditingController();
   final _findFocus = FocusNode();
   final _scroller = MessageScrollerController();
@@ -435,7 +438,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final snaps = context.read<WindowSnapshots>();
     final result = await vm.snapshotWindow(asked.window);
     if (asked.fromKeys) await snaps.activate();
-    if (!mounted || result == .taken) return;
+    if (!mounted) return;
+    if (result == .taken) {
+      // Taken: heard and seen, as set.
+      final s = context.read<SettingsRepository>().settings;
+      if (s.snapshotSound.isNotEmpty) unawaited(snaps.sound(s.snapshotSound));
+      if (s.snapshotFlash) setState(() => _flash = true);
+      return;
+    }
     showToast(
       context,
       title: result == .notAllowed
@@ -502,7 +512,7 @@ class _ChatScreenState extends State<ChatScreen> {
         child: child,
       ),
     );
-    return CallbackShortcuts(
+    final screen = CallbackShortcuts(
       bindings: {
         bindingOf(.find, context.watch<SettingsRepository>().settings.keys).activator: _openFind,
         // The project's action again (the last run, else its first).
@@ -765,6 +775,22 @@ class _ChatScreenState extends State<ChatScreen> {
           },
         ),
       ),
+    );
+    // A snapshot taken: a white flash over the conversation, gone at once.
+    return Stack(
+      children: [
+        screen,
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _flash ? .5 : 0,
+            duration: Duration(milliseconds: _flash ? 40 : 260),
+            onEnd: () {
+              if (_flash && mounted) setState(() => _flash = false);
+            },
+            child: const ColoredBox(color: Color(0xFFFFFFFF), child: SizedBox.expand()),
+          ),
+        ),
+      ],
     );
   }
 }

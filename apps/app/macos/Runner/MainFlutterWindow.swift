@@ -290,6 +290,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
           NSSound(named: "Glass")?.play()
         }
         result(nil)
+      case "playSound":
+        NSSound(named: args["name"] as? String ?? "Pop")?.play()
+        result(nil)
       case "quitGuard":
         AppDelegate.guardQuit = args["on"] as? Bool ?? false
         result(nil)

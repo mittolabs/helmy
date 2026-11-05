@@ -293,6 +293,10 @@ class const AppSettings({
   final SearchEngine searchEngine = .duckDuckGo,
   final bool linksInHelmy = false,
 
+  /// A snapshot taken: a sound ('Pop', 'Tink', or '' for none) and a flash.
+  final String snapshotSound = 'Pop',
+  final bool snapshotFlash = true,
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -440,6 +444,8 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    String? snapshotSound,
+    bool? snapshotFlash,
     double? previewZoom,
     String? previewAppearance,
     SearchEngine? searchEngine,
@@ -508,6 +514,8 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    snapshotSound: snapshotSound ?? this.snapshotSound,
+    snapshotFlash: snapshotFlash ?? this.snapshotFlash,
     previewZoom: previewZoom ?? this.previewZoom,
     previewAppearance: previewAppearance ?? this.previewAppearance,
     searchEngine: searchEngine ?? this.searchEngine,
@@ -579,6 +587,8 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'snapshotSound': snapshotSound,
+    'snapshotFlash': snapshotFlash,
     'previewZoom': previewZoom,
     'previewAppearance': previewAppearance,
     'searchEngine': searchEngine.name,
@@ -647,6 +657,8 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    snapshotSound: json['snapshotSound'] as String? ?? 'Pop',
+    snapshotFlash: json['snapshotFlash'] as bool? ?? true,
     previewZoom: (json['previewZoom'] as num?)?.toDouble() ?? 1,
     previewAppearance: json['previewAppearance'] as String? ?? 'system',
     searchEngine: SearchEngine.values.asNameMap()[json['searchEngine']] ?? .duckDuckGo,
@@ -740,6 +752,7 @@ const restorableSettings = <String, List<String>>{
   'Commits and pull requests': ['commitStyle', 'commitNote'],
   'Branch names': ['copySemantic', 'copyPrefix'],
   'Zoom': ['previewZoom'],
+  'When a snapshot is taken': ['snapshotSound', 'snapshotFlash'],
   'Pages appear': ['previewAppearance'],
   'Search with': ['searchEngine'],
   'Open links in answers': ['linksInHelmy'],
