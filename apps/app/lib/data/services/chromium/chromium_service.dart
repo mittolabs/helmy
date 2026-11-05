@@ -317,7 +317,14 @@ class ChromiumService {
       'targetId': targetId,
       'flatten': true,
     });
-    final tab = ChromiumTab(cdp, targetId: targetId, session: '${attached['sessionId']}');
+    _pages++;
+    _idle?.cancel();
+    final tab = ChromiumTab(
+      cdp,
+      targetId: targetId,
+      session: '${attached['sessionId']}',
+      onClosed: _pageClosed,
+    );
     await tab.ready();
     return tab;
   }
@@ -343,8 +350,47 @@ class ChromiumService {
     }
   }
 
+  /// Pages open now; when the last closes the browser ends soon after, so a
+  /// hidden copy of someone's own browser (Brave, say) is not left running,
+  /// which would keep that browser from opening its window from the Dock.
+  int _pages = 0;
+  Timer? _idle;
+
+  void _pageClosed() {
+    _pages = (_pages - 1).clamp(0, 1 << 30);
+    if (_pages > 0) return;
+    _idle?.cancel();
+    _idle = Timer(const Duration(seconds: 30), () {
+      if (_pages == 0) unawaited(stop());
+    });
+  }
+
+  /// [cleanUp], without waiting on it.
+  void cleanUpSoon() => unawaited(cleanUp());
+
+  /// Ends any browser still running on Helmy's profiles from before: left
+  /// when Helmy was ended without a chance to stop it (a crash, a kill).
+  /// Only processes started with Helmy's own profile folder are touched.
+  Future<void> cleanUp() async {
+    if (Platform.isWindows) return;
+    try {
+      final profiles = '--user-data-dir=${(await _appData()).path}/chromium/profiles/';
+      final r = await Process.run('/bin/ps', ['-axo', 'pid=,command=']);
+      for (final line in '${r.stdout}'.split('\n')) {
+        final l = line.trim();
+        if (!l.contains(profiles)) continue;
+        final pid = int.tryParse(l.split(' ').first);
+        if (pid != null && pid != _process?.pid) Process.killPid(pid);
+      }
+    } on Object {
+      // Nothing to clean, or not allowed to see: nothing done.
+    }
+  }
+
   /// Ends the browser, if one is running.
   Future<void> stop() async {
+    _idle?.cancel();
+    _pages = 0;
     final cdp = _cdp;
     _cdp = null;
     _starting = null;

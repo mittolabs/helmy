@@ -115,8 +115,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (_) => EditorService()),
   // A Chromium browser for Preview, once asked for; ended with the app.
   Provider(
-    create: (_) => ChromiumService(appData: getApplicationSupportDirectory),
+    // Any left running by a Helmy that was ended without stopping it goes now.
+    create: (_) => ChromiumService(appData: getApplicationSupportDirectory)..cleanUpSoon(),
     dispose: (_, c) => unawaited(c.stop()),
+    // Made at launch, so the cleaning happens then.
+    lazy: false,
   ),
   // The page each session's agent works: its Preview panel's, or one in the
   // background.

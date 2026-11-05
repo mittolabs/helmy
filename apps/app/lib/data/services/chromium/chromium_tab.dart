@@ -7,11 +7,15 @@ import 'cdp.dart';
 /// One page in the Chromium browser Preview drives: where it is, pictures of
 /// it as it changes, and clicks, scrolling and typing sent to it.
 class ChromiumTab {
-  ChromiumTab(this._cdp, {required this.targetId, required this.session}) {
+  ChromiumTab(this._cdp, {required this.targetId, required this.session, this.onClosed}) {
     _sub = _cdp.events.where((e) => e['sessionId'] == session).listen(_event);
   }
 
   final Cdp _cdp;
+
+  /// Told once this page is closed (the browser ends when none is left).
+  final void Function()? onClosed;
+  bool _closed = false;
   final String targetId;
   final String session;
   late final StreamSubscription<Map<String, Object?>> _sub;
@@ -207,6 +211,10 @@ class ChromiumTab {
   Future<void> clearCache() => _send('Network.clearBrowserCache');
 
   Future<void> close() async {
+    if (!_closed) {
+      _closed = true;
+      onClosed?.call();
+    }
     await _sub.cancel();
     await _frames.close();
     await _urls.close();

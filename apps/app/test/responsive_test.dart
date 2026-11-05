@@ -102,7 +102,21 @@ void main() {
       final storage = storageAt(root);
       sessions = SessionRepositoryLocal(storage);
       settings = SettingsRepositoryLocal(storage);
-      meter = UsageMeter();
+      // Usage as a real account reports it: windows with a pace to keep to,
+      // which Settings draws as bars (a bar once blanked its whole page).
+      final reset = DateTime.now().add(const Duration(hours: 2));
+      final usage = Usage.ofWindows([
+        UsageWindow(
+          name: 'Session (5 hours)',
+          used: .4,
+          resetsAt: reset,
+          length: const Duration(hours: 5),
+        ),
+        UsageWindow(name: 'Weekly', used: .9, resetsAt: reset, length: const Duration(days: 7)),
+      ]);
+      meter = UsageMeter()
+        ..report('codex', usage)
+        ..report('claude-work', usage);
       engines = EngineRegistry([
         _Named(
           const EngineInfo(

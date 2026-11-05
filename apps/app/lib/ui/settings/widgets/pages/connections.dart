@@ -448,11 +448,13 @@ class _Window extends StatelessWidget {
       crossAxisAlignment: .stretch,
       spacing: 4,
       children: [
-        Row(
+        // Name and what is left share the line; on a narrow window what is
+        // left goes under the name rather than past the edge.
+        Wrap(
+          alignment: .spaceBetween,
+          spacing: 8,
           children: [
-            Expanded(
-              child: Text(window.name, style: t.text.xs.copyWith(fontWeight: .w500)),
-            ),
+            Text(window.name, style: t.text.xs.copyWith(fontWeight: .w500)),
             Text(
               [
                 '${(left * 100).round()}% left',
@@ -463,8 +465,10 @@ class _Window extends StatelessWidget {
             ),
           ],
         ),
-        LayoutBuilder(
-          builder: (context, box) => SizedBox(
+        // No LayoutBuilder here: the card around it sizes by intrinsic
+        // height, which cannot ask one.
+        Builder(
+          builder: (context) => SizedBox(
             height: 8,
             child: Stack(
               clipBehavior: .none,
@@ -482,11 +486,12 @@ class _Window extends StatelessWidget {
                   ),
                 ),
                 if (pace != null)
-                  Positioned(
-                    left: (box.maxWidth * pace - 1).clamp(0, box.maxWidth - 2),
-                    top: -3,
-                    bottom: -3,
-                    child: Container(width: 2, color: t.colors.mutedForeground),
+                  Align(
+                    alignment: FractionalOffset(pace.clamp(0.0, 1.0), .5),
+                    child: OverflowBox(
+                      maxHeight: 14,
+                      child: Container(width: 2, height: 14, color: t.colors.mutedForeground),
+                    ),
                   ),
               ],
             ),
