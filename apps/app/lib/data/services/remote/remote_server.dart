@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/session.dart';
@@ -9,6 +10,7 @@ import '../../repositories/session_repository.dart';
 import '../engines/agent_engine.dart';
 import '../../../utils/result.dart';
 import 'remote_crypto.dart';
+import 'screen_source.dart';
 
 /// Helmy on this Mac, reachable from a paired phone: its chats, each one's
 /// conversation as it goes, and sending, approving and stopping. One
@@ -22,7 +24,18 @@ class RemoteServer {
     required this._conversations,
     this._chats,
     this.port = defaultPort,
-  });
+    this._screen,
+  }) {
+    _screen?.onFrame = _onFrame;
+    _screen?.onStopped = _onScreenStopped;
+  }
+
+  /// This Mac's screen, for phones to see and use; null where it cannot be.
+  final ScreenSource? _screen;
+
+  /// Whether paired phones may see and use this Mac's screen, as Settings
+  /// says.
+  bool Function() screenAllowed = () => true;
 
   /// A phone's own key, by its id; null for one not paired (or turned
   /// away). Set by whoever keeps the phones.
@@ -75,8 +88,8 @@ class RemoteServer {
       final client = _Client(ws, device: device, sealer: own == null ? null : Sealer(own));
       ws.listen(
         (data) => unawaited(_receive(client, data)),
-        onDone: () => _clients.remove(client),
-        onError: (_) => _clients.remove(client),
+        onDone: () => _gone(client),
+        onError: (_) => _gone(client),
         cancelOnError: true,
       );
     });
@@ -90,6 +103,7 @@ class RemoteServer {
       await c.ws.close();
     }
     _clients.clear();
+    await _stopScreen();
     await _server?.close(force: true);
     _server = null;
   }
@@ -111,7 +125,7 @@ class RemoteServer {
   /// Turns phone [device] away now: its connections close.
   Future<void> drop(String device) async {
     for (final c in [..._clients.where((c) => c.device == device)]) {
-      _clients.remove(c);
+      _gone(c);
       await c.ws.close(WebSocketStatus.policyViolation, 'unpaired');
     }
   }
@@ -144,7 +158,8 @@ class RemoteServer {
     final id = '${m['id'] ?? ''}';
     switch (m['type']) {
       case 'hello':
-        if (c.device case final d?) onHello?.call(d, '${m['name'] ?? ''}');
+        c.name = '${m['name'] ?? ''}';
+        if (c.device case final d?) onHello?.call(d, c.name);
         await _send(c, _state());
       case 'open':
         c.open.add(id);
@@ -167,6 +182,16 @@ class RemoteServer {
         if (p != null && answer != null) _conversations.answerPermission(id, p, answer);
       case 'interrupt':
         _conversations.interrupt(id);
+      case 'screen':
+        await (m['on'] == true ? _watch(c) : _unwatch(c));
+      case 'got':
+        c.awaiting = false;
+        _askFrame();
+      case 'input':
+        final screen = _screen;
+        if (!c.watching || screen == null || m['input'] is! Map) return;
+        final wrong = await screen.input((m['input'] as Map).cast());
+        if (wrong != null) await _send(c, {'type': 'screen', 'on': true, 'trouble': _says(wrong)});
       case 'new':
         final cwd = _sessions.sessions.where((s) => s.sideOf == null).firstOrNull?.cwd;
         final made = await _sessions.create(cwd: '${m['cwd'] ?? cwd ?? Directory.current.path}');
@@ -231,6 +256,122 @@ class RemoteServer {
     };
   }
 
+  /// A phone gone: no longer watching either.
+  void _gone(_Client c) {
+    _clients.remove(c);
+    if (c.watching) unawaited(_unwatch(c));
+  }
+
+  Iterable<_Client> get _watchers => _clients.where((c) => c.watching);
+
+  /// What went wrong with the screen, as the phone shows it.
+  static String _says(String why) => switch (why) {
+    'off' => "Showing this Mac is turned off, in Helmy's Settings, under Phone, on the Mac.",
+    'record' =>
+      'Helmy on the Mac needs the Screen Recording permission. On the Mac, open System '
+          'Settings, Privacy & Security, Screen & System Audio Recording, and turn Helmy on.',
+    'accessibility' =>
+      'You can see the Mac, but Helmy there needs the Accessibility permission to click and '
+          'type. On the Mac, open System Settings, Privacy & Security, Accessibility, and turn '
+          'Helmy on.',
+    final other => other,
+  };
+
+  Future<void> _watch(_Client c) async {
+    final screen = _screen;
+    if (screen == null || !screenAllowed()) {
+      await _send(c, {
+        'type': 'screen',
+        'on': false,
+        'trouble': _says(screen == null ? 'This computer cannot share its screen.' : 'off'),
+      });
+      return;
+    }
+    final names = {..._watchers.map((w) => w.name), c.name}.where((n) => n.isNotEmpty).toList();
+    final who = names.isEmpty ? 'A phone' : names.join(' and ');
+    final wrong = await screen.start(
+      mark: '$who ${names.length > 1 ? 'are' : 'is'} viewing this screen',
+    );
+    if (wrong != null) {
+      await _send(c, {'type': 'screen', 'on': false, 'trouble': _says(wrong)});
+      return;
+    }
+    c
+      ..watching = true
+      ..awaiting = false;
+    await _send(c, {'type': 'screen', 'on': true});
+    _askFrame();
+  }
+
+  Future<void> _unwatch(_Client c) async {
+    c
+      ..watching = false
+      ..awaiting = false;
+    if (_watchers.isEmpty) await _stopScreen();
+  }
+
+  Future<void> _stopScreen() async {
+    _frameLate?.cancel();
+    await _screen?.stop();
+  }
+
+  Timer? _frameLate;
+
+  /// The next frame, once every phone watching has the last one; a phone
+  /// that has not said so in two seconds is not waited for.
+  void _askFrame() {
+    if (_watchers.isEmpty || _watchers.any((w) => w.awaiting)) return;
+    _frameLate?.cancel();
+    _screen?.next();
+  }
+
+  Future<void> _onFrame(Uint8List jpeg) async {
+    for (final c in [..._watchers.where((w) => !w.awaiting)]) {
+      final s = c.sealer ?? _sealer;
+      if (s == null) continue;
+      c.awaiting = true;
+      try {
+        c.ws.add(await s.sealBytes(jpeg));
+      } on Object {
+        _gone(c);
+      }
+    }
+    _frameLate?.cancel();
+    _frameLate = Timer(const Duration(seconds: 2), () {
+      for (final c in _watchers) {
+        c.awaiting = false;
+      }
+      _askFrame();
+    });
+  }
+
+  /// Ends every phone's view of the screen: turned off in Settings.
+  Future<void> endScreen() async {
+    if (_watchers.isEmpty) return;
+    _onScreenStopped('off');
+    await _stopScreen();
+  }
+
+  void _onScreenStopped(String why) {
+    for (final c in [..._watchers]) {
+      c
+        ..watching = false
+        ..awaiting = false;
+      unawaited(
+        _send(c, {
+          'type': 'screen',
+          'on': false,
+          'trouble': switch (why) {
+            'mark' => 'Sharing was stopped on the Mac.',
+            'off' => _says('off'),
+            _ => 'Sharing stopped on the Mac: $why',
+          },
+        }),
+      );
+    }
+    _frameLate?.cancel();
+  }
+
   Timer? _stateLater;
 
   void _onState() {
@@ -275,6 +416,14 @@ class _Client {
   final String? device;
   final Sealer? sealer;
   bool paired = false;
+
+  /// What it calls itself, from its hello.
+  String name = '';
+
+  /// Whether it is watching the screen, and has a frame it has not yet
+  /// said it got.
+  bool watching = false;
+  bool awaiting = false;
 
   /// The conversations it has open, and how many items it was sent of each.
   final open = <String>{};

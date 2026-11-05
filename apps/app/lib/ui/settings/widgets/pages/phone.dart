@@ -31,6 +31,19 @@ class _Phone extends StatelessWidget {
           ),
         ),
         if (host.trouble case final trouble?) Text(trouble, style: muted),
+        if (s.remoteOn)
+          _Row(
+            title: 'See and use this Mac from your phone',
+            description:
+                'A paired phone can show this screen and click and type on it. A bar at the top '
+                'says when one is watching, with Stop. Needs Screen Recording to show it and '
+                'Accessibility to use it.',
+            control: Switch(
+              value: s.remoteScreen,
+              semanticLabel: 'See and use this Mac from your phone',
+              onChanged: (v) => vm.update(s.copyWith(remoteScreen: v)),
+            ),
+          ),
         if (s.remoteOn && pairing != null) ...[
           const _Heading('Pair a phone'),
           Row(

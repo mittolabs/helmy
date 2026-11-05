@@ -69,6 +69,15 @@ class RemoteLink extends ChangeNotifier {
   /// A chat made on the Mac at the phone's asking, for the screen to open.
   final made = ValueNotifier<String?>(null);
 
+  /// The Mac's screen, newest frame as JPEG, while this phone watches it.
+  final frame = ValueNotifier<Uint8List?>(null);
+
+  /// Whether the Mac is showing its screen to this phone, and why not
+  /// (or what is wrong while it does), in words.
+  bool screenOn = false;
+  String? screenTrouble;
+  bool _wantScreen = false;
+
   RemoteConversation of(String id) => _conversations.putIfAbsent(id, RemoteConversation.new);
 
   Future<void> connect() async {
@@ -93,6 +102,7 @@ class RemoteLink extends ChangeNotifier {
         for (final id in _open) {
           await _send({'type': 'open', 'id': id});
         }
+        if (_wantScreen) await _send({'type': 'screen', 'on': true});
         return;
       } on Object {
         // The next address.
@@ -124,6 +134,15 @@ class RemoteLink extends ChangeNotifier {
   }
 
   Future<void> _receive(Object? data) async {
+    // A frame of the screen: shown, then the Mac told it arrived, which is
+    // when it sends the next.
+    if (data is List<int>) {
+      final jpeg = await _sealer.openBytes(data);
+      if (jpeg == null || _closed || !_wantScreen) return;
+      frame.value = jpeg;
+      await _send({'type': 'got'});
+      return;
+    }
     final m = data is String ? await _sealer.open(data) : null;
     // Closed while it was being opened: nothing left to tell.
     if (m == null || _closed) return;
@@ -160,6 +179,13 @@ class RemoteLink extends ChangeNotifier {
         c.heldUntil = DateTime.tryParse('${m['heldUntil'] ?? ''}');
       case 'made':
         made.value = '${m['id']}';
+      case 'screen':
+        screenOn = m['on'] == true;
+        screenTrouble = m['trouble'] as String?;
+        if (!screenOn) {
+          _wantScreen = false;
+          frame.value = null;
+        }
     }
     notifyListeners();
   }
@@ -198,9 +224,33 @@ class RemoteLink extends ChangeNotifier {
   /// A new chat on the Mac, starting with [text]; [made] says its id.
   Future<void> newChat(String text) => _send({'type': 'new', 'text': text});
 
+  /// Asks the Mac to show its screen here.
+  Future<void> showScreen() async {
+    _wantScreen = true;
+    screenTrouble = null;
+    notifyListeners();
+    await _send({'type': 'screen', 'on': true});
+  }
+
+  Future<void> hideScreen() async {
+    _wantScreen = false;
+    screenOn = false;
+    frame.value = null;
+    await _send({'type': 'screen', 'on': false});
+  }
+
+  /// A touch or key on the Mac's screen: [kind] with where (x and y from 0
+  /// to 1 across it) or what (text, key).
+  Future<void> input(String kind, {double? x, double? y, Map<String, Object?> more = const {}}) =>
+      _send({
+        'type': 'input',
+        'input': {'kind': kind, 'x': ?x, 'y': ?y, ...more},
+      });
+
   @override
   void dispose() {
     _closed = true;
+    frame.dispose();
     _retry?.cancel();
     unawaited(_ws?.close());
     made.dispose();

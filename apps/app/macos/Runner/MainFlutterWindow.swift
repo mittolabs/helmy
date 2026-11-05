@@ -1,6 +1,8 @@
 import ApplicationServices
 import Cocoa
 import CoreAudio
+import CoreImage
+import ScreenCaptureKit
 import FlutterMacOS
 import desktop_multi_window
 import ServiceManagement
@@ -35,6 +37,7 @@ class MainFlutterWindow: NSWindow {
       controller.mouseTrackingMode = .always
     }
     Notifier.shared.attach(to: flutterViewController.engine.binaryMessenger)
+    ScreenShare.attach(to: flutterViewController.engine.binaryMessenger)
 
     // In sight or not: focused (on top, being looked at), or not focused or
     // in the Dock. What a notification was about is seen once it is in sight.
@@ -996,5 +999,290 @@ enum MacActions {
       let external = v.volumeIsEjectable == true || v.volumeIsRemovable == true || v.volumeIsInternal == false
       return external ? (url, v.volumeName ?? url.lastPathComponent) : nil
     }
+  }
+}
+
+/// This Mac's screen, for a paired phone to see and use: frames from
+/// ScreenCaptureKit as JPEG, one at a time as Dart asks for the next (so a
+/// slow network drops frames rather than queueing them), input posted as
+/// real mouse and key events, and the mark that says someone is watching.
+enum ScreenShare {
+  static var channel: FlutterMethodChannel?
+
+  static func attach(to messenger: FlutterBinaryMessenger) {
+    let ch = FlutterMethodChannel(name: "helmy/screen", binaryMessenger: messenger)
+    channel = ch
+    ch.setMethodCallHandler { call, result in
+      let args = call.arguments as? [String: Any] ?? [:]
+      switch call.method {
+      case "start":
+        guard #available(macOS 12.3, *) else { return result("This needs macOS 12.3 or later.") }
+        guard CGPreflightScreenCaptureAccess() else { return result("record") }
+        ScreenStream.shared.start(maxWidth: args["maxWidth"] as? Int ?? 1600, fps: args["fps"] as? Int ?? 12) { error in
+          DispatchQueue.main.async {
+            if error == nil { ShareMark.shared.show(args["mark"] as? String ?? "A phone is viewing this screen") }
+            result(error)
+          }
+        }
+      case "next":
+        if #available(macOS 12.3, *) { ScreenStream.shared.next() }
+        result(nil)
+      case "stop":
+        if #available(macOS 12.3, *) { ScreenStream.shared.stop() }
+        ShareMark.shared.hide()
+        result(nil)
+      case "input":
+        result(input(args))
+      case "allowed":
+        result(["record": CGPreflightScreenCaptureAccess(), "control": Snapshots.trusted(prompt: false)])
+      case "askRecord":
+        result(CGRequestScreenCaptureAccess())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    ShareMark.shared.onStop = { channel?.invokeMethod("stopped", arguments: "mark") }
+  }
+
+  /// The screen being shared, in global points.
+  static var bounds: CGRect { CGDisplayBounds(CGMainDisplayID()) }
+
+  private static var lastClick = (at: Date.distantPast, point: CGPoint.zero, count: 0)
+
+  /// A phone's touch or key, as this Mac's own; "accessibility" when Helmy
+  /// may not post events.
+  static func input(_ a: [String: Any]) -> String? {
+    guard Snapshots.trusted(prompt: false) else { return "accessibility" }
+    let b = bounds
+    let p = CGPoint(
+      x: b.minX + max(0, min(1, a["x"] as? Double ?? 0.5)) * b.width,
+      y: b.minY + max(0, min(1, a["y"] as? Double ?? 0.5)) * b.height)
+    func mouse(_ type: CGEventType, _ button: CGMouseButton = .left, clicks: Int = 1) {
+      let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: button)
+      e?.setIntegerValueField(.mouseEventClickState, value: Int64(clicks))
+      e?.post(tap: .cghidEventTap)
+    }
+    switch a["kind"] as? String ?? "" {
+    case "move":
+      mouse(.mouseMoved)
+    case "click":
+      // Two clicks close in time and place are a double click, as on the Mac.
+      let near = hypot(p.x - lastClick.point.x, p.y - lastClick.point.y) < 12
+      let count = near && Date().timeIntervalSince(lastClick.at) < 0.45 ? lastClick.count + 1 : 1
+      lastClick = (Date(), p, count)
+      mouse(.mouseMoved)
+      mouse(.leftMouseDown, clicks: count)
+      mouse(.leftMouseUp, clicks: count)
+    case "right":
+      mouse(.mouseMoved)
+      mouse(.rightMouseDown, .right)
+      mouse(.rightMouseUp, .right)
+    case "down":
+      mouse(.mouseMoved)
+      mouse(.leftMouseDown)
+    case "drag":
+      mouse(.leftMouseDragged)
+    case "up":
+      mouse(.leftMouseUp)
+    case "scroll":
+      mouse(.mouseMoved)
+      let e = CGEvent(
+        scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+        wheel1: Int32(a["dy"] as? Double ?? 0), wheel2: Int32(a["dx"] as? Double ?? 0), wheel3: 0)
+      e?.post(tap: .cghidEventTap)
+    case "text":
+      for ch in (a["text"] as? String ?? "").utf16 {
+        var c = ch
+        for down in [true, false] {
+          let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down)
+          e?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &c)
+          e?.post(tap: .cghidEventTap)
+        }
+      }
+    case "key":
+      let codes: [String: CGKeyCode] = [
+        "return": 36, "tab": 48, "space": 49, "delete": 51, "escape": 53,
+        "left": 123, "right": 124, "down": 125, "up": 126,
+      ]
+      guard let code = codes[a["key"] as? String ?? ""] else { return "unknown key" }
+      var flags: CGEventFlags = []
+      let mods = a["mods"] as? [String] ?? []
+      if mods.contains("cmd") { flags.insert(.maskCommand) }
+      if mods.contains("shift") { flags.insert(.maskShift) }
+      if mods.contains("alt") { flags.insert(.maskAlternate) }
+      if mods.contains("ctrl") { flags.insert(.maskControl) }
+      MacActions.press(code, flags)
+    default:
+      return "unknown input"
+    }
+    return nil
+  }
+}
+
+@available(macOS 12.3, *)
+final class ScreenStream: NSObject, SCStreamOutput, SCStreamDelegate {
+  static let shared = ScreenStream()
+  private var stream: SCStream?
+  private let queue = DispatchQueue(label: "helmy.screen")
+  private let context = CIContext()
+
+  /// The newest frame not yet sent, and whether Dart is waiting for one.
+  private var latest: CVPixelBuffer?
+  private var wanted = false
+
+  func start(maxWidth: Int, fps: Int, done: @escaping (String?) -> Void) {
+    if stream != nil { queue.async { self.wanted = true }; return done(nil) }
+    SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, error in
+      guard let content,
+        let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first
+      else { return done(error?.localizedDescription ?? "No screen to share.") }
+      let config = SCStreamConfiguration()
+      // The display's pixels, at most maxWidth wide: sharp enough to read.
+      let scale = NSScreen.main?.backingScaleFactor ?? 2
+      let width = min(Double(maxWidth), Double(display.width) * scale)
+      config.width = Int(width)
+      config.height = Int(width * Double(display.height) / Double(display.width))
+      config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(max(1, fps)))
+      config.showsCursor = true
+      config.pixelFormat = kCVPixelFormatType_32BGRA
+      config.queueDepth = 3
+      let s = SCStream(filter: SCContentFilter(display: display, excludingWindows: []), configuration: config, delegate: self)
+      do {
+        try s.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.queue)
+      } catch {
+        return done(error.localizedDescription)
+      }
+      s.startCapture { error in
+        if let error { return done(error.localizedDescription) }
+        self.stream = s
+        self.queue.async { self.wanted = true }
+        done(nil)
+      }
+    }
+  }
+
+  func stop() {
+    stream?.stopCapture { _ in }
+    stream = nil
+    queue.async {
+      self.latest = nil
+      self.wanted = false
+    }
+  }
+
+  /// Dart is ready for another frame: the newest at once, else the next.
+  func next() {
+    queue.async {
+      if let b = self.latest {
+        self.latest = nil
+        self.send(b)
+      } else {
+        self.wanted = true
+      }
+    }
+  }
+
+  func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {
+    guard type == .screen, let buffer = sample.imageBuffer else { return }
+    // Only frames with something new in them.
+    if let info = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+      let raw = info.first?[.status] as? Int, SCFrameStatus(rawValue: raw) != .complete
+    {
+      return
+    }
+    if wanted {
+      wanted = false
+      send(buffer)
+    } else {
+      latest = buffer
+    }
+  }
+
+  private func send(_ buffer: CVPixelBuffer) {
+    let image = CIImage(cvPixelBuffer: buffer)
+    guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+      let jpeg = context.jpegRepresentation(
+        of: image, colorSpace: space,
+        options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 0.55])
+    else { return }
+    DispatchQueue.main.async {
+      ScreenShare.channel?.invokeMethod("frame", arguments: FlutterStandardTypedData(bytes: jpeg))
+    }
+  }
+
+  func stream(_ stream: SCStream, didStopWithError error: Error) {
+    self.stream = nil
+    DispatchQueue.main.async {
+      ShareMark.shared.hide()
+      ScreenShare.channel?.invokeMethod("stopped", arguments: error.localizedDescription)
+    }
+  }
+}
+
+/// The mark at the top of the screen while a phone watches it: who, and a
+/// Stop that ends it at once. Floats over everything, on every Space.
+final class ShareMark {
+  static let shared = ShareMark()
+  var onStop: (() -> Void)?
+  private var panel: NSPanel?
+  private var label: NSTextField?
+
+  func show(_ text: String) {
+    if let panel {
+      label?.stringValue = text
+      panel.orderFrontRegardless()
+      return
+    }
+    let p = NSPanel(
+      contentRect: NSRect(x: 0, y: 0, width: 340, height: 36),
+      styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    p.level = .statusBar
+    p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+    p.isOpaque = false
+    p.backgroundColor = .clear
+    p.hasShadow = true
+    p.hidesOnDeactivate = false
+    let box = NSVisualEffectView(frame: p.contentRect(forFrameRect: p.frame))
+    box.material = .hudWindow
+    box.blendingMode = .behindWindow
+    box.state = .active
+    box.wantsLayer = true
+    box.layer?.cornerRadius = 18
+    box.layer?.masksToBounds = true
+    let dot = NSView(frame: NSRect(x: 14, y: 13, width: 10, height: 10))
+    dot.wantsLayer = true
+    dot.layer?.backgroundColor = NSColor.systemRed.cgColor
+    dot.layer?.cornerRadius = 5
+    let label = NSTextField(labelWithString: text)
+    label.font = .systemFont(ofSize: 13, weight: .medium)
+    label.frame = NSRect(x: 32, y: 9, width: 228, height: 18)
+    label.lineBreakMode = .byTruncatingTail
+    let stop = NSButton(title: "Stop", target: self, action: #selector(stopPressed))
+    stop.bezelStyle = .rounded
+    stop.controlSize = .small
+    stop.frame = NSRect(x: 268, y: 6, width: 62, height: 24)
+    box.addSubview(dot)
+    box.addSubview(label)
+    box.addSubview(stop)
+    p.contentView = box
+    if let screen = NSScreen.screens.first(where: { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == CGMainDisplayID() }) ?? NSScreen.main {
+      let f = screen.visibleFrame
+      p.setFrameOrigin(NSPoint(x: f.midX - 170, y: f.maxY - 46))
+    }
+    p.orderFrontRegardless()
+    panel = p
+    self.label = label
+  }
+
+  func hide() {
+    panel?.orderOut(nil)
+    panel = nil
+    label = nil
+  }
+
+  @objc private func stopPressed() {
+    hide()
+    if #available(macOS 12.3, *) { ScreenStream.shared.stop() }
+    onStop?()
   }
 }

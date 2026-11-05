@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
@@ -89,6 +90,25 @@ class Sealer {
   Future<String> seal(Map<String, Object?> message) async {
     final box = await _aes.encrypt(utf8.encode(jsonEncode(message)), secretKey: _key);
     return base64.encode(box.concatenation());
+  }
+
+  /// [bytes] sealed as they are: for what is large, such as a picture of
+  /// the screen, sent as a binary message.
+  Future<Uint8List> sealBytes(List<int> bytes) async =>
+      Uint8List.fromList((await _aes.encrypt(bytes, secretKey: _key)).concatenation());
+
+  /// The bytes in [sealed]; null when they do not open with this key.
+  Future<Uint8List?> openBytes(List<int> sealed) async {
+    try {
+      final box = SecretBox.fromConcatenation(
+        sealed,
+        nonceLength: _aes.nonceLength,
+        macLength: _aes.macAlgorithm.macLength,
+      );
+      return Uint8List.fromList(await _aes.decrypt(box, secretKey: _key));
+    } on Object {
+      return null;
+    }
   }
 
   /// The message in [sealed]; null when it does not open with this key.

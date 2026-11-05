@@ -435,6 +435,10 @@ class const AppSettings({
   /// A paired phone can reach Helmy here.
   final bool remoteOn = false,
 
+  /// A paired phone may see and use this computer's screen, with a mark on
+  /// it while one does.
+  final bool remoteScreen = true,
+
   /// The key phones pair with (see `Pairing`); empty before the first.
   final String remoteKey = '',
 
@@ -592,6 +596,7 @@ class const AppSettings({
     bool? groupingReviewed,
     bool? confirmDelete,
     bool? remoteOn,
+    bool? remoteScreen,
     String? remoteKey,
     bool? settleOnItsOwn,
     bool? ownCopies,
@@ -672,6 +677,7 @@ class const AppSettings({
     groupingReviewed: groupingReviewed ?? this.groupingReviewed,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     remoteOn: remoteOn ?? this.remoteOn,
+    remoteScreen: remoteScreen ?? this.remoteScreen,
     remoteKey: remoteKey ?? this.remoteKey,
     settleOnItsOwn: settleOnItsOwn ?? this.settleOnItsOwn,
     ownCopies: ownCopies ?? this.ownCopies,
@@ -754,6 +760,7 @@ class const AppSettings({
     'groupingReviewed': groupingReviewed,
     'confirmDelete': confirmDelete,
     'remoteOn': remoteOn,
+    'remoteScreen': remoteScreen,
     'remoteKey': remoteKey,
     'settleOnItsOwn': settleOnItsOwn,
     'ownCopies': ownCopies,
@@ -851,6 +858,7 @@ class const AppSettings({
     groupingReviewed: json['groupingReviewed'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     remoteOn: json['remoteOn'] as bool? ?? false,
+    remoteScreen: json['remoteScreen'] as bool? ?? true,
     remoteKey: json['remoteKey'] as String? ?? '',
     settleOnItsOwn: json['settleOnItsOwn'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
@@ -905,6 +913,7 @@ const restorableSettings = <String, List<String>>{
   'Changes in one column': ['diffStacked'],
   "Each file's change open": ['diffFilesOpen'],
   'Reach Helmy from your phone': ['remoteOn'],
+  'See and use this Mac from your phone': ['remoteScreen'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],

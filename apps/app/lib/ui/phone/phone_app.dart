@@ -1,3 +1,5 @@
+import 'mac_screen_view.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -259,6 +261,16 @@ class _ChatList extends StatelessWidget {
                             }, style: t.text.xs.copyWith(color: c.mutedForeground)),
                           ],
                         ),
+                      ),
+                      Button(
+                        variant: .ghost,
+                        size: .icon,
+                        semanticLabel: 'See and use ${link.pairing.name}',
+                        onPressed: () => unawaited(
+                          Navigator.of(context)
+                              .push(AshlarPageRoute(builder: (_) => MacScreenView(link: link))),
+                        ),
+                        child: const AshlarIcon(AshlarIconsRoundedStroke.deviceLaptop, size: 20),
                       ),
                       Button(
                         variant: .ghost,

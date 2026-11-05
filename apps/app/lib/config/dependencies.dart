@@ -10,6 +10,7 @@ import 'dart:io';
 
 import '../data/services/mac/mac_actions.dart';
 import '../data/services/mac/mac_tools.dart';
+import '../data/services/remote/screen_source.dart';
 
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -340,7 +341,12 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider<RemoteHost>(
     lazy: false,
     create: (context) => RemoteHost(
-      RemoteServer(sessions: context.read(), conversations: context.read(), chats: context.read()),
+      RemoteServer(
+        sessions: context.read(),
+        conversations: context.read(),
+        chats: context.read(),
+        screen: Platform.isMacOS ? MacScreen() : null,
+      )..screenAllowed = () => loaded.settings.settings.remoteScreen,
       context.read<SettingsRepository>(),
     ),
   ),

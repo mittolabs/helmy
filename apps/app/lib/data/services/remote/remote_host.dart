@@ -103,6 +103,7 @@ class RemoteHost extends ChangeNotifier {
     _applying = true;
     try {
       final s = _settings.settings;
+      if (!s.remoteScreen) await _server.endScreen();
       if (!s.remoteOn) {
         if (_server.running) await _server.stop();
         _runningWith = null;
