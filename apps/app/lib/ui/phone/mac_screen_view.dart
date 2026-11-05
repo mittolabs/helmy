@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../data/services/remote/remote_link.dart';
@@ -42,6 +42,16 @@ class _MacScreenViewState extends State<MacScreenView> {
   double _zoomAtStart = 1;
   DateTime _lastSent = DateTime(0);
 
+  /// Modifiers held for the next key, as a phone keyboard's Shift is: on
+  /// until a key goes with them.
+  final _mods = <String>{};
+
+  /// The screen alone, edge to edge, the phone's own bars hidden.
+  bool _full = false;
+
+  /// In full screen, whether the keys show.
+  bool _keysInFull = false;
+
   final _typed = TextEditingController(text: _blank);
   final _typing = FocusNode();
   bool _keyboard = false;
@@ -62,6 +72,7 @@ class _MacScreenViewState extends State<MacScreenView> {
 
   @override
   void dispose() {
+    if (_full) unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     unawaited(link.hideScreen());
     _typed.dispose();
     _typing.dispose();
@@ -99,11 +110,43 @@ class _MacScreenViewState extends State<MacScreenView> {
     _shift = Offset(_shift.dx.clamp(minX, 0), _shift.dy.clamp(minY, 0));
   }
 
+  /// [key] pressed on the Mac, with the modifiers held; they let go after.
+  void _key(String key, [Set<String> extra = const {}]) {
+    unawaited(
+      link.input(
+        'key',
+        more: {
+          'key': key,
+          'mods': [..._mods, ...extra],
+        },
+      ),
+    );
+    if (_mods.isNotEmpty) setState(_mods.clear);
+  }
+
+  void _setFull(bool on) {
+    setState(() {
+      _full = on;
+      _keysInFull = false;
+    });
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      ),
+    );
+  }
+
   void _onType(String text) {
     if (text.length < _blank.length) {
-      unawaited(link.input('key', more: {'key': 'delete'}));
+      _key('delete');
     } else if (text.length > _blank.length) {
-      unawaited(link.input('text', more: {'text': text.substring(_blank.length)}));
+      final typed = text.substring(_blank.length);
+      // With a modifier held, a letter is a shortcut (⌘C), not text.
+      if (_mods.isNotEmpty && typed.length == 1) {
+        _key(typed);
+      } else {
+        unawaited(link.input('text', more: {'text': typed}));
+      }
     }
     _typed.value = const TextEditingValue(
       text: _blank,
@@ -111,8 +154,170 @@ class _MacScreenViewState extends State<MacScreenView> {
     );
   }
 
+  /// The box that types on the Mac.
+  Widget _typingBar() => Padding(
+    padding: const .fromLTRB(12, 0, 12, 8),
+    child: Input(
+      controller: _typed,
+      focusNode: _typing,
+      size: .sm,
+      placeholder: _mods.isEmpty ? 'Type on the Mac' : 'A key, with ${_mods.map(_symbol).join()}',
+      textInputAction: .send,
+      onChanged: _onType,
+      onSubmitted: (_) {
+        _key('return');
+        _typing.requestFocus();
+      },
+    ),
+  );
+
+  static String _symbol(String mod) => switch (mod) {
+    'cmd' => '⌘',
+    'alt' => '⌥',
+    'ctrl' => '⌃',
+    _ => '⇧',
+  };
+
+  /// The keys a phone keyboard has not: modifiers held for the next key,
+  /// Esc, Tab, arrows, and the shortcuts used most.
+  Widget _keys(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    Widget key(String label, VoidCallback onPressed, {bool on = false, String? semantic}) => Button(
+      variant: on ? .secondary : .outline,
+      size: .sm,
+      semanticLabel: semantic ?? label,
+      onPressed: onPressed,
+      child: Text(label),
+    );
+    Widget gap() => Container(width: 1, height: 20, color: t.colors.border);
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: .horizontal,
+        padding: const .symmetric(horizontal: 12, vertical: 8),
+        children: [
+          for (final mod in ['cmd', 'alt', 'ctrl', 'shift'])
+            Padding(
+              padding: const .only(right: 6),
+              child: key(
+                _symbol(mod),
+                () => setState(() => _mods.contains(mod) ? _mods.remove(mod) : _mods.add(mod)),
+                on: _mods.contains(mod),
+                semantic: switch (mod) {
+                  'cmd' => 'Command',
+                  'alt' => 'Option',
+                  'ctrl' => 'Control',
+                  _ => 'Shift',
+                },
+              ),
+            ),
+          gap(),
+          for (final (label, k, name) in [
+            ('Esc', 'escape', 'Escape'),
+            ('Tab', 'tab', 'Tab'),
+            ('←', 'left', 'Left'),
+            ('↑', 'up', 'Up'),
+            ('↓', 'down', 'Down'),
+            ('→', 'right', 'Right'),
+            ('⌫', 'delete', 'Delete'),
+            ('⏎', 'return', 'Return'),
+          ])
+            Padding(
+              padding: const .only(left: 6),
+              child: key(label, () => _key(k), semantic: name),
+            ),
+          const SizedBox(width: 6),
+          gap(),
+          for (final (label, k, mods) in [
+            ('Copy', 'c', {'cmd'}),
+            ('Paste', 'v', {'cmd'}),
+            ('Undo', 'z', {'cmd'}),
+            ('Select all', 'a', {'cmd'}),
+            ('Switch app', 'tab', {'cmd'}),
+            ('Spotlight', 'space', {'cmd'}),
+            ('Mission Control', 'up', {'ctrl'}),
+            ('Close window', 'w', {'cmd'}),
+          ])
+            Padding(padding: const .only(left: 6), child: key(label, () => _key(k, mods))),
+        ],
+      ),
+    );
+  }
+
+  /// The screen edge to edge, with two small buttons in a corner: the keys,
+  /// and back out.
+  Widget _fullScreen(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final pad = MediaQuery.paddingOf(context);
+    Widget round(IconData icon, String label, VoidCallback onPressed, {bool on = false}) => Button(
+      variant: on ? .secondary : .ghost,
+      size: .icon,
+      semanticLabel: label,
+      onPressed: onPressed,
+      child: AshlarIcon(icon, size: 18, color: on ? null : const Color(0xFFFFFFFF)),
+    );
+    return ColoredBox(
+      color: const Color(0xFF000000),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ValueListenableBuilder<Uint8List?>(
+              valueListenable: link.frame,
+              builder: (context, jpeg, _) =>
+                  jpeg == null ? const Center(child: Spinner(size: 20)) : _screen(jpeg),
+            ),
+          ),
+          Positioned(
+            top: pad.top + 8,
+            right: pad.right + 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0x99000000),
+                borderRadius: .circular(t.radiusLg),
+              ),
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  round(
+                    AshlarIconsRoundedStroke.command,
+                    'Keys',
+                    () => setState(() => _keysInFull = !_keysInFull),
+                    on: _keysInFull,
+                  ),
+                  round(AshlarIconsRoundedStroke.keyboard, 'Type on the Mac', () {
+                    setState(() => _keyboard = !_keyboard);
+                    _keyboard ? _typing.requestFocus() : _typing.unfocus();
+                  }, on: _keyboard),
+                  round(AshlarIconsRoundedStroke.arrowsMinimize, 'Leave full screen', () {
+                    _setFull(false);
+                  }),
+                ],
+              ),
+            ),
+          ),
+          if (_keysInFull || _keyboard)
+            Positioned(
+              left: pad.left,
+              right: pad.right,
+              bottom: inset > 0 ? inset : pad.bottom,
+              child: ColoredBox(
+                color: t.colors.background.withValues(alpha: .92),
+                child: Column(
+                  mainAxisSize: .min,
+                  crossAxisAlignment: .stretch,
+                  children: [_keys(context), if (_keyboard) _typingBar()],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_full) return _fullScreen(context);
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
@@ -167,6 +372,13 @@ class _MacScreenViewState extends State<MacScreenView> {
                           child: const Text('Fit'),
                         ),
                       Button(
+                        variant: .ghost,
+                        size: .icon,
+                        semanticLabel: 'Full screen',
+                        onPressed: () => _setFull(true),
+                        child: const AshlarIcon(AshlarIconsRoundedStroke.arrowsMaximize, size: 20),
+                      ),
+                      Button(
                         variant: _keyboard ? .secondary : .ghost,
                         size: .icon,
                         semanticLabel: 'Type on the Mac',
@@ -211,36 +423,8 @@ class _MacScreenViewState extends State<MacScreenView> {
                         : _screen(jpeg),
                   ),
                 ),
-                if (_keyboard)
-                  Padding(
-                    padding: const .fromLTRB(12, 8, 12, 8),
-                    child: Row(
-                      spacing: 8,
-                      children: [
-                        Expanded(
-                          child: Input(
-                            controller: _typed,
-                            focusNode: _typing,
-                            size: .sm,
-                            placeholder: 'Type on the Mac',
-                            textInputAction: .send,
-                            onChanged: _onType,
-                            onSubmitted: (_) {
-                              unawaited(link.input('key', more: {'key': 'return'}));
-                              _typing.requestFocus();
-                            },
-                          ),
-                        ),
-                        for (final (label, key) in [('Tab', 'tab'), ('Esc', 'escape')])
-                          Button(
-                            variant: .outline,
-                            size: .sm,
-                            onPressed: () => unawaited(link.input('key', more: {'key': key})),
-                            child: Text(label),
-                          ),
-                      ],
-                    ),
-                  ),
+                _keys(context),
+                if (_keyboard) _typingBar(),
               ],
             ),
           ),
