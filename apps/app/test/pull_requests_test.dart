@@ -172,6 +172,10 @@ void main() {
       final id = await vm.review(vm.all!.firstWhere((p) => p.number == 3));
       final review = sessions.byId(id!)!;
       expect((review.cwd, review.title), ('/w/site', 'Review #3: Middle'));
+
+      // A guide for the person to review by, in a chat of its own.
+      final g = await vm.guide(vm.all!.firstWhere((p) => p.number == 3));
+      expect(sessions.byId(g!)!.title, 'Guide to #3: Middle');
     },
   );
 }

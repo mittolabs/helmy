@@ -283,6 +283,18 @@ class _Row extends StatelessWidget {
                 child: const Text('Review'),
               ),
               Tooltip(
+                message: 'A guide for you to review it by',
+                child: Button(
+                  variant: .outline,
+                  size: .xs,
+                  onPressed: () async {
+                    final id = await vm.guide(pr);
+                    if (id != null && context.mounted) context.go('/s/$id');
+                  },
+                  child: const Text('Guide'),
+                ),
+              ),
+              Tooltip(
                 message: 'Open on GitHub',
                 child: Button(
                   variant: .ghost,

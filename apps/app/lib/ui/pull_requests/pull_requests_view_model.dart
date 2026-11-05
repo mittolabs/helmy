@@ -144,6 +144,30 @@ class PullRequestsViewModel extends ChangeNotifier {
     return null;
   }
 
+  /// A guide for the person to review [pr] by: the order to read it in,
+  /// what each part does, and what to check. In a new chat; its id.
+  Future<String?> guide(PullRequest pr) async {
+    final made = await _sessions.create(
+      cwd: pr.folder,
+      title: 'Guide to #${pr.number}: ${pr.title}',
+    );
+    if (made case Ok(value: final s)) {
+      unawaited(
+        _conversations.send(
+          s,
+          'Write me a guide to reviewing pull request #${pr.number}, "${pr.title}" (${pr.url}), '
+          'so I can review it myself. Read it first (gh pr view ${pr.number} and gh pr diff '
+          '${pr.number}). Then: what it is for, in two sentences; the order to read the files '
+          'in, each with what its change does in a line; what to check closely and why (the '
+          'risky parts, what is not tested); and questions worth asking the author. Point at '
+          'files and lines. Do not review it for me, and change nothing.',
+        ),
+      );
+      return s.id;
+    }
+    return null;
+  }
+
   Future<bool> signIn() async {
     final ok = await _prs.signIn();
     if (ok) await load();
