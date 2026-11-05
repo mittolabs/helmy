@@ -1,4 +1,7 @@
 import 'package:ashlar_icons/ashlar_icons.dart';
+
+import '../../core/tinted_icon.dart';
+
 import 'package:file_selector/file_selector.dart';
 
 import 'dart:async';
@@ -254,16 +257,46 @@ class _Crumb extends StatelessWidget {
 
 /// Each section's name, icon, and the group it sits in (null: the first,
 /// unlabelled one).
-const _sections = <SettingsSection, ({String label, IconData icon, String? group})>{
-  .general: (label: 'General', icon: AshlarIconsRoundedStroke.settings, group: null),
-  .appearance: (label: 'Appearance', icon: AshlarIconsRoundedStroke.palette, group: null),
-  .preview: (label: 'Preview panel', icon: AshlarIconsRoundedStroke.appWindow, group: null),
-  .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedStroke.keyboard, group: null),
-  .agents: (label: 'Connections and usage', icon: AshlarIconsRoundedStroke.bot, group: 'Assistant'),
-  .tools: (label: 'Skills and tools', icon: AshlarIconsRoundedStroke.wrench, group: 'Assistant'),
-  .memory: (label: 'Memory', icon: AshlarIconsRoundedStroke.brain, group: 'Assistant'),
-  .projects: (label: 'Projects', icon: AshlarIconsRoundedStroke.gitBranch, group: 'Your work'),
-  .data: (label: 'Data and storage', icon: AshlarIconsRoundedStroke.database, group: 'Your work'),
+const _sections = <SettingsSection, ({String label, IconData icon, double hue, String? group})>{
+  .general: (label: 'General', icon: AshlarIconsRoundedDuotone.settings, hue: 210.0, group: null),
+  .appearance: (
+    label: 'Appearance',
+    icon: AshlarIconsRoundedDuotone.palette,
+    hue: 330.0,
+    group: null,
+  ),
+  .preview: (
+    label: 'Preview panel',
+    icon: AshlarIconsRoundedDuotone.appWindow,
+    hue: 190.0,
+    group: null,
+  ),
+  .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedDuotone.keyboard, hue: 250.0, group: null),
+  .agents: (
+    label: 'Connections and usage',
+    icon: AshlarIconsRoundedDuotone.bot,
+    hue: 280.0,
+    group: 'Assistant',
+  ),
+  .tools: (
+    label: 'Skills and tools',
+    icon: AshlarIconsRoundedDuotone.wrench,
+    hue: 25.0,
+    group: 'Assistant',
+  ),
+  .memory: (label: 'Memory', icon: AshlarIconsRoundedDuotone.brain, hue: 100.0, group: 'Assistant'),
+  .projects: (
+    label: 'Projects',
+    icon: AshlarIconsRoundedDuotone.gitBranch,
+    hue: 160.0,
+    group: 'Your work',
+  ),
+  .data: (
+    label: 'Data and storage',
+    icon: AshlarIconsRoundedDuotone.database,
+    hue: 45.0,
+    group: 'Your work',
+  ),
 };
 
 /// The sections, in their groups: a list beside the page, or a row of tabs
@@ -281,7 +314,7 @@ class _Nav extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final searching = vm.query.trim().isNotEmpty;
     Widget item(SettingsSection s) {
-      final (:label, :icon, group: _) = _sections[s]!;
+      final (:label, :icon, :hue, group: _) = _sections[s]!;
       final on = !searching && vm.section == s;
       return Pressable(
         onPressed: () => vm.show(s),
@@ -301,11 +334,8 @@ class _Nav extends StatelessWidget {
             spacing: 10,
             mainAxisSize: across ? .min : .max,
             children: [
-              AshlarIcon(
-                icon,
-                size: 16,
-                color: on ? t.colors.foreground : t.colors.mutedForeground,
-              ),
+              // Found by sight, as in the system's own settings.
+              TintedIcon(icon, hue: hue, size: 20),
               if (across)
                 Text(label, style: t.text.sm)
               else

@@ -115,9 +115,9 @@ class _DataState extends State<_Data> {
         Padding(
           padding: const .only(top: 8),
           child: Text(
-            "Deleting a chat in Helmy does not delete the agent's own copy. Those stay in the "
+            "Deleting a chat in Helmy does not delete a connection's own copy. Those stay in the "
             'folders above until you remove them there.',
-            style: muted,
+            style: t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5),
           ),
         ),
         const _Heading('Your conversations'),
@@ -150,10 +150,12 @@ class _DataState extends State<_Data> {
         ],
         _Heading('What leaves ${Desktop.current.thisComputer}'),
         Text(
-          'Each message goes to the company behind the agent that answers it (Anthropic for '
-          'Claude Code, OpenAI for Codex), with the files and command output that agent reads to '
-          'answer. With a model on Ollama, nothing leaves. Helmy itself sends nothing anywhere: '
-          'its chats, settings and logs stay in the folders above.',
+          'Each message goes to the company behind the connection that answers it (Anthropic for '
+          'Claude Code, OpenAI for Codex), with the files and command output it reads to '
+          'answer. With a model on Ollama, nothing leaves. Naming chats and keeping their '
+          'summaries runs on the model here; with none, a few lines of each chat go to the '
+          'cheapest connection. Helmy sends nothing anywhere of its own: its chats, settings '
+          'and logs stay in the folders above.',
           style: t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5),
         ),
       ],

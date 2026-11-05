@@ -27,9 +27,9 @@ class _ToolsState extends State<_Tools> {
     return _Page(
       children: [
         Text(
-          "What each agent can run when a message starts with /, and the MCP servers it "
-          'reaches. A /command goes to an agent that has it. Add or change them in each '
-          "agent's own settings; this page shows them as the agents report.",
+          'What each connection can run when a message starts with /, and the MCP servers it '
+          'reaches. A /command goes to a connection that has it. Add or change them in each '
+          "connection's own settings; this page shows them as each reports them.",
           style: t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5),
         ),
         for (final a in vm.agents.where((a) => !a.info.localOnly)) ...[

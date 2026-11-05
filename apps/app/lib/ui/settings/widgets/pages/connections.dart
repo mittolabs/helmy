@@ -13,10 +13,10 @@ class _Agents extends StatelessWidget {
         _Connections(vm: vm),
         const _Heading('Routing'),
         _Row(
-          title: 'Move to an agent with more room',
+          title: 'Move to a connection with more room',
           description:
-              'Each message goes to an agent that can do what it asks, then to the one with '
-              'the most of its usage limit left. A thread stays with its agent unless another '
+              'Each message goes to a connection that can do what it asks, then to the one with '
+              'the most of its usage limit left. A thread stays on its connection unless another '
               'has clearly more room, since each switch hands the conversation across.',
           control: SizedBox(
             width: 150,
@@ -36,8 +36,8 @@ class _Agents extends StatelessWidget {
                     'chats keep working with no internet, on that model.'
               : vm.localModels!.isEmpty
               ? 'Ollama is running but has no model. Pull one, for example: ollama pull gpt-oss:20b'
-              : 'Answers only when no online agent can: when offline, or out of room. '
-                    "A chat's summaries and brief are written on the largest model here, at no "
+              : 'Answers only when no online connection can: when offline, or out of room. '
+                    "Chats' names, summaries and briefs are written on the largest model here, at no "
                     'cost in usage.',
           control: vm.localModels == null || vm.localModels!.isEmpty
               ? const SizedBox.shrink()

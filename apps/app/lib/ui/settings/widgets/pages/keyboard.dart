@@ -12,10 +12,10 @@ class _Keyboard extends StatelessWidget {
     ('⌘1 to ⌘9', 'Open the chats in the order the list shows them'),
     ('⌘[ / ⌘]', 'Back and forward through where you have been'),
     ('⌘F', 'Find in this thread; Enter for the next, Shift+Enter the one before'),
-    ('⌘Z', 'Undo archiving or snoozing a chat (outside a text box)'),
+    ('⌘Z', 'Undo marking done, archiving or snoozing a chat (outside a text box)'),
     ('Enter', 'Send (or ⌘Enter, as set in General)'),
     ('Shift+Enter', 'New line in a message'),
-    ('⇧⌘Enter', 'While the agent works: send now, redirecting it'),
+    ('⇧⌘Enter', 'While Helmy works: send now, redirecting it'),
     ('/', 'Commands and skills, at the start of a message'),
     ('@', "Pick a file from the thread's folder"),
     ('Tab', 'Take the first suggestion'),
@@ -31,7 +31,7 @@ class _Keyboard extends StatelessWidget {
     final t = AshlarTheme.of(context);
     return _Page(
       children: [
-        const _Heading('Keyboard', first: true),
+        const _Heading('Shortcuts', first: true),
         for (final (key, what) in _keys)
           _Row(
             title: Desktop.current.keys(what),

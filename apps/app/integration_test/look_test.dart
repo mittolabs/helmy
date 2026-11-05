@@ -65,6 +65,9 @@ class _Named implements AgentEngine {
 }
 
 const shots = String.fromEnvironment('SHOTS');
+
+/// The same screens in light: --dart-define=LIGHT=true.
+const light = bool.fromEnvironment('LIGHT');
 const window = Size(1200, 850);
 
 void main() {
@@ -152,7 +155,7 @@ void main() {
           child: AshlarApp(
             theme: appTheme,
             darkTheme: appDarkTheme,
-            themeMode: .dark,
+            themeMode: light ? .light : .dark,
             home: OverflowBox(
               alignment: .topLeft,
               minWidth: window.width,
@@ -249,7 +252,7 @@ void main() {
           routerConfig: router,
           theme: appTheme,
           darkTheme: appDarkTheme,
-          themeMode: .dark,
+          themeMode: light ? .light : .dark,
           builder: (context, child) => OverflowBox(
             alignment: .topLeft,
             minWidth: window.width,

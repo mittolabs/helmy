@@ -238,7 +238,8 @@ class _Step extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-              if (detail.isNotEmpty && detail != title)
+              // Open, what it ran shows in full below: not twice.
+              if (!open && detail.isNotEmpty && detail != title)
                 Flexible(
                   child: Text(
                     detail,

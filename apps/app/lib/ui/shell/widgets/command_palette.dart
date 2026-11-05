@@ -28,7 +28,7 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
   final open = vm.sessions.where((s) => s.id == openId).firstOrNull;
   await showCommandDialog(
     context: context,
-    placeholder: 'Search chats and conversations, or run an action',
+    placeholder: 'Search chats, or run an action',
     groups: [
       if (open != null)
         CommandGroup(heading: 'This chat', [

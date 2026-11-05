@@ -14,7 +14,7 @@ class _Memory extends StatelessWidget {
         child: Padding(
           padding: const .symmetric(horizontal: 32),
           child: Text(
-            'No memory yet. What the agents keep between conversations, their instructions '
+            'No memory yet. What your connections keep between conversations, their instructions '
             'and notes, shows here once there is some.',
             textAlign: .center,
             style: t.text.sm.copyWith(color: t.colors.mutedForeground),
@@ -194,7 +194,8 @@ class _MemoryEditorState extends State<_MemoryEditor> {
     final ok = await confirm(
       context,
       title: 'Delete this memory?',
-      body: '${tildePath(vm.selected!.path)} is removed from disk. The agent no longer reads it.',
+      body:
+          '${tildePath(vm.selected!.path)} is removed from disk. No connection reads it any more.',
       action: 'Delete',
       destructive: true,
     );

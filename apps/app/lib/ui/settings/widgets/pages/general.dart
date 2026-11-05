@@ -77,8 +77,9 @@ class _General extends StatelessWidget {
               ? "When something in Helmy itself goes wrong, what went wrong in its code goes "
                     "to Mittolabs, to be fixed. Never a conversation, a file, or a path in your home."
               : 'This build sends no reports anywhere.',
+          // Shown off where this build cannot send: never on and greyed.
           control: Switch(
-            value: s.sendErrors,
+            value: ErrorReports.configured && s.sendErrors,
             semanticLabel: 'Send error reports',
             onChanged: ErrorReports.configured ? (v) => vm.update(s.copyWith(sendErrors: v)) : null,
           ),
@@ -127,7 +128,7 @@ class _General extends StatelessWidget {
         const _Heading('New chats'),
         _Row(
           title: 'Permissions',
-          description: 'What the agent may do without asking, until you change it in a chat.',
+          description: 'What Helmy may do without asking, until you change it in a chat.',
           control: SizedBox(
             width: 180,
             child: Select<PermissionLevel>(

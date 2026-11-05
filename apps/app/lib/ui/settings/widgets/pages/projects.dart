@@ -15,7 +15,6 @@ class _Projects extends StatelessWidget {
         final repos = snap.data ?? const <String>[];
         return _Page(
           children: [
-            const _Heading('Projects', first: true),
             Text(
               'Every git repository your chats have worked in. What is set here is for '
               'that project alone; "As everywhere" follows General.',

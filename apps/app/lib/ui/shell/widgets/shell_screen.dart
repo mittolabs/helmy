@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import '../../../routing/settings_route.dart';
 
 import '../../../domain/chat_icons.dart';
+import '../../core/tinted_icon.dart';
 import '../../../domain/models/chat.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/format.dart';
@@ -813,9 +814,15 @@ class _ChatRowState extends State<_ChatRow> {
                     activity: widget.activity,
                     icon: chatIconOf(widget.chat?.icon),
                   ),
-                  // What it falls under, in a word: the folder is in its preview.
+                  // What it falls under, in a word (the folder is in its preview);
+                  // until Helmy has named it, where it works.
                   Expanded(
-                    child: Text(topic, maxLines: 1, overflow: .ellipsis, style: muted),
+                    child: Text(
+                      topic.isEmpty ? places.join(', ') : topic,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: muted,
+                    ),
                   ),
                   if (widget.threads.any((x) => x.pinned))
                     AshlarIcon(AshlarIconsRoundedStroke.pin, size: 11, color: c.mutedForeground),
@@ -910,8 +917,6 @@ class _ProjectBadge extends StatelessWidget {
   /// Drawn instead of the initials: a chat's icon, in its topic's color.
   final IconData? icon;
 
-  static const _hues = [210.0, 280.0, 160.0, 25.0, 330.0, 45.0, 190.0, 250.0];
-
   String get _initials {
     final words = name.split(RegExp(r'[\s_\-.]+')).where((w) => w.isNotEmpty).toList();
     if (words.isEmpty) return '?';
@@ -926,9 +931,9 @@ class _ProjectBadge extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final dark = t.brightness == Brightness.dark;
-    final hue = _hues[name.codeUnits.fold(0, (a, b) => a + b) % _hues.length];
-    final ink = HSLColor.fromAHSL(1, hue, .7, dark ? .72 : .38).toColor();
-    final fill = HSLColor.fromAHSL(dark ? .18 : .12, hue, .7, .5).toColor();
+    final hue = hueOf(name);
+    final ink = tintInk(hue, dark: dark);
+    final fill = tintFill(hue, dark: dark);
     return SizedBox.square(
       dimension: 18,
       child: Stack(
