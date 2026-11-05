@@ -42,6 +42,26 @@ happened, with the details a press away and a way to report it. (Nielsen's
 ninth heuristic: recognize, diagnose, recover.) Explaining a problem in
 Helmy's words is not hiding it.
 
+## When Helmy gets a tool of its own
+
+Helmy's own tools (served to every connection over its MCP server) are only
+for what a connection's agent cannot do itself, because it needs something
+only Helmy has:
+
+- **Helmy's permissions**: Accessibility, Screen Recording, the Photos
+  library, anything the agent's sandbox is kept from.
+- **Helmy's links**: the paired phone, the Preview panel's browser, the
+  Device panel.
+- **Helmy's native reach**: Apple frameworks that are impractical from a
+  shell (Vision, Core Audio, ScreenCaptureKit).
+
+What the agent can already do with a command (convert a file, resize a
+picture, read the battery) is not a tool. When doing it is painful, fix the
+pain where it is instead: harmless commands that ask for approval, a
+connection's quirk showing through, a result left in a connection's folder,
+an agent asking for what it could have looked up. Decide from the turn log
+(how often chats hit it), not from one chat.
+
 ## Layout
 
 One repository, per the workspace's `docs/engineering/repos.md`:
