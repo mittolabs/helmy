@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../routing/settings_route.dart';
 
+import '../../../domain/models/chat.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/format.dart';
 import '../../../domain/models/settings.dart';
@@ -89,8 +90,9 @@ class ShellScreen extends StatelessWidget {
                 NavHistory.current?.back(),
             Desktop.current.shortcut(LogicalKeyboardKey.bracketRight): () =>
                 NavHistory.current?.forward(),
-            // Undo the last archive (a text field's own undo comes first).
-            Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undoArchive,
+            // Undo the last archive, snooze or settle (a text field's own undo
+            // comes first).
+            Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undo,
             // A Mac's menu quits with ⌘Q; elsewhere Ctrl+Q is the app's to give.
             if (!Desktop.current.commandIsMeta)
               Desktop.current.shortcut(LogicalKeyboardKey.keyQ): () =>
@@ -260,29 +262,7 @@ class ShellScreen extends StatelessWidget {
                                         ),
                                       ),
                                     for (final e in viewModel.entriesOf(g.sessions))
-                                      if (e.chat case final chat?) ...[
-                                        _ChatRow(
-                                          title: chat.title,
-                                          threads: e.threads,
-                                          activity: viewModel.activityOfAll(e.threads),
-                                          line: viewModel.lineOf(e.threads.first),
-                                          selected: e.threads.any((t) => t.id == selectedId),
-                                          open:
-                                              viewModel.expanded.contains(chat.id) ||
-                                              e.threads.any((t) => t.id == selectedId),
-                                          onOpen: () => context.go('/s/${e.threads.first.id}'),
-                                          onToggle: () => viewModel.toggleChat(chat.id),
-                                          onChatPage: () => context.go('/c/${chat.id}'),
-                                        ),
-                                        if (viewModel.expanded.contains(chat.id) ||
-                                            e.threads.any((t) => t.id == selectedId))
-                                          for (final t in e.threads)
-                                            Padding(
-                                              padding: const .only(left: 16),
-                                              child: _sessionEntry(context, t),
-                                            ),
-                                      ] else
-                                        _sessionEntry(context, e.threads.single),
+                                      _chatEntry(context, e),
                                   ],
                                 ],
                               ),
@@ -433,101 +413,118 @@ class ShellScreen extends StatelessWidget {
     );
   }
 
-  /// One thread's row, with what can be done with it on a right click.
-  Widget _sessionEntry(BuildContext context, Session s) => ContextMenu(
-    items: [
-      if (viewModel.isUnread(s.id))
+  /// One chat's row, with what can be done with it on a right click: done
+  /// to the whole chat, every thread in it.
+  Widget _chatEntry(BuildContext context, ({Chat? chat, List<Session> threads}) e) {
+    final first = e.threads.first;
+    final all = viewModel.chatOf(first);
+    final title = viewModel.titleOf(e);
+    final pinned = e.threads.any((t) => t.pinned);
+    final snoozed = e.threads.every((t) => t.snoozed);
+    final archived = e.threads.every((t) => t.archived);
+    return ContextMenu(
+      items: [
+        if (e.threads.any((t) => viewModel.isUnread(t.id)))
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16),
+            onPressed: () => viewModel.markChatRead(all),
+            child: const Text('Mark as read'),
+          ),
         MenuItem(
-          leading: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16),
-          onPressed: () => viewModel.markRead(s.id),
-          child: const Text('Mark as read'),
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.pin, size: 16),
+          onPressed: () => viewModel.setChatPinned(all, !pinned),
+          child: Text(pinned ? 'Unpin' : 'Pin'),
         ),
-      MenuItem(
-        leading: const AshlarIcon(AshlarIconsRoundedStroke.pin, size: 16),
-        onPressed: () => viewModel.setPinned(s, !s.pinned),
-        child: Text(s.pinned ? 'Unpin' : 'Pin'),
-      ),
-      if (s.snoozed)
-        MenuItem(
-          leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
-          onPressed: () => viewModel.wake(s),
-          child: const Text('Wake now'),
-        )
-      else ...[
-        for (final (label, until) in [
-          ('Snooze for an hour', DateTime.now().add(const Duration(hours: 1))),
-          ('Snooze until tomorrow', SidebarViewModel.tomorrowMorning()),
-        ])
+        if (snoozed)
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
-            onPressed: () async {
-              await viewModel.snooze(s, until);
-              if (!context.mounted) return;
-              showToast(
-                context,
-                title: 'Snoozed "${s.title}" until ${_when(until)}',
-                action: Button(
-                  size: .sm,
-                  variant: .outline,
-                  onPressed: viewModel.undoSnooze,
-                  child: const Text('Undo'),
-                ),
-              );
-            },
-            child: Text(label),
-          ),
-      ],
-      MenuItem(
-        leading: const AshlarIcon(AshlarIconsRoundedStroke.archive, size: 16),
-        onPressed: () async {
-          final archiving = !s.archived;
-          await viewModel.setArchived(s, archiving);
-          if (!archiving || !context.mounted) return;
-          showToast(
-            context,
-            title: 'Archived "${s.title}"',
-            action: Button(
-              size: .sm,
-              variant: .outline,
-              onPressed: viewModel.undoArchive,
-              child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+            onPressed: () => viewModel.wakeChat(all),
+            child: const Text('Wake now'),
+          )
+        else ...[
+          for (final (label, until) in [
+            ('Snooze for an hour', DateTime.now().add(const Duration(hours: 1))),
+            ('Snooze until tomorrow', SidebarViewModel.tomorrowMorning()),
+          ])
+            MenuItem(
+              leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
+              onPressed: () async {
+                await viewModel.snoozeChat(all, until);
+                if (!context.mounted) return;
+                showToast(
+                  context,
+                  title: 'Snoozed "$title" until ${_when(until)}',
+                  action: Button(
+                    size: .sm,
+                    variant: .outline,
+                    onPressed: viewModel.undo,
+                    child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+                  ),
+                );
+              },
+              child: Text(label),
             ),
-          );
-        },
-        child: Text(s.archived ? 'Unarchive' : 'Archive'),
+        ],
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.archive, size: 16),
+          onPressed: () async {
+            await viewModel.setChatArchived(all, !archived);
+            if (archived || !context.mounted) return;
+            showToast(
+              context,
+              title: 'Archived "$title"',
+              action: Button(
+                size: .sm,
+                variant: .outline,
+                onPressed: viewModel.undo,
+                child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+              ),
+            );
+          },
+          child: Text(archived ? 'Unarchive' : 'Archive'),
+        ),
+        if (e.chat case final chat?)
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
+            onPressed: () => context.go('/c/${chat.id}'),
+            child: const Text('Brief and places'),
+          ),
+        const MenuSeparator(),
+        MenuItem(
+          destructive: true,
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),
+          onPressed: () => _deleteChat(context, title, all),
+          child: const Text('Delete'),
+        ),
+      ],
+      child: _ChatRow(
+        title: title,
+        threads: e.threads,
+        activity: viewModel.activityOfAll(e.threads),
+        line: viewModel.lineOf(first),
+        selected: all.any((t) => t.id == selectedId),
+        onOpen: () => context.go('/s/${first.id}'),
+        onDelete: () => _deleteChat(context, title, all),
       ),
-      const MenuSeparator(),
-      MenuItem(
-        destructive: true,
-        leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),
-        onPressed: () => _delete(context, s),
-        child: const Text('Delete'),
-      ),
-    ],
-    child: _SessionRow(
-      session: s,
-      activity: viewModel.activityOf(s.id),
-      line: viewModel.lineOf(s),
-      selected: s.id == selectedId,
-      onOpen: () => context.go('/s/${s.id}'),
-      onDelete: () => _delete(context, s),
-    ),
-  );
+    );
+  }
 
-  Future<void> _delete(BuildContext context, Session s) async {
+  Future<void> _deleteChat(BuildContext context, String title, List<Session> all) async {
+    final threads = all.where((t) => t.sideOf == null).length;
     final ok =
         !viewModel.settings.confirmDelete ||
         await confirm(
           context,
-          title: 'Delete this session?',
-          body:
-              '"${s.title}" and its conversation leave Helmy. Files in the folder stay as they are.',
+          title: 'Delete this chat?',
+          body: threads > 1
+              ? '"$title" and its $threads threads leave Helmy. Files in their folders stay as they are.'
+              : '"$title" and its conversation leave Helmy. Files in the folder stay as they are.',
           action: 'Delete',
           destructive: true,
         );
     if (!ok) return;
-    await viewModel.delete.execute(s.id);
-    if (context.mounted && selectedId == s.id) context.go('/');
+    await viewModel.deleteChat(all);
+    if (context.mounted && all.any((t) => t.id == selectedId)) context.go('/');
   }
 }
 
@@ -650,9 +647,12 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-class _SessionRow extends StatefulWidget {
+/// A chat's row: where it works and when, its title, and what it waits on
+/// or how its latest thread last answered.
+class _ChatRow extends StatefulWidget {
   const new({
-    required this.session,
+    required this.title,
+    required this.threads,
     required this.activity,
     required this.line,
     required this.selected,
@@ -660,7 +660,10 @@ class _SessionRow extends StatefulWidget {
     required this.onDelete,
   });
 
-  final Session session;
+  final String title;
+
+  /// Its threads in the list, the one it opens to first.
+  final List<Session> threads;
   final SessionActivity activity;
   final ({String text, int added, int removed}) line;
   final bool selected;
@@ -668,28 +671,32 @@ class _SessionRow extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_SessionRow> createState() => _SessionRowState();
+  State<_ChatRow> createState() => _ChatRowState();
 }
 
-class _SessionRowState extends State<_SessionRow> {
+class _ChatRowState extends State<_ChatRow> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    final s = widget.session;
+    final s = widget.threads.first;
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
     final line = widget.line;
-    final folder = projectName(s.ownCopy ? s.repo! : s.cwd);
+    final places = {for (final x in widget.threads) projectName(x.ownCopy ? x.repo! : x.cwd)};
+    final folder = places.first;
+    final count = widget.threads.where((x) => x.sideOf == null).length;
+    final title = widget.title;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Pressable(
         onPressed: widget.onOpen,
         semanticLabel: [
-          s.title,
-          'in $folder',
+          title,
+          'in ${places.join(', ')}',
+          if (count > 1) '$count threads',
           switch (widget.activity) {
             .working => 'working',
             .needsYou => 'needs you',
@@ -721,9 +728,14 @@ class _SessionRowState extends State<_SessionRow> {
                 children: [
                   _ProjectBadge(name: folder, activity: widget.activity),
                   Expanded(
-                    child: Text(folder, maxLines: 1, overflow: .ellipsis, style: muted),
+                    child: Text(
+                      [places.join(', '), if (count > 1) '$count threads'].join(' · '),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: muted,
+                    ),
                   ),
-                  if (s.pinned)
+                  if (widget.threads.any((x) => x.pinned))
                     AshlarIcon(AshlarIconsRoundedStroke.pin, size: 11, color: c.mutedForeground),
                   if (_hovered && (widget.activity == .idle || widget.activity == .unread))
                     SizedBox(
@@ -731,7 +743,7 @@ class _SessionRowState extends State<_SessionRow> {
                       child: Button(
                         variant: .ghost,
                         size: .iconXs,
-                        semanticLabel: 'Delete ${s.title}',
+                        semanticLabel: 'Delete $title',
                         onPressed: widget.onDelete,
                         child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 13),
                       ),
@@ -741,7 +753,7 @@ class _SessionRowState extends State<_SessionRow> {
                 ],
               ),
               Text(
-                s.title,
+                title,
                 maxLines: 1,
                 overflow: .ellipsis,
                 style: t.text.sm.copyWith(
@@ -1096,124 +1108,6 @@ class _BackForward extends StatelessWidget {
 /// A chat of several threads in the list: its title, how many threads and
 /// where, the latest one's line, the busiest one's state. Opening it opens
 /// the latest thread; the arrow shows its threads beneath.
-class _ChatRow extends StatelessWidget {
-  const _ChatRow({
-    required this.title,
-    required this.threads,
-    required this.activity,
-    required this.line,
-    required this.selected,
-    required this.open,
-    required this.onOpen,
-    required this.onToggle,
-    required this.onChatPage,
-  });
-
-  final String title;
-  final List<Session> threads;
-  final SessionActivity activity;
-  final ({String text, int added, int removed}) line;
-  final bool selected, open;
-  final VoidCallback onOpen, onToggle, onChatPage;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    final muted = t.text.xs.copyWith(color: c.mutedForeground);
-    final latest = threads.first;
-    final places = {for (final s in threads) projectName(s.ownCopy ? s.repo! : s.cwd)};
-    return ContextMenu(
-      items: [
-        MenuItem(
-          leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
-          onPressed: onChatPage,
-          child: const Text('Open the chat'),
-        ),
-        MenuItem(
-          leading: AshlarIcon(
-            open ? AshlarIconsRoundedStroke.chevronUp : AshlarIconsRoundedStroke.chevronDown,
-            size: 16,
-          ),
-          onPressed: onToggle,
-          child: Text(open ? 'Hide its threads' : 'Show its threads'),
-        ),
-      ],
-      child: Pressable(
-        onPressed: onOpen,
-        semanticLabel: '$title, a chat of ${threads.length} threads',
-        selected: selected && !open,
-        builder: (context, state) => AnimatedContainer(
-          duration: t.duration,
-          padding: const .fromLTRB(10, 8, 6, 9),
-          decoration: BoxDecoration(
-            color: selected && !open
-                ? c.sidebarAccent
-                : state.hovered
-                ? c.sidebarAccent.withValues(alpha: .5)
-                : c.sidebarAccent.withValues(alpha: 0),
-            borderRadius: .circular(t.radiusMd),
-          ),
-          child: Column(
-            crossAxisAlignment: .stretch,
-            spacing: 3,
-            children: [
-              Row(
-                spacing: 8,
-                children: [
-                  _ProjectBadge(name: places.first, activity: activity),
-                  Expanded(
-                    child: Text(
-                      '${threads.length} threads · ${places.join(', ')}',
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: muted,
-                    ),
-                  ),
-                  Text(ago(latest.updatedAt), style: muted),
-                  SizedBox(
-                    height: 16,
-                    child: Button(
-                      variant: .ghost,
-                      size: .iconXs,
-                      semanticLabel: open ? 'Hide its threads' : 'Show its threads',
-                      onPressed: onToggle,
-                      child: AshlarIcon(
-                        open
-                            ? AshlarIconsRoundedStroke.chevronUp
-                            : AshlarIconsRoundedStroke.chevronDown,
-                        size: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: .ellipsis,
-                style: t.text.sm.copyWith(
-                  color: c.sidebarForeground,
-                  fontWeight: selected || activity == .unread ? .w600 : .w500,
-                ),
-              ),
-              if (line.text.isNotEmpty)
-                Text(
-                  line.text,
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: muted.copyWith(
-                    color: activity == .needsYou ? c.foreground : c.mutedForeground,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The one-time review, offered quietly at the top of the list.
 class _GroupingNotice extends StatelessWidget {
   const _GroupingNotice({required this.count, required this.onReview});

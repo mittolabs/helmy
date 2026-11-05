@@ -52,7 +52,7 @@ void main() {
     await root.delete(recursive: true);
   });
 
-  test("a chat's threads show as one row, where its newest was; a lone thread as itself", () async {
+  test("every row is a chat: its threads together, where its newest was", () async {
     final budget = await thread('November budget');
     final trip = await thread('Lisbon trip');
     final car = await thread('Car loan', chatId: sessions.byId(budget.id)!.chatId);
@@ -64,7 +64,12 @@ void main() {
       reason: 'its newest thread is the newest',
     );
     expect([for (final t in entries.first.threads) t.id], [car.id, budget.id]);
-    expect((entries.last.chat, entries.last.threads.single.id), (null, trip.id));
+    expect(
+      (entries.last.chat?.id, entries.last.threads.single.id),
+      (sessions.byId(trip.id)!.chatId, trip.id),
+      reason: 'a chat of one thread is a chat all the same',
+    );
+    expect(vm.titleOf(entries.last), 'Lisbon trip');
   });
 
   test('earlier threads that belong together are suggested, moved only when chosen', () async {

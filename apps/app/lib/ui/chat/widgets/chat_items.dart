@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../domain/models/chat_item.dart';
+import '../../../domain/models/session.dart';
 import '../../../utils/diffs.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/plan.dart';
@@ -52,6 +53,7 @@ part 'rows/background.dart';
 part 'rows/image.dart';
 part 'rows/steps.dart';
 part 'rows/tasks.dart';
+part 'rows/threads.dart';
 part 'rows/user.dart';
 
 typedef ChatRow = ({Object id, bool anchor, Widget child});

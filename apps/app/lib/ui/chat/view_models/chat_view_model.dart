@@ -226,8 +226,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   }
 
   /// Gives this thread its chat's brief as it stands now, to keep for good.
-  Future<void> _freezeBrief() async {
-    final s = session, chats = _chats;
+  Future<void> _freezeBrief([Session? thread]) async {
+    final s = thread ?? session, chats = _chats;
     if (s == null || chats == null || s.chatId == null) return;
     var brief = chats.byId(s.chatId!)?.brief ?? '';
     // Other threads but no brief yet: still said, so the agent knows they
@@ -281,6 +281,113 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     notifyListeners();
   }
 
+  // A chat's threads, in its conversation (decision 0014): the others above
+  // this one, oldest worked in first, each folded to what it came to.
+
+  /// The other threads of this thread's chat, oldest worked in first.
+  List<Session> get earlierThreads {
+    final s = session, chats = _chats;
+    if (s == null || chats == null || s.chatId == null || s.sideOf != null || embedded) {
+      return const [];
+    }
+    final list = chats.threadsOf(s.chatId!).where((t) => t.id != s.id).toList()
+      ..sort((a, b) => lastWorked(a).compareTo(lastWorked(b)));
+    // Read in the background, for their summaries and to open them.
+    for (final t in list) {
+      if (!_conversations.of(t.id).loaded && _reading.add(t.id)) {
+        unawaited(_conversations.load(t.id).then((_) => notifyListeners()));
+      }
+    }
+    return list;
+  }
+
+  final _reading = <String>{};
+
+  /// When [t] was last worked in: its last message or answer.
+  DateTime lastWorked(Session t) {
+    final ended = _conversations.of(t.id).items.whereType<TurnSummary>().lastOrNull?.endedAt;
+    return ended != null && ended.isAfter(t.updatedAt) ? ended : t.updatedAt;
+  }
+
+  /// [id]'s conversation, to show folded or open.
+  List<ChatItem> itemsOf(String id) => _conversations.of(id).items;
+
+  /// What [t] came to, in a line: Helmy's summary of it, else how it began.
+  String gistOf(Session t) {
+    final summary = t.summary?.trim() ?? '';
+    if (summary.isNotEmpty) return summary;
+    final first = itemsOf(t.id).whereType<UserMessage>().firstOrNull?.text.trim() ?? '';
+    return first.split('\n').first;
+  }
+
+  /// The earlier threads shown open.
+  final unfolded = <String>{};
+
+  void toggleThread(String id) {
+    if (!unfolded.remove(id)) unfolded.add(id);
+    notifyListeners();
+  }
+
+  /// A new thread in this chat, in this thread's folder and at its level:
+  /// it starts with the chat's brief, not this thread's history. Its id.
+  Future<String?> newThread() async {
+    final s = session;
+    if (s == null) return null;
+    final made = await _sessions.create(
+      cwd: s.cwd,
+      level: s.level,
+      chatId: s.chatId,
+      title: 'New thread',
+    );
+    return switch (made) {
+      Ok(:final value) => value.id,
+      Error() => null,
+    };
+  }
+
+  /// After this long without a word, a message starts a new thread.
+  static const quietGap = Duration(hours: 6);
+
+  /// Threads started on their own, by the thread they followed, for
+  /// "keep going in the last one".
+  static final startedAfter = <String, String>{};
+
+  /// Where the screen should go: a thread started by sending here.
+  final openThread = ValueNotifier<String?>(null);
+
+  /// Whether [text] goes to a new thread rather than this one: this thread
+  /// has gone quiet, and nothing ties the message to it (its own working
+  /// copy, a scheduled run, a command, something waiting).
+  bool _startsAfresh(Session s, String text, DateTime now) =>
+      !embedded &&
+      s.sideOf == null &&
+      s.chatId != null &&
+      !s.ownCopy &&
+      s.taskId == null &&
+      !text.trim().startsWith('!') &&
+      !busy &&
+      queue.isEmpty &&
+      items.any((i) => i is UserMessage) &&
+      now.difference(lastWorked(s)) >= quietGap;
+
+  /// Takes a thread started on its own back: its message goes to the thread
+  /// before it instead, and it is gone. The thread to open.
+  Future<String?> keepGoingInLast() async {
+    final s = session;
+    final last = startedAfter.remove(sessionId);
+    if (s == null || last == null) return null;
+    final before = _sessions.byId(last);
+    if (before == null) return null;
+    final first = items.whereType<UserMessage>().firstOrNull;
+    await _conversations.stop(sessionId);
+    await _conversations.forget(sessionId);
+    await _sessions.delete(sessionId);
+    if (first != null) {
+      await _conversations.send(before, first.text, attachments: first.attachments);
+    }
+    return last;
+  }
+
   /// Every other chat, for Move.
   List<({String id, String title})> get otherChats => [
     for (final c in _chats?.chats ?? const [])
@@ -326,7 +433,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// A side chat's name: its title once its first question named it.
   String sideTitle(String id) {
     final s = _sessions.byId(id);
-    if (s == null || s.title.startsWith('New session')) return 'Side chat';
+    if (s == null || s.untitled) return 'Side chat';
     return s.title;
   }
 
@@ -1268,6 +1375,24 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     final needs = {...pendingNeeds};
     attachments.clear();
     pendingNeeds.clear();
+    // Back after a quiet gap: a new thread in this chat, which starts with
+    // the chat's brief rather than this thread's whole history.
+    if (_startsAfresh(s, text, DateTime.now())) {
+      final id = await newThread();
+      final fresh = id == null ? null : _sessions.byId(id);
+      if (fresh != null) {
+        startedAfter[fresh.id] = s.id;
+        await _freezeBrief(fresh);
+        final sent = await _conversations.send(
+          _sessions.byId(fresh.id) ?? fresh,
+          text.trim(),
+          attachments: files,
+          needs: needs,
+        );
+        openThread.value = fresh.id;
+        return sent;
+      }
+    }
     // A thread's first message: filed first (local, at once), so it starts
     // in its chat knowing the chat's brief, frozen for the thread.
     if (!items.any((i) => i is UserMessage)) {
@@ -1431,10 +1556,16 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     }
   }
 
+  /// Names this thread's chat, for good; a thread in no chat, the thread.
   Future<void> rename(String title) async {
     final s = session;
     final t = title.trim();
     if (s == null || t.isEmpty) return;
+    if (s.chatId != null && _chats?.byId(s.chatId!) != null) {
+      await _chats!.rename(s.chatId!, t);
+      notifyListeners();
+      return;
+    }
     await _sessions.save(s.copyWith(title: t));
   }
 
@@ -1483,11 +1614,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     // What was read of the old folder is not this one's.
     _starters = null;
     _files = null;
-    // Not yet named by a first message: named for where it now is.
-    final title = s.title.startsWith('New session')
-        ? (isScratch(cwd) ? 'New session' : 'New session in ${folderName(cwd)}')
-        : null;
-    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level, title: title));
+    await _sessions.save(s.copyWith(cwd: cwd, threads: const {}, level: level));
   }
 
   @override
@@ -1500,6 +1627,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     device?.dispose();
     focusRequests.dispose();
     draftInserts.dispose();
+    openThread.dispose();
     _sessions.removeListener(notifyListeners);
     _sessions.removeListener(_findRepoLater);
     _conversations.removeListener(notifyListeners);

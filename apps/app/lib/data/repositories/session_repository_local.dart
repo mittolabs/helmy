@@ -47,11 +47,10 @@ class SessionRepositoryLocal extends SessionRepository {
     String? chatId,
   }) async {
     final now = DateTime.now();
-    final name = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ?? cwd;
     final session = Session(
       id: const Uuid().v4(),
       level: level,
-      title: title ?? 'New session in $name',
+      title: title ?? 'New chat',
       taskId: taskId,
       sideOf: sideOf,
       chatId: chatId,

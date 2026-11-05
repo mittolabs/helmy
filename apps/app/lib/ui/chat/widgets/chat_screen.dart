@@ -43,7 +43,6 @@ import 'changes_panel.dart';
 import 'media.dart';
 import 'bottom_terminal.dart';
 import 'files_panel.dart';
-import '../../../data/repositories/chat_repository.dart';
 import 'window_picker.dart';
 import '../../../data/services/window_snapshots.dart';
 import 'side_chat_panel.dart';
@@ -156,6 +155,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     vm.focusRequests.addListener(_focus);
     vm.draftInserts.addListener(_insert);
+    vm.openThread.addListener(_openThread);
     snapshotRequests.addListener(_snapshot);
     // One asked for before this screen was open (both Shift keys from
     // another app, with no conversation showing).
@@ -164,6 +164,14 @@ class _ChatScreenState extends State<ChatScreen> {
     _text.text = vm.draft;
     _text.addListener(_suggest);
     _text.addListener(_keepDraft);
+  }
+
+  /// A message went to a new thread: that is where the conversation is now.
+  void _openThread() {
+    final id = vm.openThread.value;
+    if (id == null || !mounted) return;
+    _text.clear();
+    context.go('/s/$id');
   }
 
   String _kept = '';
@@ -178,6 +186,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void didUpdateWidget(ChatScreen old) {
     super.didUpdateWidget(old);
     if (old.viewModel == widget.viewModel) return;
+    old.viewModel.openThread.removeListener(_openThread);
+    vm.openThread.addListener(_openThread);
     // Another thread in the same place: this one's words stay with it.
     old.viewModel.keepDraft(_text.text);
     unawaited(old.viewModel.saveDraft());
@@ -382,6 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
     unawaited(vm.saveDraft());
     vm.focusRequests.removeListener(_focus);
     vm.draftInserts.removeListener(_insert);
+    vm.openThread.removeListener(_openThread);
     snapshotRequests.removeListener(_snapshot);
     _composer.dispose();
     _text.dispose();
@@ -410,6 +421,10 @@ class _ChatScreenState extends State<ChatScreen> {
           if (actionToRun(vm) case final a?) vm.run(a);
         },
         Desktop.current.shortcut(LogicalKeyboardKey.keyO, shift: true): () => vm.openIn(),
+        // A new thread in this chat, as ⌘N is a new chat.
+        Desktop.current.shortcut(LogicalKeyboardKey.keyN, shift: true): () {
+          if (vm.session?.chatId != null && widget.bar == null) newThreadIn(context, vm);
+        },
         // The terminal under the conversation, as in an editor.
         Desktop.current.shortcut(LogicalKeyboardKey.keyJ): vm.toggleBottom,
         // ⌘⌥1 to ⌘⌥9: the actions in the project menu's order.
@@ -432,7 +447,9 @@ class _ChatScreenState extends State<ChatScreen> {
             if (session == null) {
               return const Center(child: Text('This session no longer exists.'));
             }
-            final rows = buildRows(vm);
+            // The chat's earlier threads above, folded; then this one.
+            final rows = [...threadRows(vm), ...buildRows(vm)];
+            final alone = vm.earlierThreads.isEmpty;
             return DropTarget(
               onDragDone: (detail) => vm.attach(detail.files.map((f) => f.path)),
               child: _SidePanels(
@@ -448,6 +465,12 @@ class _ChatScreenState extends State<ChatScreen> {
                           listenable: windowFullScreen,
                           builder: (context, _) => _Header(vm: vm, session: session),
                         ),
+                      ),
+                    // A thread started on its own after a quiet gap, said once.
+                    if (widget.bar == null && ChatViewModel.startedAfter.containsKey(vm.sessionId))
+                      Padding(
+                        padding: .symmetric(horizontal: sideMargin(context)),
+                        child: inColumn(_FreshThreadChip(vm: vm)),
                       ),
                     // Where filing put this thread, said once.
                     if (widget.bar == null && vm.filing != null)
@@ -470,7 +493,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPrevious: () => _go(-1),
                         onClose: _closeFind,
                       ),
-                    if (vm.items.isEmpty && !vm.busy && !_finding)
+                    if (vm.items.isEmpty && !vm.busy && !_finding && alone)
                       Expanded(
                         child: _Hello(offline: vm.onlyThisMac, vm: vm),
                       )
@@ -554,7 +577,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (vm.queue.isNotEmpty) inColumn(_Queue(vm: vm)),
                     if (_suggestions.isNotEmpty)
                       inColumn(_SuggestionList(items: _suggestions, onPick: _take))
-                    else if (vm.items.isEmpty && !vm.busy)
+                    else if (vm.items.isEmpty && !vm.busy && alone)
                       inColumn(_Starters(vm: vm, text: _text, onSend: _sendStarter)),
                     Padding(
                       padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 20),

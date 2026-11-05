@@ -82,16 +82,13 @@ class _Header extends StatelessWidget {
                           ),
                         ),
                         Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
-                        // Its chat, when the chat is more than this thread.
-                        if (_ChatCrumb.of(context, session) case final crumb?) ...[
-                          Flexible(flex: 2, child: crumb),
-                          Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
-                        ],
                       ],
                       Flexible(
                         flex: 3,
+                        // The chat: its threads are in the conversation, each
+                        // under its own separator.
                         child: Text(
-                          session.title,
+                          vm.chatTitle ?? session.title,
                           style: t.text.sm.copyWith(
                             fontWeight: .w500,
                             height: 1,
@@ -220,9 +217,9 @@ class _SessionMenu extends StatelessWidget {
   Future<void> _rename(BuildContext context) async {
     final title = await askText(
       context,
-      title: 'Rename session',
+      title: 'Rename chat',
       action: 'Rename',
-      initial: vm.session?.title ?? '',
+      initial: vm.chatTitle ?? vm.session?.title ?? '',
       icon: AshlarIconsRoundedStroke.pencil,
     );
     if (title != null) await vm.rename(title);
@@ -266,6 +263,13 @@ class _SessionMenu extends StatelessWidget {
   Widget build(BuildContext context) => DropdownMenu(
     align: .end,
     items: [
+      if (vm.session?.chatId != null && vm.session?.sideOf == null)
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 16),
+          onPressed: () => newThreadIn(context, vm),
+          trailing: Text(Desktop.current.keys('⇧⌘N')),
+          child: const Text('New thread'),
+        ),
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.pencil, size: 16),
         onPressed: () => _rename(context),
@@ -387,46 +391,6 @@ class _FolderButton extends StatelessWidget {
 
 /// The chat a thread is in, in the breadcrumb, as a link to its page: shown
 /// when the chat holds more than this thread, or was named.
-class _ChatCrumb extends StatelessWidget {
-  const _ChatCrumb({required this.chatId, required this.title});
-  final String chatId;
-  final String title;
-
-  static Widget? of(BuildContext context, Session session) {
-    final ChatRepository chats;
-    try {
-      chats = context.watch<ChatRepository>();
-    } on ProviderNotFoundException {
-      return null;
-    }
-    final id = session.chatId;
-    final chat = id == null ? null : chats.byId(id);
-    if (chat == null || (!chat.named && chats.threadsOf(chat.id).length < 2)) return null;
-    return _ChatCrumb(chatId: chat.id, title: chat.title);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final style = t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1);
-    return Tooltip(
-      message: 'This thread is in the chat "$title". Click to see the chat',
-      child: Pressable(
-        onPressed: () => context.go('/c/$chatId'),
-        semanticLabel: 'Chat $title',
-        builder: (context, state) => Text(
-          title,
-          maxLines: 1,
-          overflow: .ellipsis,
-          style: style.copyWith(
-            color: state.hovered ? t.colors.foreground : style.color,
-            decoration: state.hovered ? TextDecoration.underline : null,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Where filing put this new thread, said once under the header: "In
 /// Finances", with Move and Undo; or, when two chats were close, the
@@ -546,6 +510,59 @@ class _FilingChip extends StatelessWidget {
               onPressed: vm.dismissFiling,
               child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Starts a new thread in [vm]'s chat and opens it.
+Future<void> newThreadIn(BuildContext context, ChatViewModel vm) async {
+  final id = await vm.newThread();
+  if (id != null && context.mounted) context.go('/s/$id');
+}
+
+/// Said once on a thread Helmy started on its own: why, and the way back.
+class _FreshThreadChip extends StatelessWidget {
+  const _FreshThreadChip({required this.vm});
+  final ChatViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Container(
+      margin: const .only(bottom: 6),
+      padding: const .fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: c.muted.withValues(alpha: .5),
+        borderRadius: .circular(t.radiusMd),
+      ),
+      child: Row(
+        spacing: 6,
+        children: [
+          AshlarIcon(
+            AshlarIconsRoundedStroke.messageSquarePlus,
+            size: 14,
+            color: c.mutedForeground,
+          ),
+          Expanded(
+            child: Text(
+              "A new thread: the last one had gone quiet, so this starts fresh with the chat's brief.",
+              style: t.text.xs.copyWith(color: c.mutedForeground),
+              maxLines: 2,
+              overflow: .ellipsis,
+            ),
+          ),
+          Button(
+            variant: .outline,
+            size: .xs,
+            onPressed: () async {
+              final id = await vm.keepGoingInLast();
+              if (id != null && context.mounted) context.go('/s/$id');
+            },
+            child: const Text('Keep going in the last one'),
           ),
         ],
       ),

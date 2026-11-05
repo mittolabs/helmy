@@ -74,6 +74,10 @@ class const Session({
   /// Events sent to its address arrive as messages.
   bool get hasWebhook => webhook?.isNotEmpty ?? false;
 
+  /// Not named yet by a first message ("New chat", "New thread"; "New session"
+  /// before chats).
+  bool get untitled => RegExp(r"^New (session|chat|thread)\b").hasMatch(title);
+
   /// Something written and not sent.
   bool get hasDraft => draft?.trim().isNotEmpty ?? false;
 

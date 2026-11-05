@@ -232,7 +232,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     notifyListeners();
 
     var updated = session.copyWith(updatedAt: DateTime.now());
-    if (session.title.startsWith('New session')) {
+    if (session.untitled) {
       final line = text.trim().split('\n').first;
       updated = updated.copyWith(title: line.length > 60 ? '${line.substring(0, 57)}...' : line);
     }

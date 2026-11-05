@@ -117,13 +117,19 @@ class SidebarViewModel extends ChangeNotifier {
   /// the rest, in one group or one per folder.
   List<({String? label, String? folder, List<Session> sessions})> get groups {
     final list = shown;
+    // A chat is one row: all its threads go where its busiest one would.
+    final ofChat = <String, List<Session>>{};
+    for (final x in list) {
+      (ofChat[_key(x)] ??= []).add(x);
+    }
+    SessionActivity chatActivity(Session x) => activityOfAll(ofChat[_key(x)]!);
     final wants = [
       for (final x in list)
-        if (activityOf(x.id) case SessionActivity.needsYou || SessionActivity.unread) x,
+        if (chatActivity(x) case SessionActivity.needsYou || SessionActivity.unread) x,
     ];
     final working = [
       for (final x in list)
-        if (activityOf(x.id) == SessionActivity.working) x,
+        if (chatActivity(x) == SessionActivity.working) x,
     ];
     final rest = [
       for (final x in list)
@@ -139,9 +145,12 @@ class SidebarViewModel extends ChangeNotifier {
       }
       return out;
     }
+    // A chat under the folder its latest thread works in.
     final byFolder = <String, List<Session>>{};
+    final folderOf = <String, String>{};
     for (final x in rest) {
-      byFolder.putIfAbsent(x.cwd, () => []).add(x);
+      final folder = folderOf.putIfAbsent(_key(x), () => x.cwd);
+      byFolder.putIfAbsent(folder, () => []).add(x);
     }
     return [
       ...out,
@@ -149,8 +158,15 @@ class SidebarViewModel extends ChangeNotifier {
     ];
   }
 
-  /// Every session in the order the list shows them, for ⌘1 to ⌘9.
-  List<Session> get inOrder => [for (final g in groups) ...g.sessions];
+  /// Each chat in the order the list shows them, by the thread it opens
+  /// to, for ⌘1 to ⌘9.
+  List<Session> get inOrder => [
+    for (final g in groups)
+      for (final e in entriesOf(g.sessions)) e.threads.first,
+  ];
+
+  /// The chat [s] is in, as a key: its chat, or itself when it has none.
+  static String _key(Session s) => s.chatId ?? s.id;
 
   bool isUnread(String id) => _attention?.isUnread(id) == true;
 
@@ -255,43 +271,103 @@ class SidebarViewModel extends ChangeNotifier {
 
   SessionActivity activityOf(String id) => _activity[id] ?? .idle;
 
-  // Chats in the list (decision 0014): a chat's threads in a section show as
-  // one row, its threads beneath.
+  // The list is of chats (decision 0014): each row a chat, its threads
+  // inside it, in the conversation.
 
   final ChatRepository? _chats;
   final TurnLog? _log;
 
-  /// The chats whose threads show beneath their row.
-  final expanded = <String>{};
-
-  void toggleChat(String chatId) {
-    if (!expanded.remove(chatId)) expanded.add(chatId);
-    notifyListeners();
-  }
-
-  /// [sessions] (a section of the list, in its order) with each chat's
-  /// threads together: a chat of one thread is that thread's row; of more,
-  /// a chat row with them beneath, where its first thread was.
+  /// [sessions] (a section of the list, in its order) as chats: each once,
+  /// where its first thread was, with its threads in that order (the one it
+  /// opens to first).
   List<({Chat? chat, List<Session> threads})> entriesOf(List<Session> sessions) {
-    final chats = _chats;
-    if (chats == null) {
-      return [
-        for (final s in sessions) (chat: null, threads: [s]),
-      ];
-    }
     final byChat = <String, List<Session>>{};
     for (final s in sessions) {
-      if (s.chatId != null) (byChat[s.chatId!] ??= []).add(s);
+      (byChat[_key(s)] ??= []).add(s);
     }
-    final seen = <String>{};
-    return [
-      for (final s in sessions)
-        if (s.chatId == null || (byChat[s.chatId!]?.length ?? 0) < 2)
-          (chat: null, threads: [s])
-        else if (seen.add(s.chatId!))
-          (chat: chats.byId(s.chatId!), threads: byChat[s.chatId!]!),
-    ];
+    return [for (final e in byChat.entries) (chat: _chats?.byId(e.key), threads: e.value)];
   }
+
+  /// What a chat's row is called: its title, else its latest thread's.
+  String titleOf(({Chat? chat, List<Session> threads}) e) => e.chat?.title ?? e.threads.first.title;
+
+  // What is done to a row is done to the chat: every thread in it.
+
+  /// The threads of the chat [s] is in, side chats too; [s] alone when it is
+  /// in none.
+  List<Session> chatOf(Session s) => s.chatId == null
+      ? [s]
+      : [
+          for (final x in _sessions.sessions)
+            if (x.chatId == s.chatId) x,
+        ];
+
+  void markChatRead(List<Session> threads) {
+    for (final t in threads) {
+      markRead(t.id);
+    }
+  }
+
+  Future<void> setChatPinned(List<Session> threads, bool pinned) async {
+    for (final t in threads) {
+      await setPinned(_sessions.byId(t.id) ?? t, pinned);
+    }
+  }
+
+  Future<void> snoozeChat(List<Session> threads, DateTime until) async {
+    final was = [for (final t in threads) _sessions.byId(t.id) ?? t];
+    for (final t in was) {
+      await _sessions.save(t.copyWith(snoozedUntil: until, pinned: false));
+    }
+    _undo = () async {
+      for (final t in was) {
+        final now = _sessions.byId(t.id);
+        if (now != null) await _sessions.save(now.copyWith(wake: true, pinned: t.pinned));
+      }
+    };
+  }
+
+  Future<void> wakeChat(List<Session> threads) async {
+    for (final t in threads) {
+      await wake(_sessions.byId(t.id) ?? t);
+    }
+  }
+
+  Future<void> setChatArchived(List<Session> threads, bool archived) async {
+    final was = [for (final t in threads) _sessions.byId(t.id) ?? t];
+    for (final t in was) {
+      await _sessions.save(t.copyWith(archived: archived, pinned: archived ? false : null));
+    }
+    _undo = !archived
+        ? null
+        : () async {
+            for (final t in was) {
+              final now = _sessions.byId(t.id);
+              if (now != null)
+                await _sessions.save(now.copyWith(archived: false, pinned: t.pinned));
+            }
+          };
+    if (archived && was.any((t) => t.ownCopy)) unawaited(_tidy());
+  }
+
+  Future<void> deleteChat(List<Session> threads) async {
+    for (final t in threads) {
+      await delete.execute(t.id);
+    }
+  }
+
+  /// Takes back the last archive, snooze or settle (⌘Z).
+  Future<void> undo() async {
+    final u = _undo;
+    _undo = null;
+    if (u != null) {
+      await u();
+    } else {
+      await undoArchive();
+    }
+  }
+
+  Future<void> Function()? _undo;
 
   /// The busiest of [threads]: one that needs you, else one working, else
   /// one unread.
