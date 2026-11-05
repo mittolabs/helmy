@@ -196,6 +196,40 @@ class const ProjectSettings({
   );
 }
 
+/// A phone paired with this Mac, by its own key; one not yet paired (its
+/// code shown, not scanned) has no [pairedAt].
+class const PairedPhone({
+  required final String id,
+  required final String key,
+  final String name = '',
+  final DateTime? pairedAt,
+  final DateTime? lastSeen,
+}) {
+  PairedPhone copyWith({String? name, DateTime? pairedAt, DateTime? lastSeen}) => PairedPhone(
+    id: id,
+    key: key,
+    name: name ?? this.name,
+    pairedAt: pairedAt ?? this.pairedAt,
+    lastSeen: lastSeen ?? this.lastSeen,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'key': key,
+    'name': name,
+    'pairedAt': ?pairedAt?.toIso8601String(),
+    'lastSeen': ?lastSeen?.toIso8601String(),
+  };
+
+  static PairedPhone fromJson(Map<String, Object?> j) => PairedPhone(
+    id: '${j['id']}',
+    key: '${j['key']}',
+    name: '${j['name'] ?? ''}',
+    pairedAt: DateTime.tryParse('${j['pairedAt']}'),
+    lastSeen: DateTime.tryParse('${j['lastSeen']}'),
+  );
+}
+
 /// A connection added in Settings: another Claude Code or Codex account,
 /// signed in to a folder of its own (CLAUDE_CONFIG_DIR or CODEX_HOME), or an
 /// agent that speaks the Agent Client Protocol (kind 'acp').
@@ -356,6 +390,9 @@ class const AppSettings({
   /// Accounts added beside the usual Claude Code and Codex ones.
   final List<ConnectionAccount> accounts = const [],
 
+  /// Phones paired by their own keys, and the one whose code is showing.
+  final List<PairedPhone> phones = const [],
+
   /// The user's choice of which kind of connection is best at a kind of
   /// work, by the kind's name: 'claude', 'codex', or 'any'. Kinds not here
   /// keep Mittolabs's choice ([defaultBestAt]).
@@ -487,6 +524,7 @@ class const AppSettings({
     String? fixedFolder,
     Set<String>? disabledEngines,
     List<ConnectionAccount>? accounts,
+    List<PairedPhone>? phones,
     String? interfaceFont,
     String? codeFont,
     String? promptFont,
@@ -566,6 +604,7 @@ class const AppSettings({
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
     accounts: accounts ?? this.accounts,
+    phones: phones ?? this.phones,
     interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
     codeFont: codeFont == '' ? null : codeFont ?? this.codeFont,
     promptFont: promptFont == '' ? null : promptFont ?? this.promptFont,
@@ -647,6 +686,7 @@ class const AppSettings({
     'fixedFolder': fixedFolder,
     'disabledEngines': disabledEngines.toList(),
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
+    if (phones.isNotEmpty) 'phones': [for (final p in phones) p.toJson()],
     'bestAt': bestAt,
     'interfaceFont': interfaceFont,
     'codeFont': codeFont,
@@ -771,6 +811,10 @@ class const AppSettings({
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
     },
+    phones: [
+      for (final p in (json['phones'] as List?) ?? const [])
+        if (p is Map) PairedPhone.fromJson(p.cast<String, Object?>()),
+    ],
     accounts: [
       for (final a in (json['accounts'] as List?) ?? const [])
         if (a is Map) ConnectionAccount.fromJson(a.cast<String, Object?>()),

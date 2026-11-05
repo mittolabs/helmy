@@ -24,6 +24,13 @@ class RemoteServer {
     this.port = defaultPort,
   });
 
+  /// A phone's own key, by its id; null for one not paired (or turned
+  /// away). Set by whoever keeps the phones.
+  String? Function(String device) keyOf = (_) => null;
+
+  /// A phone said hello: its id and the name it goes by.
+  void Function(String device, String name)? onHello;
+
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
   final ChatRepository? _chats;
@@ -54,9 +61,18 @@ class RemoteServer {
         await req.response.close();
         return;
       }
+      // A phone with its own key says which it is; one paired before has
+      // the shared key.
+      final device = req.uri.queryParameters['d'];
+      final own = device == null ? null : keyOf(device);
+      if (device != null && own == null) {
+        req.response.statusCode = HttpStatus.forbidden;
+        await req.response.close();
+        return;
+      }
       final ws = await WebSocketTransformer.upgrade(req);
       ws.pingInterval = const Duration(seconds: 20);
-      final client = _Client(ws);
+      final client = _Client(ws, device: device, sealer: own == null ? null : Sealer(own));
       ws.listen(
         (data) => unawaited(_receive(client, data)),
         onDone: () => _clients.remove(client),
@@ -92,8 +108,19 @@ class RemoteServer {
     return out;
   }
 
+  /// Turns phone [device] away now: its connections close.
+  Future<void> drop(String device) async {
+    for (final c in [..._clients.where((c) => c.device == device)]) {
+      _clients.remove(c);
+      await c.ws.close(WebSocketStatus.policyViolation, 'unpaired');
+    }
+  }
+
+  /// The phones connected now, by id (null for one paired before).
+  Set<String?> get connectedDevices => {for (final c in _clients) c.device};
+
   Future<void> _send(_Client c, Map<String, Object?> message) async {
-    final s = _sealer;
+    final s = c.sealer ?? _sealer;
     if (s == null) return;
     try {
       c.ws.add(await s.seal(message));
@@ -103,7 +130,7 @@ class RemoteServer {
   }
 
   Future<void> _receive(_Client c, Object? data) async {
-    final m = data is String ? await _sealer?.open(data) : null;
+    final m = data is String ? await (c.sealer ?? _sealer)?.open(data) : null;
     if (m == null) {
       // Not sealed with this pairing's key: not a paired phone.
       await c.ws.close(WebSocketStatus.policyViolation, 'not paired');
@@ -117,6 +144,7 @@ class RemoteServer {
     final id = '${m['id'] ?? ''}';
     switch (m['type']) {
       case 'hello':
+        if (c.device case final d?) onHello?.call(d, '${m['name'] ?? ''}');
         await _send(c, _state());
       case 'open':
         c.open.add(id);
@@ -240,8 +268,12 @@ class RemoteServer {
 }
 
 class _Client {
-  _Client(this.ws);
+  _Client(this.ws, {this.device, this.sealer});
   final WebSocket ws;
+
+  /// Which phone, and its own key's sealer; both null for one paired before.
+  final String? device;
+  final Sealer? sealer;
   bool paired = false;
 
   /// The conversations it has open, and how many items it was sent of each.

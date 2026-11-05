@@ -55,10 +55,9 @@ class _Phone extends StatelessWidget {
                       style: muted,
                     ),
                     Text(
-                      host.connected == 0
-                          ? 'No phone connected now.'
-                          : '${host.connected} ${host.connected == 1 ? 'phone' : 'phones'} connected now.',
-                      style: t.text.sm.copyWith(fontWeight: .w500),
+                      'Each phone pairs with a code of its own: once one has scanned it, '
+                      'the next phone gets a new one.',
+                      style: muted,
                     ),
                     Text(
                       'Reached at ${pairing.hosts.join(', ')}, port ${pairing.port}.',
@@ -76,13 +75,51 @@ class _Phone extends StatelessWidget {
                         );
                         if (ok) await host!.pairAgain();
                       },
-                      child: const Text('Pair again (forget phones)'),
+                      child: const Text('Forget every phone'),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          const _Heading('Paired phones'),
+          if (host.phones.isEmpty && host.olderConnected == 0)
+            _Block(
+              title: 'None yet',
+              child: Text('A phone shows here once it has scanned its code.', style: muted),
+            ),
+          for (final p in host.phones)
+            _Row(
+              title: p.name.isEmpty ? 'A phone' : p.name,
+              description: host.isConnected(p.id)
+                  ? 'Connected now. Paired ${ago(p.pairedAt!, now: DateTime.now())} ago.'
+                  : 'Last seen ${ago(p.lastSeen ?? p.pairedAt!, now: DateTime.now())} ago. '
+                        'Paired ${ago(p.pairedAt!, now: DateTime.now())} ago.',
+              control: Button(
+                variant: .ghost,
+                size: .sm,
+                semanticLabel: 'Unpair ${p.name}',
+                onPressed: () async {
+                  final ok = await confirm(
+                    context,
+                    title: 'Unpair ${p.name.isEmpty ? 'this phone' : p.name}?',
+                    body:
+                        'It is turned away from now on, and has to scan a code again to come '
+                        'back. Other phones stay paired.',
+                    action: 'Unpair',
+                    destructive: true,
+                  );
+                  if (ok) await host!.unpair(p.id);
+                },
+                child: const Text('Unpair'),
+              ),
+            ),
+          if (host.olderConnected > 0)
+            Text(
+              '${host.olderConnected} connected with an older code, from before phones had '
+              'codes of their own. Forget every phone to turn it away, then pair again.',
+              style: muted,
+            ),
         ],
       ],
     );

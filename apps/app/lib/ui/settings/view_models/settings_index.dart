@@ -199,7 +199,8 @@ const List<SettingEntry> settingsIndex = [
     section: .phone,
     keywords: 'remote mobile iphone android pair qr',
   ),
-  (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key revoke'),
+  (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key'),
+  (title: 'Paired phones', section: .phone, keywords: 'unpair revoke remove phone devices'),
   // Archive.
   (
     title: 'Archived chats',

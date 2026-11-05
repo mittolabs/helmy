@@ -10,11 +10,14 @@ import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/remote/remote_crypto.dart';
 import 'package:helmy/data/services/remote/remote_link.dart';
+import 'package:helmy/domain/models/settings.dart';
+import 'package:helmy/data/services/remote/remote_host.dart';
 import 'package:helmy/data/services/remote/remote_server.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/utils/result.dart';
 
+import '../testing/fake_repositories.dart';
 import 'support/storage.dart';
 
 /// A phone and the Mac, over a sealed WebSocket: the list, a conversation
@@ -107,5 +110,86 @@ void main() {
     expect(got, isEmpty);
     expect(ws.closeCode, WebSocketStatus.policyViolation);
     expect(server.connected, 0);
+  });
+
+  test('phones with keys of their own: told apart, and one unpaired alone', () async {
+    final keys = {'tito': Pairing.newKey(), 'sam': Pairing.newKey()};
+    final hellos = <String, String>{};
+    server.keyOf = (d) => keys[d];
+    server.onHello = (d, name) => hellos[d] = name;
+    final mine = Pairing(
+      hosts: const ['127.0.0.1'],
+      port: port,
+      key: keys['tito']!,
+      name: 'Studio',
+      device: 'tito',
+    );
+    expect(Pairing.parse(mine.link)?.device, 'tito', reason: 'the code carries which phone');
+    RemoteLink linkFor(String d) => RemoteLink(
+      Pairing(hosts: const ['127.0.0.1'], port: port, key: keys[d]!, name: 'Studio', device: d),
+    );
+    final a = linkFor('tito'), b = linkFor('sam');
+    addTearDown(a.dispose);
+    addTearDown(b.dispose);
+    await a.connect();
+    await b.connect();
+    await until(() => hellos.length == 2);
+    expect(hellos.keys, unorderedEquals(['tito', 'sam']));
+    expect(hellos['tito'], phoneName());
+    expect(server.connectedDevices, {'tito', 'sam'});
+
+    // Unpaired: its key goes and it is dropped; the other stays.
+    keys.remove('sam');
+    await server.drop('sam');
+    await until(() => b.state == LinkState.unreachable);
+    expect(server.connectedDevices, {'tito'});
+    expect(a.state, LinkState.connected);
+
+    // Another phone's key with its id: turned away.
+    final wrong = RemoteLink(
+      Pairing(
+        hosts: const ['127.0.0.1'],
+        port: port,
+        key: Pairing.newKey(),
+        name: 'S',
+        device: 'tito',
+      ),
+    );
+    addTearDown(wrong.dispose);
+    await wrong.connect();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(wrong.state, isNot(LinkState.connected));
+  });
+
+  test('pairing on the Mac: a code per phone, named when it pairs, unpaired alone', () async {
+    await server.stop();
+    final settings = FakeSettingsRepository(const AppSettings(remoteOn: true));
+    final host = RemoteHost(server, settings);
+    addTearDown(host.dispose);
+    await until(() => host.pairing?.device != null);
+    final first = host.pairing!;
+    expect(host.phones, isEmpty, reason: 'shown, not yet scanned');
+    final link = RemoteLink(
+      Pairing(
+        hosts: const ['127.0.0.1'],
+        port: port,
+        key: first.key,
+        name: 'Studio',
+        device: first.device,
+      ),
+    );
+    addTearDown(link.dispose);
+    await link.connect();
+    await until(() => host.phones.isNotEmpty);
+    expect(host.phones.single.name, phoneName());
+    expect(host.isConnected(first.device!), isTrue);
+    // Scanned: the next phone gets a code of its own.
+    await until(() => host.pairing?.device != first.device);
+    expect(host.pairing!.device, isNot(first.device));
+
+    await host.unpair(first.device!);
+    expect(host.phones, isEmpty);
+    await until(() => link.state == LinkState.unreachable);
+    expect(link.state, LinkState.unreachable);
   });
 }

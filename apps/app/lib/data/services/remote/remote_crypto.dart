@@ -7,7 +7,17 @@ import 'package:cryptography/cryptography.dart';
 /// port), and the key every message between them is sealed with. Shown on
 /// the Mac as a QR code, never sent over the network.
 class Pairing {
-  const Pairing({required this.hosts, required this.port, required this.key, required this.name});
+  const Pairing({
+    required this.hosts,
+    required this.port,
+    required this.key,
+    required this.name,
+    this.device,
+  });
+
+  /// This phone's id on the Mac, with a key of its own: so the Mac can tell
+  /// phones apart and turn one away alone. Null for a pairing made before.
+  final String? device;
 
   final List<String> hosts;
   final int port;
@@ -23,8 +33,8 @@ class Pairing {
   /// As the QR code carries it.
   String get link => Uri(
     scheme: scheme,
-    path: 'v1',
-    queryParameters: {'h': hosts.join(','), 'p': '$port', 'k': key, 'n': name},
+    path: device == null ? 'v1' : 'v2',
+    queryParameters: {'h': hosts.join(','), 'p': '$port', 'k': key, 'n': name, 'd': ?device},
   ).toString();
 
   /// A link read from a QR code or pasted; null when it is not one.
@@ -36,7 +46,14 @@ class Pairing {
     final key = q['k'] ?? '';
     final hosts = (q['h'] ?? '').split(',').where((h) => h.isNotEmpty).toList();
     if (port == null || hosts.isEmpty || !_isKey(key)) return null;
-    return Pairing(hosts: hosts, port: port, key: key, name: q['n'] ?? 'Helmy');
+    final device = q['d'];
+    return Pairing(
+      hosts: hosts,
+      port: port,
+      key: key,
+      name: q['n'] ?? 'Helmy',
+      device: device == null || device.isEmpty ? null : device,
+    );
   }
 
   static bool _isKey(String key) {
@@ -45,6 +62,12 @@ class Pairing {
     } on FormatException {
       return false;
     }
+  }
+
+  /// A new phone's id: short, random, URL-safe.
+  static String newDevice() {
+    final r = Random.secure();
+    return base64Url.encode([for (var i = 0; i < 9; i++) r.nextInt(256)]);
   }
 
   /// A new key: pairing again with it lets go of every phone paired before.

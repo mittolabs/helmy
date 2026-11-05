@@ -32,6 +32,13 @@ class RemoteConversation {
 
 enum LinkState { connecting, connected, unreachable }
 
+/// What this phone is called, for the Mac's list of paired phones:
+/// "Mittos-iPhone" as "Mittos iPhone".
+String phoneName() {
+  final n = Platform.localHostname.replaceAll(RegExp(r'\.local$'), '').replaceAll('-', ' ').trim();
+  return n.isEmpty ? (Platform.isIOS ? 'iPhone' : 'Phone') : n;
+}
+
 /// A phone's line to Helmy on a Mac (see [RemoteServer]): the chats there,
 /// the conversations it has open, and what it asks of them. Reconnects by
 /// itself, trying each of the Mac's addresses.
@@ -68,8 +75,10 @@ class RemoteLink extends ChangeNotifier {
     notifyListeners();
     for (final host in pairing.hosts) {
       try {
-        final ws = await WebSocket.connect('ws://$host:${pairing.port}/ws')
-            .timeout(const Duration(seconds: 4));
+        final device = pairing.device;
+        final ws = await WebSocket.connect(
+          'ws://$host:${pairing.port}/ws${device == null ? '' : '?d=$device'}',
+        ).timeout(const Duration(seconds: 4));
         _ws = ws;
         _attempt = 0;
         ws.listen(
@@ -78,7 +87,7 @@ class RemoteLink extends ChangeNotifier {
           onError: (_) => _lost(),
           cancelOnError: true,
         );
-        await _send({'type': 'hello'});
+        await _send({'type': 'hello', 'name': phoneName()});
         for (final id in _open) {
           await _send({'type': 'open', 'id': id});
         }
@@ -97,7 +106,8 @@ class RemoteLink extends ChangeNotifier {
     trouble = unreachable
         ? "Can't reach ${pairing.name}. It needs Helmy open with the phone turned on in "
               'Settings, on the same Wi-Fi as this phone, or on Tailscale.'
-        : 'The connection to ${pairing.name} dropped.';
+        : 'The connection to ${pairing.name} dropped. If it was unpaired there, scan its '
+              'code again.';
     notifyListeners();
     // Again soon, then less often: 2, 4, 8, up to 30 seconds.
     final wait = Duration(seconds: (2 << _attempt.clamp(0, 4)).clamp(2, 30));
