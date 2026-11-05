@@ -54,6 +54,10 @@ class _MacScreenViewState extends State<MacScreenView> {
   void initState() {
     super.initState();
     unawaited(link.showScreen());
+    // The keyboard put away (a tap elsewhere): the typing bar goes with it.
+    _typing.addListener(() {
+      if (!_typing.hasFocus && _keyboard) setState(() => _keyboard = false);
+    });
   }
 
   @override
@@ -144,6 +148,8 @@ class _MacScreenViewState extends State<MacScreenView> {
                                   ? 'Reaching it…'
                                   : link.screenOn
                                   ? 'Its screen, live'
+                                  : link.screenTrouble != null
+                                  ? 'Not showing its screen'
                                   : 'Asking to see its screen…',
                               style: t.text.xs.copyWith(color: c.mutedForeground),
                             ),

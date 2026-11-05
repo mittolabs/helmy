@@ -117,6 +117,14 @@ class _PhoneAppState extends State<_PhoneApp> {
     // The Mac's own theme, so the phone looks like Helmy there.
     theme: themeFor(Brightness.light),
     darkTheme: themeFor(Brightness.dark),
+    // Wherever the keyboard is up, a tap on empty space puts it away: on
+    // every screen and sheet, since this wraps them all. A tap on a button
+    // or a text box is theirs, as the innermost tap wins.
+    builder: (context, child) => GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: child,
+    ),
     themeMode: switch (_look) {
       PhoneLook.system => AshlarThemeMode.system,
       PhoneLook.light => AshlarThemeMode.light,
