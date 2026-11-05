@@ -59,8 +59,9 @@ class _Appearance extends StatelessWidget {
           description:
               'A color theme file (.json), as VS Code themes are made: its colors become '
               "Helmy's, for light or dark as the theme is.",
-          control: Row(
-            mainAxisSize: .min,
+          control: Wrap(
+            alignment: WrapAlignment.end,
+
             spacing: 6,
             children: [
               if (imported != null)
