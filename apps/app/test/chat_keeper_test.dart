@@ -140,7 +140,11 @@ void main() {
       for (final l in await log.read('2026-11'))
         if (l['kind'] == 'upkeep') '${l['what']}:${l['local']}',
     ];
-    expect(upkeep, ['summary:true', 'brief:true']);
+    expect(upkeep, [
+      'summary:true',
+      'brief:true',
+      'describe:false',
+    ], reason: 'naming had no answer left');
   });
 
   test(
@@ -160,7 +164,7 @@ void main() {
       addTearDown(keeper.dispose);
       await keeper.keep(s.id);
       expect(chats.byId(chatId)!.brief, 'Mine: keep it simple.');
-      expect(writer.asked, 1, reason: 'the brief is not even asked for');
+      expect(writer.asked, 2, reason: 'the summary, then naming: the brief is not even asked for');
 
       final other = await talk('Book the Lisbon flights', 'Booked.');
       final none = ChatKeeper(
@@ -198,5 +202,100 @@ void main() {
     }
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(sessions.byId(s.id)!.summary, 'Budget, being set');
+  });
+
+  test('what the model wrote names a chat: topic from the set, icon, title, about', () {
+    final n = ChatKeeper.namingFrom(
+      'Topic: Design  \nIcon: logo  \nTitle: Ask EVA logo  \n'
+      'About: Logo requested; simulator access still open  \nThread: Logo design',
+    );
+    expect(n.topic, 'Design');
+    expect(n.icon, 'design', reason: 'an icon not in the set: the topic\'s own');
+    expect(n.title, 'Ask EVA logo');
+    expect(n.about, 'Logo requested; simulator access still open');
+    expect(n.thread, 'Logo design');
+
+    final narrated = ChatKeeper.namingFrom(
+      'Topic: web\nIcon: search\nTitle: Google images download\n'
+      'About: Person asked to download 5 images fast\nThread: Image download',
+    );
+    expect(narrated.topic, 'Web', reason: 'spelled as the set spells it');
+    expect(narrated.about, isNull, reason: 'narrated, not said: dropped');
+
+    final nothing = ChatKeeper.namingFrom(
+      'Topic: People\nIcon: person\nTitle: New chat\nAbout:\nThread: Greeting',
+    );
+    expect(
+      (nothing.title, nothing.topic, nothing.icon),
+      (null, null, null),
+      reason: 'nothing to name yet',
+    );
+
+    expect(
+      ChatKeeper.namingFrom('Topic: helmy\nTitle: Settle wording', project: 'helmy').topic,
+      'helmy',
+    );
+    expect(
+      ChatKeeper.namingFrom('Topic: Gardening\nTitle: Tomatoes').topic,
+      isNull,
+      reason: 'not in the set',
+    );
+  });
+
+  test('a chat is named after its first answer, and a person\'s name is kept', () async {
+    final s = await talk('what was the last thing i downloaded?', 'report.pdf, on Tuesday.');
+    final chatId = sessions.byId(s.id)!.chatId!;
+    final keeper = ChatKeeper(
+      sessions: sessions,
+      conversations: repo,
+      chats: chats,
+      writer: _Writer([
+        'Topic: Files\nIcon: download\nTitle: Recent downloads\nAbout: Last download found: report.pdf\nThread: Finding the last download',
+        'Topic: Work\nIcon: work\nTitle: Something else\nAbout: Still report.pdf\nThread: Again',
+      ]),
+      log: log,
+    );
+    addTearDown(keeper.dispose);
+    await keeper.describe(s.id);
+    final chat = chats.byId(chatId)!;
+    expect(
+      (chat.topic, chat.icon, chat.title, chat.description),
+      ('Files', 'download', 'Recent downloads', 'Last download found: report.pdf'),
+    );
+    expect(
+      sessions.byId(s.id)!.title,
+      'Finding the last download',
+      reason: 'it was only its first words',
+    );
+
+    // Named once: later only what it is about changes.
+    await chats.rename(chatId, 'Downloads');
+    await keeper.describe(s.id);
+    final again = chats.byId(chatId)!;
+    expect(
+      (again.title, again.topic, again.description),
+      ('Downloads', 'Files', 'Still report.pdf'),
+    );
+  });
+
+  test('catching up names chats from before, and calls an empty one New chat', () async {
+    final s = await talk('dim my computer screen light', 'Dimmed it.');
+    final empty =
+        (await sessions.create(cwd: '/w', title: 'New session in w') as Ok).value as Session;
+    repo.of(empty.id).loaded = true;
+    final keeper = ChatKeeper(
+      sessions: sessions,
+      conversations: repo,
+      chats: chats,
+      writer: _Writer([
+        'Topic: Computer\nIcon: computer\nTitle: Screen brightness\nAbout: Screen dimmed\nThread: Dimming',
+      ]),
+      log: log,
+      catchUpAfter: const Duration(days: 1),
+    );
+    addTearDown(keeper.dispose);
+    await keeper.catchUp();
+    expect(chats.byId(sessions.byId(s.id)!.chatId!)!.title, 'Screen brightness');
+    expect(sessions.byId(empty.id)!.title, 'New chat');
   });
 }

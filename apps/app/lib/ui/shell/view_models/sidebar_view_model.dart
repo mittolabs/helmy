@@ -15,6 +15,7 @@ import '../../../domain/problem.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/helmy_voice.dart';
 import '../../../utils/diffs.dart';
+import '../../../utils/format.dart';
 
 import 'dart:async';
 
@@ -561,7 +562,7 @@ class SidebarViewModel extends ChangeNotifier {
   /// is doing, or how its last answer began; and the lines its changes
   /// added and removed. Read from its conversation, from disk the first
   /// time the row shows.
-  ({String text, int added, int removed}) lineOf(Session s) {
+  ({String text, int added, int removed}) lineOf(Session s, {String about = ''}) {
     final c = _conversations.of(s.id);
     if (!c.loaded) {
       // Read, the row is drawn again with it.
@@ -593,6 +594,9 @@ class SidebarViewModel extends ChangeNotifier {
     } else if (c.busy) {
       final step = c.items.whereType<ToolCall>().where((t) => !t.done).lastOrNull;
       text = step == null ? 'Working' : 'Working: ${toolLabel(step.name)}';
+    } else if (about.isNotEmpty) {
+      // What Helmy says the chat is about, once nothing live is to say.
+      text = about;
     } else {
       final last = c.items
           .whereType<AssistantText>()
@@ -602,6 +606,61 @@ class SidebarViewModel extends ChangeNotifier {
     }
     return (text: text, added: added, removed: removed);
   }
+
+  /// What a chat's preview shows, read from what is on disk (no model is
+  /// asked): its brief, its last exchanges, pictures, pages and files.
+  ChatPreview previewOf(List<Session> threads) {
+    final latest = threads.first;
+    final chat = latest.chatId == null ? null : _chats?.byId(latest.chatId!);
+    final items = _conversations.of(latest.id).items;
+    final exchanges = <({String asked, String answered})>[];
+    String? asked;
+    for (final i in items) {
+      if (i is UserMessage && i.text.trim().isNotEmpty) {
+        asked = i.text.trim().split('\n').first;
+      } else if (i is AssistantText && asked != null && i.text.trim().isNotEmpty) {
+        exchanges.add((asked: asked, answered: _plain(i.text)));
+        asked = null;
+      }
+    }
+    final images = <String>[];
+    final links = <String>{};
+    final markdownImage = RegExp(r'!\[[^\]]*\]\(([^)\s]+)\)');
+    final link = RegExp(r'https?://[^\s)>\]]+');
+    for (final t in threads) {
+      for (final i in _conversations.of(t.id).items) {
+        if (i is ImageItem) images.add(i.path);
+        if (i is UserMessage) {
+          images.addAll(i.attachments.where(_isPicture));
+        }
+        if (i is AssistantText) {
+          for (final m in markdownImage.allMatches(i.text)) {
+            if (_isPicture(m[1]!)) images.add(m[1]!);
+          }
+          for (final m in link.allMatches(i.text)) {
+            if (!_isPicture(m[0]!)) links.add(Uri.tryParse(m[0]!)?.host ?? m[0]!);
+          }
+        }
+      }
+    }
+    final changes = lineOf(latest);
+    return (
+      folders: {for (final t in threads) tildePath(t.repo ?? t.cwd)}.toList(),
+      threads: threads.where((t) => t.sideOf == null).length,
+      brief: [
+        for (final l in (chat?.brief ?? '').split('\n'))
+          if (l.trim().isNotEmpty) l.trim(),
+      ].take(4).toList(),
+      exchanges: exchanges.reversed.take(2).toList().reversed.toList(),
+      images: images.reversed.where((p) => !p.startsWith('http')).toSet().take(4).toList(),
+      links: links.take(3).toList(),
+      added: changes.added,
+      removed: changes.removed,
+    );
+  }
+
+  static bool _isPicture(String path) =>
+      RegExp(r'\.(png|jpe?g|gif|webp|heic)$', caseSensitive: false).hasMatch(path);
 
   /// The first line of [markdown], as words: no marks, links or code.
   static String _plain(String markdown) {
@@ -670,3 +729,15 @@ class SidebarViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
+
+/// What a chat's preview shows (see [SidebarViewModel.previewOf]).
+typedef ChatPreview = ({
+  List<String> folders,
+  int threads,
+  List<String> brief,
+  List<({String asked, String answered})> exchanges,
+  List<String> images,
+  List<String> links,
+  int added,
+  int removed,
+});

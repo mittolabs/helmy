@@ -15,6 +15,20 @@ class const Chat({
   /// The brief as the person wrote it: Helmy leaves it as it is.
   final bool briefByPerson = false,
 
+  /// Titled by Helmy from what it is about: no longer follows its threads'
+  /// first words.
+  final bool titled = false,
+
+  /// One line on what it is about and where it stands, kept by Helmy.
+  final String description = '',
+
+  /// Its icon, by name in `chatIcons`; null before Helmy chose one.
+  final String? icon,
+
+  /// What it falls under, in one word ("Money", "Travel", a project's name),
+  /// the same word for chats about the same thing; empty before Helmy chose.
+  final String topic = '',
+
   /// Settled: nothing in it waits on anyone, so it sits in Settled at the
   /// bottom of the list until something new happens in it.
   final DateTime? settledAt,
@@ -30,6 +44,10 @@ class const Chat({
     bool? named,
     String? brief,
     bool? briefByPerson,
+    bool? titled,
+    String? description,
+    String? icon,
+    String? topic,
     DateTime? settledAt,
     DateTime? unsettledAt,
   }) => Chat(
@@ -39,6 +57,10 @@ class const Chat({
     named: named ?? this.named,
     brief: brief ?? this.brief,
     briefByPerson: briefByPerson ?? this.briefByPerson,
+    titled: titled ?? this.titled,
+    description: description ?? this.description,
+    icon: icon ?? this.icon,
+    topic: topic ?? this.topic,
     // Brought back, it is no longer settled.
     settledAt: unsettledAt != null ? null : settledAt ?? this.settledAt,
     unsettledAt: unsettledAt ?? this.unsettledAt,
@@ -51,6 +73,10 @@ class const Chat({
     if (named) 'named': true,
     if (brief.isNotEmpty) 'brief': brief,
     if (briefByPerson) 'briefByPerson': true,
+    if (titled) 'titled': true,
+    if (description.isNotEmpty) 'description': description,
+    'icon': ?icon,
+    if (topic.isNotEmpty) 'topic': topic,
     if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
     if (unsettledAt != null) 'unsettledAt': unsettledAt!.toIso8601String(),
   };
@@ -62,6 +88,10 @@ class const Chat({
     named: j['named'] == true,
     brief: '${j['brief'] ?? ''}',
     briefByPerson: j['briefByPerson'] == true,
+    titled: j['titled'] == true,
+    description: '${j['description'] ?? ''}',
+    icon: j['icon'] as String?,
+    topic: '${j['topic'] ?? ''}',
     settledAt: DateTime.tryParse('${j['settledAt'] ?? ''}'),
     unsettledAt: DateTime.tryParse('${j['unsettledAt'] ?? ''}'),
   );

@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import '../../domain/models/chat_item.dart';
+import '../../domain/chat_icons.dart';
+import '../../domain/models/session.dart';
+import '../services/cloud_writer.dart';
 import '../services/local_writer.dart';
 import '../services/turn_log.dart';
 import 'chat_repository.dart';
@@ -19,10 +22,17 @@ class ChatKeeper {
     required this._chats,
     required this._writer,
     this._log,
+    this._cloud,
     this.quiet = const Duration(seconds: 90),
+    Duration catchUpAfter = const Duration(seconds: 8),
   }) {
     _conversations.addListener(_watch);
+    // Chats from before Helmy named them, named once, in the background.
+    _catchUp = Timer(catchUpAfter, () => unawaited(catchUp()));
   }
+
+  final CloudWriter? _cloud;
+  Timer? _catchUp;
 
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
@@ -50,6 +60,13 @@ class ChatKeeper {
         _busy.add(s.id);
         _timers.remove(s.id)?.cancel();
       } else if (_busy.remove(s.id)) {
+        // Its first answer in: a chat Helmy has not named yet is named now.
+        final chat = s.chatId == null ? null : _chats.byId(s.chatId!);
+        if (chat != null &&
+            s.sideOf == null &&
+            ((!chat.titled && !chat.named) || chat.topic.isEmpty)) {
+          unawaited(describe(s.id));
+        }
         final n = _turns[s.id] = (_turns[s.id] ?? 0) + 1;
         if (n % every == 0) {
           unawaited(keep(s.id));
@@ -99,8 +116,169 @@ class ChatKeeper {
     return clean.length <= 140 ? clean : '${clean.substring(0, 137)}...';
   }
 
-  /// Keeps thread [id] and its chat current now.
+  // Naming: a chat's topic word, icon, title and what it is about, and a
+  // thread's own title; written by Helmy, on the model on this Mac, else the
+  // cheapest in the cloud. A title the person gave is never replaced.
+
+  final _describing = <String>{};
+
+  /// What the model wrote, here first, else in the cloud.
+  Future<Written?> _write(String prompt, {int maxTokens = 120}) async =>
+      await _writer.write(prompt, maxTokens: maxTokens) ?? await _cloud?.write(prompt);
+
+  /// [s]'s title is still only its first message's first words, or none.
+  static bool rawTitle(Session s, String? first) {
+    if (s.untitled) return true;
+    if (first == null) return false;
+    final line = first.trim().split('\n').first.trim();
+    if (s.title == line) return true;
+    return s.title.endsWith('...') && line.startsWith(s.title.substring(0, s.title.length - 3));
+  }
+
+  static final _quotes = RegExp('^["\'“”]+|["\'“”.]+\$');
+
+  /// What the model wrote for a chat, read line by line; null for any part
+  /// it got wrong.
+  static ({String? topic, String? icon, String? title, String? about, String? thread}) namingFrom(
+    String written, {
+    String? project,
+  }) {
+    String? field(String name, int max) {
+      final m = RegExp(
+        '^\\s*[-*]?\\s*$name\\s*:\\s*(.+)\$',
+        caseSensitive: false,
+        multiLine: true,
+      ).firstMatch(written);
+      var v = m?[1]?.trim().replaceAll(_quotes, '').trim();
+      if (v == null || v.isEmpty) return null;
+      if (v.length > max) v = '${v.substring(0, max - 3).trimRight()}...';
+      return v;
+    }
+
+    // A topic from the set (or the project's name), as the set spells it.
+    final said = field('Topic', 40)?.toLowerCase();
+    final topic = said == null
+        ? null
+        : project != null && said == project.toLowerCase()
+        ? project
+        : chatTopics.keys.where((t) => t.toLowerCase() == said).firstOrNull;
+    // An icon not in the set: the topic's own.
+    final named = field('Icon', 30)?.toLowerCase().split(RegExp('[^a-z]')).first;
+    final icon = chatIcons.containsKey(named) ? named : chatTopics[topic];
+    final title = field('Title', 48);
+    // "New chat": nothing to name yet, so nothing is named.
+    final untitled = title == null || title.toLowerCase() == 'new chat';
+    // Narrated ("User asked...") rather than said: dropped, not shown.
+    final about = field('About', 120);
+    final narrated =
+        about != null &&
+        RegExp(r'\b(user|person|assistant)\b', caseSensitive: false).hasMatch(about);
+    return (
+      topic: untitled ? null : topic,
+      icon: untitled ? null : icon,
+      title: untitled ? null : title,
+      about: untitled || narrated ? null : about,
+      thread: untitled ? null : field('Thread', 48),
+    );
+  }
+
+  /// Names thread [id]'s chat from what was said: its topic word and icon
+  /// (once), its title (unless the person named it, or Helmy already has),
+  /// what it is about (each time); and the thread's own title while it is
+  /// only its first words.
+  Future<void> describe(String id) async {
+    final s = _sessions.byId(id);
+    final chat = s?.chatId == null ? null : _chats.byId(s!.chatId!);
+    if (s == null || chat == null || s.sideOf != null || !_describing.add(chat.id)) return;
+    try {
+      final items = _conversations.of(id).items;
+      final first = items.whereType<UserMessage>().firstOrNull?.text;
+      if (first == null) return;
+      final others = [
+        for (final t in _chats.threadsOf(chat.id))
+          if (t.id != id && (t.summary ?? '').isNotEmpty) '- ${t.title}: ${t.summary}',
+      ];
+      // Measured on qwen3 8b against real chats: the folder's name in the
+      // prompt took over every topic, and a worked example was copied into a
+      // chat that only said hello. So: a fixed set of topics, a project only
+      // when there is one, two examples marked as form only, and an
+      // explicit way to say nothing has happened yet.
+      final project = s.repo?.split('/').where((p) => p.isNotEmpty).lastOrNull;
+      final prompt = [
+        'Name this conversation between a person and an assistant for a list of chats.',
+        '<conversation>\n${transcript(items, all: 4000)}\n</conversation>',
+        if (others.isNotEmpty) 'Earlier conversations in the same chat:\n${others.join('\n')}',
+        'Write exactly these five lines and nothing else:',
+        'Topic: <one of: ${chatTopics.keys.join(', ')}'
+            '${project == null ? '' : ', or the project name "$project" when it is about building that project'}>',
+        'Icon: <one word from: ${chatIcons.keys.join(', ')}>',
+        'Title: <2 to 5 words naming the subject>',
+        'About: <under 12 words: what is done and what is still open, like a note to self>',
+        'Thread: <2 to 5 words naming this conversation>',
+        'Use only what the conversation says. If nothing has been asked yet, the title is '
+            'New chat and About is empty.',
+        'Two examples from other conversations, for the form only:\n'
+            'Topic: Money\nIcon: savings\nTitle: Food budget\n'
+            'About: \$400 a month agreed; how to split groceries still open\n'
+            'Thread: Setting the budget\n\n'
+            'Topic: Travel\nIcon: travel\nTitle: Lisbon in March\n'
+            'About: Flights booked; hotel still to choose\nThread: Booking flights',
+      ].join('\n\n');
+      final said = await _write(prompt);
+      final n = said == null ? null : namingFrom(said.text, project: project);
+      await _log?.upkeep(
+        what: 'describe',
+        thread: id,
+        chat: chat.id,
+        model: said?.model,
+        promptTokens: said?.promptTokens,
+        outputTokens: said?.outputTokens,
+        kept: n?.title != null || n?.about != null,
+      );
+      if (n == null) return;
+      final now = _chats.byId(chat.id) ?? chat;
+      await _chats.describe(
+        chat.id,
+        title: now.titled || now.named ? null : n.title,
+        description: n.about,
+        icon: now.icon ?? n.icon,
+        topic: now.topic.isEmpty ? n.topic : null,
+      );
+      final thread = _sessions.byId(id);
+      if (n.thread != null && thread != null && rawTitle(thread, first)) {
+        await _sessions.save(thread.copyWith(title: n.thread));
+      }
+    } finally {
+      _describing.remove(chat.id);
+    }
+  }
+
+  /// Names every chat Helmy has not named yet, latest worked in first, one
+  /// at a time; an empty one from before is called "New chat".
+  Future<void> catchUp() async {
+    for (final c in _chats.chats.toList()) {
+      if ((c.titled || c.named) && c.icon != null && c.topic.isNotEmpty) continue;
+      final latest = _chats.threadsOf(c.id).firstOrNull;
+      if (latest == null) continue;
+      await _conversations.load(latest.id);
+      if (!_conversations.of(latest.id).items.any((i) => i is UserMessage)) {
+        if (latest.untitled && latest.title != 'New chat') {
+          await _sessions.save(latest.copyWith(title: 'New chat'));
+        }
+        continue;
+      }
+      await describe(latest.id);
+    }
+  }
+
+  /// Keeps thread [id] and its chat current now: its summary and the
+  /// chat's brief, then what the chat is about, said again as it stands.
   Future<void> keep(String id) async {
+    await _keep(id);
+    await describe(id);
+  }
+
+  Future<void> _keep(String id) async {
     _timers.remove(id);
     final s = _sessions.byId(id);
     if (s == null || s.sideOf != null) return;
@@ -162,6 +340,7 @@ class ChatKeeper {
   }
 
   void dispose() {
+    _catchUp?.cancel();
     _conversations.removeListener(_watch);
     for (final t in _timers.values) {
       t.cancel();

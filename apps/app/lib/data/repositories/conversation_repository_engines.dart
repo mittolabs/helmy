@@ -730,10 +730,11 @@ class ConversationRepositoryEngines extends ConversationRepository {
       c.queue.remove(q);
       c.items.add(UserMessage(q.text, attachments: q.attachments)..sentAt = DateTime.now());
       await _persist(sessionId);
-      notifyListeners();
+      // Closed while it was written: nobody is left to tell.
+      if (!_disposed) notifyListeners();
       return;
     }
-    if (!c.queue.remove(q)) return;
+    if (_disposed || !c.queue.remove(q)) return;
     c.queue.insert(0, q);
     notifyListeners();
     if (c.busy) {

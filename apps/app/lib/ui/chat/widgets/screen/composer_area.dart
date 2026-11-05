@@ -352,22 +352,49 @@ class _Comment extends StatelessWidget {
   }
 }
 
-class _Working extends StatelessWidget {
+/// What the turn is doing, and for how long once it has taken a while.
+class _Working extends StatefulWidget {
   const new({required this.vm});
   final ChatViewModel vm;
 
   @override
+  State<_Working> createState() => _WorkingState();
+}
+
+class _WorkingState extends State<_Working> {
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  /// Under five seconds, no count: a quick answer should not flicker one.
+  static const _countAfter = Duration(seconds: 5);
+
+  @override
   Widget build(BuildContext context) {
+    final vm = widget.vm;
     final t = AshlarTheme.of(context);
     final waiting = vm.items.whereType<PermissionPrompt>().any((p) => p.decision == .pending);
     final held = vm.heldUntil;
+    final since = vm.items.whereType<UserMessage>().lastOrNull?.sentAt;
+    final took = since == null ? null : DateTime.now().difference(since);
+    final doing = vm.thinking ? 'Thinking' : 'Working';
     final label = held != null
         ? 'Waiting for room, until ${clockAt(held, null)}'
         : waiting
         ? 'Waiting for you'
-        : vm.thinking
-        ? 'Thinking'
-        : 'Working';
+        : took != null && took >= _countAfter
+        ? '$doing · ${tookLabel(took)}'
+        : doing;
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Shimmer(

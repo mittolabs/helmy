@@ -21,6 +21,7 @@ import '../data/services/devices.dart';
 import '../data/services/editors.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/chat_keeper.dart';
+import '../data/services/cloud_writer.dart';
 import '../data/services/local_writer.dart';
 import '../data/services/chat_tools.dart';
 import '../data/services/history_import.dart';
@@ -204,6 +205,12 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       chats: context.read(),
       writer: context.read(),
       log: context.read(),
+      // Where this Mac has no model: the cheapest in the cloud.
+      cloud: CloudWriter(
+        context.read(),
+        context.read(),
+        (id) => !loaded.settings.settings.disabledEngines.contains(id),
+      ),
     ),
     dispose: (_, k) => k.dispose(),
   ),

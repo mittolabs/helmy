@@ -89,7 +89,7 @@ class ChatRepository extends ChangeNotifier {
       if (threads.isEmpty && !_sessions.sessions.any((s) => s.chatId == c.id)) {
         _chats.remove(c.id);
         changed = true;
-      } else if (!c.named && threads.length == 1 && threads.single.title != c.title) {
+      } else if (!c.named && !c.titled && threads.length == 1 && threads.single.title != c.title) {
         _chats[c.id] = c.copyWith(title: threads.single.title);
         changed = true;
       }
@@ -145,6 +145,38 @@ class ChatRepository extends ChangeNotifier {
     _keep();
     await _persist();
     return to;
+  }
+
+  /// What Helmy wrote for [chatId]: its title (unless the person named it),
+  /// what it is about, its icon. Each left as it is when null.
+  Future<void> describe(
+    String chatId, {
+    String? title,
+    String? description,
+    String? icon,
+    String? topic,
+  }) async {
+    final c = _chats[chatId];
+    if (c == null) return;
+    final retitle = title != null && !c.named;
+    _chats[chatId] = c.copyWith(
+      title: retitle ? title : null,
+      titled: retitle ? true : null,
+      description: description,
+      icon: icon,
+      topic: topic,
+    );
+    notifyListeners();
+    await _persist();
+  }
+
+  /// The topic words chats have, most used first: for a new chat to reuse.
+  List<String> get topics {
+    final n = <String, int>{};
+    for (final c in _chats.values) {
+      if (c.topic.isNotEmpty) n[c.topic] = (n[c.topic] ?? 0) + 1;
+    }
+    return n.keys.toList()..sort((a, b) => n[b]!.compareTo(n[a]!));
   }
 
   /// Settles [chatId]: to the bottom of the list, until something new.

@@ -1,3 +1,6 @@
+import '../../core/ashlar/hover_card.dart';
+
+import 'dart:io';
 import 'dart:async';
 import 'dart:ui' show AppExitType;
 
@@ -9,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../routing/settings_route.dart';
 
+import '../../../domain/chat_icons.dart';
 import '../../../domain/models/chat.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/format.dart';
@@ -547,20 +551,34 @@ class ShellScreen extends StatelessWidget {
       ],
       child: compact
           ? _SettledRow(
+              chat: e.chat,
               title: title,
               threads: e.threads,
               selected: all.any((t) => t.id == selectedId),
               onOpen: () => context.go('/s/${first.id}'),
             )
-          : _ChatRow(
-              onSettle: canSettle ? settle : null,
-              title: title,
-              threads: e.threads,
-              activity: viewModel.activityOfAll(e.threads),
-              line: viewModel.lineOf(first),
-              selected: all.any((t) => t.id == selectedId),
-              onOpen: () => context.go('/s/${first.id}'),
-              onDelete: () => _deleteChat(context, title, all),
+          // Rested on: a preview of it, beside the list.
+          : HoverCard(
+              openDelay: const Duration(milliseconds: 800),
+              side: .right,
+              align: .start,
+              width: 320,
+              content: (context) => _ChatPreviewCard(
+                title: title,
+                chat: e.chat,
+                preview: viewModel.previewOf(e.threads),
+              ),
+              child: _ChatRow(
+                onSettle: canSettle ? settle : null,
+                title: title,
+                threads: e.threads,
+                activity: viewModel.activityOfAll(e.threads),
+                chat: e.chat,
+                line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
+                selected: all.any((t) => t.id == selectedId),
+                onOpen: () => context.go('/s/${first.id}'),
+                onDelete: () => _deleteChat(context, title, all),
+              ),
             ),
     );
   }
@@ -715,9 +733,13 @@ class _ChatRow extends StatefulWidget {
     required this.onOpen,
     required this.onDelete,
     this.onSettle,
+    this.chat,
   });
 
   final String title;
+
+  /// The chat: its topic and icon; null where there are no chats.
+  final Chat? chat;
 
   /// Settles the chat; null when something in it still goes on.
   final VoidCallback? onSettle;
@@ -745,9 +767,9 @@ class _ChatRowState extends State<_ChatRow> {
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
     final line = widget.line;
     final places = {for (final x in widget.threads) projectName(x.ownCopy ? x.repo! : x.cwd)};
-    final folder = places.first;
     final count = widget.threads.where((x) => x.sideOf == null).length;
     final title = widget.title;
+    final topic = widget.chat?.topic ?? '';
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -786,14 +808,14 @@ class _ChatRowState extends State<_ChatRow> {
               Row(
                 spacing: 8,
                 children: [
-                  _ProjectBadge(name: folder, activity: widget.activity),
+                  _ProjectBadge(
+                    name: topic.isEmpty ? 'No project' : topic,
+                    activity: widget.activity,
+                    icon: chatIconOf(widget.chat?.icon),
+                  ),
+                  // What it falls under, in a word: the folder is in its preview.
                   Expanded(
-                    child: Text(
-                      [places.join(', '), if (count > 1) '$count threads'].join(' · '),
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: muted,
-                    ),
+                    child: Text(topic, maxLines: 1, overflow: .ellipsis, style: muted),
                   ),
                   if (widget.threads.any((x) => x.pinned))
                     AshlarIcon(AshlarIconsRoundedStroke.pin, size: 11, color: c.mutedForeground),
@@ -881,9 +903,12 @@ class _ChatRowState extends State<_ChatRow> {
 /// same folder everywhere. Working, it spins; needing you, or finished while
 /// you were away, it carries a dot.
 class _ProjectBadge extends StatelessWidget {
-  const _ProjectBadge({required this.name, required this.activity});
+  const _ProjectBadge({required this.name, required this.activity, this.icon});
   final String name;
   final SessionActivity activity;
+
+  /// Drawn instead of the initials: a chat's icon, in its topic's color.
+  final IconData? icon;
 
   static const _hues = [210.0, 280.0, 160.0, 25.0, 330.0, 45.0, 190.0, 250.0];
 
@@ -925,10 +950,12 @@ class _ProjectBadge extends StatelessWidget {
                     // would read as a project's.
                     child: name == 'No project'
                         ? AshlarIcon(
-                            AshlarIconsRoundedStroke.messageCircle,
-                            size: 11,
+                            icon ?? AshlarIconsRoundedStroke.messageCircle,
+                            size: icon == null ? 11 : 12,
                             color: c.mutedForeground,
                           )
+                        : icon != null
+                        ? AshlarIcon(icon!, size: 12, color: ink)
                         : Text(
                             _initials,
                             style: TextStyle(
@@ -1317,12 +1344,14 @@ class _SettledSection extends StatelessWidget {
 /// A settled chat: its project's badge, quiet; its title; how long ago.
 class _SettledRow extends StatelessWidget {
   const _SettledRow({
+    this.chat,
     required this.title,
     required this.threads,
     required this.selected,
     required this.onOpen,
   });
 
+  final Chat? chat;
   final String title;
   final List<Session> threads;
   final bool selected;
@@ -1333,7 +1362,6 @@ class _SettledRow extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final s = threads.first;
-    final folder = projectName(s.ownCopy ? s.repo! : s.cwd);
     return Pressable(
       onPressed: onOpen,
       selected: selected,
@@ -1353,7 +1381,11 @@ class _SettledRow extends StatelessWidget {
           children: [
             Opacity(
               opacity: .55,
-              child: _ProjectBadge(name: folder, activity: .idle),
+              child: _ProjectBadge(
+                name: chat?.topic.isNotEmpty ?? false ? chat!.topic : 'No project',
+                activity: .idle,
+                icon: chatIconOf(chat?.icon),
+              ),
             ),
             Expanded(
               child: Text(
@@ -1367,6 +1399,109 @@ class _SettledRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A chat's preview, after resting on its row: where it works, what it has
+/// come to, its last exchanges, its pictures, pages and changes. Read from
+/// what is on disk; nothing is asked of a model.
+class _ChatPreviewCard extends StatelessWidget {
+  const _ChatPreviewCard({required this.title, required this.chat, required this.preview});
+
+  final String title;
+  final Chat? chat;
+  final ChatPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final muted = t.text.xs.copyWith(color: c.mutedForeground);
+    final p = preview;
+    Widget heading(String text) => Padding(
+      padding: const .only(top: 4),
+      child: Text(text, style: muted.copyWith(fontWeight: .w600)),
+    );
+    return Column(
+      crossAxisAlignment: .start,
+      mainAxisSize: .min,
+      spacing: 6,
+      children: [
+        Row(
+          spacing: 8,
+          children: [
+            AshlarIcon(chatIconOf(chat?.icon), size: 16, color: c.foreground),
+            Expanded(
+              child: Text(
+                [
+                  if (chat?.topic.isNotEmpty ?? false) chat!.topic,
+                  p.folders.join(', '),
+                  if (p.threads > 1) '${p.threads} threads',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: muted,
+              ),
+            ),
+          ],
+        ),
+        Text(title, style: t.text.sm.copyWith(fontWeight: .w600)),
+        if (chat?.description.isNotEmpty ?? false)
+          Text(chat!.description, style: t.text.sm.copyWith(color: c.mutedForeground)),
+        if (p.brief.isNotEmpty) ...[
+          heading('Where it stands'),
+          for (final line in p.brief)
+            Text(line, style: t.text.xs, maxLines: 2, overflow: .ellipsis),
+        ],
+        if (p.exchanges.isNotEmpty) ...[
+          heading('Lately'),
+          for (final x in p.exchanges) ...[
+            Text(
+              x.asked,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: t.text.xs.copyWith(fontWeight: .w500),
+            ),
+            Text(x.answered, maxLines: 2, overflow: .ellipsis, style: muted),
+          ],
+        ],
+        if (p.images.isNotEmpty)
+          Padding(
+            padding: const .only(top: 4),
+            child: Row(
+              spacing: 6,
+              children: [
+                for (final path in p.images)
+                  ClipRRect(
+                    borderRadius: .circular(t.radiusMd),
+                    child: Image.file(
+                      File(path),
+                      width: 60,
+                      height: 60,
+                      fit: .cover,
+                      cacheWidth: 120,
+                      // Gone from disk: not shown.
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        if (p.links.isNotEmpty || p.added + p.removed > 0)
+          Padding(
+            padding: const .only(top: 4),
+            child: Text(
+              [
+                if (p.links.isNotEmpty) p.links.join(', '),
+                if (p.added + p.removed > 0) '+${p.added} −${p.removed} in files',
+              ].join(' · '),
+              maxLines: 2,
+              overflow: .ellipsis,
+              style: muted,
+            ),
+          ),
+      ],
     );
   }
 }
