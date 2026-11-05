@@ -1,5 +1,6 @@
 import ApplicationServices
 import Cocoa
+import CoreAudio
 import FlutterMacOS
 import desktop_multi_window
 import ServiceManagement
@@ -411,6 +412,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
           extra = (ch.lowercased(), mods)
         }
         result(Snapshots.shared.keys(args["on"] as? Bool ?? false, extra: extra))
+      case "mac":
+        MacActions.run(args, result)
       case "activate":
         NSApp.activate(ignoringOtherApps: true)
         result(nil)
@@ -856,5 +859,142 @@ final class Snapshots {
       monitors.append(l)
     }
     return Snapshots.trusted(prompt: false)
+  }
+}
+
+/// What Helmy does on this Mac for the user, from its own process: pressing
+/// the lock and media keys (which needs Accessibility), where sound plays,
+/// quitting apps, ejecting drives. Answers "accessibility" when the
+/// permission is missing, for the Dart side to say so with its fix.
+enum MacActions {
+  static func run(_ args: [String: Any], _ result: @escaping FlutterResult) {
+    switch args["do"] as? String ?? "" {
+    case "lock":
+      guard Snapshots.trusted(prompt: false) else { return result("accessibility") }
+      // Control-Command-Q, macOS's own Lock Screen; q is key 12.
+      press(12, [.maskControl, .maskCommand])
+      result(nil)
+    case "media":
+      guard Snapshots.trusted(prompt: false) else { return result("accessibility") }
+      media(Int32(args["key"] as? Int ?? 16))
+      result(nil)
+    case "outputs":
+      let current = defaultOutput()
+      result(outputDevices().map { ["id": Int($0), "name": name(of: $0), "current": $0 == current] })
+    case "setOutput":
+      var id = AudioDeviceID(args["id"] as? Int ?? 0)
+      var address = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+        mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+      let status = AudioObjectSetPropertyData(
+        AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
+        UInt32(MemoryLayout<AudioDeviceID>.size), &id)
+      result(status == noErr)
+    case "apps":
+      result(NSWorkspace.shared.runningApplications
+        .filter { $0.activationPolicy == .regular && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+        .map { ["name": $0.localizedName ?? "", "bundle": $0.bundleIdentifier ?? "", "pid": Int($0.processIdentifier)] })
+    case "quit":
+      let wanted = (args["name"] as? String ?? "").lowercased()
+      let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+      let app = apps.first { ($0.localizedName ?? "").lowercased() == wanted || $0.bundleIdentifier?.lowercased() == wanted }
+        ?? apps.first { ($0.localizedName ?? "").lowercased().contains(wanted) }
+      guard let app else { return result("No open app is called \(args["name"] as? String ?? "that").") }
+      if app.processIdentifier == ProcessInfo.processInfo.processIdentifier {
+        return result("That is Helmy itself; it stays open.")
+      }
+      let done = (args["force"] as? Bool ?? false) ? app.forceTerminate() : app.terminate()
+      result(done ? nil : "\(app.localizedName ?? "It") didn't take the request to quit.")
+    case "drives":
+      result(ejectable().map { $0.1 })
+    case "eject":
+      let drives = ejectable()
+      DispatchQueue.global(qos: .userInitiated).async {
+        var ejected: [String] = [], failed: [String] = []
+        for (url, name) in drives {
+          do {
+            try NSWorkspace.shared.unmountAndEjectDevice(at: url)
+            ejected.append(name)
+          } catch {
+            failed.append(name)
+          }
+        }
+        DispatchQueue.main.async { result(["ejected": ejected, "failed": failed]) }
+      }
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  static func press(_ key: CGKeyCode, _ flags: CGEventFlags) {
+    let source = CGEventSource(stateID: .hidSystemState)
+    for down in [true, false] {
+      let e = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down)
+      e?.flags = flags
+      e?.post(tap: .cghidEventTap)
+    }
+  }
+
+  /// A media key (16 play/pause, 17 next, 18 previous), as the keyboard
+  /// sends it: a system-defined event, down then up.
+  static func media(_ key: Int32) {
+    for down in [true, false] {
+      let state: Int32 = down ? 0xA : 0xB
+      let event = NSEvent.otherEvent(
+        with: .systemDefined, location: .zero,
+        modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(state << 8)),
+        timestamp: 0, windowNumber: 0, context: nil, subtype: 8,
+        data1: Int((key << 16) | (state << 8)), data2: -1)
+      event?.cgEvent?.post(tap: .cghidEventTap)
+    }
+  }
+
+  static func outputDevices() -> [AudioDeviceID] {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDevices,
+      mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    var size: UInt32 = 0
+    let system = AudioObjectID(kAudioObjectSystemObject)
+    guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr else { return [] }
+    var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+    guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &ids) == noErr else { return [] }
+    return ids.filter { id in
+      var streams = AudioObjectPropertyAddress(
+        mSelector: kAudioDevicePropertyStreams,
+        mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
+      var n: UInt32 = 0
+      return AudioObjectGetPropertyDataSize(id, &streams, 0, nil, &n) == noErr && n > 0
+    }
+  }
+
+  static func defaultOutput() -> AudioDeviceID {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+      mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    var id = AudioDeviceID(0)
+    var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id)
+    return id
+  }
+
+  static func name(of id: AudioDeviceID) -> String {
+    var address = AudioObjectPropertyAddress(
+      mSelector: kAudioObjectPropertyName,
+      mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    var name: Unmanaged<CFString>?
+    var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+    guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &name) == noErr, let name else { return "" }
+    return name.takeRetainedValue() as String
+  }
+
+  /// External drives and disk images: everything mounted but the Mac's own.
+  static func ejectable() -> [(URL, String)] {
+    let keys: [URLResourceKey] = [.volumeIsEjectableKey, .volumeIsRemovableKey, .volumeIsInternalKey, .volumeNameKey]
+    let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
+    return urls.compactMap { url in
+      guard url.path != "/", let v = try? url.resourceValues(forKeys: Set(keys)) else { return nil }
+      let external = v.volumeIsEjectable == true || v.volumeIsRemovable == true || v.volumeIsInternal == false
+      return external ? (url, v.volumeName ?? url.lastPathComponent) : nil
+    }
   }
 }

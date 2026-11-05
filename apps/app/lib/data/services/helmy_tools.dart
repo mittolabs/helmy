@@ -7,6 +7,7 @@ import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
 import 'chat_tools.dart';
 import 'devices.dart';
+import 'mac/mac_tools.dart';
 import '../../domain/device_outline.dart';
 import 'watch_service.dart';
 
@@ -22,6 +23,10 @@ class HelmyTools {
 
   /// The rest of a session's chat, for its agent: set once chats are ready.
   ChatTools? chats;
+
+  /// What Helmy does on this Mac (keeping it awake, locking it, its sound):
+  /// on a Mac only.
+  MacTools? mac;
 
   /// Whether a session's agent may use the browser: off in a project that
   /// says so in Settings. Set once settings and sessions are ready.
@@ -49,13 +54,14 @@ class HelmyTools {
   }
 
   /// The tool names as each connection sees them, to allow without asking:
-  /// watching only looks, and the device tools act only on a simulator or
-  /// emulator.
+  /// watching only looks, the device tools act only on a simulator or
+  /// emulator, and the Mac tools allowed are the ones easily undone.
   static final claudeTools = [
     'mcp__helmy__watch_video',
     for (final t in deviceTools) 'mcp__helmy__$t',
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
     for (final t in ChatTools.names) 'mcp__helmy__$t',
+    for (final t in MacTools.free) 'mcp__helmy__$t',
   ];
 
   static const deviceTools = [
@@ -151,6 +157,7 @@ class HelmyTools {
               if (_devices != null && devicesAllowed()) ..._deviceToolList,
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
+              if (mac != null) ...MacTools.list,
             ],
           },
         },
@@ -180,6 +187,9 @@ class HelmyTools {
     }
     if (ChatTools.names.contains(name) && chats != null) {
       return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    }
+    if (MacTools.names.contains(name) && mac != null) {
+      return mac!.call(name, (params['arguments'] as Map?) ?? const {});
     }
     if (deviceTools.contains(name) && _devices != null) {
       if (!devicesAllowed()) {

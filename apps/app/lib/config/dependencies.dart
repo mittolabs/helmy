@@ -6,6 +6,10 @@ import 'package:flutter/widgets.dart';
 import '../data/services/engines/acp/acp_engine.dart';
 
 import 'dart:async';
+import 'dart:io';
+
+import '../data/services/mac/mac_actions.dart';
+import '../data/services/mac/mac_tools.dart';
 
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -231,6 +235,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       final tools = context.read<HelmyTools>();
       final sessions = context.read<SessionRepository>();
       tools.devicesAllowed = () => loaded.settings.settings.agentDevices;
+      if (Platform.isMacOS) tools.mac = MacTools(MacActions());
       tools.browserAllowed = (id) {
         final s = id == null ? null : sessions.byId(id);
         return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);

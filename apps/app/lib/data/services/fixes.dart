@@ -30,7 +30,7 @@ class Fixes {
         return false;
       case .startLocal:
         return OllamaDoctor.ensure(start: true);
-      case .allowSpeech || .allowNotifications:
+      case .allowSpeech || .allowNotifications || .allowAccessibility:
         final pane = systemPane(fix);
         if (pane == null) return false;
         await _desktop.open(pane);
@@ -47,6 +47,8 @@ class Fixes {
   static String? systemPane(Fix fix) => switch ((Desktop.current, fix)) {
     (.mac, .allowSpeech) =>
       'x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition',
+    (.mac, .allowAccessibility) =>
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
     (.mac, .allowNotifications) =>
       'x-apple.systempreferences:com.apple.Notifications-Settings.extension',
     (.windows, .allowSpeech) => 'ms-settings:privacy-speech',

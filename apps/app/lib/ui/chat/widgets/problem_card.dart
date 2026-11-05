@@ -152,7 +152,7 @@ Future<void> runFix(
               : "It didn't start. Set up can install it.",
         );
       }
-    case .allowSpeech || .allowNotifications:
+    case .allowSpeech || .allowNotifications || .allowAccessibility:
       final ok = await vm.applyFix(fix);
       onNote?.call(
         ok

@@ -21,6 +21,9 @@ enum Fix {
   /// Allow notifications for Helmy (the system's own pane).
   allowNotifications,
 
+  /// Allow Helmy to press keys on this Mac: locking it, the media keys.
+  allowAccessibility,
+
   /// Install what carries taps and typing to iOS simulators (AXe).
   installDeviceInput,
 
@@ -35,6 +38,7 @@ enum Fix {
     startLocal => 'start-local',
     allowSpeech => 'allow-speech',
     allowNotifications => 'allow-notifications',
+    allowAccessibility => 'allow-accessibility',
     installDeviceInput => 'install-device-input',
     wait => 'wait',
   };
@@ -52,6 +56,7 @@ enum Fix {
     startLocal => 'Start it',
     allowSpeech => 'Allow speech recognition',
     allowNotifications => 'Allow notifications',
+    allowAccessibility => 'Allow Accessibility',
     installDeviceInput => 'Install it',
     wait => '',
   };
