@@ -1,3 +1,7 @@
+import '../../../data/repositories/settings_repository.dart';
+
+import 'package:provider/provider.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -27,7 +31,7 @@ import '../view_models/chat_view_model.dart';
 
 /// What was typed in the address, as somewhere to go: an address as it is, a
 /// host without its scheme (localhost over http), or else a search.
-String addressFor(String typed) {
+String addressFor(String typed, [SearchEngine engine = .duckDuckGo]) {
   final s = typed.trim();
   if (RegExp(r'^[a-z][a-z0-9+.-]*://', caseSensitive: false).hasMatch(s)) return s;
   if (RegExp(r'^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/.*)?$').hasMatch(s)) return 'http://$s';
@@ -35,7 +39,7 @@ String addressFor(String typed) {
       RegExp(r'^[^/\s]+\.[a-z]{2,}(:\d+)?(/.*)?$', caseSensitive: false).hasMatch(s)) {
     return 'https://$s';
   }
-  return 'https://duckduckgo.com/?q=${Uri.encodeQueryComponent(s)}';
+  return engine.url.replaceFirst('%s', Uri.encodeQueryComponent(s));
 }
 
 /// Beside the conversation: the page an answer pointed at, a running app on
@@ -231,6 +235,10 @@ class _PreviewPanelState extends State<PreviewPanel> {
   @override
   void initState() {
     super.initState();
+    // As Settings has the panel start.
+    final s = context.read<SettingsRepository>().settings;
+    _zoom = s.previewZoom;
+    _appearance = s.previewAppearance;
     unawaited(_c.setJavaScriptMode(JavaScriptMode.unrestricted));
     unawaited(_saySafari());
     unawaited(
@@ -242,6 +250,10 @@ class _PreviewPanelState extends State<PreviewPanel> {
           onPageFinished: (_) {
             _loadingAt(1);
             unawaited(_readPage());
+            // The light or dark chosen, kept from page to page.
+            if (_appearance != 'system') {
+              unawaited(widget.vm.webPage('appearance', {'appearance': _appearance}));
+            }
           },
         ),
       ),
@@ -592,7 +604,9 @@ class _PreviewPanelState extends State<PreviewPanel> {
                   semanticLabel: 'Address',
                   onSubmitted: (typed) {
                     if (typed.trim().isEmpty) return;
-                    _go(addressFor(typed));
+                    _go(
+                      addressFor(typed, context.read<SettingsRepository>().settings.searchEngine),
+                    );
                     _addressFocus.unfocus();
                   },
                 ),

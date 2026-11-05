@@ -115,6 +115,22 @@ const List<SettingEntry> settingsIndex = [
   (title: 'Hide changes only in spaces', section: .appearance, keywords: 'whitespace diff ignore'),
   // Preview panel.
   (title: 'Show pages with', section: .preview, keywords: 'browser webkit chromium preview engine'),
+  (title: 'Zoom', section: .preview, keywords: 'preview zoom scale size page'),
+  (
+    title: 'Pages appear',
+    section: .preview,
+    keywords: 'preview dark light appearance color scheme',
+  ),
+  (
+    title: 'Search with',
+    section: .preview,
+    keywords: 'search engine google duckduckgo bing brave kagi',
+  ),
+  (
+    title: 'Open links in answers',
+    section: .preview,
+    keywords: 'links browser preview open target',
+  ),
   (title: 'Chromium browser', section: .preview, keywords: 'chrome edge brave arc browser'),
   // Connections and usage.
   (

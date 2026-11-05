@@ -1,3 +1,7 @@
+import '../../../data/repositories/settings_repository.dart';
+
+import 'package:provider/provider.dart';
+
 import 'dart:async';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
@@ -170,6 +174,12 @@ Future<void> runFix(
 void openAnswerLink(BuildContext context, String url, ChatViewModel vm) {
   if (Fix.fromLink(url) case final fix?) {
     unawaited(runFix(context, fix, vm));
+    return;
+  }
+  // Web pages in the Preview panel, where set; everything else as before.
+  final inHelmy = context.read<SettingsRepository>().settings.linksInHelmy;
+  if (inHelmy && RegExp(r'^https?://').hasMatch(url)) {
+    vm.preview(url);
     return;
   }
   unawaited(vm.open(url));

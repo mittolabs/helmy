@@ -202,6 +202,15 @@ class _Projects extends StatelessWidget {
                   onChanged: (v) => vm.setProject(repo, level: v, clearLevel: v == null),
                 ),
               ),
+              _Row(
+                title: "The assistant's browser",
+                description: 'Opening and using web pages in the Preview panel, in chats here.',
+                control: Switch(
+                  value: s.project(repo).browser ?? true,
+                  semanticLabel: "The assistant's browser in ${folderName(repo)}",
+                  onChanged: (v) => vm.setProject(repo, browser: v),
+                ),
+              ),
             ],
           ],
         );

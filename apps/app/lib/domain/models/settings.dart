@@ -66,6 +66,22 @@ enum AlertStyle {
   final String label;
 }
 
+/// Where a search typed in the Preview panel's address goes.
+enum SearchEngine {
+  duckDuckGo('DuckDuckGo', 'https://duckduckgo.com/?q=%s'),
+  google('Google', 'https://www.google.com/search?q=%s'),
+  bing('Bing', 'https://www.bing.com/search?q=%s'),
+  brave('Brave Search', 'https://search.brave.com/search?q=%s'),
+  kagi('Kagi', 'https://kagi.com/search?q=%s'),
+  ecosia('Ecosia', 'https://www.ecosia.org/search?q=%s');
+
+  const SearchEngine(this.label, this.url);
+  final String label;
+
+  /// With %s where the words go.
+  final String url;
+}
+
 /// How clock times read.
 enum ClockFormat {
   system('As the system has it'),
@@ -128,21 +144,28 @@ class const ProjectSettings({
 
   /// Actions the user added, beside those found in the project's files.
   final List<ProjectAction> actions = const [],
+
+  /// Whether the assistant may use its browser here; null as everywhere
+  /// (it may).
+  final bool? browser,
 }) {
   ProjectSettings copyWith({
     bool? ownCopies,
     PermissionLevel? level,
     List<ProjectAction>? actions,
+    bool? browser,
   }) => ProjectSettings(
     ownCopies: ownCopies ?? this.ownCopies,
     level: level ?? this.level,
     actions: actions ?? this.actions,
+    browser: browser ?? this.browser,
   );
 
   Map<String, Object?> toJson() => {
     'ownCopies': ?ownCopies,
     'level': ?level?.id,
     if (actions.isNotEmpty) 'actions': [for (final a in actions) a.toJson()],
+    'browser': ?browser,
   };
 
   static ProjectSettings fromJson(Map<String, Object?> json) => ProjectSettings(
@@ -152,6 +175,7 @@ class const ProjectSettings({
       for (final a in (json['actions'] as List?) ?? const [])
         if (a is Map) ProjectAction.fromJson(a.cast<String, Object?>()),
     ],
+    browser: json['browser'] as bool?,
   );
 }
 
@@ -260,6 +284,14 @@ class const AppSettings({
   final bool copyFromRemote = false,
   final String? copyFolder,
   final bool tidySettled = false,
+
+  /// The Preview panel as it starts: its zoom and the light or dark pages
+  /// see ('system', 'light', 'dark'); where searches go; and whether links
+  /// in answers open there rather than in the browser.
+  final double previewZoom = 1,
+  final String previewAppearance = 'system',
+  final SearchEngine searchEngine = .duckDuckGo,
+  final bool linksInHelmy = false,
 
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
@@ -375,6 +407,17 @@ class const AppSettings({
 
   ProjectSettings project(String repo) => projects[repo] ?? const ProjectSettings();
 
+  /// Whether the assistant may use its browser in [folder]: no where a
+  /// project it is in says so.
+  bool browserIn(String folder) {
+    for (final e in projects.entries) {
+      if ((folder == e.key || folder.startsWith('${e.key}/')) && e.value.browser == false) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Whether sessions in [repo] each get their own working copy.
   bool ownCopiesIn(String repo) => project(repo).ownCopies ?? ownCopies;
 
@@ -397,6 +440,10 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    double? previewZoom,
+    String? previewAppearance,
+    SearchEngine? searchEngine,
+    bool? linksInHelmy,
     bool? copySemantic,
     String? copyPrefix,
     bool? copyFromRemote,
@@ -461,6 +508,10 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    previewZoom: previewZoom ?? this.previewZoom,
+    previewAppearance: previewAppearance ?? this.previewAppearance,
+    searchEngine: searchEngine ?? this.searchEngine,
+    linksInHelmy: linksInHelmy ?? this.linksInHelmy,
     copySemantic: copySemantic ?? this.copySemantic,
     copyPrefix: copyPrefix ?? this.copyPrefix,
     copyFromRemote: copyFromRemote ?? this.copyFromRemote,
@@ -528,6 +579,10 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'previewZoom': previewZoom,
+    'previewAppearance': previewAppearance,
+    'searchEngine': searchEngine.name,
+    'linksInHelmy': linksInHelmy,
     'copySemantic': copySemantic,
     'copyPrefix': copyPrefix,
     'copyFromRemote': copyFromRemote,
@@ -592,6 +647,10 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    previewZoom: (json['previewZoom'] as num?)?.toDouble() ?? 1,
+    previewAppearance: json['previewAppearance'] as String? ?? 'system',
+    searchEngine: SearchEngine.values.asNameMap()[json['searchEngine']] ?? .duckDuckGo,
+    linksInHelmy: json['linksInHelmy'] as bool? ?? false,
     copySemantic: json['copySemantic'] as bool? ?? true,
     copyPrefix: json['copyPrefix'] as String? ?? 'helmy/',
     copyFromRemote: json['copyFromRemote'] as bool? ?? false,
@@ -680,6 +739,10 @@ const restorableSettings = <String, List<String>>{
   'Shortcuts': ['keys'],
   'Commits and pull requests': ['commitStyle', 'commitNote'],
   'Branch names': ['copySemantic', 'copyPrefix'],
+  'Zoom': ['previewZoom'],
+  'Pages appear': ['previewAppearance'],
+  'Search with': ['searchEngine'],
+  'Open links in answers': ['linksInHelmy'],
   'Start copies from': ['copyFromRemote'],
   'Where copies are kept': ['copyFolder'],
   'Tidy away copies of settled chats': ['tidySettled'],

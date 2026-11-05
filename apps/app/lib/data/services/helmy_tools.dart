@@ -23,6 +23,10 @@ class HelmyTools {
   /// The rest of a session's chat, for its agent: set once chats are ready.
   ChatTools? chats;
 
+  /// Whether a session's agent may use the browser: off in a project that
+  /// says so in Settings. Set once settings and sessions are ready.
+  bool Function(String? session) browserAllowed = (_) => true;
+
   /// Shows a session's Device panel; true when it could.
   final bool Function(String? session)? _showDevice;
 
@@ -142,7 +146,7 @@ class HelmyTools {
                 'annotations': {'readOnlyHint': true, 'title': 'Watch a video'},
               },
               if (_devices != null) ..._deviceToolList,
-              if (_browser != null) ...BrowserTools.list,
+              if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
             ],
           },
@@ -162,6 +166,13 @@ class HelmyTools {
     };
     final name = '${params['name']}';
     if (BrowserTools.names.contains(name) && _browser != null) {
+      if (!browserAllowed(session)) {
+        return says(
+          'The browser is turned off for this project, in Settings > Projects. '
+          'Ask the user to turn it on if a page is needed.',
+          error: true,
+        );
+      }
       return _browser.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (ChatTools.names.contains(name) && chats != null) {

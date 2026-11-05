@@ -178,6 +178,7 @@ class SettingsViewModel extends ChangeNotifier {
     String repo, {
     bool? ownCopies,
     PermissionLevel? level,
+    bool? browser,
     bool clearOwn = false,
     bool clearLevel = false,
   }) {
@@ -186,6 +187,7 @@ class SettingsViewModel extends ChangeNotifier {
       ownCopies: clearOwn ? null : ownCopies ?? now.ownCopies,
       level: clearLevel ? null : level ?? now.level,
       actions: now.actions,
+      browser: browser ?? now.browser,
     );
     return update(settings.copyWith(projects: {...settings.projects, repo: next}));
   }

@@ -213,12 +213,20 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // The rest of a session's chat, for its agent (decision 0014).
   Provider(
     lazy: false,
-    create: (context) => context.read<HelmyTools>().chats = ChatTools(
-      sessions: context.read(),
-      chats: context.read(),
-      conversations: context.read(),
-      log: context.read(),
-    ),
+    create: (context) {
+      final tools = context.read<HelmyTools>();
+      final sessions = context.read<SessionRepository>();
+      tools.browserAllowed = (id) {
+        final s = id == null ? null : sessions.byId(id);
+        return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);
+      };
+      return tools.chats = ChatTools(
+        sessions: context.read(),
+        chats: context.read(),
+        conversations: context.read(),
+        log: context.read(),
+      );
+    },
   ),
   // Events from outside, into the threads given an address.
   Provider(

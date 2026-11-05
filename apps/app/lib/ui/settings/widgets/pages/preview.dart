@@ -69,6 +69,76 @@ class _Preview extends StatelessWidget {
                   style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                 ),
               ),
+            const _Heading('As it opens'),
+            _Row(
+              title: 'Zoom',
+              control: SizedBox(
+                width: 110,
+                child: Select<double>(
+                  size: .sm,
+                  value: s.previewZoom,
+                  semanticLabel: 'Zoom',
+                  options: [
+                    for (final z in {
+                      .5,
+                      .67,
+                      .75,
+                      .8,
+                      .9,
+                      1.0,
+                      1.1,
+                      1.25,
+                      1.5,
+                      2.0,
+                      s.previewZoom,
+                    }.toList()..sort())
+                      SelectOption(z, '${(z * 100).round()}%'),
+                  ],
+                  onChanged: (z) => vm.update(s.copyWith(previewZoom: z)),
+                ),
+              ),
+            ),
+            _Row(
+              title: 'Pages appear',
+              description: 'Light or dark, for pages that offer both.',
+              control: _Choice<String>(
+                value: s.previewAppearance,
+                label: 'Pages appear',
+                options: const {'system': 'As the system', 'light': 'Light', 'dark': 'Dark'},
+                onChanged: (v) => vm.update(s.copyWith(previewAppearance: v)),
+              ),
+            ),
+            _Row(
+              title: 'Search with',
+              description: 'Words typed in the address that are not an address.',
+              control: SizedBox(
+                width: 170,
+                child: Select<SearchEngine>(
+                  size: .sm,
+                  value: s.searchEngine,
+                  semanticLabel: 'Search with',
+                  options: [for (final e in SearchEngine.values) SelectOption(e, e.label)],
+                  onChanged: (e) => vm.update(s.copyWith(searchEngine: e)),
+                ),
+              ),
+            ),
+            _Row(
+              title: 'Open links in answers',
+              description: 'Web links in what Helmy says. Other links open as they always do.',
+              control: SizedBox(
+                width: 190,
+                child: Select<bool>(
+                  size: .sm,
+                  value: s.linksInHelmy,
+                  semanticLabel: 'Open links in answers',
+                  options: const [
+                    SelectOption(false, 'Your browser'),
+                    SelectOption(true, 'The Preview panel'),
+                  ],
+                  onChanged: (v) => vm.update(s.copyWith(linksInHelmy: v)),
+                ),
+              ),
+            ),
           ],
         );
       },
