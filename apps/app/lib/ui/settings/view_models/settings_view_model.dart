@@ -45,6 +45,8 @@ enum SettingsSection {
   data,
   keyboard,
   phone,
+  archive,
+  about,
 }
 
 /// One engine as settings shows it: what it is, whether it can run, and what

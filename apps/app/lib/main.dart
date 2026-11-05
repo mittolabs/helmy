@@ -1,3 +1,5 @@
+import 'version.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -131,10 +133,7 @@ class _HelmyAppState extends State<HelmyApp> {
   void _about() {
     final context = _router.routerDelegate.navigatorKey.currentContext;
     if (context == null) return;
-    showAbout(
-      context,
-      version: const String.fromEnvironment('HELMY_VERSION', defaultValue: _version),
-    );
+    showAbout(context, version: shownVersion);
   }
 
   @override
@@ -193,6 +192,3 @@ Future<(WindowController, FloatingArgs)?> _floatingPlayer() async {
     return null;
   }
 }
-
-/// The version this build says, as pubspec.yaml has it.
-const _version = '0.1.0'; // x-release-please-version

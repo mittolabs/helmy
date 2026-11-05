@@ -10,6 +10,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+
+import '../../shell/view_models/sidebar_view_model.dart';
+import '../../../version.dart';
+
+import 'package:flutter/foundation.dart' show LicenseRegistry;
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -57,7 +62,9 @@ import '../../../data/services/error_reports.dart';
 
 part 'pages/add_account.dart';
 part 'pages/add_agent.dart';
+part 'pages/about.dart';
 part 'pages/appearance.dart';
+part 'pages/archive.dart';
 part 'pages/connections.dart';
 part 'pages/data.dart';
 part 'pages/general.dart';
@@ -159,6 +166,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .preview => _Preview(vm: vm),
                             .projects => _Projects(vm: vm),
                             .agents => _Agents(vm: vm),
+                            .archive => const _Archive(),
+                            .about => const _About(),
                             .tools => _Tools(vm: vm),
                             .memory => _Memory(vm: vm),
                             .data => _Data(vm: vm),
@@ -351,6 +360,13 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     hue: 45.0,
     group: 'Your work',
   ),
+  .archive: (
+    label: 'Archive',
+    icon: AshlarIconsRoundedDuotone.archive,
+    hue: 30.0,
+    group: 'Your work',
+  ),
+  .about: (label: 'About', icon: AshlarIconsRoundedDuotone.infoCircle, hue: 210.0, group: 'Helmy'),
 };
 
 /// The sections, in their groups: a list beside the page, or a row of tabs

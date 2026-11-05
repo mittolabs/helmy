@@ -116,6 +116,16 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'remote mobile iphone android pair qr',
   ),
   (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key revoke'),
+  // Archive.
+  (
+    title: 'Archived chats',
+    section: .archive,
+    keywords: 'archive unarchive restore deleted old hidden',
+  ),
+  // About.
+  (title: 'Helmy', section: .about, keywords: 'about version update release'),
+  (title: 'Privacy', section: .about, keywords: 'privacy data sent telemetry policy'),
+  (title: 'Licenses', section: .about, keywords: 'open source licenses credits'),
 ];
 
 /// The entries that match [query], best first: every word must appear in the

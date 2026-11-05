@@ -29,8 +29,6 @@ void main() {
       run.send('Create a file hello.txt containing the word hi. Then say done.');
       await ended.timeout(const Duration(minutes: 2));
       await run.close();
-      // ignore: avoid_print
-      for (final i in items) print(i.toJson());
       expect(File('${dir.path}/hello.txt').readAsStringSync().trim(), 'hi');
       expect(items.whereType<ToolCall>(), isNotEmpty);
       expect(items.whereType<AssistantText>(), isNotEmpty);

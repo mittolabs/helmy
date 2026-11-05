@@ -13,6 +13,7 @@ import 'package:helmy/domain/models/settings.dart';
 import 'package:helmy/ui/settings/view_models/settings_view_model.dart';
 
 import '../testing/fake_repositories.dart';
+import 'support/storage.dart';
 
 /// Sign-in and who is signed in, as asked, without a browser or a real
 /// account.
@@ -35,7 +36,7 @@ class _Setup extends ConnectionsSetup {
 void main() {
   late Directory home;
   setUp(() async => home = await Directory.systemTemp.createTemp('accounts'));
-  tearDown(() => home.delete(recursive: true));
+  tearDown(() => deleteFolder(home));
 
   test('a browser sign-in gets a folder named after the account, marked as made', () async {
     final setup = _Setup(true);
