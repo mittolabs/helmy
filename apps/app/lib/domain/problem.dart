@@ -24,6 +24,9 @@ enum Fix {
   /// Allow Helmy to press keys on this Mac: locking it, the media keys.
   allowAccessibility,
 
+  /// Allow Helmy to see this Mac's screen: for a phone, or an agent using it.
+  allowScreenRecording,
+
   /// Install what carries taps and typing to iOS simulators (AXe).
   installDeviceInput,
 
@@ -39,6 +42,7 @@ enum Fix {
     allowSpeech => 'allow-speech',
     allowNotifications => 'allow-notifications',
     allowAccessibility => 'allow-accessibility',
+    allowScreenRecording => 'allow-screen-recording',
     installDeviceInput => 'install-device-input',
     wait => 'wait',
   };
@@ -57,6 +61,7 @@ enum Fix {
     allowSpeech => 'Allow speech recognition',
     allowNotifications => 'Allow notifications',
     allowAccessibility => 'Allow Accessibility',
+    allowScreenRecording => 'Allow Screen Recording',
     installDeviceInput => 'Install it',
     wait => '',
   };

@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../data/services/mac/mac_control.dart';
 import '../ui/chat/view_models/chat_view_model.dart';
 import '../ui/chat/widgets/chat_screen.dart';
 import '../ui/schedule/view_models/schedule_view_model.dart';
@@ -100,6 +103,7 @@ GoRouter router(String initialLocation) => GoRouter(
               watch: context.read(),
               fixes: context.read(),
               devices: context.read(),
+              mac: Platform.isMacOS ? context.read<MacControl>() : null,
               chromium: context.read(),
               browser: context.read(),
               editors: context.read(),

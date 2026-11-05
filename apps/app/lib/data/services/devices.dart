@@ -35,6 +35,11 @@ class Device {
   /// and their output read, but its screen is not shown or tapped from here.
   bool get realIphone => ios && physical;
 
+  /// The Mac Helmy runs on, which an agent can use too: in the Device
+  /// panel's list, never in the device tools'.
+  static const thisMac = Device(id: 'this-mac', name: 'This Mac', ios: false, booted: true);
+  bool get isMac => id == thisMac.id;
+
   Device get started =>
       Device(id: id, name: name, ios: ios, booted: true, runtime: runtime, physical: physical);
 }

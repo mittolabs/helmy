@@ -141,6 +141,8 @@ void main() {
   });
 
   test('every Mac tool listed is one it can do', () {
-    expect([for (final t in MacTools.list) t['name']], MacTools.names);
+    expect([
+      for (final t in [...MacTools.list, ...MacTools.useList]) t['name'],
+    ], MacTools.names);
   });
 }

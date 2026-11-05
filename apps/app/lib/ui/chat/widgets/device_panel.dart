@@ -20,6 +20,7 @@ import '../../core/ashlar/textarea.dart';
 import '../../core/ashlar/toast.dart';
 import '../../core/helmy_dialog.dart';
 import '../../../data/services/devices.dart';
+import '../../../domain/problem.dart';
 import '../../../domain/device_outline.dart';
 import '../../../domain/iphones.dart';
 import '../view_models/chat_view_model.dart';
@@ -150,7 +151,9 @@ class _DevicePanelState extends State<DevicePanel> {
                                 x.id,
                                 '${x.name}${x.runtime.isEmpty ? '' : ' · ${x.runtime}'}',
                                 // Phones on the cable first, then what is running, then the rest.
-                                group: x.physical
+                                group: x.isMac
+                                    ? 'This computer'
+                                    : x.physical
                                     ? 'Connected phones'
                                     : x.booted
                                     ? 'Running'
@@ -162,7 +165,7 @@ class _DevicePanelState extends State<DevicePanel> {
                       ),
                     ),
             ),
-            if (!d.canTouch && device != null && !device.realIphone)
+            if (!d.canTouch && device != null && !device.realIphone && !device.isMac)
               Padding(
                 padding: const .fromLTRB(12, 0, 12, 8),
                 child: Row(
@@ -184,7 +187,11 @@ class _DevicePanelState extends State<DevicePanel> {
                   ],
                 ),
               ),
-            if (device != null && device.realIphone)
+            if (device != null && device.isMac)
+              Expanded(
+                child: _MacBody(d: d, vm: widget.vm),
+              )
+            else if (device != null && device.realIphone)
               Expanded(
                 child: _PhoneBody(d: d, device: device, cwd: widget.vm.session?.cwd),
               )
@@ -1056,6 +1063,124 @@ class _PhoneBody extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// This Mac in the Device panel: its screen as the agent sees it, the ask
+/// before the agent first uses its mouse and keyboard in this chat, and the
+/// way to take it back.
+class _MacBody extends StatelessWidget {
+  const _MacBody({required this.d, required this.vm});
+  final DeviceViewModel d;
+  final ChatViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
+    final bytes = d.screen;
+    final (status, action) = d.macInUse
+        ? ('Helmy is using this Mac. Touch the mouse or keyboard and it stops.', 'Stop')
+        : d.macAllowed
+        ? ('Helmy may use this Mac in this chat.', 'Take it back')
+        : ("Helmy asks before it uses this Mac's mouse and keyboard.", null);
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        if (d.macAsking)
+          Container(
+            margin: const .fromLTRB(10, 0, 10, 8),
+            padding: const .all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: t.colors.border),
+              borderRadius: .circular(t.radiusMd),
+            ),
+            child: Column(
+              crossAxisAlignment: .stretch,
+              spacing: 8,
+              children: [
+                Text("Let Helmy use this Mac's mouse and keyboard in this chat?", style: t.text.sm),
+                Text(
+                  'It clicks and types here while you watch. Touch the mouse or keyboard and it '
+                  'stops; Stop takes it back.',
+                  style: muted,
+                ),
+                Row(
+                  mainAxisAlignment: .end,
+                  spacing: 6,
+                  children: [
+                    Button(
+                      variant: .ghost,
+                      size: .xs,
+                      onPressed: () => d.answerMac(false),
+                      child: const Text('Not now'),
+                    ),
+                    Button(
+                      size: .xs,
+                      onPressed: () => d.answerMac(true),
+                      child: const Text('Allow'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const .fromLTRB(12, 0, 10, 6),
+          child: Row(
+            spacing: 8,
+            children: [
+              Expanded(child: Text(status, style: muted)),
+              if (action != null)
+                Button(
+                  variant: d.macInUse ? .outline : .ghost,
+                  size: .xs,
+                  onPressed: d.stopMac,
+                  child: Text(action),
+                ),
+              Tooltip(
+                message: 'Attach the screen to your message',
+                child: Button(
+                  variant: .ghost,
+                  size: .iconSm,
+                  semanticLabel: 'Attach the screen to your message',
+                  onPressed: bytes == null ? null : () => vm.attachScreen(bytes),
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.camera, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: bytes != null
+              ? Padding(
+                  padding: const .fromLTRB(10, 0, 10, 10),
+                  child: Image.memory(bytes, gaplessPlayback: true, fit: .contain),
+                )
+              : Center(
+                  child: Padding(
+                    padding: const .all(16),
+                    child: d.trouble == null
+                        ? const Spinner(size: 16)
+                        : Column(
+                            mainAxisSize: .min,
+                            spacing: 10,
+                            children: [
+                              Text(d.trouble!, textAlign: .center, style: muted),
+                              if (d.macNeedsRecording)
+                                Button(
+                                  variant: .outline,
+                                  size: .xs,
+                                  onPressed: () => vm.applyFix(Fix.allowScreenRecording),
+                                  child: Text(Fix.allowScreenRecording.label),
+                                ),
+                            ],
+                          ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

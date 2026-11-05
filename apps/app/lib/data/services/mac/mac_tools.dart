@@ -1,11 +1,18 @@
+import 'dart:convert';
+
 import 'mac_actions.dart';
+import 'mac_control.dart';
 
 /// Helmy's Mac actions, as tools for the agent: done by Helmy itself, so
 /// they work whatever sandbox the agent's commands run in. The agent is
 /// told to use these rather than guess at shell commands for the same.
 class MacTools {
-  MacTools(this._mac);
+  MacTools(this._mac, {this.control});
   final MacActions _mac;
+
+  /// An agent using the screen, mouse and keyboard ([use]); null where it
+  /// can't.
+  final MacControl? control;
 
   /// Those the agent may use without asking: they look, or change something
   /// easily changed back.
@@ -22,7 +29,11 @@ class MacTools {
   /// something (an app, a drive's connection, the session).
   static const asking = ['mac_quit', 'mac_eject', 'mac_power'];
 
-  static const names = [...free, ...asking];
+  /// Using the screen, mouse and keyboard as a person does. Helmy asks the
+  /// person itself, once per chat, so the connections are told to allow them.
+  static const use = ['mac_see', 'mac_click', 'mac_drag', 'mac_scroll', 'mac_type', 'mac_key'];
+
+  static const names = [...free, ...asking, ...use];
 
   static const _prefer =
       ' Use this rather than a shell command for the same: it is done by Helmy itself on this '
@@ -174,8 +185,100 @@ class MacTools {
     ),
   ];
 
-  /// Does tool [name] with [args]: an MCP tool result.
-  Future<Map<String, Object?>> call(String name, Map args) async {
+  static const _xy = {
+    'x': {'type': 'number', 'description': "Pixels from the left of mac_see's picture."},
+    'y': {'type': 'number', 'description': "Pixels from the top of mac_see's picture."},
+  };
+
+  static const _after = ' Then mac_see shows what it did.';
+
+  /// The tools for [use].
+  static final useList = [
+    _tool(
+      'mac_see',
+      "See this Mac's screen",
+      "A picture of this Mac's main screen now, as the user sees it, with its size in pixels: "
+          'the x and y the other mac_ tools take are in these pixels. Use it for apps and windows '
+          'nothing else reaches (System Settings, a native app, a dialog); a page in the browser '
+          'goes through the browser tools, files and commands through the shell. Look again after '
+          'each action, since the screen changes. The user watches in the Device panel.',
+      {},
+      readOnly: true,
+    ),
+    _tool(
+      'mac_click',
+      'Click on this Mac',
+      'Moves the pointer to x, y and clicks. button right for the menu a right-click opens; count '
+          '2 for a double-click. The first time in a chat, Helmy asks the user to allow using the '
+          'mouse and keyboard, and waits for them.$_after',
+      {
+        ..._xy,
+        'button': {
+          'type': 'string',
+          'enum': ['left', 'right'],
+        },
+        'count': {'type': 'integer', 'minimum': 1, 'maximum': 3},
+      },
+      required: ['x', 'y'],
+    ),
+    _tool(
+      'mac_drag',
+      'Drag on this Mac',
+      'Presses at x, y, moves to to_x, to_y and lets go: to move a window or a file, select '
+          'text, or move a slider.$_after',
+      {
+        ..._xy,
+        'to_x': {'type': 'number'},
+        'to_y': {'type': 'number'},
+      },
+      required: ['x', 'y', 'to_x', 'to_y'],
+    ),
+    _tool(
+      'mac_scroll',
+      'Scroll on this Mac',
+      'Scrolls what is under x, y: down (a positive amount) or up (negative), in lines; right '
+          'or left with across.$_after',
+      {
+        ..._xy,
+        'down': {'type': 'number', 'description': 'Lines; negative scrolls up.'},
+        'across': {'type': 'number', 'description': 'Lines; negative scrolls left.'},
+      },
+      required: ['x', 'y'],
+    ),
+    _tool(
+      'mac_type',
+      'Type on this Mac',
+      'Types text into whatever has focus, as the keyboard would. Click the field first.$_after',
+      {
+        'text': {'type': 'string'},
+      },
+      required: ['text'],
+    ),
+    _tool(
+      'mac_key',
+      'Press a key on this Mac',
+      'Presses a key, with mods held: return, tab, space, delete, forwarddelete, escape, left, '
+          'right, up, down, home, end, pageup, pagedown, f1 to f12, or a letter, digit or '
+          r"punctuation key (- = [ ] ; ' , . / \ `). mods: cmd, shift, alt, ctrl. Shortcuts: key c "
+          'with cmd copies, key tab with cmd switches apps, key space with cmd opens Spotlight.'
+          '$_after',
+      {
+        'key': {'type': 'string'},
+        'mods': {
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': ['cmd', 'shift', 'alt', 'ctrl'],
+          },
+        },
+      },
+      required: ['key'],
+    ),
+  ];
+
+  /// Does tool [name] with [args] for [session]'s agent: an MCP tool result.
+  Future<Map<String, Object?>> call(String name, Map args, [String? session]) async {
+    if (use.contains(name)) return _use(name, args, session);
     Map<String, Object?> says(String text, {bool error = false}) => {
       'content': [
         {'type': 'text', 'text': text},
@@ -259,6 +362,100 @@ class MacTools {
         return m.sleep();
     }
     throw MacTrouble('No tool $name.');
+  }
+
+  Future<Map<String, Object?>> _use(String name, Map args, String? session) async {
+    Map<String, Object?> says(String text, {bool error = false}) => {
+      'content': [
+        {'type': 'text', 'text': text},
+      ],
+      'isError': error,
+    };
+    final c = control;
+    if (c == null) return says("This Mac's screen can't be used from here.", error: true);
+    try {
+      if (name == 'mac_see') {
+        final s = await c.see(session);
+        return {
+          'content': [
+            {
+              'type': 'text',
+              'text':
+                  "This Mac's screen now, ${s.width} by ${s.height} pixels: give x and y in "
+                  'these.',
+            },
+            {'type': 'image', 'mimeType': 'image/jpeg', 'data': base64Encode(s.jpeg)},
+          ],
+          'isError': false,
+        };
+      }
+      // Without a chat, the ask has nowhere to show.
+      final chat = session ?? '';
+      num n(String k) => args[k] is num ? args[k] as num : 0;
+      switch (name) {
+        case 'mac_click':
+          await c.act(chat, {
+            'kind': args['button'] == 'right' ? 'right' : 'click',
+            'x': n('x'),
+            'y': n('y'),
+            'count': (n('count').toInt()).clamp(1, 3),
+          });
+          return says('Clicked.');
+        case 'mac_drag':
+          await c.act(chat, {'kind': 'down', 'x': n('x'), 'y': n('y')});
+          try {
+            // Through the way, as a hand moves, so what is dragged follows.
+            for (var i = 1; i <= 8; i++) {
+              await Future<void>.delayed(const Duration(milliseconds: 16));
+              final f = i / 8;
+              await c.act(chat, {
+                'kind': 'drag',
+                'x': n('x') + (n('to_x') - n('x')) * f,
+                'y': n('y') + (n('to_y') - n('y')) * f,
+              });
+            }
+          } on MacUseTrouble {
+            // The person took over midway: the button is let go, whatever they do.
+            await c
+                .act(chat, {'kind': 'up', 'x': n('x'), 'y': n('y'), 'quiet': 0})
+                .catchError((_) {});
+            rethrow;
+          }
+          await c.act(chat, {'kind': 'up', 'x': n('to_x'), 'y': n('to_y')});
+          return says('Dragged.');
+        case 'mac_scroll':
+          // A line is about ten pixels; the wheel's up is positive.
+          await c.act(chat, {
+            'kind': 'scroll',
+            'x': n('x'),
+            'y': n('y'),
+            'dy': -n('down') * 10,
+            'dx': -n('across') * 10,
+          });
+          return says('Scrolled.');
+        case 'mac_type':
+          await c.act(chat, {'kind': 'text', 'text': '${args['text'] ?? ''}'});
+          return says('Typed.');
+        case 'mac_key':
+          await c.act(chat, {
+            'kind': 'key',
+            'key': '${args['key'] ?? ''}',
+            'mods': [for (final m in (args['mods'] as List?) ?? const []) '$m'],
+          });
+          return says('Pressed.');
+      }
+      return says('No tool $name.', error: true);
+    } on MacUseTrouble catch (t) {
+      if (t.code == 'record') {
+        return says(
+          'Helmy needs the Screen Recording permission to see this Mac. Tell the user, and give '
+          'them this link, which opens the setting: [Allow Screen Recording]'
+          '(helmy://fix/allow-screen-recording). Then try again once they have.',
+          error: true,
+        );
+      }
+      return says(t.message, error: true);
+    }
   }
 
   /// The next time it is [hhmm]: today, or tomorrow when that has passed.

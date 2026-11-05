@@ -412,7 +412,15 @@ class _CodexRun implements EngineRun {
         if (tools != null)
           'config': {
             'mcp_servers': {
-              'helmy': {'url': tools},
+              'helmy': {
+                'url': tools,
+                // The tools Helmy lets run without asking (it asks for using the
+                // Mac itself): Codex would otherwise ask, and nothing answers it.
+                'tools': {
+                  for (final t in HelmyTools.claudeTools)
+                    t.replaceFirst('mcp__helmy__', ''): {'approval_mode': 'approve'},
+                },
+              },
             },
           },
         'cwd': launch.cwd,

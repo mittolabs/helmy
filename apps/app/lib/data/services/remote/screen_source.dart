@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../mac/mac_control.dart';
+
 /// This Mac's screen as frames, and a way to use it: what [RemoteServer]
 /// shows a paired phone. Frames come one at a time, the next only once
 /// [next] asks, so a slow phone gets fewer frames rather than late ones.
@@ -35,6 +37,8 @@ class MacScreen implements ScreenSource {
           if (call.arguments case final Uint8List b) onFrame?.call(b);
         case 'stopped':
           onStopped?.call('${call.arguments ?? ''}');
+        case 'agentStopped':
+          ChannelMacNative.agentStopped?.call();
       }
     });
   }

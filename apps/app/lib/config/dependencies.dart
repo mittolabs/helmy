@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../data/services/mac/mac_actions.dart';
+import '../data/services/mac/mac_control.dart';
 import '../data/services/mac/mac_tools.dart';
 import '../data/services/remote/screen_source.dart';
 
@@ -149,6 +150,12 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // The page each session's agent works: its Preview panel's, or one in the
   // background.
   Provider(create: (context) => BrowserHost(chromium: context.read())),
+  // An agent using this Mac's screen, mouse and keyboard, as the person allows.
+  ChangeNotifierProvider(
+    create: (context) =>
+        MacControl(ChannelMacNative())
+          ..show = (s) => context.read<BrowserHost>().showDevice(s, mac: true),
+  ),
   // Helmy's own tools (watching a video), served to every connection.
   Provider(
     lazy: false,
@@ -236,7 +243,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       final tools = context.read<HelmyTools>();
       final sessions = context.read<SessionRepository>();
       tools.devicesAllowed = () => loaded.settings.settings.agentDevices;
-      if (Platform.isMacOS) tools.mac = MacTools(MacActions());
+      if (Platform.isMacOS) tools.mac = MacTools(MacActions(), control: context.read<MacControl>());
       tools.browserAllowed = (id) {
         final s = id == null ? null : sessions.byId(id);
         return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);

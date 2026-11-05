@@ -934,6 +934,7 @@ enum MacActions {
     for down in [true, false] {
       let e = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down)
       e?.flags = flags
+      e?.setIntegerValueField(.eventSourceUserData, value: ScreenShare.tag)
       e?.post(tap: .cghidEventTap)
     }
   }
@@ -1033,6 +1034,11 @@ enum ScreenShare {
         result(nil)
       case "input":
         result(input(args))
+      case "shot":
+        shot(maxWidth: args["maxWidth"] as? Int ?? 1280, quality: args["quality"] as? Double ?? 0.7, result)
+      case "agentMark":
+        if let text = args["text"] as? String { ShareMark.agent.show(text) } else { ShareMark.agent.hide() }
+        result(nil)
       case "allowed":
         result(["record": CGPreflightScreenCaptureAccess(), "control": Snapshots.trusted(prompt: false)])
       case "askRecord":
@@ -1041,7 +1047,11 @@ enum ScreenShare {
         result(FlutterMethodNotImplemented)
       }
     }
-    ShareMark.shared.onStop = { channel?.invokeMethod("stopped", arguments: "mark") }
+    ShareMark.shared.onStop = {
+      if #available(macOS 12.3, *) { ScreenStream.shared.stop() }
+      channel?.invokeMethod("stopped", arguments: "mark")
+    }
+    ShareMark.agent.onStop = { channel?.invokeMethod("agentStopped", arguments: nil) }
   }
 
   /// The screen being shared, in global points.
@@ -1049,10 +1059,76 @@ enum ScreenShare {
 
   private static var lastClick = (at: Date.distantPast, point: CGPoint.zero, count: 0)
 
-  /// A phone's touch or key, as this Mac's own; "accessibility" when Helmy
-  /// may not post events.
+  /// Set on every event an agent posts, so the person's own are told apart.
+  static let agentTag: Int64 = 0x48454C4D
+  static var tag: Int64 = 0
+
+  /// When the person last moved, clicked, scrolled or typed: watched from an
+  /// agent's first action on.
+  private static var personAt = Date.distantPast
+  private static var watching = false
+
+  private static func watchPerson() {
+    if watching { return }
+    watching = true
+    let kinds: NSEvent.EventTypeMask = [
+      .mouseMoved, .leftMouseDown, .rightMouseDown, .leftMouseDragged, .scrollWheel, .keyDown,
+    ]
+    NSEvent.addGlobalMonitorForEvents(matching: kinds) { e in
+      if e.cgEvent?.getIntegerValueField(.eventSourceUserData) != agentTag { personAt = Date() }
+    }
+  }
+
+  /// One picture of the main screen, JPEG at most maxWidth pixels wide, with
+  /// its size; or a FlutterError: "record" when Screen Recording is not allowed.
+  static func shot(maxWidth: Int, quality: Double, _ result: @escaping FlutterResult) {
+    guard #available(macOS 14.0, *) else {
+      return result(FlutterError(code: "old", message: "Seeing the screen needs macOS 14 or later.", details: nil))
+    }
+    guard CGPreflightScreenCaptureAccess() else {
+      return result(FlutterError(code: "record", message: "Screen Recording is not allowed.", details: nil))
+    }
+    let scale = NSScreen.main?.backingScaleFactor ?? 2
+    Task {
+      do {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first
+        else { throw NSError(domain: "helmy", code: 1, userInfo: [NSLocalizedDescriptionKey: "No screen to see."]) }
+        let config = SCStreamConfiguration()
+        let width = min(Double(maxWidth), Double(display.width) * scale)
+        config.width = Int(width)
+        config.height = Int(width * Double(display.height) / Double(display.width))
+        config.showsCursor = true
+        let image = try await SCScreenshotManager.captureImage(
+          contentFilter: SCContentFilter(display: display, excludingWindows: []), configuration: config)
+        let jpeg = NSBitmapImageRep(cgImage: image).representation(
+          using: .jpeg, properties: [.compressionFactor: quality])
+        DispatchQueue.main.async {
+          guard let jpeg else {
+            return result(FlutterError(code: "shot", message: "The picture could not be made.", details: nil))
+          }
+          result(["data": FlutterStandardTypedData(bytes: jpeg), "width": image.width, "height": image.height])
+        }
+      } catch {
+        DispatchQueue.main.async {
+          result(FlutterError(code: "shot", message: error.localizedDescription, details: nil))
+        }
+      }
+    }
+  }
+
+  /// A phone's touch or key, or an agent's, as this Mac's own; "accessibility"
+  /// when Helmy may not post events, "person" when an agent's comes while the
+  /// person is using the Mac (in the last [quiet] seconds).
   static func input(_ a: [String: Any]) -> String? {
     guard Snapshots.trusted(prompt: false) else { return "accessibility" }
+    let agent = a["agent"] as? Bool ?? false
+    if agent {
+      watchPerson()
+      if Date().timeIntervalSince(personAt) < (a["quiet"] as? Double ?? 3) { return "person" }
+    }
+    tag = agent ? agentTag : 0
+    defer { tag = 0 }
     let b = bounds
     let p = CGPoint(
       x: b.minX + max(0, min(1, a["x"] as? Double ?? 0.5)) * b.width,
@@ -1060,6 +1136,7 @@ enum ScreenShare {
     func mouse(_ type: CGEventType, _ button: CGMouseButton = .left, clicks: Int = 1) {
       let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: button)
       e?.setIntegerValueField(.mouseEventClickState, value: Int64(clicks))
+      e?.setIntegerValueField(.eventSourceUserData, value: tag)
       e?.post(tap: .cghidEventTap)
     }
     switch a["kind"] as? String ?? "" {
@@ -1068,7 +1145,7 @@ enum ScreenShare {
     case "click":
       // Two clicks close in time and place are a double click, as on the Mac.
       let near = hypot(p.x - lastClick.point.x, p.y - lastClick.point.y) < 12
-      let count = near && Date().timeIntervalSince(lastClick.at) < 0.45 ? lastClick.count + 1 : 1
+      let count = a["count"] as? Int ?? (near && Date().timeIntervalSince(lastClick.at) < 0.45 ? lastClick.count + 1 : 1)
       lastClick = (Date(), p, count)
       mouse(.mouseMoved)
       mouse(.leftMouseDown, clicks: count)
@@ -1089,6 +1166,7 @@ enum ScreenShare {
       let e = CGEvent(
         scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
         wheel1: Int32(a["dy"] as? Double ?? 0), wheel2: Int32(a["dx"] as? Double ?? 0), wheel3: 0)
+      e?.setIntegerValueField(.eventSourceUserData, value: tag)
       e?.post(tap: .cghidEventTap)
     case "text":
       for ch in (a["text"] as? String ?? "").utf16 {
@@ -1096,6 +1174,7 @@ enum ScreenShare {
         for down in [true, false] {
           let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down)
           e?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &c)
+          e?.setIntegerValueField(.eventSourceUserData, value: tag)
           e?.post(tap: .cghidEventTap)
         }
       }
@@ -1110,6 +1189,9 @@ enum ScreenShare {
         "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "o": 31, "u": 32,
         "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46,
         "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "9": 25, "7": 26, "8": 28, "0": 29,
+        "-": 27, "=": 24, "[": 33, "]": 30, ";": 41, "'": 39, ",": 43, ".": 47, "/": 44, "\\": 42, "`": 50,
+        "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97, "f7": 98, "f8": 100,
+        "f9": 101, "f10": 109, "f11": 103, "f12": 111,
       ]
       guard let code = codes[(a["key"] as? String ?? "").lowercased()] else { return "unknown key" }
       var flags: CGEventFlags = []
@@ -1229,7 +1311,13 @@ final class ScreenStream: NSObject, SCStreamOutput, SCStreamDelegate {
 /// The mark at the top of the screen while a phone watches it: who, and a
 /// Stop that ends it at once. Floats over everything, on every Space.
 final class ShareMark {
-  static let shared = ShareMark()
+  static let shared = ShareMark(row: 0)
+
+  /// While an agent uses this Mac: below the phone's mark when both show.
+  static let agent = ShareMark(row: 1)
+
+  init(row: Int) { self.row = row }
+  private let row: Int
   var onStop: (() -> Void)?
   private var panel: NSPanel?
   private var label: NSTextField?
@@ -1274,7 +1362,7 @@ final class ShareMark {
     p.contentView = box
     if let screen = NSScreen.screens.first(where: { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == CGMainDisplayID() }) ?? NSScreen.main {
       let f = screen.visibleFrame
-      p.setFrameOrigin(NSPoint(x: f.midX - 170, y: f.maxY - 46))
+      p.setFrameOrigin(NSPoint(x: f.midX - 170, y: f.maxY - 46 - CGFloat(row) * 44))
     }
     p.orderFrontRegardless()
     panel = p
@@ -1289,7 +1377,6 @@ final class ShareMark {
 
   @objc private func stopPressed() {
     hide()
-    if #available(macOS 12.3, *) { ScreenStream.shared.stop() }
     onStop?()
   }
 }

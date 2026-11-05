@@ -65,6 +65,7 @@ class HelmyTools {
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
     for (final t in ChatTools.names) 'mcp__helmy__$t',
     for (final t in MacTools.free) 'mcp__helmy__$t',
+    for (final t in MacTools.use) 'mcp__helmy__$t',
   ];
 
   static const deviceTools = [
@@ -161,6 +162,7 @@ class HelmyTools {
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
               if (mac != null) ...MacTools.list,
+              if (mac?.control != null) ...MacTools.useList,
             ],
           },
         },
@@ -192,7 +194,7 @@ class HelmyTools {
       return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (MacTools.names.contains(name) && mac != null) {
-      return mac!.call(name, (params['arguments'] as Map?) ?? const {});
+      return mac!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (deviceTools.contains(name) && _devices != null) {
       if (!devicesAllowed()) {

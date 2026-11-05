@@ -37,16 +37,19 @@ class BrowserHost {
   final _openers = <String, void Function(String url)>{};
   final _attached = StreamController<String>.broadcast();
   final _background = <String, PageDriver>{};
-  final _devices = <String, void Function()>{};
+  final _devices = <String, void Function({bool mac})>{};
 
   /// How a session shows its Device panel, while its conversation is on screen.
-  void deviceOpener(String session, void Function()? open) =>
+  void deviceOpener(String session, void Function({bool mac})? open) =>
       open == null ? _devices.remove(session) : _devices[session] = open;
 
-  /// Shows the session's Device panel; false when its conversation is not on screen.
-  bool showDevice(String? session) {
-    final open = session == null ? _devices.values.lastOrNull : _devices[session];
-    open?.call();
+  /// Shows the session's Device panel, on This Mac with [mac]; false when its
+  /// conversation is not on screen.
+  bool showDevice(String? session, {bool mac = false}) {
+    final open = session == null || session.isEmpty
+        ? _devices.values.lastOrNull
+        : _devices[session];
+    open?.call(mac: mac);
     return open != null;
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Size;
 
 import '../../../data/services/devices.dart';
+import '../../../data/services/mac/mac_control.dart';
 import '../../../domain/device_outline.dart';
 import '../../../domain/device_marks.dart';
 import '../../../domain/iphones.dart';
@@ -12,8 +13,16 @@ import '../../../domain/iphones.dart';
 /// The Device panel's state: which simulator or emulator, its screen kept
 /// fresh while the panel shows, and what a tap or a key does to it.
 class DeviceViewModel extends ChangeNotifier {
-  DeviceViewModel(this._devices);
+  DeviceViewModel(this._devices, {this.mac, this.session}) {
+    mac?.addListener(_changed);
+  }
   final DeviceService _devices;
+
+  /// This Mac, for the chat's agent to use, where Helmy can: listed first.
+  final MacControl? mac;
+
+  /// The chat this panel is in: whose ask to use the Mac it shows.
+  final String? session;
 
   List<Device> devices = const [];
   Device? device;
@@ -41,9 +50,9 @@ class DeviceViewModel extends ChangeNotifier {
   /// an iPhone before an iPad or an emulator. A real iPhone only when
   /// chosen: its screen does not show here.
   Future<void> open() async {
-    devices = await _devices.list();
+    devices = [if (mac != null) Device.thisMac, ...await _devices.list()];
     device ??=
-        devices.where((d) => d.booted && !d.realIphone).firstOrNull ??
+        devices.where((d) => d.booted && !d.realIphone && !d.isMac).firstOrNull ??
         devices.where((d) => d.ios && d.name.startsWith('iPhone')).firstOrNull ??
         devices.firstOrNull;
     trouble = devices.isEmpty
@@ -63,6 +72,7 @@ class DeviceViewModel extends ChangeNotifier {
     final d = device;
     if (d == null || _closed) return _changed();
     if (d.realIphone) return _readyPhone();
+    if (d.isMac) return _readyMac();
     canTouch = !d.ios || await _devices.iosInput();
     if (!d.booted) {
       doing = 'Starting ${d.name}…';
@@ -115,6 +125,61 @@ class DeviceViewModel extends ChangeNotifier {
     }
     _changed();
   }
+
+  // This Mac: its screen, seen a few times a second while the panel shows,
+  // and the person's say over the agent using it.
+
+  /// Screen Recording is what keeps this Mac's screen from showing.
+  bool macNeedsRecording = false;
+
+  Future<void> _readyMac() async {
+    _poll?.cancel();
+    await _stream?.cancel();
+    _stream = null;
+    canTouch = false;
+    _poll = Timer.periodic(const Duration(milliseconds: 400), (_) => unawaited(_readMac()));
+    await _readMac();
+  }
+
+  Future<void> _readMac() async {
+    final m = mac;
+    if (m == null || _reading || _closed || device?.isMac != true) return;
+    _reading = true;
+    try {
+      screen = (await m.look()).jpeg;
+      trouble = null;
+      macNeedsRecording = false;
+    } on MacUseTrouble catch (t) {
+      macNeedsRecording = t.code == 'record';
+      trouble = macNeedsRecording
+          ? "To show this Mac's screen here, and let the agent see it, Helmy needs the Screen "
+                'Recording permission.'
+          : "This Mac's screen can't be seen right now: ${t.message}";
+      screen = null;
+    } finally {
+      _reading = false;
+    }
+    _changed();
+  }
+
+  /// Shows This Mac: the agent is about to see or use it.
+  void showMac() {
+    if (mac == null || device?.isMac == true) return;
+    unawaited(choose(Device.thisMac));
+  }
+
+  /// Whether this chat's agent waits for the person's yes to use the Mac.
+  bool get macAsking => mac != null && mac!.asking(session ?? '');
+
+  /// Whether this chat's agent is using the Mac now.
+  bool get macInUse => mac != null && mac!.using == (session ?? '');
+
+  /// Whether this chat's agent may use the Mac without asking.
+  bool get macAllowed => mac != null && mac!.allowed(session ?? '');
+
+  void answerMac(bool yes) => mac?.answer(session ?? '', yes);
+
+  void stopMac() => mac?.stop();
 
   /// The device's own coordinates for a share (0 to 1) of the picture: iOS
   /// simulators take points, the picture is in pixels at the screen's scale.
@@ -548,6 +613,7 @@ class DeviceViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    mac?.removeListener(_changed);
     _closed = true;
     _logTimer?.cancel();
     _poll?.cancel();

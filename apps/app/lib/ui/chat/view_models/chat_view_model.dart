@@ -39,6 +39,7 @@ import '../../../data/services/fixes.dart';
 import '../../../domain/problem.dart';
 import '../../core/file_actions.dart';
 import '../../../data/services/devices.dart';
+import '../../../data/services/mac/mac_control.dart';
 import 'device_view_model.dart';
 import '../../../data/services/browser/browser_host.dart';
 import '../../../data/services/chromium/chromium_service.dart';
@@ -107,6 +108,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this._watch,
     this._fixes,
     DeviceService? devices,
+    MacControl? mac,
     this.chromium,
     this.browser,
     this._editors,
@@ -114,7 +116,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     this._chats,
     this._log,
     this.embedded = false,
-  }) : device = devices == null ? null : DeviceViewModel(devices) {
+  }) : device = devices == null ? null : DeviceViewModel(devices, mac: mac, session: sessionId) {
     _attention?.viewing = sessionId;
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
@@ -813,7 +815,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Offset? deviceFloatAt;
 
   /// The device shown: where it floats, or in the panel.
-  void showDevice() {
+  void showDevice({bool mac = false}) {
+    if (mac) device?.showMac();
     if (deviceFloating) return notifyListeners();
     show(.device);
   }
