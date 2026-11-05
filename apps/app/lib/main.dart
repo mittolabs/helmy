@@ -20,9 +20,13 @@ import 'ui/core/ashlar/markdown.dart';
 import 'ui/core/code_highlight.dart';
 import 'ui/chat/widgets/floating_player.dart';
 import 'ui/core/about_dialog.dart';
+import 'ui/phone/phone_app.dart';
 import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
 Future<void> main() async {
+  // On a phone, Helmy is a remote for Helmy on a Mac: nothing of the desktop
+  // app runs there.
+  if (Platform.isIOS || Platform.isAndroid) return runPhone();
   WidgetsFlutterBinding.ensureInitialized();
   // A window opened as a floating player runs that, and nothing else.
   if (await _floatingPlayer() case (final window, final args)) {

@@ -54,6 +54,9 @@ dependencies:
   sentry: ^10.3.0
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
+  cryptography: ^2.9.0
+  qr: ^4.0.1
+  mobile_scanner: ^7.5.0
 dev_dependencies:
   integration_test:
     sdk: flutter

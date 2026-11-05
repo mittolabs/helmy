@@ -174,6 +174,12 @@ class const AppSettings({
   /// Ask before a chat is deleted.
   final bool confirmDelete = true,
 
+  /// A paired phone can reach Helmy here.
+  final bool remoteOn = false,
+
+  /// The key phones pair with (see `Pairing`); empty before the first.
+  final String remoteKey = '',
+
   /// A chat settles by itself when its pull request merges, or after three
   /// days untouched.
   final bool settleOnItsOwn = true,
@@ -259,6 +265,8 @@ class const AppSettings({
     bool? snapshotKeys,
     bool? groupingReviewed,
     bool? confirmDelete,
+    bool? remoteOn,
+    String? remoteKey,
     bool? settleOnItsOwn,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -297,6 +305,8 @@ class const AppSettings({
     snapshotKeys: snapshotKeys ?? this.snapshotKeys,
     groupingReviewed: groupingReviewed ?? this.groupingReviewed,
     confirmDelete: confirmDelete ?? this.confirmDelete,
+    remoteOn: remoteOn ?? this.remoteOn,
+    remoteKey: remoteKey ?? this.remoteKey,
     settleOnItsOwn: settleOnItsOwn ?? this.settleOnItsOwn,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -337,6 +347,8 @@ class const AppSettings({
     'snapshotKeys': snapshotKeys,
     'groupingReviewed': groupingReviewed,
     'confirmDelete': confirmDelete,
+    'remoteOn': remoteOn,
+    'remoteKey': remoteKey,
     'settleOnItsOwn': settleOnItsOwn,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -380,6 +392,8 @@ class const AppSettings({
     snapshotKeys: json['snapshotKeys'] as bool? ?? false,
     groupingReviewed: json['groupingReviewed'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
+    remoteOn: json['remoteOn'] as bool? ?? false,
+    remoteKey: json['remoteKey'] as String? ?? '',
     settleOnItsOwn: json['settleOnItsOwn'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
@@ -413,6 +427,7 @@ const restorableSettings = <String, List<String>>{
   'Show steps open': ['stepsOpen'],
   'Ask before deleting a chat': ['confirmDelete'],
   'Mark chats done on their own': ['settleOnItsOwn'],
+  'Reach Helmy from your phone': ['remoteOn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],

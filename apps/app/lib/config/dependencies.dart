@@ -22,6 +22,8 @@ import '../data/services/editors.dart';
 import '../data/repositories/chat_repository.dart';
 import '../data/repositories/chat_keeper.dart';
 import '../data/services/cloud_writer.dart';
+import '../data/services/remote/remote_host.dart';
+import '../data/services/remote/remote_server.dart';
 import '../data/services/local_writer.dart';
 import '../data/services/chat_tools.dart';
 import '../data/services/history_import.dart';
@@ -255,6 +257,14 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       sessions: context.read(),
       conversations: context.read(),
       notify: context.read(),
+    ),
+  ),
+  // A paired phone reaching Helmy here, while settings let it.
+  ChangeNotifierProvider<RemoteHost>(
+    lazy: false,
+    create: (context) => RemoteHost(
+      RemoteServer(sessions: context.read(), conversations: context.read(), chats: context.read()),
+      context.read<SettingsRepository>(),
     ),
   ),
 ];

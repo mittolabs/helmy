@@ -1,6 +1,8 @@
 import 'package:ashlar_icons/ashlar_icons.dart';
 
+import '../../core/qr_view.dart';
 import '../../core/tinted_icon.dart';
+import '../../../data/services/remote/remote_host.dart';
 
 import 'package:file_selector/file_selector.dart';
 
@@ -53,6 +55,7 @@ part 'pages/data.dart';
 part 'pages/general.dart';
 part 'pages/keyboard.dart';
 part 'pages/memory.dart';
+part 'pages/phone.dart';
 part 'pages/preview.dart';
 part 'pages/projects.dart';
 part 'pages/tools.dart';
@@ -134,6 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               .memory => _Memory(vm: vm),
                               .data => _Data(vm: vm),
                               .keyboard => const _Keyboard(),
+                              .phone => _Phone(vm: vm),
                             };
                       final search = _SearchBox(
                         controller: _search,
@@ -289,6 +293,12 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     label: 'Projects',
     icon: AshlarIconsRoundedDuotone.gitBranch,
     hue: 160.0,
+    group: 'Your work',
+  ),
+  .phone: (
+    label: 'Phone',
+    icon: AshlarIconsRoundedDuotone.smartphone,
+    hue: 140.0,
     group: 'Your work',
   ),
   .data: (
