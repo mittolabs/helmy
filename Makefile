@@ -5,7 +5,7 @@ APP := apps/app
 
 help:
 	@echo "make setup     the commit hook and dependencies"
-	@echo "make app       debug build of the macOS app"
+	@echo "make app       debug build of the macOS app, signed when .signing.local names a certificate"
 	@echo "make run       build it and open it"
 	@echo "make test      unit tests (no real agents, no usage)"
 	@echo "make live      live tests against the real connections (costs usage)"
@@ -19,6 +19,7 @@ setup:
 
 app:
 	cd $(APP) && fvm flutter build macos --debug --build-number=$$(git rev-list --count HEAD)
+	cd $(APP) && tool/sign_mac.sh build/macos/Build/Products/Debug/Helmy.app
 
 run: app
 	open $(APP)/build/macos/Build/Products/Debug/Helmy.app

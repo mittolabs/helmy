@@ -5,3 +5,6 @@
 .claude/
 .codex/
 .agents/
+
+# A developer's own signing certificate for the macOS app (tool/sign_mac.sh)
+.signing.local
