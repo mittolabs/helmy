@@ -241,6 +241,10 @@ class const AppSettings({
   /// What the user wants of chats' names, added to how Helmy names them.
   final String namingNote = '',
 
+  /// Keys the user chose for commands, by command name, as
+  /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
+  final Map<String, String> keys = const {},
+
   /// A message sent while a chat works redirects it at once, rather than
   /// waiting its turn; ⇧⌘Enter does the other.
   final bool steerByDefault = false,
@@ -371,6 +375,7 @@ class const AppSettings({
     bool? keepWithPr,
     String? namingNote,
     bool? steerByDefault,
+    Map<String, String>? keys,
     ClockFormat? clock,
     Map<String, String>? bestAt,
     Switching? switching,
@@ -425,6 +430,7 @@ class const AppSettings({
     keepWithPr: keepWithPr ?? this.keepWithPr,
     namingNote: namingNote ?? this.namingNote,
     steerByDefault: steerByDefault ?? this.steerByDefault,
+    keys: keys ?? this.keys,
     clock: clock ?? this.clock,
     bestAt: bestAt ?? this.bestAt,
     switching: switching ?? this.switching,
@@ -482,6 +488,7 @@ class const AppSettings({
     'keepWithPr': keepWithPr,
     'namingNote': namingNote,
     'steerByDefault': steerByDefault,
+    'keys': keys,
     'clock': clock.name,
     'switching': switching.name,
     'notify': notify,
@@ -536,6 +543,7 @@ class const AppSettings({
     keepWithPr: json['keepWithPr'] as bool? ?? true,
     namingNote: json['namingNote'] as String? ?? '',
     steerByDefault: json['steerByDefault'] as bool? ?? false,
+    keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     clock: ClockFormat.values.asNameMap()[json['clock']] ?? .system,
     bestAt: {
       for (final e in ((json['bestAt'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
@@ -613,6 +621,7 @@ const restorableSettings = <String, List<String>>{
   'Keep chats with an open pull request': ['keepWithPr'],
   'How chats are named': ['namingNote'],
   'A message sent while a chat works': ['steerByDefault'],
+  'Shortcuts': ['keys'],
   'Reach Helmy from your phone': ['remoteOn'],
   'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],

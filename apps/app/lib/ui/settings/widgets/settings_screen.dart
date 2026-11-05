@@ -52,6 +52,7 @@ import '../../../data/services/chat_export.dart';
 import '../../chat/widgets/saved_toast.dart';
 import '../../core/connection_logo.dart';
 import '../../core/helmy_dialog.dart';
+import '../../core/key_bindings.dart';
 import '../../core/markdown_preview.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
@@ -171,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .tools => _Tools(vm: vm),
                             .memory => _Memory(vm: vm),
                             .data => _Data(vm: vm),
-                            .keyboard => const _Keyboard(),
+                            .keyboard => _Keyboard(vm: vm),
                             .phone => _Phone(vm: vm),
                           },
                         );

@@ -1,3 +1,4 @@
+import '../../core/key_bindings.dart';
 import '../../core/ashlar/hover_card.dart';
 
 import 'dart:io';
@@ -71,10 +72,11 @@ class ShellScreen extends StatelessWidget {
         child: CallbackShortcuts(
           // Keys reach here from wherever focus is in the window.
           bindings: {
-            Desktop.current.shortcut(LogicalKeyboardKey.keyK): () =>
+            bindingOf(.search, viewModel.settings.keys).activator: () =>
                 showPalette(context, viewModel),
-            Desktop.current.shortcut(LogicalKeyboardKey.keyN): () => newSession(context, viewModel),
-            Desktop.current.shortcut(LogicalKeyboardKey.comma): () =>
+            bindingOf(.newChat, viewModel.settings.keys).activator: () =>
+                newSession(context, viewModel),
+            bindingOf(.settings, viewModel.settings.keys).activator: () =>
                 openSettings(GoRouter.of(context)),
             // ⌘1 to ⌘9: the sessions in the order the list shows them.
             for (final (i, key) in const [
@@ -93,9 +95,8 @@ class ShellScreen extends StatelessWidget {
                 if (i < list.length) context.go('/s/${list[i].id}');
               },
             // Back and forward through where you have been.
-            Desktop.current.shortcut(LogicalKeyboardKey.bracketLeft): () =>
-                NavHistory.current?.back(),
-            Desktop.current.shortcut(LogicalKeyboardKey.bracketRight): () =>
+            bindingOf(.back, viewModel.settings.keys).activator: () => NavHistory.current?.back(),
+            bindingOf(.forward, viewModel.settings.keys).activator: () =>
                 NavHistory.current?.forward(),
             // Undo the last archive, snooze or settle (a text field's own undo
             // comes first).

@@ -1,3 +1,5 @@
+import '../../core/key_bindings.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -502,14 +504,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     return CallbackShortcuts(
       bindings: {
-        Desktop.current.shortcut(LogicalKeyboardKey.keyF): _openFind,
+        bindingOf(.find, context.watch<SettingsRepository>().settings.keys).activator: _openFind,
         // The project's action again (the last run, else its first).
         Desktop.current.shortcut(LogicalKeyboardKey.keyR): () {
           if (actionToRun(vm) case final a?) vm.run(a);
         },
         Desktop.current.shortcut(LogicalKeyboardKey.keyO, shift: true): () => vm.openIn(),
         // A new thread in this chat, as ⌘N is a new chat.
-        Desktop.current.shortcut(LogicalKeyboardKey.keyN, shift: true): () {
+        bindingOf(.newThread, context.watch<SettingsRepository>().settings.keys).activator: () {
           if (vm.session?.chatId != null && widget.bar == null) newThreadIn(context, vm);
         },
         // The terminal under the conversation, as in an editor.

@@ -1,3 +1,5 @@
+import '../../core/key_bindings.dart';
+
 import 'package:path_provider/path_provider.dart';
 
 import '../../../data/services/engines/acp/acp_registry.dart';
@@ -369,6 +371,22 @@ class SettingsViewModel extends ChangeNotifier {
   /// An agent's icon, as the registry listed it.
   String? iconOf(String engineId) =>
       settings.accounts.where((a) => a.id == engineId).firstOrNull?.icon;
+
+  /// Sets [command]'s keys; null puts back Helmy's own.
+  Future<void> setKey(AppCommand command, KeyBinding? keys) {
+    final next = {...settings.keys};
+    if (keys == null || keys == command.standard) {
+      next.remove(command.name);
+    } else {
+      next[command.name] = keys.saved;
+    }
+    return update(settings.copyWith(keys: next));
+  }
+
+  /// The other command [keys] already belong to, if any.
+  AppCommand? keyTakenBy(AppCommand command, KeyBinding keys) => AppCommand.values
+      .where((c) => c != command && bindingOf(c, settings.keys) == keys)
+      .firstOrNull;
 
   /// Whether "Best at" is unfolded.
   bool bestAtOpen = false;
