@@ -1,17 +1,25 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:helmy/data/repositories/memory_repository.dart';
 import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/connections_setup.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/codex/codex_engine.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
+import 'package:helmy/data/services/engines/usage_meter.dart';
+import 'package:helmy/domain/models/settings.dart';
 import 'package:helmy/ui/settings/view_models/settings_view_model.dart';
 
-/// Sign-in as asked, without a browser or a real account.
+import '../testing/fake_repositories.dart';
+
+/// Sign-in and who is signed in, as asked, without a browser or a real
+/// account.
 class _Setup extends ConnectionsSetup {
-  _Setup(this.ok) : super(CliLocator(), DesktopService());
+  _Setup(this.ok, {this.who}) : super(CliLocator(), DesktopService());
   bool ok;
+  String? who;
   final signedIn = <(String, String?)>[];
 
   @override
@@ -19,6 +27,9 @@ class _Setup extends ConnectionsSetup {
     signedIn.add((id, configDir));
     return ok;
   }
+
+  @override
+  Future<String?> signedInAs(String kind, String folder) async => who;
 }
 
 void main() {
@@ -26,55 +37,103 @@ void main() {
   setUp(() async => home = await Directory.systemTemp.createTemp('accounts'));
   tearDown(() => home.delete(recursive: true));
 
-  test('another account gets the next folder beside the usual one, marked as added', () async {
+  test('a browser sign-in gets a folder named after the account, marked as made', () async {
     final setup = _Setup(true);
-    Directory('${home.path}/.claude-2').createSync(); // one the user made
-    final made = await setup.addAccount('claude', home: home.path);
-    expect(made?.id, 'claude-3');
-    expect(made?.folder, '${home.path}/.claude-3');
-    expect(setup.signedIn.single, ('claude', '${home.path}/.claude-3'));
+    Directory('${home.path}/.claude-work').createSync(); // one the user made
+    final made = await setup.addAccount('claude', 'Work', home: home.path);
+    expect(made?.id, 'claude-work-2', reason: "the user's own folder is not taken over");
+    expect(made?.folder, '${home.path}/.claude-work-2');
+    expect((made?.name, made?.kind, made?.made), ('Work', 'claude', true));
+    expect(setup.signedIn.single, ('claude', '${home.path}/.claude-work-2'));
     expect(ConnectionsSetup.addedByHelmy(made!.folder), isTrue);
-    expect(ConnectionsSetup.addedByHelmy('${home.path}/.claude-2'), isFalse);
 
-    final codex = await setup.addAccount('codex', home: home.path);
-    expect(codex?.id, 'codex-2');
+    final again = await setup.addAccount(
+      'codex',
+      'Personal',
+      home: home.path,
+      taken: {'codex-personal'},
+    );
+    expect(again?.id, 'codex-personal-2');
   });
 
-  test('a sign-in that does not finish leaves nothing behind to be found', () async {
-    final made = await _Setup(false).addAccount('codex', home: home.path);
+  test('a sign-in that does not finish leaves nothing behind', () async {
+    final made = await _Setup(false).addAccount('codex', 'Personal', home: home.path);
     expect(made, isNull);
-    expect(Directory('${home.path}/.codex-2').existsSync(), isFalse);
+    expect(home.listSync(), isEmpty);
   });
 
-  test("only an account Helmy added can be removed; the user's own stay", () async {
+  test('names become folder names', () {
+    expect(ConnectionsSetup.slugOf('Work (2026)'), 'work-2026');
+    expect(ConnectionsSetup.slugOf('  '), 'account');
+  });
+
+  test("only a folder Helmy made is removed; the user's own stay", () async {
     final setup = _Setup(true);
-    final made = await setup.addAccount('claude', home: home.path);
-    final own = Directory('${home.path}/.claude-work')..createSync();
+    final made = await setup.addAccount('claude', 'Work', home: home.path);
+    final own = Directory('${home.path}/.claude-mine')..createSync();
     expect(await setup.removeAccount(own.path), isFalse);
     expect(own.existsSync(), isTrue);
     expect(await setup.removeAccount(made!.folder), isTrue);
     expect(Directory(made.folder).existsSync(), isFalse);
   });
 
-  test('every Codex account on the Mac is found, each with its own home', () {
-    Directory('${home.path}/.codex-work').createSync();
-    Directory('${home.path}/.codex-notes.bak').createSync();
-    final found = CodexEngine.discover(CliLocator(), home.path);
-    expect([for (final e in found) e.info.id], ['codex', 'codex-work']);
-    expect(found.last.home, '${home.path}/.codex-work');
-    expect(found.first.home, isNull);
+  test("a Codex account's email is read from its sign-in", () {
+    String part(Object o) => base64Url.encode(utf8.encode(jsonEncode(o))).replaceAll('=', '');
+    final token = '${part({'alg': 'none'})}.${part({'email': 'tito@helmy.test'})}.sig';
+    File('${home.path}/auth.json').writeAsStringSync(
+      jsonEncode({
+        'tokens': {'id_token': token},
+      }),
+    );
+    expect(ConnectionsSetup.codexEmail(home.path), 'tito@helmy.test');
+    expect(ConnectionsSetup.codexEmail('${home.path}/none'), isNull);
   });
 
-  test('accounts join and leave the running registry', () {
+  test('accounts are kept in settings, never found by looking in folders', () {
+    const a = ConnectionAccount(id: 'claude-work', kind: 'claude', name: 'Work', folder: '/f');
+    final back = AppSettings.fromJson(
+      jsonDecode(jsonEncode(const AppSettings(accounts: [a]).toJson())) as Map<String, Object?>,
+    );
+    expect(back.accounts.single.toJson(), a.toJson());
+    expect(const AppSettings().toJson().containsKey('accounts'), isFalse);
+  });
+
+  test('accounts join and leave the running registry, under their names', () {
     final registry = EngineRegistry([
-      ...CodexEngine.discover(CliLocator(), home.path),
-    ], account: (id, folder) => CodexEngine(CliLocator(), id: id, home: folder));
-    registry.add('codex-2', '${home.path}/.codex-2');
-    registry.add('codex-2', '${home.path}/.codex-2');
-    expect([for (final e in registry.engines) e.info.id], ['codex', 'codex-2']);
-    expect(registry.infoOf('codex-2')?.name, 'Codex (codex-2)');
-    registry.remove('codex-2');
-    expect(registry.byId('codex-2'), isNull);
+      CodexEngine(CliLocator()),
+    ], account: (a) => CodexEngine(CliLocator(), id: a.id, name: a.name, home: a.folder));
+    const a = ConnectionAccount(id: 'codex-personal', kind: 'codex', name: 'Personal');
+    registry.add(a);
+    registry.add(a);
+    expect([for (final e in registry.engines) e.info.id], ['codex', 'codex-personal']);
+    expect(registry.infoOf('codex-personal')?.name, 'Codex (Personal)');
+    registry.remove('codex-personal');
+    expect(registry.byId('codex-personal'), isNull);
+  });
+
+  test("a folder already signed in is added as it is, and removing it leaves the folder", () async {
+    final settings = FakeSettingsRepository(const AppSettings());
+    final engines = EngineRegistry([
+      CodexEngine(CliLocator()),
+    ], account: (a) => CodexEngine(CliLocator(), id: a.id, name: a.name, home: a.folder));
+    final vm = SettingsViewModel(
+      settings: settings,
+      engines: engines,
+      meter: UsageMeter(),
+      memory: MemoryRepositoryEngines(engines),
+    )..setup = _Setup(true, who: 'tito@helmy.test');
+    final own = Directory('${home.path}/.codex-mine')..createSync();
+    expect(await vm.signedInAs('codex', own.path), 'tito@helmy.test');
+    await vm.addFolder('codex', 'Mine', own.path);
+    expect(settings.settings.accounts.single.folder, own.path);
+    expect(settings.settings.accounts.single.made, isFalse);
+    expect(engines.byId('codex-mine'), isNotNull);
+    expect(vm.canRemove('codex-mine'), isTrue);
+    expect(vm.canRemove('codex'), isFalse);
+    await vm.removeAccount('codex-mine');
+    expect(settings.settings.accounts, isEmpty);
+    expect(engines.byId('codex-mine'), isNull);
+    expect(own.existsSync(), isTrue);
   });
 
   test('which connections can take another account', () {

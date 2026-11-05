@@ -133,12 +133,51 @@ class const ProjectSettings({
   );
 }
 
+/// Another account of a connection, added in Settings: Claude Code or Codex
+/// signed in to a folder of its own (CLAUDE_CONFIG_DIR or CODEX_HOME).
+class const ConnectionAccount({
+  /// The engine id: 'claude-work', 'codex-personal'.
+  final String id = '',
+
+  /// 'claude' or 'codex'.
+  final String kind = 'claude',
+
+  /// The name the user gave it.
+  final String name = '',
+
+  /// Where its sign-in lives.
+  final String folder = '',
+
+  /// Helmy made the folder (a browser sign-in), so removing the account
+  /// removes it; a folder the user pointed at is only forgotten.
+  final bool made = false,
+}) {
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'kind': kind,
+    'name': name,
+    'folder': folder,
+    'made': made,
+  };
+
+  static ConnectionAccount fromJson(Map<String, Object?> json) => ConnectionAccount(
+    id: json['id'] as String? ?? '',
+    kind: json['kind'] as String? ?? 'claude',
+    name: json['name'] as String? ?? '',
+    folder: json['folder'] as String? ?? '',
+    made: json['made'] as bool? ?? false,
+  );
+}
+
 /// Everything the user can set, kept in one file.
 class const AppSettings({
   final PermissionLevel defaultLevel = .ask,
   final FolderMode folderMode = .last,
   final String? fixedFolder,
   final Set<String> disabledEngines = const {},
+
+  /// Accounts added beside the usual Claude Code and Codex ones.
+  final List<ConnectionAccount> accounts = const [],
   final Switching switching = .balanced,
   final bool notify = true,
   final ThemeChoice theme = .system,
@@ -237,6 +276,7 @@ class const AppSettings({
     FolderMode? folderMode,
     String? fixedFolder,
     Set<String>? disabledEngines,
+    List<ConnectionAccount>? accounts,
     Switching? switching,
     bool? notify,
     ThemeChoice? theme,
@@ -277,6 +317,7 @@ class const AppSettings({
     folderMode: folderMode ?? this.folderMode,
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
+    accounts: accounts ?? this.accounts,
     switching: switching ?? this.switching,
     notify: notify ?? this.notify,
     theme: theme ?? this.theme,
@@ -319,6 +360,7 @@ class const AppSettings({
     'folderMode': folderMode.name,
     'fixedFolder': fixedFolder,
     'disabledEngines': disabledEngines.toList(),
+    if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
     'switching': switching.name,
     'notify': notify,
     'theme': theme.name,
@@ -361,6 +403,10 @@ class const AppSettings({
     folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .last,
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
+    accounts: [
+      for (final a in (json['accounts'] as List?) ?? const [])
+        if (a is Map) ConnectionAccount.fromJson(a.cast<String, Object?>()),
+    ],
     switching: Switching.values.asNameMap()[json['switching']] ?? .balanced,
     notify: json['notify'] as bool? ?? true,
     theme: ThemeChoice.values.asNameMap()[json['theme']] ?? .system,

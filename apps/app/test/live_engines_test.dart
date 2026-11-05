@@ -274,7 +274,7 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('each Claude account says which services it is connected to, without a message', () async {
-    for (final account in ClaudeEngine.discover(locator, Platform.environment['HOME']!)) {
+    for (final account in [ClaudeEngine(locator)]) {
       final set = await account.connected();
       // ignore: avoid_print
       print('${account.info.id}: ${set.map((c) => c.label)}');

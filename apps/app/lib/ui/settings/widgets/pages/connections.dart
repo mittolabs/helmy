@@ -380,28 +380,9 @@ class _AgentCard extends StatelessWidget {
                   Button(
                     variant: .outline,
                     size: .sm,
-                    onPressed: vm.adding != null
-                        ? null
-                        : () async {
-                            final ok = await vm.addAccount(kind);
-                            if (!context.mounted) return;
-                            showToast(
-                              context,
-                              title: ok ? 'Account added' : "The account wasn't added",
-                              description: ok
-                                  ? 'Helmy uses it from the next message, alongside the others.'
-                                  : 'Sign-in in the browser did not finish. Try again when ready.',
-                              type: ok ? .success : .error,
-                            );
-                          },
-                    leading: vm.adding == kind
-                        ? const Spinner(size: 14)
-                        : const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
-                    child: Text(
-                      vm.adding == kind
-                          ? 'Signing in, in your browser...'
-                          : 'Add another ${kind == 'claude' ? 'Claude Code' : 'Codex'} account',
-                    ),
+                    onPressed: vm.adding != null ? null : () => addAccount(context, vm, kind),
+                    leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
+                    child: const Text('Add an account'),
                   ),
                   if (vm.canRemove(row.info.id))
                     Button(
@@ -411,9 +392,10 @@ class _AgentCard extends StatelessWidget {
                         final sure = await confirm(
                           context,
                           title: 'Remove ${row.info.name}?',
-                          body:
-                              'Its sign-in on this Mac goes, and Helmy stops using it. '
-                              'The account itself is not touched.',
+                          body: vm.madeByHelmy(row.info.id)
+                              ? 'Helmy stops using it, and its sign-in on this Mac goes. '
+                                    'The account itself is not touched.'
+                              : 'Helmy stops using it. Its folder and sign-in stay as they are.',
                           action: 'Remove',
                           destructive: true,
                         );

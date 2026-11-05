@@ -22,36 +22,14 @@ import '../ollama/ollama_doctor.dart';
 /// answered from the app.
 class CodexEngine implements AgentEngine {
   /// One Codex login. [home] is the account's CODEX_HOME (null: ~/.codex).
-  new(this._locator, {this.tools, String id = 'codex', this.home})
+  new(this._locator, {this.tools, String id = 'codex', String? name, this.home})
     : info = EngineInfo(
         id: id,
-        name: id == 'codex' ? 'Codex' : 'Codex ($id)',
+        name: id == 'codex' ? 'Codex' : 'Codex (${name ?? id})',
         // Its image_generation feature, on by default in codex-cli 0.162.1.
         capabilities: const {Capability.tools, Capability.imageGeneration},
       ),
       _local = null;
-
-  static final _accountFolder = RegExp(r'^\.codex-[A-Za-z0-9_-]+$');
-
-  /// Every Codex account on this machine: ~/.codex, and each `~/.codex-<name>`
-  /// folder as the account `codex-<name>`, as CODEX_HOME makes one.
-  static List<CodexEngine> discover(CliLocator locator, String home, {HelmyTools? tools}) {
-    final accounts = [CodexEngine(locator, tools: tools)];
-    final dir = Directory(home);
-    if (home.isEmpty || !dir.existsSync()) return accounts;
-    final folders =
-        dir
-            .listSync()
-            .whereType<Directory>()
-            .map((d) => d.path.split('/').last)
-            .where(_accountFolder.hasMatch)
-            .toList()
-          ..sort();
-    for (final name in folders) {
-      accounts.add(CodexEngine(locator, id: name.substring(1), home: '$home/$name', tools: tools));
-    }
-    return accounts;
-  }
 
   /// The account's CODEX_HOME; null for the usual one.
   final String? home;

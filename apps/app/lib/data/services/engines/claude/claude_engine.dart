@@ -19,10 +19,10 @@ import '../../helmy_tools.dart';
 class ClaudeEngine implements AgentEngine {
   /// One Claude Code login. [configDir] is the account's CLAUDE_CONFIG_DIR;
   /// null is the default account in ~/.claude.
-  new(this._locator, {String id = 'claude', this.configDir, this.tools})
+  new(this._locator, {String id = 'claude', String? name, this.configDir, this.tools})
     : info = EngineInfo(
         id: id,
-        name: 'Claude Code ($id)',
+        name: id == 'claude' ? 'Claude Code' : 'Claude Code (${name ?? id})',
         liveModeSwitch: true,
         capabilities: const {Capability.tools},
       );
@@ -35,31 +35,6 @@ class ClaudeEngine implements AgentEngine {
 
   @override
   final EngineInfo info;
-
-  static final _accountFolder = RegExp(r'^\.claude-[A-Za-z0-9_-]+$');
-
-  /// Every Claude Code account on this machine: ~/.claude, and each
-  /// `~/.claude-<name>` folder as the account `claude-<name>`, the way a shell
-  /// function setting CLAUDE_CONFIG_DIR makes one.
-  static List<ClaudeEngine> discover(CliLocator locator, String home, {HelmyTools? tools}) {
-    final accounts = [ClaudeEngine(locator, tools: tools)];
-    final dir = Directory(home);
-    if (home.isEmpty || !dir.existsSync()) return accounts;
-    final folders =
-        dir
-            .listSync()
-            .whereType<Directory>()
-            .map((d) => d.path.split('/').last)
-            .where(_accountFolder.hasMatch)
-            .toList()
-          ..sort();
-    for (final name in folders) {
-      accounts.add(
-        ClaudeEngine(locator, id: name.substring(1), configDir: '$home/$name', tools: tools),
-      );
-    }
-    return accounts;
-  }
 
   /// Helmy's levels in Claude Code's permission modes.
   static String mode(PermissionLevel level) => switch (level) {

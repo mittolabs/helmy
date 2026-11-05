@@ -1,3 +1,8 @@
+import '../domain/models/settings.dart';
+import '../data/services/engines/agent_engine.dart';
+
+import 'package:flutter/widgets.dart';
+
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -44,7 +49,6 @@ import '../data/services/desktop_service.dart';
 import '../data/services/notify_service.dart';
 import '../data/services/snapshots.dart';
 import '../data/services/storage_service.dart';
-import '../utils/platform.dart';
 import '../data/services/helmy_tools.dart';
 import '../data/services/watch_service.dart';
 import '../data/services/worktrees.dart';
@@ -140,10 +144,12 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(
     create: (context) => EngineRegistry(
       [
-        // Every Claude Code and Codex account on the machine, each with its own
-        // limits.
-        ...ClaudeEngine.discover(context.read(), homeDir, tools: context.read()),
-        ...CodexEngine.discover(context.read(), homeDir, tools: context.read()),
+        // The usual Claude Code and Codex accounts, and those added in
+        // Settings, each with its own limits. Folders are never gone looking
+        // for: an account is used only once the user adds it.
+        ClaudeEngine(context.read(), tools: context.read()),
+        CodexEngine(context.read(), tools: context.read()),
+        for (final a in loaded.settings.settings.accounts) _account(context, a),
         // A model on this Mac, for when nothing online can answer: directly for a
         // message that needs no tools, through Codex's agent for one that does.
         OllamaChatEngine(model: () => loaded.settings.settings.ollamaModel),
@@ -154,9 +160,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         ),
       ],
       // Another account, added in Settings: Claude Code's or Codex's.
-      account: (id, folder) => id.startsWith('claude')
-          ? ClaudeEngine(context.read(), id: id, configDir: folder, tools: context.read())
-          : CodexEngine(context.read(), id: id, home: folder, tools: context.read()),
+      account: (a) => _account(context, a),
     ),
   ),
   Provider<EngineRouter>(
@@ -271,3 +275,14 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     ),
   ),
 ];
+
+/// The engine for an account added in Settings.
+AgentEngine _account(BuildContext context, ConnectionAccount a) => a.kind == 'claude'
+    ? ClaudeEngine(
+        context.read(),
+        id: a.id,
+        name: a.name,
+        configDir: a.folder,
+        tools: context.read(),
+      )
+    : CodexEngine(context.read(), id: a.id, name: a.name, home: a.folder, tools: context.read());

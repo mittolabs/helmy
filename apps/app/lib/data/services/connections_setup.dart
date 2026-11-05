@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../domain/models/settings.dart';
 import '../../utils/platform.dart';
 import 'cli_locator.dart';
 import 'desktop_service.dart';
@@ -121,52 +123,125 @@ class ConnectionsSetup {
   }
 
   /// Signs [id] in through the browser (or, for the model here, starts it).
-  /// Done when the browser sign-in finishes; true when it worked.
-  /// [configDir]: one of several Claude accounts on this computer.
+  /// Done when the browser sign-in finishes, or [cancelSignIn] stops it;
+  /// true when it worked. [configDir]: an account's own folder.
   Future<bool> signIn(String id, {String? configDir}) async {
     switch (id) {
       case 'claude':
         final bin = await _find('claude');
         if (bin == null) return false;
-        final r = await _run(
-          bin,
-          ['auth', 'login', '--claudeai'],
-          extra: {'CLAUDE_CONFIG_DIR': ?configDir},
-        );
-        return r?.exitCode == 0;
+        return _login(bin, ['auth', 'login', '--claudeai'], {'CLAUDE_CONFIG_DIR': ?configDir});
       case 'codex':
         final bin = await _find('codex');
         if (bin == null) return false;
-        return (await _run(bin, ['login'], extra: {'CODEX_HOME': ?configDir}))?.exitCode == 0;
+        return _login(bin, ['login'], {'CODEX_HOME': ?configDir});
       case 'ollama':
         return OllamaDoctor.ensure(start: true);
     }
     return false;
   }
 
+  Process? _signing;
+
+  Future<bool> _login(String bin, List<String> args, Map<String, String> extra) async {
+    try {
+      final p = await Process.start(
+        bin,
+        args,
+        environment: {...await _locator.environment(), ...extra},
+      );
+      _signing = p;
+      unawaited(p.stdout.drain<void>());
+      unawaited(p.stderr.drain<void>());
+      return await p.exitCode == 0;
+    } on Object {
+      return false;
+    } finally {
+      _signing = null;
+    }
+  }
+
+  /// Stops a browser sign-in that is waiting, so it ends as not done.
+  void cancelSignIn() => _signing?.kill();
+
+  /// Who is signed in to the account in [folder], as the connection says:
+  /// their email where it tells, "signed in" where it does not; null when
+  /// nobody is.
+  Future<String?> signedInAs(String kind, String folder) async {
+    switch (kind) {
+      case 'claude':
+        final bin = await _find('claude');
+        if (bin == null) return null;
+        final r = await _run(bin, ['auth', 'status'], extra: {'CLAUDE_CONFIG_DIR': folder});
+        try {
+          final j = jsonDecode('${r?.stdout}') as Map;
+          return j['loggedIn'] == true ? (j['email'] as String? ?? 'signed in') : null;
+        } on Object {
+          return null;
+        }
+      case 'codex':
+        final bin = await _find('codex');
+        if (bin == null) return null;
+        final r = await _run(bin, ['login', 'status'], extra: {'CODEX_HOME': folder});
+        if (r?.exitCode != 0 || !'${r?.stdout}${r?.stderr}'.contains('Logged in')) return null;
+        return codexEmail(folder) ?? 'signed in';
+    }
+    return null;
+  }
+
+  /// The email in a Codex account's sign-in token, where it has one.
+  static String? codexEmail(String folder) {
+    try {
+      final auth = jsonDecode(File('$folder/auth.json').readAsStringSync()) as Map;
+      final token = '${(auth['tokens'] as Map?)?['id_token'] ?? ''}'.split('.');
+      if (token.length < 2) return null;
+      final claims = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(token[1]))));
+      return (claims as Map)['email'] as String?;
+    } on Object {
+      return null;
+    }
+  }
+
   /// The file that marks an account's folder as one Helmy made, so Helmy
   /// may remove it; folders made another way are the user's own.
   static const addedMark = '.helmy-added';
 
-  /// Adds another account of [kind] ('claude' or 'codex'): a folder of its
-  /// own beside the usual one (~/.claude-2, ~/.codex-2), signed in through
-  /// the browser. Its id and folder, or null when sign-in did not finish,
-  /// in which case the folder goes too.
-  Future<({String id, String folder})?> addAccount(String kind, {String? home}) async {
+  /// Signs a new account of [kind] ('claude' or 'codex') in through the
+  /// browser, into a folder of its own beside the usual one, named after
+  /// [name] (~/.claude-work). The account, or null when sign-in did not
+  /// finish, in which case the folder goes too: nothing half-done is kept.
+  /// [taken]: ids already in use.
+  Future<ConnectionAccount?> addAccount(
+    String kind,
+    String name, {
+    String? home,
+    Set<String> taken = const {},
+  }) async {
     final base = home ?? homeDir;
     if (base.isEmpty) return null;
-    var n = 2;
-    while (Directory('$base/.$kind-$n').existsSync()) {
-      n++;
+    final slug = slugOf(name);
+    var id = '$kind-$slug';
+    for (var n = 2; taken.contains(id) || Directory('$base/.$id').existsSync(); n++) {
+      id = '$kind-$slug-$n';
     }
-    final dir = Directory('$base/.$kind-$n');
+    final dir = Directory('$base/.$id');
     await dir.create(recursive: true);
     await File('${dir.path}/$addedMark').writeAsString('Added by Helmy.\n');
     if (!await signIn(kind, configDir: dir.path)) {
       await dir.delete(recursive: true);
       return null;
     }
-    return (id: '$kind-$n', folder: dir.path);
+    return ConnectionAccount(id: id, kind: kind, name: name, folder: dir.path, made: true);
+  }
+
+  /// [name] as it can stand in a folder's name and an id: "Work (2026)" is
+  /// work-2026.
+  static String slugOf(String name) {
+    final s = name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return s.isEmpty ? 'account' : s;
   }
 
   /// Whether the account in [folder] is one Helmy added.

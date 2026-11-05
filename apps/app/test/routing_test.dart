@@ -1,8 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:helmy/data/services/cli_locator.dart';
-import 'package:helmy/data/services/engines/claude/claude_engine.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/handoff.dart';
 import 'package:helmy/data/services/engines/needs.dart';
@@ -164,21 +160,6 @@ void main() {
     expect(text, isNot(contains('question 0 ')));
     expect(text, contains('earlier turns left out'));
     expect(text.length, lessThan(1400));
-  });
-
-  test('Claude Code accounts are found from ~/.claude-* folders', () {
-    final home = Directory.systemTemp.createTempSync('helmy-home');
-    Directory('${home.path}/.claude').createSync();
-    Directory('${home.path}/.claude-work').createSync();
-    File('${home.path}/.claude-notes.json').createSync();
-    Directory('${home.path}/.claude-bad name').createSync();
-    final ids = ClaudeEngine.discover(CliLocator(), home.path).map((e) => e.info.id);
-    expect(ids, ['claude', 'claude-work']);
-    expect(
-      ClaudeEngine.discover(CliLocator(), home.path).last.configDir,
-      '${home.path}/.claude-work',
-    );
-    home.deleteSync(recursive: true);
   });
 }
 

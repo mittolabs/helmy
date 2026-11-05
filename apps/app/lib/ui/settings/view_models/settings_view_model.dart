@@ -337,7 +337,8 @@ class SettingsViewModel extends ChangeNotifier {
   /// Signs connections in, and adds and removes their accounts.
   ConnectionsSetup? setup;
 
-  /// The kind of account being added ('claude', 'codex') while sign-in runs.
+  /// The kind of account being added ('claude', 'codex') while its
+  /// browser sign-in waits.
   String? adding;
 
   /// The kind of connection [engineId] is an account of, where another
@@ -349,37 +350,64 @@ class SettingsViewModel extends ChangeNotifier {
     _ => null,
   };
 
-  /// Adds another account of [kind], signed in through the browser; false
-  /// when sign-in did not finish. Used from the next message on.
-  Future<bool> addAccount(String kind) async {
+  Set<String> get _taken => {for (final e in _engines.engines) e.info.id};
+
+  /// Signs a new account of [kind] in through the browser, under [name];
+  /// false when sign-in did not finish or was stopped. Used from the next
+  /// message on.
+  Future<bool> addAccount(String kind, String name) async {
     final s = setup;
     if (s == null || adding != null) return false;
     adding = kind;
     notifyListeners();
-    final made = await s.addAccount(kind);
-    if (made != null) {
-      _engines.add(made.id, made.folder);
-      chosenAgent = made.id;
-      await _checkEngines();
-    }
+    final made = await s.addAccount(kind, name, taken: _taken);
+    if (made != null) await _keep(made);
     adding = null;
     notifyListeners();
     return made != null;
   }
 
-  /// Where account [engineId] keeps its sign-in, when another was added.
-  static String accountFolder(String engineId) => '$homeDir/.$engineId';
+  /// Stops a browser sign-in that is waiting.
+  void cancelAdding() => setup?.cancelSignIn();
 
-  /// Whether [engineId] is an account Helmy added, so it can remove it.
-  bool canRemove(String engineId) =>
-      engineId.contains('-') &&
-      kindOf(engineId) != null &&
-      ConnectionsSetup.addedByHelmy(accountFolder(engineId));
+  /// Who is signed in to the [kind] account in [folder]; null when nobody.
+  Future<String?> signedInAs(String kind, String folder) async =>
+      await setup?.signedInAs(kind, _expand(folder));
 
-  /// Removes account [engineId], which Helmy added: its sign-in goes.
+  /// Adds the [kind] account already signed in to [folder], under [name].
+  Future<void> addFolder(String kind, String name, String folder) async {
+    var id = '$kind-${ConnectionsSetup.slugOf(name)}';
+    for (var n = 2; _taken.contains(id); n++) {
+      id = '$kind-${ConnectionsSetup.slugOf(name)}-$n';
+    }
+    await _keep(ConnectionAccount(id: id, kind: kind, name: name, folder: _expand(folder)));
+  }
+
+  static String _expand(String folder) {
+    final f = folder.trim();
+    return f == '~' ? homeDir : (f.startsWith('~/') ? '$homeDir${f.substring(1)}' : f);
+  }
+
+  Future<void> _keep(ConnectionAccount a) async {
+    await update(settings.copyWith(accounts: [...settings.accounts, a]));
+    _engines.add(a);
+    chosenAgent = a.id;
+    await _checkEngines();
+  }
+
+  /// Whether [engineId] is an account added in Settings, so it can go.
+  bool canRemove(String engineId) => settings.accounts.any((a) => a.id == engineId);
+
+  /// Whether Helmy made [engineId]'s folder, so removing it removes that.
+  bool madeByHelmy(String engineId) => settings.accounts.any((a) => a.id == engineId && a.made);
+
+  /// Removes account [engineId]: Helmy stops using it, and a folder Helmy
+  /// made for it goes with its sign-in. A folder the user pointed at stays.
   Future<void> removeAccount(String engineId) async {
-    if (!canRemove(engineId)) return;
-    await setup?.removeAccount(accountFolder(engineId));
+    final a = settings.accounts.where((a) => a.id == engineId).firstOrNull;
+    if (a == null) return;
+    if (a.made) await setup?.removeAccount(a.folder);
+    await update(settings.copyWith(accounts: [...settings.accounts]..remove(a)));
     _engines.remove(engineId);
     if (chosenAgent == engineId) chosenAgent = null;
     notifyListeners();
