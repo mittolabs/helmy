@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -192,6 +193,8 @@ class RemoteServer {
           ..clear()
           ..addAll((m['answers'] as Map).map((k, v) => MapEntry('$k', '$v')));
         _conversations.answerQuestion(id, p);
+      case 'file':
+        await _send(c, await _file(id, '${m['path'] ?? ''}'));
       case 'interrupt':
         _conversations.interrupt(id);
       case 'screen':
@@ -266,6 +269,19 @@ class RemoteServer {
       'busy': c.busy,
       'heldUntil': c.heldUntil?.toIso8601String(),
     };
+  }
+
+  /// A file a conversation shows (a picture made, one in an answer), for
+  /// the phone to show too. Only a file that conversation names is given:
+  /// a phone cannot ask for anything else on this Mac.
+  Future<Map<String, Object?>> _file(String id, String path) async {
+    Map<String, Object?> no(String why) => {'type': 'file', 'path': path, 'trouble': why};
+    final named = jsonEncode([for (final i in _conversations.of(id).items) i.toJson()]);
+    if (path.isEmpty || !named.contains(path)) return no('That file is not in this chat.');
+    final f = File(path);
+    if (!f.existsSync()) return no('That file is no longer on the Mac.');
+    if (f.lengthSync() > 25 * 1024 * 1024) return no('That file is too big to send to the phone.');
+    return {'type': 'file', 'path': path, 'data': base64.encode(await f.readAsBytes())};
   }
 
   /// A phone gone: no longer watching either.

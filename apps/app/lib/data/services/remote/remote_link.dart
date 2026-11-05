@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -179,6 +180,11 @@ class RemoteLink extends ChangeNotifier {
         c.heldUntil = DateTime.tryParse('${m['heldUntil'] ?? ''}');
       case 'made':
         made.value = '${m['id']}';
+      case 'file':
+        final path = '${m['path']}';
+        final data = m['data'];
+        _files.remove(path)?.complete(data is String ? base64.decode(data) : null);
+        return;
       case 'screen':
         screenOn = m['on'] == true;
         screenTrouble = m['trouble'] as String?;
@@ -227,6 +233,24 @@ class RemoteLink extends ChangeNotifier {
 
   /// A new chat on the Mac, starting with [text]; [made] says its id.
   Future<void> newChat(String text) => _send({'type': 'new', 'text': text});
+
+  final _files = <String, Completer<Uint8List?>>{};
+
+  /// The file at [path] on the Mac, which [id]'s conversation shows; null
+  /// when the Mac would not or could not send it.
+  Future<Uint8List?> file(String id, String path) {
+    final waiting = _files[path];
+    if (waiting != null) return waiting.future;
+    final c = _files[path] = Completer<Uint8List?>();
+    unawaited(_send({'type': 'file', 'id': id, 'path': path}));
+    return c.future.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        _files.remove(path);
+        return null;
+      },
+    );
+  }
 
   /// Asks the Mac to show its screen here.
   Future<void> showScreen() async {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/repositories/chat_repository.dart';
 import 'package:helmy/data/repositories/conversation_repository_engines.dart';
+import 'package:helmy/data/repositories/remote/remote_repositories.dart';
 import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
@@ -205,5 +206,36 @@ void main() {
     expect(told, 0);
     await until(() => host.pairing?.device != null);
     expect(told, greaterThan(0));
+  });
+
+  test('a picture the chat shows comes to the phone; nothing else on the Mac does', () async {
+    final s = (await sessions.create(cwd: root.path, title: 'Headshot') as Ok).value as Session;
+    final picture = File('${root.path}/headshot.png')..writeAsBytesSync([137, 80, 78, 71, 1, 2, 3]);
+    final secret = File('${root.path}/secret.txt')..writeAsStringSync('not for phones');
+    repo.of(s.id)
+      ..loaded = true
+      ..items.addAll([
+        UserMessage('make a headshot'),
+        AssistantText('a', 'Ready.\n\n![Your headshot](${picture.path})'),
+      ]);
+    final link = RemoteLink(
+      Pairing(hosts: const ['127.0.0.1'], port: port, key: key, name: 'Studio'),
+    );
+    addTearDown(link.dispose);
+    await link.connect();
+    await until(() => link.state == LinkState.connected);
+    expect(await link.file(s.id, picture.path), [137, 80, 78, 71, 1, 2, 3]);
+    expect(await link.file(s.id, secret.path), isNull);
+
+    // The phone's chat shows its own copy, fetched by itself.
+    final conversations = RemoteConversations(link);
+    addTearDown(conversations.dispose);
+    await conversations.load(s.id);
+    String shown() =>
+        (conversations.of(s.id).items.whereType<AssistantText>().firstOrNull)?.text ?? '';
+    await until(() => shown().isNotEmpty && !shown().contains(root.path));
+    expect(shown(), isNot(contains(root.path)));
+    final local = RegExp(r'\((/[^)]+)\)').firstMatch(shown())![1]!;
+    expect(File(local).readAsBytesSync(), [137, 80, 78, 71, 1, 2, 3]);
   });
 }

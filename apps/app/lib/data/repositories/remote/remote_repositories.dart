@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
@@ -73,12 +74,53 @@ class RemoteConversations extends ConversationRepository {
   final RemoteLink _link;
   final _all = <String, Conversation>{};
 
+  /// Files on the Mac that chats show, by their path there: where the
+  /// phone keeps its copy, once fetched.
+  final _here = <String, String>{};
+  final _asked = <String>{};
+
+  static final _picture = RegExp(r'!\[[^\]]*\]\((/[^)\s]+)\)');
+
+  /// [item] with the Mac's files swapped for the phone's copies, fetching
+  /// those not here yet.
+  ChatItem _local(String id, ChatItem item) {
+    String at(String path) {
+      if (_here[path] case final local?) return local;
+      if (_asked.add(path)) unawaited(_fetch(id, path));
+      return path;
+    }
+
+    return switch (item) {
+      ImageItem(:final path, :final prompt) => ImageItem(at(path), prompt),
+      AssistantText(:final key, :final text) when _picture.hasMatch(text) => AssistantText(
+        key,
+        text.replaceAllMapped(_picture, (m) => m[0]!.replaceFirst(m[1]!, at(m[1]!))),
+      ),
+      _ => item,
+    };
+  }
+
+  Future<void> _fetch(String id, String path) async {
+    final bytes = await _link.file(id, path);
+    if (bytes == null) {
+      // Asked again next time it is shown.
+      _asked.remove(path);
+      return;
+    }
+    final dir = Directory('${Directory.systemTemp.path}/helmy-files');
+    await dir.create(recursive: true);
+    final f = File('${dir.path}/${path.hashCode.toUnsigned(32)}-${path.split('/').last}');
+    await f.writeAsBytes(bytes);
+    _here[path] = f.path;
+    _sync();
+  }
+
   void _sync() {
     for (final MapEntry(key: id, value: c) in _all.entries) {
       final r = _link.of(id);
       c.items
         ..clear()
-        ..addAll(r.items);
+        ..addAll([for (final i in r.items) _local(id, i)]);
       c
         ..busy = r.busy
         ..heldUntil = r.heldUntil
