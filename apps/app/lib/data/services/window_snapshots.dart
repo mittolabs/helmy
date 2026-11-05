@@ -72,7 +72,17 @@ class WindowSnapshots {
 
   /// Both Shift keys in any app take a snapshot: on or off. True when on
   /// and macOS lets Helmy hear them outside its own window.
-  Future<bool> listen(bool on) async => await _call<bool>('snapKeys', {'on': on}) ?? false;
+  Future<bool> listen(bool on, {({String char, bool cmd, bool shift, bool alt})? also}) async =>
+      await _call<bool>('snapKeys', {
+        'on': on,
+        if (also != null) ...{
+          'char': also.char,
+          'cmd': also.cmd,
+          'shift': also.shift,
+          'alt': also.alt,
+        },
+      }) ??
+      false;
 
   /// Brings Helmy forward, after a snapshot taken in another app.
   Future<void> activate() => _call<void>('activate');

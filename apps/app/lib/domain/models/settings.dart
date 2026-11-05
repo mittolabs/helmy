@@ -310,6 +310,10 @@ class const AppSettings({
   final SearchEngine searchEngine = .duckDuckGo,
   final bool linksInHelmy = false,
 
+  /// Another shortcut that takes a snapshot, beside both Shift keys, as
+  /// `KeyBinding.saved` writes it; empty for none.
+  final String snapshotKey = '',
+
   /// A snapshot taken: a sound ('Pop', 'Tink', or '' for none) and a flash.
   final String snapshotSound = 'Pop',
   final bool snapshotFlash = true,
@@ -494,6 +498,7 @@ class const AppSettings({
     Map<String, Object?>? themeImport,
     bool? carryOnAfterRestart,
     String? snapshotSound,
+    String? snapshotKey,
     bool? snapshotFlash,
     double? previewZoom,
     String? previewAppearance,
@@ -569,6 +574,7 @@ class const AppSettings({
     themeImport: themeImport ?? this.themeImport,
     carryOnAfterRestart: carryOnAfterRestart ?? this.carryOnAfterRestart,
     snapshotSound: snapshotSound ?? this.snapshotSound,
+    snapshotKey: snapshotKey ?? this.snapshotKey,
     snapshotFlash: snapshotFlash ?? this.snapshotFlash,
     previewZoom: previewZoom ?? this.previewZoom,
     previewAppearance: previewAppearance ?? this.previewAppearance,
@@ -647,6 +653,7 @@ class const AppSettings({
     'themeImport': themeImport,
     'carryOnAfterRestart': carryOnAfterRestart,
     'snapshotSound': snapshotSound,
+    'snapshotKey': snapshotKey,
     'snapshotFlash': snapshotFlash,
     'previewZoom': previewZoom,
     'previewAppearance': previewAppearance,
@@ -726,6 +733,7 @@ class const AppSettings({
     themeImport: (json['themeImport'] as Map?)?.cast<String, Object?>(),
     carryOnAfterRestart: json['carryOnAfterRestart'] as bool? ?? true,
     snapshotSound: json['snapshotSound'] as String? ?? 'Pop',
+    snapshotKey: json['snapshotKey'] as String? ?? '',
     snapshotFlash: json['snapshotFlash'] as bool? ?? true,
     previewZoom: (json['previewZoom'] as num?)?.toDouble() ?? 1,
     previewAppearance: json['previewAppearance'] as String? ?? 'system',

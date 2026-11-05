@@ -535,38 +535,49 @@ class _SnapshotRowState extends State<_SnapshotRow> {
             description:
                 'A sound and a flash say it went in. Try it takes a snapshot of the '
                 'window behind Settings, to check everything is allowed.',
-            control: Row(
-              mainAxisSize: .min,
-              spacing: 8,
-              children: [
-                Button(variant: .outline, size: .sm, onPressed: _try, child: const Text('Try it')),
-                SizedBox(
-                  width: 100,
-                  child: Select<String>(
+            control: SizedBox(
+              width: 250,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                runSpacing: 6,
+
+                spacing: 8,
+                children: [
+                  Button(
+                    variant: .outline,
                     size: .sm,
-                    value: widget.vm.settings.snapshotSound,
-                    semanticLabel: 'Snapshot sound',
-                    options: const [
-                      SelectOption('Pop', 'Pop'),
-                      SelectOption('Tink', 'Tink'),
-                      SelectOption('', 'No sound'),
-                    ],
-                    onChanged: (v) {
-                      widget.vm.update(widget.vm.settings.copyWith(snapshotSound: v));
-                      if (v.isNotEmpty) unawaited(_snaps?.sound(v));
-                    },
+                    onPressed: _try,
+                    child: const Text('Try it'),
                   ),
-                ),
-                Tooltip(
-                  message: 'Flash',
-                  child: Switch(
-                    value: widget.vm.settings.snapshotFlash,
-                    semanticLabel: 'Snapshot flash',
-                    onChanged: (v) =>
-                        widget.vm.update(widget.vm.settings.copyWith(snapshotFlash: v)),
+                  SizedBox(
+                    width: 100,
+                    child: Select<String>(
+                      size: .sm,
+                      value: widget.vm.settings.snapshotSound,
+                      semanticLabel: 'Snapshot sound',
+                      options: const [
+                        SelectOption('Pop', 'Pop'),
+                        SelectOption('Tink', 'Tink'),
+                        SelectOption('', 'No sound'),
+                      ],
+                      onChanged: (v) {
+                        widget.vm.update(widget.vm.settings.copyWith(snapshotSound: v));
+                        if (v.isNotEmpty) unawaited(_snaps?.sound(v));
+                      },
+                    ),
                   ),
-                ),
-              ],
+                  _SnapKey(vm: widget.vm),
+                  Tooltip(
+                    message: 'Flash',
+                    child: Switch(
+                      value: widget.vm.settings.snapshotFlash,
+                      semanticLabel: 'Snapshot flash',
+                      onChanged: (v) =>
+                          widget.vm.update(widget.vm.settings.copyWith(snapshotFlash: v)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         if (on && a != null && (!a.record || !a.read))
@@ -635,4 +646,82 @@ class _NamingNoteState extends State<_NamingNote> {
       ],
     ),
   );
+}
+
+/// Another shortcut for a snapshot, beside both Shift keys: pressed to
+/// record it, cleared with its x.
+class _SnapKey extends StatefulWidget {
+  const _SnapKey({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_SnapKey> createState() => _SnapKeyState();
+}
+
+class _SnapKeyState extends State<_SnapKey> {
+  final _focus = FocusNode();
+  bool _recording = false;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    if (!_recording || e is! KeyDownEvent) return .ignored;
+    if (e.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() => _recording = false);
+      return .handled;
+    }
+    final b = KeyBinding.of(e);
+    if (b == null) return .handled;
+    widget.vm.update(widget.vm.settings.copyWith(snapshotKey: b.saved));
+    setState(() => _recording = false);
+    return .handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final saved = widget.vm.settings.snapshotKey;
+    final b = saved.isEmpty ? null : KeyBinding.parse(saved);
+    return Row(
+      mainAxisSize: .min,
+      spacing: 2,
+      children: [
+        Focus(
+          focusNode: _focus,
+          onKeyEvent: _onKey,
+          onFocusChange: (on) {
+            if (!on && _recording) setState(() => _recording = false);
+          },
+          child: Tooltip(
+            message: 'Another shortcut for a snapshot, beside both Shift keys',
+            child: Button(
+              variant: .outline,
+              size: .sm,
+              semanticLabel: 'Snapshot shortcut',
+              onPressed: () {
+                setState(() => _recording = true);
+                _focus.requestFocus();
+              },
+              child: Text(
+                _recording ? 'Press keys' : b?.label ?? 'Add keys',
+                style: t.text.xs.copyWith(fontFamily: 'monospace', fontFamilyFallback: monoFonts),
+              ),
+            ),
+          ),
+        ),
+        if (b != null)
+          Button(
+            variant: .ghost,
+            size: .iconXs,
+            semanticLabel: 'No other shortcut',
+            onPressed: () => widget.vm.update(widget.vm.settings.copyWith(snapshotKey: '')),
+            child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
+          ),
+      ],
+    );
+  }
 }

@@ -1,4 +1,6 @@
 import 'version.dart';
+import 'domain/models/settings.dart';
+import 'ui/core/key_bindings.dart';
 import 'domain/vscode_theme.dart';
 import 'domain/identity.dart';
 import 'ui/core/ashlar/toast.dart';
@@ -112,12 +114,24 @@ class _HelmyAppState extends State<HelmyApp> {
     // Both Shift keys, in any app: that window into the message being written,
     // in the conversation on screen (else the last one).
     final snaps = context.read<WindowSnapshots>();
-    var listening = settings.settings.snapshotKeys;
-    if (listening) unawaited(snaps.listen(true));
+    // Listening, and to which other shortcut: told again when either changes.
+    String listeningTo(AppSettings s) => s.snapshotKeys ? 'on ${s.snapshotKey}' : 'off';
+    Future<void> listen(AppSettings s) {
+      final k = s.snapshotKey.isEmpty ? null : KeyBinding.parse(s.snapshotKey);
+      return snaps.listen(
+        s.snapshotKeys,
+        also: k == null
+            ? null
+            : (char: k.key.keyLabel.toLowerCase(), cmd: k.command, shift: k.shift, alt: k.alt),
+      );
+    }
+
+    var listening = listeningTo(settings.settings);
+    if (settings.settings.snapshotKeys) unawaited(listen(settings.settings));
     settings.addListener(() {
-      if (settings.settings.snapshotKeys == listening) return;
-      listening = settings.settings.snapshotKeys;
-      unawaited(snaps.listen(listening));
+      if (listeningTo(settings.settings) == listening) return;
+      listening = listeningTo(settings.settings);
+      unawaited(listen(settings.settings));
     });
     final sessions = context.read<SessionRepository>();
     _snapKeys = context.read<NotifyService>().snapshotKeys.listen((w) {

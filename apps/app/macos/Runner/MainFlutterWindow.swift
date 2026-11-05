@@ -402,7 +402,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         result(Snapshots.trusted(prompt: true))
       case "snapKeys":
         Snapshots.shared.onKeys = { [weak self] w in self?.tell("snapshot", w) }
-        result(Snapshots.shared.keys(args["on"] as? Bool ?? false))
+        var extra: (String, NSEvent.ModifierFlags)? = nil
+        if let ch = args["char"] as? String, !ch.isEmpty {
+          var mods: NSEvent.ModifierFlags = []
+          if args["cmd"] as? Bool ?? false { mods.insert(.command) }
+          if args["shift"] as? Bool ?? false { mods.insert(.shift) }
+          if args["alt"] as? Bool ?? false { mods.insert(.option) }
+          extra = (ch.lowercased(), mods)
+        }
+        result(Snapshots.shared.keys(args["on"] as? Bool ?? false, extra: extra))
       case "activate":
         NSApp.activate(ignoringOtherApps: true)
         result(nil)
@@ -813,10 +821,27 @@ final class Snapshots {
 
   /// Both Shift keys together, in any app: on or off. True when on and
   /// macOS lets Helmy hear keys in other apps.
-  func keys(_ on: Bool) -> Bool {
+  func keys(_ on: Bool, extra: (String, NSEvent.ModifierFlags)? = nil) -> Bool {
     for m in monitors { NSEvent.removeMonitor(m) }
     monitors = []
     guard on else { return false }
+    // A shortcut of the user's own, beside both Shift keys.
+    if let (char, mods) = extra {
+      let press: (NSEvent) -> Bool = { [weak self] e in
+        let held = e.modifierFlags.intersection([.command, .shift, .option, .control])
+        guard held == mods, (e.charactersIgnoringModifiers ?? "").lowercased() == char,
+              let self, Date().timeIntervalSince(self.last) > 0.8 else { return false }
+        self.last = Date()
+        if let w = Snapshots.front() { self.onKeys?(w) }
+        return true
+      }
+      if let g = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { _ = press($0) }) {
+        monitors.append(g)
+      }
+      if let l = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { press($0) ? nil : $0 }) {
+        monitors.append(l)
+      }
+    }
     let handle: (NSEvent) -> Void = { [weak self] e in
       let raw = e.modifierFlags.rawValue
       // The left and right Shift keys' own bits, and no other modifier.
