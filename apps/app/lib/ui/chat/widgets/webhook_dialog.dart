@@ -1,3 +1,5 @@
+import '../../../utils/format.dart';
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -110,6 +112,26 @@ class _WebhookDialog extends StatelessWidget {
             '${Webhooks.perHour} events an hour, each up to ${Webhooks.maxBytes ~/ 1024} KB.',
             style: muted,
           ),
+          // What came, latest first, since Helmy opened.
+          if (hooks.deliveriesOf(secret) case final got when got.isNotEmpty) ...[
+            Text('Latest', style: t.text.sm.copyWith(fontWeight: .w500)),
+            for (final d in got.take(6))
+              Row(
+                spacing: 8,
+                children: [
+                  Text(clock(d.at, seconds: true), style: muted),
+                  Expanded(
+                    child: Text(
+                      [?d.event, d.said].join(' · '),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: muted.copyWith(color: d.code >= 400 ? c.destructive : null),
+                    ),
+                  ),
+                  Text('${d.code}', style: muted),
+                ],
+              ),
+          ],
         ],
       ),
       actions: [

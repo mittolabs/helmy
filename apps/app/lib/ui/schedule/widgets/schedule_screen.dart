@@ -251,6 +251,9 @@ class _TaskEditorState extends State<_TaskEditor> {
       : widget.task!.schedule.at.hour * 60 + widget.task!.schedule.at.minute;
   late int _weekday = widget.task?.schedule.at.weekday ?? DateTime.monday;
 
+  /// For chosen days: which, Monday 1 to Sunday 7.
+  late Set<int> _days = {...?widget.task?.schedule.days};
+
   /// For a one-off: days from today.
   int _inDays = 0;
 
@@ -284,12 +287,12 @@ class _TaskEditorState extends State<_TaskEditor> {
       // 2026-01-05 is a Monday: the weekday is carried in the date.
       .weekly => DateTime(2026, 1, 4 + _weekday, h, m),
       _ => DateTime(2026, 1, 1, h, m),
-    });
+    }, days: _repeat == .days ? _days : const {});
   }
 
   Future<void> _save() async {
     final name = _name.text.trim(), prompt = _prompt.text.trim();
-    if (name.isEmpty || prompt.isEmpty) return;
+    if (name.isEmpty || prompt.isEmpty || (_repeat == .days && _days.isEmpty)) return;
     final task = widget.task;
     if (task == null) {
       await widget.vm.add(
@@ -328,7 +331,10 @@ class _TaskEditorState extends State<_TaskEditor> {
               : clock(DateTime(2026, 1, 1, m ~/ 60, m % 60)),
         ),
     ];
-    final ready = _name.text.trim().isNotEmpty && _prompt.text.trim().isNotEmpty;
+    final ready =
+        _name.text.trim().isNotEmpty &&
+        _prompt.text.trim().isNotEmpty &&
+        (_repeat != .days || _days.isNotEmpty);
     final next = _schedule.nextAfter(DateTime.now());
     return HelmyDialog(
       title: widget.task == null ? 'New scheduled task' : 'Edit scheduled task',
@@ -382,6 +388,37 @@ class _TaskEditorState extends State<_TaskEditor> {
                           ),
                       ],
                       onChanged: (d) => setState(() => _weekday = d),
+                    ),
+                  ),
+                ),
+              if (_repeat == .days)
+                Expanded(
+                  child: field(
+                    'On',
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        for (var d = 1; d <= 7; d++)
+                          Button(
+                            size: .xs,
+                            variant: _days.contains(d) ? .secondary : .ghost,
+                            semanticLabel: const [
+                              'Mon',
+                              'Tue',
+                              'Wed',
+                              'Thu',
+                              'Fri',
+                              'Sat',
+                              'Sun',
+                            ][d - 1],
+                            onPressed: () => setState(() {
+                              _days = {..._days};
+                              _days.contains(d) ? _days.remove(d) : _days.add(d);
+                            }),
+                            child: Text(const ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d - 1]),
+                          ),
+                      ],
                     ),
                   ),
                 ),

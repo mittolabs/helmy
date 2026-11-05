@@ -37,6 +37,16 @@ void main() {
     );
     expect(Schedule(.once, DateTime(2026, 11, 4, 15)).nextAfter(tue), DateTime(2026, 11, 4, 15));
     expect(Schedule(.once, DateTime(2026, 11, 2, 15)).nextAfter(tue), isNull);
+    // Mondays and Thursdays at 9: from Tuesday, Thursday.
+    final monThu = Schedule(.days, DateTime(2026, 1, 1, 9), days: const {1, 4});
+    expect(monThu.nextAfter(tue), DateTime(2026, 11, 5, 9));
+    expect(monThu.label, 'Mon, Thu at 9:00 AM');
+    expect(Schedule.fromJson(monThu.toJson()).days, {1, 4});
+    expect(
+      Schedule(.days, DateTime(2026, 1, 1, 9)).nextAfter(tue),
+      isNull,
+      reason: 'no day chosen',
+    );
   });
 
   test('schedules read as people say them', () {

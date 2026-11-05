@@ -7,7 +7,8 @@ enum Repeat {
   hourly('Every hour'),
   daily('Every day'),
   weekdays('Weekdays'),
-  weekly('Every week');
+  weekly('Every week'),
+  days('On chosen days');
 
   const Repeat(this.label);
   final String label;
@@ -16,7 +17,7 @@ enum Repeat {
 /// When a task runs. [at] carries what the repeat needs: the date and time
 /// for once, the minute for hourly, the time of day for daily and weekdays,
 /// the day of the week and time for weekly.
-class const Schedule(final Repeat repeat, final DateTime at) {
+class const Schedule(final Repeat repeat, final DateTime at, {final Set<int> days = const {}}) {
   /// The first time after [after] that it runs; null when it never will again.
   DateTime? nextAfter(DateTime after) {
     DateTime day(int plus) =>
@@ -27,12 +28,14 @@ class const Schedule(final Repeat repeat, final DateTime at) {
       case .hourly:
         final c = DateTime(after.year, after.month, after.day, after.hour, at.minute);
         return c.isAfter(after) ? c : DateTime(c.year, c.month, c.day, c.hour + 1, at.minute);
-      case .daily || .weekdays || .weekly:
+      case .daily || .weekdays || .weekly || .days:
+        if (repeat == .days && days.isEmpty) return null;
         for (var plus = 0; plus <= 7; plus++) {
           final c = day(plus);
           if (!c.isAfter(after)) continue;
           if (repeat == .weekdays && c.weekday > DateTime.friday) continue;
           if (repeat == .weekly && c.weekday != at.weekday) continue;
+          if (repeat == .days && !days.contains(c.weekday)) continue;
           return c;
         }
         return null;
@@ -48,14 +51,21 @@ class const Schedule(final Repeat repeat, final DateTime at) {
       .daily => 'Every day at $time',
       .weekdays => 'Weekdays at $time',
       .weekly => '${_weekdays[at.weekday - 1]}s at $time',
+      .days =>
+        '${[for (final d in days.toList()..sort()) _weekdays[d - 1].substring(0, 3)].join(', ')} at $time',
     };
   }
 
-  Map<String, Object?> toJson() => {'repeat': repeat.name, 'at': at.toIso8601String()};
+  Map<String, Object?> toJson() => {
+    'repeat': repeat.name,
+    'at': at.toIso8601String(),
+    if (days.isNotEmpty) 'days': days.toList()..sort(),
+  };
 
   static Schedule fromJson(Map<String, Object?> json) => Schedule(
     Repeat.values.asNameMap()[json['repeat']] ?? .daily,
     DateTime.tryParse('${json['at']}') ?? DateTime(2026, 1, 1, 9),
+    days: {...((json['days'] as List?) ?? const []).whereType<int>()},
   );
 
   static const _weekdays = [

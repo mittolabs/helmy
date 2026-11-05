@@ -6,6 +6,10 @@ import 'dart:math';
 import '../repositories/conversation_repository.dart';
 import '../repositories/session_repository.dart';
 
+/// One event that came to a thread's address: when, what was answered, and
+/// what became of it.
+typedef Delivery = ({DateTime at, int code, String? event, int bytes, String said});
+
 /// Webhooks into threads: a thread given an address gets each event sent to
 /// it (a pull request opened, a payment made) as a message, which its agent
 /// takes up in turn. The server answers on this Mac only, on one port kept
@@ -29,6 +33,18 @@ class Webhooks {
 
   HttpServer? _server;
   final _seen = <String, List<DateTime>>{};
+  final _deliveries = <String, List<Delivery>>{};
+
+  /// The latest events to the thread with [secret], newest first: kept while
+  /// Helmy runs, the last [keep].
+  List<Delivery> deliveriesOf(String secret) => List.unmodifiable(_deliveries[secret] ?? const []);
+  static const keep = 20;
+
+  void _log(String secret, Delivery d) {
+    final list = _deliveries[secret] ??= [];
+    list.insert(0, d);
+    if (list.length > keep) list.removeLast();
+  }
 
   /// Why the server is not listening, when it is not.
   String? trouble;
@@ -79,9 +95,13 @@ class Webhooks {
     if (thread == null) return answer(404, {'error': 'No thread has this address.'});
 
     final now = DateTime.now();
+    final event = _eventName(r.headers);
+    void logged(int code, String said, int bytes) =>
+        _log(secret, (at: now, code: code, event: event, bytes: bytes, said: said));
     final times = (_seen[secret] ??= [])
       ..removeWhere((t) => now.difference(t) > const Duration(hours: 1));
     if (times.length >= perHour) {
+      logged(429, 'Turned away: over $perHour this hour', 0);
       return answer(429, {'error': 'More than $perHour events this hour. Try again later.'});
     }
 
@@ -89,17 +109,15 @@ class Webhooks {
     await for (final chunk in r) {
       bytes.addAll(chunk);
       if (bytes.length > maxBytes) {
+        logged(413, 'Turned away: over ${maxBytes ~/ 1024} KB', bytes.length);
         return answer(413, {'error': 'Events are taken up to ${maxBytes ~/ 1024} KB.'});
       }
     }
     times.add(now);
     final body = utf8.decode(bytes, allowMalformed: true);
     await _conversations.load(thread.id);
-    await _conversations.send(
-      thread,
-      eventMessage(body, event: _eventName(r.headers)),
-      from: 'a webhook',
-    );
+    await _conversations.send(thread, eventMessage(body, event: event), from: 'a webhook');
+    logged(202, 'Sent to the thread', bytes.length);
     answer(202, {'ok': true, 'thread': thread.title});
   }
 

@@ -84,6 +84,15 @@ void main() {
       }
       expect((await post('/hooks/$secret', 'one too many')).$1, 429);
 
+      // Each one logged, latest first, the refused ones too.
+      final log = hooks.deliveriesOf(secret);
+      expect(log, hasLength(Webhooks.keep));
+      expect(
+        (log.first.code, log.first.said),
+        (429, 'Turned away: over ${Webhooks.perHour} this hour'),
+      );
+      expect(hooks.deliveriesOf('other'), isEmpty);
+
       // Turned off, the address goes with it.
       await sessions.save(sessions.byId(s.id)!.copyWith(webhook: ''));
       expect((await post('/hooks/$secret', '{}')).$1, 404);
