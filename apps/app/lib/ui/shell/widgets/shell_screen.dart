@@ -589,6 +589,7 @@ class ShellScreen extends StatelessWidget {
                   threads: e.threads,
                   activity: viewModel.activityOfAll(e.threads),
                   chat: e.chat,
+                  chips: viewModel.chipsOf(e.threads),
                   line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
                   selected: viewModel.picking
                       ? viewModel.isPicked(first)
@@ -761,7 +762,11 @@ class _ChatRow extends StatefulWidget {
     required this.onDelete,
     this.onSettle,
     this.chat,
+    this.chips = const [],
   });
+
+  /// Short facts shown while hovered: the topic first.
+  final List<String> chips;
 
   final String title;
 
@@ -831,23 +836,20 @@ class _ChatRowState extends State<_ChatRow> {
             crossAxisAlignment: .stretch,
             spacing: 3,
             children: [
-              // The project, and when; or a way to delete, under the mouse.
+              // Its title, and when; or done and delete, under the mouse.
               Row(
-                spacing: 8,
+                spacing: 6,
                 children: [
-                  _ProjectBadge(
-                    name: topic.isEmpty ? 'No project' : topic,
-                    activity: widget.activity,
-                    icon: chatIconOf(widget.chat?.icon),
-                  ),
-                  // What it falls under, in a word (the folder is in its preview);
-                  // until Helmy has named it, where it works.
+                  if (widget.activity != .idle) _Activity(activity: widget.activity),
                   Expanded(
                     child: Text(
-                      topic.isEmpty ? places.join(', ') : topic,
+                      title,
                       maxLines: 1,
                       overflow: .ellipsis,
-                      style: muted,
+                      style: t.text.sm.copyWith(
+                        color: c.sidebarForeground,
+                        fontWeight: widget.selected || widget.activity == .unread ? .w600 : .w500,
+                      ),
                     ),
                   ),
                   if (widget.threads.any((x) => x.pinned))
@@ -880,15 +882,6 @@ class _ChatRowState extends State<_ChatRow> {
                   ] else
                     Text(ago(s.updatedAt), style: muted),
                 ],
-              ),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: .ellipsis,
-                style: t.text.sm.copyWith(
-                  color: c.sidebarForeground,
-                  fontWeight: widget.selected || widget.activity == .unread ? .w600 : .w500,
-                ),
               ),
               // What it waits on or does, or how it answered; and its changes.
               if (line.text.isNotEmpty || line.added + line.removed > 0 || s.branch != null)
@@ -924,9 +917,86 @@ class _ChatRowState extends State<_ChatRow> {
                       ),
                   ],
                 ),
+              // The rest, small, while hovered: what it is about and has.
+              // It slides open rather than jumping the rows below.
+              AnimatedSize(
+                duration: t.duration,
+                curve: Curves.easeOutCubic,
+                alignment: .topCenter,
+                child: !(_hovered && widget.chips.isNotEmpty)
+                    ? const SizedBox(width: double.infinity)
+                    : Padding(
+                        padding: const .only(top: 3),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            for (final (i, chip) in widget.chips.indexed)
+                              _Chip(
+                                label: chip,
+                                icon: i == 0 && topic.isNotEmpty
+                                    ? chatIconOf(widget.chat?.icon)
+                                    : null,
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// What a chat is doing, before its title: a spinner while it works, a dot
+/// when it needs you (filled) or finished while you were away.
+class _Activity extends StatelessWidget {
+  const _Activity({required this.activity});
+  final SessionActivity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AshlarTheme.of(context).colors;
+    if (activity == .working) return const Spinner(size: 11, semanticLabel: 'Working');
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        color: activity == .needsYou ? c.primary : c.foreground,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+/// A small grey fact about a chat.
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, this.icon});
+  final String label;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Container(
+      padding: const .symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: c.foreground.withValues(alpha: .06),
+        borderRadius: .circular(5),
+      ),
+      child: Row(
+        mainAxisSize: .min,
+        spacing: 3,
+        children: [
+          if (icon != null) AshlarIcon(icon!, size: 10, color: c.mutedForeground),
+          Text(
+            label,
+            style: t.text.xs.copyWith(fontSize: 10.5, color: c.mutedForeground, height: 1.4),
+          ),
+        ],
       ),
     );
   }

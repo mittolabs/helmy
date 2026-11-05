@@ -10,6 +10,7 @@ import 'package:helmy/data/services/engines/attachments.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
+import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/domain/models/settings.dart';
 import 'package:helmy/ui/core/ashlar/app_theme.dart';
@@ -66,6 +67,28 @@ void main() {
     await sessions.save(d.copyWith(draft: 'Plan the trip to'));
     expect(list.groups.first.label, 'Drafts');
     expect(list.groups.first.sessions.single.id, d.id);
+  });
+
+  test('a chat\'s chips: its topic, threads, folder, what was attached, its snooze', () async {
+    final a = await thread('Budget');
+    await chats.load();
+    final chatId = sessions.byId(a.id)!.chatId!;
+    await chats.describe(chatId, topic: 'Money');
+    final b = await thread('Budget again', chatId: chatId);
+    repo.of(b.id)
+      ..loaded = true
+      ..items.add(UserMessage('see these', attachments: ['/w/a.png', '/w/b.jpg', '/w/c.pdf']));
+    final now = DateTime(2026, 11, 5, 8);
+    await sessions.save(sessions.byId(b.id)!.copyWith(snoozedUntil: DateTime(2026, 11, 5, 9)));
+    final threads = [sessions.byId(b.id)!, sessions.byId(a.id)!];
+    expect(list.chipsOf(threads, now: now), [
+      'Money',
+      '2 threads',
+      'w',
+      '2 pictures',
+      '1 file',
+      'Snoozed till 9:00',
+    ]);
   });
 
   test('a new chat with nothing written or sent is not listed until it has something', () async {

@@ -24,6 +24,7 @@ import '../../../data/repositories/ship_repository.dart';
 import '../../../data/services/pull_requests.dart';
 import '../../../data/services/turn_log.dart';
 import '../../../domain/filing.dart';
+import '../../../data/services/engines/attachments.dart';
 import '../../../domain/models/chat.dart';
 
 enum SessionActivity { idle, working, needsYou, unread }
@@ -40,7 +41,7 @@ class SidebarViewModel extends ChangeNotifier {
     this._fixes,
     ShipRepository? ship,
     this._prs,
-  }) {
+  }) : _ship = ship {
     _sessions.addListener(_checkGitHub);
     unawaited(_checkGitHub());
     // A chat whose pull request merged is done with, unless something in it
@@ -739,6 +740,45 @@ class SidebarViewModel extends ChangeNotifier {
 
   /// What a chat's preview shows, read from what is on disk (no model is
   /// asked): its brief, its last exchanges, pictures, pages and files.
+  final ShipRepository? _ship;
+
+  /// Short facts about a chat, true now, shown as chips while its row is
+  /// hovered: its topic, how many threads, its folder, its pull request,
+  /// what was attached, and until when it sleeps.
+  List<String> chipsOf(List<Session> threads, {DateTime? now}) {
+    final latest = threads.first;
+    final chat = latest.chatId == null ? null : _chats?.byId(latest.chatId!);
+    final count = threads.where((x) => x.sideOf == null).length;
+    final folders = {for (final x in threads) projectName(x.ownCopy ? x.repo! : x.cwd)};
+    final pr = [for (final x in threads) _ship?.stateOf(x.id)?.pr].nonNulls.firstOrNull;
+    var pictures = 0, files = 0;
+    for (final x in threads) {
+      for (final m in _conversations.of(x.id).items.whereType<UserMessage>()) {
+        for (final a in m.attachments) {
+          imageTypes.containsKey(a.split('.').last.toLowerCase()) ? pictures++ : files++;
+        }
+      }
+    }
+    final until = latest.snoozedUntil;
+    final at = now ?? DateTime.now();
+    String plural(int n, String one) => '$n $one${n == 1 ? '' : 's'}';
+    return [
+      if (chat?.topic case final topic? when topic.isNotEmpty) topic,
+      if (count > 1) plural(count, 'thread'),
+      ...folders.where((f) => f != 'No project'),
+      if (pr != null)
+        switch (pr.state) {
+          'MERGED' => 'Merged',
+          'CLOSED' => 'PR closed',
+          _ => 'PR #${pr.number}',
+        },
+      if (pictures > 0) plural(pictures, 'picture'),
+      if (files > 0) plural(files, 'file'),
+      if (until != null && until.isAfter(at))
+        'Snoozed till ${until.day == at.day ? '' : '${const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][until.weekday - 1]} '}${until.hour}:${until.minute.toString().padLeft(2, '0')}',
+    ];
+  }
+
   ChatPreview previewOf(List<Session> threads) {
     final latest = threads.first;
     final chat = latest.chatId == null ? null : _chats?.byId(latest.chatId!);
