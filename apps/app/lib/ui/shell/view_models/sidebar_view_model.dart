@@ -343,8 +343,9 @@ class SidebarViewModel extends ChangeNotifier {
         : () async {
             for (final t in was) {
               final now = _sessions.byId(t.id);
-              if (now != null)
+              if (now != null) {
                 await _sessions.save(now.copyWith(archived: false, pinned: t.pinned));
+              }
             }
           };
     if (archived && was.any((t) => t.ownCopy)) unawaited(_tidy());

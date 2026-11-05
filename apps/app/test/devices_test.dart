@@ -55,7 +55,7 @@ class FakeDevices extends DeviceService {
     return true;
   }
 
-  /// What reached the device by keyboard, in order: text, or <Enter>.
+  /// What reached the device by keyboard, in order: text, or `<Enter>`.
   final typed = <String>[];
 
   /// How long each send takes: as the slow way does.

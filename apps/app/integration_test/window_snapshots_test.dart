@@ -27,8 +27,9 @@ void main() {
     );
     if (shot != null) {
       File(shot.picture).copySync('${Platform.environment['SHOT'] ?? dir.path}/snap.png');
-      if (shot.text != null)
+      if (shot.text != null) {
         File(shot.text!).copySync('${Platform.environment['SHOT'] ?? dir.path}/snap.md');
+      }
     }
     expect(shot, isNotNull);
   });
