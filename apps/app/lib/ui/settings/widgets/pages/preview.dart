@@ -60,6 +60,94 @@ class _Preview extends StatelessWidget {
                         ),
                       ),
               ),
+            if (s.previewWith == .chromium)
+              _Row(
+                title: 'Profile',
+                description:
+                    'Each keeps its own sign-ins, cookies and history: a work account in one, '
+                    'a personal one in another. Pages open in the one chosen.',
+                control: SizedBox(
+                  width: 250,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      SizedBox(
+                        width: 130,
+                        child: Select<String>(
+                          size: .sm,
+                          value: s.browserProfile,
+                          semanticLabel: 'Profile',
+                          options: [
+                            const SelectOption('', 'Main'),
+                            for (final p in s.browserProfiles) SelectOption(p, p),
+                          ],
+                          onChanged: (p) async {
+                            await vm.chromium?.stop();
+                            await vm.update(s.copyWith(browserProfile: p));
+                          },
+                        ),
+                      ),
+                      Button(
+                        variant: .outline,
+                        size: .sm,
+                        onPressed: () async {
+                          final name = (await askText(
+                            context,
+                            title: 'A new profile',
+                            action: 'Add',
+                            body: 'Its own sign-ins, apart from the others.',
+                          ))?.trim();
+                          if (name == null || name.isEmpty || s.browserProfiles.contains(name)) {
+                            return;
+                          }
+                          await vm.chromium?.stop();
+                          await vm.update(
+                            s.copyWith(
+                              browserProfiles: [...s.browserProfiles, name],
+                              browserProfile: name,
+                            ),
+                          );
+                        },
+                        child: const Text('New...'),
+                      ),
+                      Button(
+                        variant: .ghost,
+                        size: .sm,
+                        onPressed: () async {
+                          final name = s.browserProfile.isEmpty ? 'Main' : s.browserProfile;
+                          final sure = await confirm(
+                            context,
+                            title: 'Clear $name?',
+                            body: 'Its sign-ins, cookies and history go. Pages open signed out.',
+                            action: 'Clear',
+                            destructive: true,
+                          );
+                          if (sure) await vm.chromium?.clearProfile(s.browserProfile);
+                        },
+                        child: const Text('Clear'),
+                      ),
+                      if (s.browserProfile.isNotEmpty)
+                        Button(
+                          variant: .ghost,
+                          size: .sm,
+                          onPressed: () async {
+                            final gone = s.browserProfile;
+                            await vm.chromium?.clearProfile(gone);
+                            await vm.update(
+                              s.copyWith(
+                                browserProfiles: [...s.browserProfiles]..remove(gone),
+                                browserProfile: '',
+                              ),
+                            );
+                          },
+                          child: const Text('Remove'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             if (s.previewWith == .chromium && browsers.any((b) => b.helmys))
               Padding(
                 padding: const .only(top: 8),

@@ -133,7 +133,10 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // A Chromium browser for Preview, once asked for; ended with the app.
   Provider(
     // Any left running by a Helmy that was ended without stopping it goes now.
-    create: (_) => ChromiumService(appData: getApplicationSupportDirectory)..cleanUpSoon(),
+    create: (_) => ChromiumService(
+      appData: getApplicationSupportDirectory,
+      profile: () => loaded.settings.settings.browserProfile,
+    )..cleanUpSoon(),
     dispose: (_, c) => unawaited(c.stop()),
     // Made at launch, so the cleaning happens then.
     lazy: false,

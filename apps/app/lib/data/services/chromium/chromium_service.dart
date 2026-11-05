@@ -39,8 +39,35 @@ class ChromiumService {
     required this._appData,
     bool Function(String path)? exists,
     Map<String, String>? environment,
+    String Function()? profile,
   }) : _exists = exists ?? ((p) => File(p).existsSync()),
-       _env = environment ?? Platform.environment;
+       _env = environment ?? Platform.environment,
+       _profile = profile ?? (() => '');
+
+  /// The profile pages open in, by name, as Settings has it; empty for the
+  /// first. Each keeps its own sign-ins.
+  final String Function() _profile;
+
+  /// [name] as it stands in a folder's name.
+  static String _slug(String name) => name.replaceAll(RegExp(r'\W+'), '-');
+
+  /// The folder of [browser]'s profile [name].
+  Future<Directory> profileDir(ChromiumBrowser browser, String name) =>
+      _dir('profiles/${_slug(browser.name)}${name.isEmpty ? '' : '-p-${_slug(name)}'}');
+
+  /// Clears profile [name] for every browser: its sign-ins, cookies and
+  /// history go. The browser using it is stopped first.
+  Future<void> clearProfile(String name) async {
+    await stop();
+    final root = Directory('${(await _appData()).path}/chromium/profiles');
+    if (!root.existsSync()) return;
+    final suffix = name.isEmpty ? null : '-p-${_slug(name)}';
+    for (final d in root.listSync().whereType<Directory>()) {
+      final n = d.path.split('/').last;
+      final mine = suffix == null ? !n.contains('-p-') && n != 'devtools' : n.endsWith(suffix);
+      if (mine) await d.delete(recursive: true);
+    }
+  }
 
   final Future<Directory> Function() _appData;
   final bool Function(String path) _exists;
@@ -266,11 +293,13 @@ class ChromiumService {
   /// [browser], running hidden under Helmy's own profile, started on first
   /// ask; another browser asked for replaces it.
   Future<Cdp> _browser(ChromiumBrowser browser) {
-    if (_running == browser.executable && (_cdp?.isOpen ?? false)) return Future.value(_cdp!);
+    // One browser and profile at a time: another asked for replaces it.
+    final key = '${browser.executable}\n${_profile()}';
+    if (_running == key && (_cdp?.isOpen ?? false)) return Future.value(_cdp!);
     // Still starting: the same start. Started and since gone: a new one.
-    if (_running == browser.executable && _starting != null && _cdp == null) return _starting!;
+    if (_running == key && _starting != null && _cdp == null) return _starting!;
     unawaited(stop());
-    _running = browser.executable;
+    _running = key;
     return _starting = _start(browser);
   }
 
@@ -280,7 +309,7 @@ class ChromiumService {
   Future<Cdp> _start(ChromiumBrowser browser) async {
     // Its own profile per browser: they cannot share one, and the user's
     // own browsing, tabs and logins are never touched.
-    final profile = await _dir('profiles/${browser.name.replaceAll(RegExp(r'\W+'), '-')}');
+    final profile = await profileDir(browser, _profile());
     final p = _process = await Process.start(browser.executable, [
       '--headless=new',
       // As sharp as the screen it shows on: a hidden browser draws at one

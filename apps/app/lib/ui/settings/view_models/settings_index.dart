@@ -142,6 +142,11 @@ const List<SettingEntry> settingsIndex = [
     section: .preview,
     keywords: 'links browser preview open target',
   ),
+  (
+    title: 'Profile',
+    section: .preview,
+    keywords: 'browser profile sign in cookies accounts work personal',
+  ),
   (title: 'Chromium browser', section: .preview, keywords: 'chrome edge brave arc browser'),
   // Connections and usage.
   (

@@ -302,6 +302,11 @@ class const AppSettings({
   final String? copyFolder,
   final bool tidySettled = false,
 
+  /// The Chromium preview's profiles beyond the first, by name, and the one
+  /// pages open in ('' for the first). Each keeps its own sign-ins.
+  final List<String> browserProfiles = const [],
+  final String browserProfile = '',
+
   /// The Preview panel as it starts: its zoom and the light or dark pages
   /// see ('system', 'light', 'dark'); where searches go; and whether links
   /// in answers open there rather than in the browser.
@@ -501,6 +506,8 @@ class const AppSettings({
     String? snapshotKey,
     bool? snapshotFlash,
     double? previewZoom,
+    List<String>? browserProfiles,
+    String? browserProfile,
     String? previewAppearance,
     SearchEngine? searchEngine,
     bool? linksInHelmy,
@@ -577,6 +584,8 @@ class const AppSettings({
     snapshotKey: snapshotKey ?? this.snapshotKey,
     snapshotFlash: snapshotFlash ?? this.snapshotFlash,
     previewZoom: previewZoom ?? this.previewZoom,
+    browserProfiles: browserProfiles ?? this.browserProfiles,
+    browserProfile: browserProfile ?? this.browserProfile,
     previewAppearance: previewAppearance ?? this.previewAppearance,
     searchEngine: searchEngine ?? this.searchEngine,
     linksInHelmy: linksInHelmy ?? this.linksInHelmy,
@@ -656,6 +665,8 @@ class const AppSettings({
     'snapshotKey': snapshotKey,
     'snapshotFlash': snapshotFlash,
     'previewZoom': previewZoom,
+    'browserProfiles': browserProfiles,
+    'browserProfile': browserProfile,
     'previewAppearance': previewAppearance,
     'searchEngine': searchEngine.name,
     'linksInHelmy': linksInHelmy,
@@ -736,6 +747,8 @@ class const AppSettings({
     snapshotKey: json['snapshotKey'] as String? ?? '',
     snapshotFlash: json['snapshotFlash'] as bool? ?? true,
     previewZoom: (json['previewZoom'] as num?)?.toDouble() ?? 1,
+    browserProfiles: [...((json['browserProfiles'] as List?) ?? const []).map((p) => '$p')],
+    browserProfile: json['browserProfile'] as String? ?? '',
     previewAppearance: json['previewAppearance'] as String? ?? 'system',
     searchEngine: SearchEngine.values.asNameMap()[json['searchEngine']] ?? .duckDuckGo,
     linksInHelmy: json['linksInHelmy'] as bool? ?? false,
