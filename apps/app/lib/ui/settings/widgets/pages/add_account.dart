@@ -121,6 +121,7 @@ class _AddAccountState extends State<_AddAccount> {
                   for (final (k, name) in [('claude', 'Claude Code'), ('codex', 'Codex')])
                     Expanded(
                       child: _Pick(
+                        logo: k,
                         label: name,
                         on: _kind == k,
                         onPressed: _signingIn
@@ -270,8 +271,11 @@ class _AddAccountState extends State<_AddAccount> {
 
 /// One of two or three choices, side by side: the chosen one outlined.
 class _Pick extends StatelessWidget {
-  const _Pick({required this.label, required this.on, required this.onPressed});
+  const _Pick({required this.label, required this.on, required this.onPressed, this.logo});
   final String label;
+
+  /// A connection whose logo goes before the label.
+  final String? logo;
   final bool on;
   final VoidCallback? onPressed;
 
@@ -295,13 +299,22 @@ class _Pick extends StatelessWidget {
             width: on ? 1.2 : 1,
           ),
         ),
-        child: Text(
-          label,
-          textAlign: .center,
-          style: t.text.sm.copyWith(
-            fontWeight: on ? .w500 : .w400,
-            color: onPressed == null ? c.mutedForeground : c.foreground,
-          ),
+        child: Row(
+          mainAxisAlignment: .center,
+          spacing: 8,
+          children: [
+            if (logo case final l?) ConnectionLogo(l, size: 16),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: .center,
+                style: t.text.sm.copyWith(
+                  fontWeight: on ? .w500 : .w400,
+                  color: onPressed == null ? c.mutedForeground : c.foreground,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -364,6 +364,10 @@ class SettingsViewModel extends ChangeNotifier {
       if (!e.info.localOnly) HeadroomRouter.familyOf(e.info.id): e.info.name.split(' (').first,
   };
 
+  /// An agent's icon, as the registry listed it.
+  String? iconOf(String engineId) =>
+      settings.accounts.where((a) => a.id == engineId).firstOrNull?.icon;
+
   /// Whether "Best at" is unfolded.
   bool bestAtOpen = false;
 
@@ -463,6 +467,7 @@ class SettingsViewModel extends ChangeNotifier {
       command: launch.command,
       args: launch.args,
       agentId: listing.id,
+      icon: listing.icon,
     );
     await _keep(a);
     return (account: a, check: await checkAgent(a.id));

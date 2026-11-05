@@ -154,6 +154,7 @@ class _Connections extends StatelessWidget {
         for (final a in vm.agents)
           _ConnectionItem(
             row: a,
+            icon: vm.iconOf(a.info.id),
             checked: vm.checked,
             selected: a.info.id == chosen?.info.id,
             onPressed: () => vm.chooseAgent(a.info.id),
@@ -234,8 +235,12 @@ class _ConnectionItem extends StatelessWidget {
     required this.selected,
     required this.onPressed,
     required this.onEnabled,
+    this.icon,
   });
   final AgentRow row;
+
+  /// An agent's icon, from the registry.
+  final String? icon;
   final bool checked, selected;
   final VoidCallback onPressed;
   final ValueChanged<bool> onEnabled;
@@ -261,6 +266,7 @@ class _ConnectionItem extends StatelessWidget {
         child: Row(
           spacing: 10,
           children: [
+            ConnectionLogo(row.info.id, icon: icon, size: 18),
             Expanded(
               child: Column(
                 crossAxisAlignment: .start,
@@ -332,7 +338,9 @@ class _AgentCard extends StatelessWidget {
         spacing: 10,
         children: [
           Row(
+            spacing: 12,
             children: [
+              ConnectionLogo(row.info.id, icon: vm.iconOf(row.info.id), size: 24),
               Expanded(
                 child: Column(
                   crossAxisAlignment: .start,

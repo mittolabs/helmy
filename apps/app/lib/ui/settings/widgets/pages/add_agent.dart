@@ -208,6 +208,7 @@ class _AddAgentState extends State<_AddAgent> {
                             child: Row(
                               spacing: 10,
                               children: [
+                                ConnectionLogo('acp.${l.id}', icon: l.icon, size: 18),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: .start,

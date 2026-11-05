@@ -45,6 +45,7 @@ import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/textarea.dart';
 import '../../../data/services/chat_export.dart';
 import '../../chat/widgets/saved_toast.dart';
+import '../../core/connection_logo.dart';
 import '../../core/helmy_dialog.dart';
 import '../../core/markdown_preview.dart';
 import '../../core/ashlar/theme.dart';

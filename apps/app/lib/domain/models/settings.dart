@@ -159,8 +159,9 @@ class const ConnectionAccount({
   final String? command,
   final List<String> args = const [],
 
-  /// For an agent from the ACP registry: its id there.
+  /// For an agent from the ACP registry: its id there, and its icon.
   final String? agentId,
+  final String? icon,
 }) {
   Map<String, Object?> toJson() => {
     'id': id,
@@ -171,6 +172,7 @@ class const ConnectionAccount({
     'command': ?command,
     if (args.isNotEmpty) 'args': args,
     'agentId': ?agentId,
+    'icon': ?icon,
   };
 
   static ConnectionAccount fromJson(Map<String, Object?> json) => ConnectionAccount(
@@ -182,6 +184,7 @@ class const ConnectionAccount({
     command: json['command'] as String?,
     args: [...((json['args'] as List?) ?? const []).map((a) => '$a')],
     agentId: json['agentId'] as String?,
+    icon: json['icon'] as String?,
   );
 }
 

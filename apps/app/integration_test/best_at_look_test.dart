@@ -8,6 +8,8 @@ import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/claude/claude_engine.dart';
 import 'package:helmy/data/services/engines/codex/codex_engine.dart';
+import 'package:helmy/data/services/engines/acp/acp_engine.dart';
+import 'package:helmy/data/services/engines/ollama/ollama_chat_engine.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/domain/models/settings.dart';
@@ -28,8 +30,26 @@ void main() {
   testWidgets('best at, opened', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2;
-    final settings = FakeSettingsRepository(const AppSettings(bestAt: {'research': 'codex'}));
-    final engines = EngineRegistry([ClaudeEngine(CliLocator()), CodexEngine(CliLocator())]);
+    final settings = FakeSettingsRepository(
+      const AppSettings(
+        bestAt: {'research': 'codex'},
+        accounts: [
+          ConnectionAccount(
+            id: 'acp.opencode',
+            kind: 'acp',
+            name: 'OpenCode',
+            icon: 'https://cdn.agentclientprotocol.com/registry/v1/latest/opencode.svg',
+          ),
+        ],
+      ),
+    );
+    final engines = EngineRegistry([
+      ClaudeEngine(CliLocator()),
+      ClaudeEngine(CliLocator(), id: 'claude-work', name: 'Work'),
+      CodexEngine(CliLocator()),
+      AcpEngine(CliLocator(), id: 'acp.opencode', name: 'OpenCode', command: 'opencode'),
+      OllamaChatEngine(model: () => null),
+    ]);
     final vm = SettingsViewModel(
       settings: settings,
       engines: engines,
@@ -51,7 +71,11 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+    await shot(tester, '$shots/connections.png');
     await tester.ensureVisible(find.text('Show'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show'));
