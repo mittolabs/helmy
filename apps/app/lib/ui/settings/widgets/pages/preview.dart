@@ -52,6 +52,7 @@ class _Preview extends StatelessWidget {
                     : SizedBox(
                         width: 240,
                         child: Select<String>(
+                          size: .sm,
                           value: chosen?.executable,
                           semanticLabel: 'Chromium browser',
                           options: [for (final b in browsers) SelectOption(b.executable, b.label)],

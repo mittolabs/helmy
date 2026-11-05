@@ -132,6 +132,7 @@ class _General extends StatelessWidget {
           control: SizedBox(
             width: 180,
             child: Select<PermissionLevel>(
+              size: .sm,
               value: s.defaultLevel,
               semanticLabel: 'Default permissions',
               options: [for (final l in PermissionLevel.values) SelectOption(l, l.label)],
@@ -163,6 +164,7 @@ class _General extends StatelessWidget {
               SizedBox(
                 width: 180,
                 child: Select<FolderMode>(
+                  size: .sm,
                   value: s.folderMode,
                   semanticLabel: 'Where new chats start',
                   options: const [

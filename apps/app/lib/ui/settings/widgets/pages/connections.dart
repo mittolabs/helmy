@@ -21,6 +21,7 @@ class _Agents extends StatelessWidget {
           control: SizedBox(
             width: 150,
             child: Select<Switching>(
+              size: .sm,
               value: s.switching,
               semanticLabel: 'How readily to switch',
               options: [for (final w in Switching.values) SelectOption(w, w.label)],
@@ -44,6 +45,7 @@ class _Agents extends StatelessWidget {
               : SizedBox(
                   width: 220,
                   child: Select<String>(
+                    size: .sm,
                     value: s.ollamaModel != null && vm.localModels!.contains(s.ollamaModel)
                         ? s.ollamaModel
                         : vm.localModels!.first,

@@ -105,6 +105,7 @@ class _Appearance extends StatelessWidget {
           control: SizedBox(
             width: 230,
             child: Select<DiffColors>(
+              size: .sm,
               value: s.diffColors,
               semanticLabel: 'Colors for changes',
               options: [for (final d in DiffColors.values) SelectOption(d, d.label)],

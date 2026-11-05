@@ -110,80 +110,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Padding(
           padding: .fromLTRB(margin, margin + (window.width < 720 ? 24 : 0), margin, margin),
           child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 900),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: c.background,
-                  border: Border.all(color: c.border),
-                  borderRadius: .circular(16),
-                  boxShadow: t.shadowLg,
-                ),
-                clipBehavior: .antiAlias,
-                child: ListenableBuilder(
-                  listenable: vm,
-                  builder: (context, _) => LayoutBuilder(
-                    builder: (context, box) {
-                      final across = box.maxWidth < _Nav.besideFrom;
-                      final page = vm.query.trim().isNotEmpty
-                          ? _Results(vm: vm)
-                          : switch (vm.section) {
-                              .general => _General(vm: vm),
-                              .appearance => _Appearance(vm: vm),
-                              .preview => _Preview(vm: vm),
-                              .projects => _Projects(vm: vm),
-                              .agents => _Agents(vm: vm),
-                              .tools => _Tools(vm: vm),
-                              .memory => _Memory(vm: vm),
-                              .data => _Data(vm: vm),
-                              .keyboard => const _Keyboard(),
-                              .phone => _Phone(vm: vm),
-                            };
-                      final search = _SearchBox(
-                        controller: _search,
-                        focusNode: _searchFocus,
-                        onChanged: vm.search,
-                      );
-                      final content = Column(
-                        crossAxisAlignment: .stretch,
-                        children: [
-                          _Crumb(vm: vm, onClose: () => closeSettings(context)),
-                          if (across) ...[
-                            Padding(padding: const .fromLTRB(16, 12, 16, 8), child: search),
-                            _Nav(vm: vm, across: true),
+            // Compact, as settings are in the system's own panes: every control a size down.
+            child: AshlarTheme(
+              data: t.copyWith(density: -1),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 900),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: c.background,
+                    border: Border.all(color: c.border),
+                    borderRadius: .circular(16),
+                    boxShadow: t.shadowLg,
+                  ),
+                  clipBehavior: .antiAlias,
+                  child: ListenableBuilder(
+                    listenable: vm,
+                    builder: (context, _) => LayoutBuilder(
+                      builder: (context, box) {
+                        final across = box.maxWidth < _Nav.besideFrom;
+                        final page = vm.query.trim().isNotEmpty
+                            ? _Results(vm: vm)
+                            : switch (vm.section) {
+                                .general => _General(vm: vm),
+                                .appearance => _Appearance(vm: vm),
+                                .preview => _Preview(vm: vm),
+                                .projects => _Projects(vm: vm),
+                                .agents => _Agents(vm: vm),
+                                .tools => _Tools(vm: vm),
+                                .memory => _Memory(vm: vm),
+                                .data => _Data(vm: vm),
+                                .keyboard => const _Keyboard(),
+                                .phone => _Phone(vm: vm),
+                              };
+                        final search = _SearchBox(
+                          controller: _search,
+                          focusNode: _searchFocus,
+                          onChanged: vm.search,
+                        );
+                        final content = Column(
+                          crossAxisAlignment: .stretch,
+                          children: [
+                            _Crumb(vm: vm, onClose: () => closeSettings(context)),
+                            if (across) ...[
+                              Padding(padding: const .fromLTRB(16, 12, 16, 8), child: search),
+                              _Nav(vm: vm, across: true),
+                            ],
+                            Expanded(
+                              child: Padding(
+                                padding: .only(left: across ? 16 : 32, top: across ? 0 : 24),
+                                child: page,
+                              ),
+                            ),
                           ],
-                          Expanded(
-                            child: Padding(
-                              padding: .only(left: across ? 16 : 32, top: across ? 0 : 24),
-                              child: page,
+                        );
+                        if (across) return content;
+                        return Row(
+                          crossAxisAlignment: .stretch,
+                          children: [
+                            Container(
+                              width: 264,
+                              decoration: BoxDecoration(
+                                color: c.card,
+                                border: Border(right: BorderSide(color: c.border)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: .stretch,
+                                children: [
+                                  Padding(padding: const .fromLTRB(12, 12, 12, 8), child: search),
+                                  Expanded(
+                                    child: ScrollArea(child: _Nav(vm: vm)),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      );
-                      if (across) return content;
-                      return Row(
-                        crossAxisAlignment: .stretch,
-                        children: [
-                          Container(
-                            width: 264,
-                            decoration: BoxDecoration(
-                              color: c.card,
-                              border: Border(right: BorderSide(color: c.border)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: .stretch,
-                              children: [
-                                Padding(padding: const .fromLTRB(12, 12, 12, 8), child: search),
-                                Expanded(
-                                  child: ScrollArea(child: _Nav(vm: vm)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(child: content),
-                        ],
-                      );
-                    },
+                            Expanded(child: content),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -652,6 +656,7 @@ class _Choice<T> extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
     width: 180,
     child: Select<T>(
+      size: .sm,
       value: value,
       semanticLabel: label,
       options: [for (final e in options.entries) SelectOption(e.key, e.value)],
