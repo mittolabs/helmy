@@ -139,8 +139,11 @@ void main() {
   });
 
   test('colors: Helmy\'s own unless chosen, still pure black when dark with an accent', () {
-    expect(themeFor(Brightness.dark), same(appDarkTheme));
-    expect(themeFor(Brightness.light), same(appTheme));
+    expect(themeFor(Brightness.dark).colors, same(appDarkTheme.colors));
+    expect(themeFor(Brightness.light).colors, same(appTheme.colors));
+    // Compact everywhere: every control a size down.
+    expect(themeFor(Brightness.light).density, -1);
+    expect(themeFor(Brightness.light).control(32), 28);
     final accented = themeFor(Brightness.dark, accent: AccentChoice.blue);
     expect(accented.colors.background, const Color(0xFF000000));
     expect(accented.colors.primary, isNot(appDarkTheme.colors.primary));

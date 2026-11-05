@@ -48,9 +48,15 @@ AshlarThemeData themeFor(
 }) {
   final dark = brightness == Brightness.dark;
   final a = accent == .none ? null : AshlarAccent.values.byName(accent.name);
-  if (palette == .helmy && a == null) return dark ? appDarkTheme : appTheme;
-  final base = palette == .helmy ? AshlarBase.neutral : AshlarBase.values.byName(palette.name);
-  final t = AshlarThemeData.from(brightness: brightness, base: base, accent: a);
-  // Helmy's own stays pure black when dark, with an accent or without.
-  return dark && palette == .helmy ? _black(t) : t;
+  final AshlarThemeData chosen;
+  if (palette == .helmy && a == null) {
+    chosen = dark ? appDarkTheme : appTheme;
+  } else {
+    final base = palette == .helmy ? AshlarBase.neutral : AshlarBase.values.byName(palette.name);
+    final t = AshlarThemeData.from(brightness: brightness, base: base, accent: a);
+    // Helmy's own stays pure black when dark, with an accent or without.
+    chosen = dark && palette == .helmy ? _black(t) : t;
+  }
+  // Compact, as a desktop tool is: every control and menu row a size down.
+  return chosen.copyWith(density: -1);
 }

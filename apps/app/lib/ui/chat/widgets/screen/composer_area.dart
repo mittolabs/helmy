@@ -201,7 +201,7 @@ class _LevelChip extends StatelessWidget {
 
   /// What the agent may do at [l], in a line.
   static String _what(PermissionLevel l) => switch (l) {
-    .ask => 'Asks before changing files or running commands',
+    .ask => 'Asks before edits and commands',
     .edit => 'Edits files without asking',
     .readOnly => 'Reads and plans; changes nothing',
     .full => 'Does anything without asking',

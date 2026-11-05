@@ -600,8 +600,8 @@ class _MenuRowState extends State<_MenuRow> {
                   padding: EdgeInsetsDirectional.only(
                     start: widget.inset ? 32 : 10,
                     end: 10,
-                    top: 7,
-                    bottom: 7,
+                    top: 7 + t.density,
+                    bottom: 7 + t.density,
                   ),
                   decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
                   child: DefaultTextStyle.merge(

@@ -44,6 +44,10 @@ class Tooltip extends StatefulWidget {
 class _TooltipState extends State<Tooltip> {
   final _tip = GlobalKey<RawTooltipState>();
 
+  /// Pressed with the pointer, which is still over it: the tip stays away
+  /// (the focus a click gives is not a keyboard's), until the pointer leaves.
+  bool _pressed = false;
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
@@ -54,7 +58,8 @@ class _TooltipState extends State<Tooltip> {
       onFocusChange: (focused) {
         if (!focused) {
           RawTooltip.dismissAllToolTips();
-        } else if (FocusManager.instance.highlightMode == FocusHighlightMode.traditional) {
+        } else if (!_pressed &&
+            FocusManager.instance.highlightMode == FocusHighlightMode.traditional) {
           _tip.currentState?.ensureTooltipVisible();
         }
       },
@@ -112,8 +117,17 @@ class _TooltipState extends State<Tooltip> {
             ),
           ),
         ),
-        child: MergeSemantics(
-          child: Semantics(tooltip: widget.message, child: widget.child),
+        child: MouseRegion(
+          onExit: (_) => _pressed = false,
+          child: Listener(
+            onPointerDown: (_) {
+              _pressed = true;
+              RawTooltip.dismissAllToolTips();
+            },
+            child: MergeSemantics(
+              child: Semantics(tooltip: widget.message, child: widget.child),
+            ),
+          ),
         ),
       ),
     );
