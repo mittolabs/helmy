@@ -344,8 +344,8 @@ class _Nav extends StatelessWidget {
             spacing: 10,
             mainAxisSize: across ? .min : .max,
             children: [
-              // Found by sight, as in the system's own settings.
-              TintedIcon(icon, hue: hue, size: 20),
+              // Found by shape: grey, so the page stays calm.
+              TintedIcon(icon, hue: hue, size: 20, muted: true),
               if (across)
                 Text(label, style: t.text.sm)
               else
