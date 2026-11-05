@@ -11,13 +11,11 @@ typedef CleanupRun = ({DateTime at, int files, int bytes});
 class StorageCleanup {
   StorageCleanup(
     this._storage, {
-    required Future<Directory> Function() appData,
+    required this._appData,
     this.olderThan = const Duration(days: 30),
-    List<Directory>? extra,
+    this._extra,
     DateTime Function()? now,
-  }) : _appData = appData,
-       _extra = extra,
-       _now = now ?? DateTime.now;
+  }) : _now = now ?? DateTime.now;
 
   final StorageService _storage;
   final Future<Directory> Function() _appData;
