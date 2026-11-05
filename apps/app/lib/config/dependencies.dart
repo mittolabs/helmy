@@ -233,7 +233,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   // Events from outside, into the threads given an address.
   Provider(
     lazy: false,
-    create: (context) => Webhooks(sessions: context.read(), conversations: context.read())..start(),
+    create: (context) => Webhooks(
+      sessions: context.read(),
+      conversations: context.read(),
+      signing: (id) => loaded.settings.settings.hookSigning[id],
+    )..start(),
     dispose: (_, w) => unawaited(w.stop()),
   ),
   // Chats kept current as threads go quiet, on the model on this Mac.

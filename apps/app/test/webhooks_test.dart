@@ -122,4 +122,55 @@ void main() {
     expect(hooks.listening, isFalse);
     expect(hooks.trouble, contains('is taken by another program'));
   });
+
+  test('with a signing secret, only a matching signature gets through', () async {
+    final root = await Directory.systemTemp.createTemp('hooks-signed');
+    addTearDown(() => deleteFolder(root));
+    final storage = storageAt(root);
+    final sessions = SessionRepositoryLocal(storage);
+    final meter = UsageMeter();
+    final repo = ConversationRepositoryEngines(
+      engines: EngineRegistry([]),
+      router: HeadroomRouter(meter),
+      meter: meter,
+      storage: storage,
+      sessions: sessions,
+    );
+    final s = (await sessions.create(cwd: root.path, title: 'Payments') as Ok).value as Session;
+    final secret = Webhooks.newSecret();
+    await sessions.save(sessions.byId(s.id)!.copyWith(webhook: secret));
+    final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = probe.port;
+    await probe.close();
+    final hooks = Webhooks(
+      sessions: sessions,
+      conversations: repo,
+      port: port,
+      signing: (id) => id == s.id ? 'it-is-a-secret' : null,
+    );
+    await hooks.start();
+    addTearDown(hooks.stop);
+    final client = HttpClient();
+    addTearDown(client.close);
+    Future<int> post(String body, {String? signature}) async {
+      final r = await client.postUrl(Uri.parse('http://127.0.0.1:$port/hooks/$secret'));
+      if (signature != null) r.headers.set('x-hub-signature-256', signature);
+      r.write(body);
+      final res = await r.close();
+      await res.drain<void>();
+      return res.statusCode;
+    }
+
+    const body = '{"paid": 12}';
+    // As GitHub signs: HMAC-SHA256 of the body, in hex (computed with openssl).
+    final signed = await Process.run('/bin/sh', [
+      '-c',
+      "printf '%s' '$body' | openssl dgst -sha256 -hmac 'it-is-a-secret' | sed 's/^.* //'",
+    ]);
+    final hex = '${signed.stdout}'.trim();
+    expect(await post(body), 401, reason: 'no signature');
+    expect(await post(body, signature: 'sha256=${'0' * 64}'), 401, reason: 'a wrong one');
+    expect(await post(body, signature: 'sha256=$hex'), 202);
+    expect(hooks.deliveriesOf(secret).map((d) => d.code), [202, 401, 401]);
+  });
 }

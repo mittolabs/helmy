@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart';
+
 import '../repositories/conversation_repository.dart';
 import '../repositories/session_repository.dart';
 
@@ -16,7 +18,16 @@ typedef Delivery = ({DateTime at, int code, String? event, int bytes, String sai
 /// across launches so addresses stay the same; an event from outside needs a
 /// tunnel the person runs to it.
 class Webhooks {
-  Webhooks({required this._sessions, required this._conversations, this.port = defaultPort});
+  Webhooks({
+    required this._sessions,
+    required this._conversations,
+    this.port = defaultPort,
+    String? Function(String sessionId)? signing,
+  }) : _signing = signing ?? ((_) => null);
+
+  /// The secret a thread's sender signs its events with, where the user set
+  /// one: events must then carry a matching HMAC-SHA256 signature.
+  final String? Function(String sessionId) _signing;
 
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
@@ -113,12 +124,39 @@ class Webhooks {
         return answer(413, {'error': 'Events are taken up to ${maxBytes ~/ 1024} KB.'});
       }
     }
+    if (_signing(thread.id) case final key? when key.isNotEmpty) {
+      if (!await signedWith(key, bytes, r.headers)) {
+        logged(401, 'Turned away: the signature did not match', bytes.length);
+        return answer(401, {'error': 'The signature is missing or does not match.'});
+      }
+    }
     times.add(now);
     final body = utf8.decode(bytes, allowMalformed: true);
     await _conversations.load(thread.id);
     await _conversations.send(thread, eventMessage(body, event: event), from: 'a webhook');
     logged(202, 'Sent to the thread', bytes.length);
     answer(202, {'ok': true, 'thread': thread.title});
+  }
+
+  /// Whether [body] carries an HMAC-SHA256 signature by [key], as GitHub and
+  /// most senders put it: `sha256=<hex>` (or the hex alone) in one of the
+  /// usual headers.
+  static Future<bool> signedWith(String key, List<int> body, HttpHeaders h) async {
+    final sent =
+        h.value('x-hub-signature-256') ??
+        h.value('x-signature-256') ??
+        h.value('x-webhook-signature') ??
+        h.value('x-signature');
+    if (sent == null) return false;
+    final mac = await Hmac.sha256().calculateMac(body, secretKey: SecretKey(utf8.encode(key)));
+    final hex = [for (final b in mac.bytes) b.toRadixString(16).padLeft(2, '0')].join();
+    final given = sent.trim().toLowerCase().replaceFirst('sha256=', '');
+    if (given.length != hex.length) return false;
+    var diff = 0;
+    for (var i = 0; i < hex.length; i++) {
+      diff |= hex.codeUnitAt(i) ^ given.codeUnitAt(i);
+    }
+    return diff == 0;
   }
 
   /// What the sender calls the event, when it says (GitHub, Stripe and others

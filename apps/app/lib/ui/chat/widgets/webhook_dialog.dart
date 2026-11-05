@@ -1,5 +1,10 @@
 import '../../../utils/format.dart';
 
+import 'dart:async';
+
+import '../../../data/repositories/settings_repository.dart';
+import '../../core/ashlar/input.dart';
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -112,6 +117,7 @@ class _WebhookDialog extends StatelessWidget {
             '${Webhooks.perHour} events an hour, each up to ${Webhooks.maxBytes ~/ 1024} KB.',
             style: muted,
           ),
+          _Signing(sessionId: vm.sessionId),
           // What came, latest first, since Helmy opened.
           if (hooks.deliveriesOf(secret) case final got when got.isNotEmpty) ...[
             Text('Latest', style: t.text.sm.copyWith(fontWeight: .w500)),
@@ -137,6 +143,60 @@ class _WebhookDialog extends StatelessWidget {
       actions: [
         DialogButton('Turn off', destructive: true, onPressed: () => vm.setWebhook(false)),
         DialogButton('Done', main: true, onPressed: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+/// The secret the sender signs events with, if the user wants them
+/// checked: events without a matching signature are turned away.
+class _Signing extends StatefulWidget {
+  const _Signing({required this.sessionId});
+  final String sessionId;
+
+  @override
+  State<_Signing> createState() => _SigningState();
+}
+
+class _SigningState extends State<_Signing> {
+  late final _settings = context.read<SettingsRepository>();
+  late final _text = TextEditingController(
+    text: _settings.settings.hookSigning[widget.sessionId] ?? '',
+  );
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _save(String v) {
+    final s = _settings.settings;
+    final next = {...s.hookSigning};
+    v.trim().isEmpty ? next.remove(widget.sessionId) : next[widget.sessionId] = v.trim();
+    unawaited(_settings.save(s.copyWith(hookSigning: next)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 6,
+      children: [
+        Text(
+          'Signing secret, if the sender signs its events (GitHub, Stripe and most do): '
+          'then an event whose signature does not match is turned away.',
+          style: t.text.xs.copyWith(color: t.colors.mutedForeground, height: 1.45),
+        ),
+        Input(
+          controller: _text,
+          size: .sm,
+          obscureText: true,
+          placeholder: 'None: any event to the address is taken',
+          semanticLabel: 'Signing secret',
+          onChanged: _save,
+        ),
       ],
     );
   }

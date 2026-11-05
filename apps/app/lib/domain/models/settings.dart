@@ -314,6 +314,10 @@ class const AppSettings({
   /// the Device panel.
   final bool agentDevices = true,
 
+  /// Secrets webhook senders sign events with, by thread: where one is set,
+  /// unsigned events are turned away.
+  final Map<String, String> hookSigning = const {},
+
   /// Keys the user chose for commands, by command name, as
   /// `KeyBinding.saved` writes them; the rest keep Helmy's own.
   final Map<String, String> keys = const {},
@@ -461,6 +465,7 @@ class const AppSettings({
     bool? steerByDefault,
     Map<String, String>? keys,
     String? commitStyle,
+    Map<String, String>? hookSigning,
     Map<String, String>? programs,
     bool? agentDevices,
     Map<String, Object?>? themeImport,
@@ -535,6 +540,7 @@ class const AppSettings({
     steerByDefault: steerByDefault ?? this.steerByDefault,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
+    hookSigning: hookSigning ?? this.hookSigning,
     programs: programs ?? this.programs,
     agentDevices: agentDevices ?? this.agentDevices,
     themeImport: themeImport ?? this.themeImport,
@@ -612,6 +618,7 @@ class const AppSettings({
     'steerByDefault': steerByDefault,
     'keys': keys,
     'commitStyle': commitStyle,
+    'hookSigning': hookSigning,
     'programs': programs,
     'agentDevices': agentDevices,
     'themeImport': themeImport,
@@ -686,6 +693,9 @@ class const AppSettings({
     steerByDefault: json['steerByDefault'] as bool? ?? false,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
+    hookSigning: {
+      for (final e in ((json['hookSigning'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
+    },
     programs: {
       for (final e in ((json['programs'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
     },
