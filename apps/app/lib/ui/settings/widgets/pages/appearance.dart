@@ -113,6 +113,12 @@ class _Appearance extends StatelessWidget {
                 },
                 child: Text(imported == null ? 'Import...' : 'Another...'),
               ),
+              Button(
+                variant: .outline,
+                size: .sm,
+                onPressed: () => _findTheme(context, vm),
+                child: const Text('Find one...'),
+              ),
             ],
           ),
         ),
@@ -426,4 +432,174 @@ List<Widget> _fonts(BuildContext context, SettingsViewModel vm) {
       ),
     ),
   ];
+}
+
+/// Finds a color theme on Open VSX, the open registry of VS Code
+/// extensions, and uses the one picked.
+Future<void> _findTheme(BuildContext context, SettingsViewModel vm) async {
+  final picked = await showAshlarDialog<ImportedTheme>(
+    context: context,
+    builder: (context) => const _FindTheme(),
+  );
+  if (picked == null) return;
+  await vm.update(
+    vm.settings.copyWith(palette: .imported, themeImport: importedThemeToJson(picked)),
+  );
+  if (!context.mounted) return;
+  showToast(
+    context,
+    title: '${picked.name} in use',
+    description: 'For ${picked.dark ? 'dark' : 'light'}; pick Theme to see it.',
+  );
+}
+
+class _FindTheme extends StatefulWidget {
+  const _FindTheme();
+
+  @override
+  State<_FindTheme> createState() => _FindThemeState();
+}
+
+class _FindThemeState extends State<_FindTheme> {
+  final _market = ThemeMarket();
+  final _query = TextEditingController();
+  List<ThemeListing>? _found;
+  List<ImportedTheme>? _themes;
+  String? _busy, _error;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_search(''));
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String q) async {
+    setState(() => _busy = 'Looking on Open VSX...');
+    final found = await _market.search(q.isEmpty ? 'theme' : q);
+    if (!mounted) return;
+    setState(() {
+      _busy = null;
+      _found = found;
+      _error = found == null ? "Open VSX couldn't be reached. Check the connection." : null;
+    });
+  }
+
+  Future<void> _open(ThemeListing l) async {
+    setState(() => _busy = 'Reading ${l.name}...');
+    try {
+      final themes = await _market.themesIn(l.download);
+      if (!mounted) return;
+      if (themes.length == 1) {
+        Navigator.pop(context, themes.single);
+        return;
+      }
+      setState(() {
+        _busy = null;
+        _themes = themes;
+        _error = themes.isEmpty ? '${l.name} has no color theme Helmy can read.' : null;
+      });
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = null;
+          _error = '$e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground, height: 1.4);
+    final themes = _themes;
+    Widget row(String title, String sub, VoidCallback onPressed, String action) => Padding(
+      padding: const .symmetric(vertical: 6),
+      child: Row(
+        spacing: 10,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              spacing: 2,
+              children: [
+                Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+                if (sub.isNotEmpty) Text(sub, maxLines: 2, overflow: .ellipsis, style: muted),
+              ],
+            ),
+          ),
+          Button(variant: .outline, size: .sm, onPressed: onPressed, child: Text(action)),
+        ],
+      ),
+    );
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context)},
+      child: HelmyDialog(
+        title: 'Find a theme',
+        body: 'Color themes from Open VSX, the open registry of VS Code extensions.',
+        icon: AshlarIconsRoundedStroke.palette,
+        maxWidth: 520,
+        content: Column(
+          crossAxisAlignment: .stretch,
+          mainAxisSize: .min,
+          spacing: 8,
+          children: [
+            if (themes == null)
+              Input(
+                controller: _query,
+                autofocus: true,
+                placeholder: 'Dracula, Nord, Solarized...',
+                semanticLabel: 'Search themes',
+                onChanged: (q) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 350), () => _search(q));
+                },
+              ),
+            if (_busy case final busy?)
+              Row(
+                spacing: 8,
+                children: [
+                  const Spinner(size: 14),
+                  Text(busy, style: muted),
+                ],
+              ),
+            if (_error case final e?) Text(e, style: muted.copyWith(color: t.colors.destructive)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ScrollArea(
+                child: Column(
+                  crossAxisAlignment: .stretch,
+                  children: [
+                    if (themes != null)
+                      for (final th in themes)
+                        row(
+                          th.name,
+                          th.dark ? 'Dark' : 'Light',
+                          () => Navigator.pop(context, th),
+                          'Use',
+                        )
+                    else
+                      for (final l in _found ?? const <ThemeListing>[])
+                        row(l.name, l.description, () => _open(l), 'Open'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (themes != null) DialogButton('Back', onPressed: () => setState(() => _themes = null)),
+          DialogButton('Cancel', onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+    );
+  }
 }
