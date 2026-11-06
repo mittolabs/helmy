@@ -478,15 +478,43 @@ class _Block extends StatelessWidget with _Setting {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    return Padding(
-      padding: const .symmetric(horizontal: 18, vertical: 14),
-      child: Column(
-        crossAxisAlignment: .stretch,
-        spacing: 8,
-        children: [
-          Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
-          child,
-        ],
+    final settings = context.watch<SettingsRepository>();
+    // Changed from Helmy's own: the same quiet way back a row has.
+    final changed = changedSettings(settings.settings).contains(title);
+    return _Lit(
+      title: title,
+      child: Padding(
+        padding: const .symmetric(horizontal: 18, vertical: 14),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 8,
+          children: [
+            Row(
+              spacing: 4,
+              children: [
+                Flexible(
+                  child: Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
+                ),
+                if (changed)
+                  Tooltip(
+                    message: 'Back to how Helmy has it',
+                    child: Button(
+                      variant: .ghost,
+                      size: .iconXs,
+                      semanticLabel: 'Put $title back to how Helmy has it',
+                      onPressed: () => settings.save(withDefaults(settings.settings, [title])),
+                      child: AshlarIcon(
+                        AshlarIconsRoundedStroke.undo2,
+                        size: 12,
+                        color: t.colors.mutedForeground,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            child,
+          ],
+        ),
       ),
     );
   }

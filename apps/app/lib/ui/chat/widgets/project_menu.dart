@@ -1,4 +1,3 @@
-
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -141,7 +140,9 @@ class ProjectMenu extends StatelessWidget {
             menu.open();
           },
           child: AshlarIcon(
-            vm.actions.isEmpty ? AshlarIconsRoundedStroke.play : AshlarIconsRoundedStroke.chevronDown,
+            vm.actions.isEmpty
+                ? AshlarIconsRoundedStroke.play
+                : AshlarIconsRoundedStroke.chevronDown,
             size: 16,
           ),
         ),

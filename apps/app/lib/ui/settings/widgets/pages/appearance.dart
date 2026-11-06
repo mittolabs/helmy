@@ -13,19 +13,34 @@ class _Appearance extends StatelessWidget {
     return _Page(
       children: [
         const _Heading('Theme and text', first: true),
-        _Row(
+        // As T3 Code shows its color scheme: three cards, each a picture of
+        // the app in it, in the palette and accent chosen below.
+        _Block(
           title: 'Theme',
-          control: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final choice in ThemeChoice.values)
-                _ThemeCard(
-                  choice: choice,
-                  selected: s.theme == choice,
-                  onPressed: () => vm.update(s.copyWith(theme: choice)),
-                ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final across = box.maxWidth >= 420 ? 3 : 1;
+              final width = (box.maxWidth - 10 * (across - 1)) / across;
+              AshlarColors look(Brightness b) =>
+                  themeFor(b, palette: s.palette, accent: s.accent, imported: imported).colors;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final choice in ThemeChoice.values)
+                    SizedBox(
+                      width: width,
+                      child: _SchemeCard(
+                        choice: choice,
+                        selected: s.theme == choice,
+                        onPressed: () => vm.update(s.copyWith(theme: choice)),
+                        light: look(Brightness.light),
+                        dark: look(Brightness.dark),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
         // As T3 Code shows its themes: a card each, its light and dark side
@@ -383,6 +398,192 @@ class _AccentChoice extends StatelessWidget {
 
 /// A palette by name, drawn in its own colors: its raised surface, its
 /// words, and the tint of its quieter words.
+/// A color scheme as T3 Code shows one: a card with a picture of the app in
+/// it (light, dark, or half of each for following the system), its name
+/// under it, ringed when it is the one in use.
+class _SchemeCard extends StatelessWidget {
+  const _SchemeCard({
+    required this.choice,
+    required this.selected,
+    required this.onPressed,
+    required this.light,
+    required this.dark,
+  });
+  final ThemeChoice choice;
+  final bool selected;
+  final VoidCallback onPressed;
+  final AshlarColors light, dark;
+
+  /// The app in [c]: the sidebar's rows, a conversation, a panel beside it,
+  /// and the composer with its send button in the accent.
+  static Widget _app(AshlarColors c) => Container(
+    color: c.background,
+    child: Row(
+      crossAxisAlignment: .stretch,
+      children: [
+        Container(
+          width: 34,
+          padding: const .fromLTRB(5, 8, 5, 8),
+          decoration: BoxDecoration(
+            color: c.sidebar,
+            border: Border(right: BorderSide(color: c.border)),
+          ),
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 4,
+            children: [
+              Container(height: 5, width: 14, color: c.mutedForeground.withValues(alpha: .6)),
+              for (final on in const [true, false, false, false])
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: on ? c.accent : c.muted,
+                    borderRadius: .circular(2),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const .fromLTRB(8, 9, 8, 7),
+            child: Column(
+              crossAxisAlignment: .stretch,
+              spacing: 4,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Container(
+                    height: 7,
+                    width: 30,
+                    decoration: BoxDecoration(color: c.muted, borderRadius: .circular(4)),
+                  ),
+                ),
+                for (final w in const [.95, .7, .85])
+                  FractionallySizedBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: w,
+                    child: Container(
+                      height: 3.5,
+                      decoration: BoxDecoration(
+                        color: c.mutedForeground.withValues(alpha: .55),
+                        borderRadius: .circular(2),
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                Container(
+                  height: 13,
+                  padding: const .symmetric(horizontal: 3),
+                  alignment: AlignmentDirectional.centerEnd,
+                  decoration: BoxDecoration(
+                    color: c.card,
+                    border: Border.all(color: c.border),
+                    borderRadius: .circular(7),
+                  ),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(color: c.primary, shape: BoxShape.circle),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          width: 26,
+          margin: const .fromLTRB(0, 8, 6, 8),
+          padding: const .all(4),
+          decoration: BoxDecoration(
+            color: c.card,
+            border: Border.all(color: c.border),
+            borderRadius: .circular(4),
+          ),
+          child: Column(
+            spacing: 4,
+            children: [
+              for (var n = 0; n < 3; n++)
+                Container(height: 3, color: c.mutedForeground.withValues(alpha: .45)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final label = switch (choice) {
+      .light => 'Light',
+      .dark => 'Dark',
+      .system => 'System',
+    };
+    return Pressable(
+      onPressed: onPressed,
+      selected: selected,
+      semanticLabel: '$label theme',
+      builder: (context, state) => Container(
+        // The ring's border is a point wider: as much less padding inside.
+        padding: selected ? const .fromLTRB(9, 9, 9, 8) : const .fromLTRB(10, 10, 10, 9),
+        decoration: BoxDecoration(
+          color: state.hovered ? c.accent.withValues(alpha: .4) : c.card,
+          borderRadius: .circular(t.radiusLg),
+          border: Border.all(color: selected ? c.ring : c.border, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 9,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  borderRadius: .circular(t.radiusMd),
+                  border: Border.all(color: c.border),
+                ),
+                child: switch (choice) {
+                  .light => _app(light),
+                  .dark => _app(dark),
+                  // Half of each, split down the middle.
+                  .system => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _app(dark),
+                      ClipRect(clipper: const _EndHalf(), child: _app(light)),
+                    ],
+                  ),
+                },
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(label, style: t.text.sm.copyWith(fontWeight: .w500)),
+                ),
+                if (selected)
+                  AshlarIcon(AshlarIconsRoundedStroke.check, size: 14, color: c.foreground),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The end half of what it clips: System's light side.
+class _EndHalf extends CustomClipper<Rect> {
+  const _EndHalf();
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(size.width / 2, 0, size.width / 2, size.height);
+  @override
+  bool shouldReclip(_EndHalf oldClipper) => false;
+}
+
 /// A palette, as T3 Code shows a theme: an orb of its light look and one of
 /// its dark, side by side, and its name; ringed when it is the one in use.
 class _PaletteCard extends StatelessWidget {

@@ -355,9 +355,11 @@ class ShellScreen extends StatelessWidget {
                               child: button!,
                             ),
                             // Showing the sidebar, then back and forward, as
-                            // they sit in the sidebar when it shows.
+                            // they sit in the sidebar when it shows, with room
+                            // between them.
                             child: Row(
                               mainAxisSize: .min,
+                              spacing: titleControlsSpacing,
                               children: [
                                 Tooltip(
                                   message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
@@ -375,7 +377,8 @@ class ShellScreen extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                if (titleArrowsShown(context)) const _BackForward(),
+                                if (titleArrowsShown(context))
+                                  const _BackForward(spacing: titleControlsSpacing),
                               ],
                             ),
                           ),
@@ -1310,7 +1313,10 @@ class _SidebarWidthState extends State<_SidebarWidth> {
 /// Back and forward through where you have been, as a browser's: by these,
 /// by ⌘[ and ⌘], and by a mouse's own back and forward buttons.
 class _BackForward extends StatelessWidget {
-  const _BackForward();
+  const _BackForward({this.spacing = 0});
+
+  /// Room between the two: some over the page, where the sidebar is hidden.
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -1330,6 +1336,7 @@ class _BackForward extends StatelessWidget {
     return ListenableBuilder(
       listenable: history,
       builder: (context, _) => Row(
+        spacing: spacing,
         mainAxisSize: .min,
         children: [
           arrow('Back', '⌘[', AshlarIconsRoundedStroke.arrowLeft, history.canBack, history.back),
