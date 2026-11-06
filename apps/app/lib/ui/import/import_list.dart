@@ -14,8 +14,12 @@ import 'history_import_view_model.dart';
 /// each to bring in or not, as T3 Code's import shows them: recent work
 /// chosen to start with, all or none a press away.
 class ImportList extends StatefulWidget {
-  const ImportList({super.key, required this.vm});
+  const ImportList({super.key, required this.vm, this.action = true});
   final HistoryImportViewModel vm;
+
+  /// Whether it carries its own "Bring in" button; first-run setup puts the
+  /// action in its own footer instead.
+  final bool action;
 
   @override
   State<ImportList> createState() => _ImportListState();
@@ -144,34 +148,35 @@ class _ImportListState extends State<ImportList> {
                 ),
               ),
             ),
-          Padding(
-            padding: const .fromLTRB(16, 10, 16, 14),
-            child: Row(
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: Text(
-                    progress == null
-                        ? 'Each comes in as a chat, and goes on where it left off.'
-                        : 'Bringing in ${progress.$1} of ${progress.$2}...',
-                    style: muted,
+          if (widget.action)
+            Padding(
+              padding: const .fromLTRB(16, 10, 16, 14),
+              child: Row(
+                spacing: 10,
+                children: [
+                  Expanded(
+                    child: Text(
+                      progress == null
+                          ? 'Each comes in as a chat, and goes on where it left off.'
+                          : 'Bringing in ${progress.$1} of ${progress.$2}...',
+                      style: muted,
+                    ),
                   ),
-                ),
-                Button(
-                  size: .sm,
-                  onPressed: progress == null && vm.chosen.isNotEmpty ? _import : null,
-                  leading: progress == null
-                      ? const AshlarIcon(AshlarIconsRoundedStroke.download, size: 14)
-                      : const Spinner(size: 14),
-                  child: Text(
-                    vm.chosenConversations == 0
-                        ? 'Bring in'
-                        : 'Bring in ${vm.chosenConversations} conversation${vm.chosenConversations == 1 ? '' : 's'}',
+                  Button(
+                    size: .sm,
+                    onPressed: progress == null && vm.chosen.isNotEmpty ? _import : null,
+                    leading: progress == null
+                        ? const AshlarIcon(AshlarIconsRoundedStroke.download, size: 14)
+                        : const Spinner(size: 14),
+                    child: Text(
+                      vm.chosenConversations == 0
+                          ? 'Bring in'
+                          : 'Bring in ${vm.chosenConversations} conversation${vm.chosenConversations == 1 ? '' : 's'}',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       );
     },

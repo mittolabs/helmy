@@ -20,7 +20,9 @@ import '../data/services/pull_requests.dart';
 import '../ui/shell/view_models/sidebar_view_model.dart';
 import '../ui/shell/widgets/empty_screen.dart';
 import '../ui/shell/widgets/shell_screen.dart';
-import '../ui/setup/setup_screen.dart';
+import '../ui/import/history_import_view_model.dart';
+import '../ui/onboarding/view_models/onboarding_view_model.dart';
+import '../ui/onboarding/widgets/onboarding_screen.dart';
 
 GoRouter router(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
@@ -52,7 +54,6 @@ GoRouter router(String initialLocation) => GoRouter(
       ),
       routes: [
         GoRoute(path: '/', builder: (context, state) => const EmptyScreen()),
-        GoRoute(path: '/setup', builder: (context, state) => const SetupScreen()),
         GoRoute(
           path: '/scheduled',
           builder: (context, state) => _Kept(
@@ -115,6 +116,23 @@ GoRouter router(String initialLocation) => GoRouter(
           ),
         ),
       ],
+    ),
+    // The first run, the whole window: no sidebar until Helmy is ready.
+    GoRoute(
+      path: '/welcome',
+      builder: (context, state) => _Kept(
+        create: (context) => OnboardingViewModel(
+          setup: context.read(),
+          settings: context.read(),
+          engines: context.read(),
+          import: HistoryImportViewModel(
+            import: context.read(),
+            sessions: context.read(),
+            conversations: context.read(),
+          ),
+        ),
+        builder: (vm) => OnboardingScreen(vm: vm),
+      ),
     ),
     GoRoute(
       path: '/settings',

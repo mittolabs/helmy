@@ -29,8 +29,6 @@ import '../../../data/services/storage_cleanup.dart';
 import '../../../data/services/theme_market.dart';
 import '../../../data/services/desktop_service.dart';
 
-import 'package:go_router/go_router.dart';
-
 import '../../../domain/models/engine.dart';
 import '../../../domain/models/memory.dart';
 import '../../../data/services/chromium/chromium_service.dart';
@@ -67,6 +65,7 @@ import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
 
 part 'pages/add_account.dart';
+part 'pages/add_connection.dart';
 part 'pages/add_agent.dart';
 part 'pages/about.dart';
 part 'pages/appearance.dart';

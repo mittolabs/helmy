@@ -31,7 +31,8 @@ class ConnectionsSetup {
   final CliLocator _locator;
   final DesktopService _desktop;
 
-  static const _names = {
+  /// Each connection's name, and a line on what it does.
+  static const names = {
     'claude': ('Claude Code', 'Works in your folders and connected accounts'),
     'codex': ('Codex', 'Works in your folders; makes and changes pictures'),
     'ollama': ('Ollama', 'A model on this computer: answers when nothing online can'),
@@ -59,8 +60,8 @@ class ConnectionsSetup {
 
   /// Every connection and where it stands.
   Future<List<ConnectionCheck>> check() async => [
-    for (final id in _names.keys)
-      (id: id, name: _names[id]!.$1, does: _names[id]!.$2, state: await _state(id)),
+    for (final id in names.keys)
+      (id: id, name: names[id]!.$1, does: names[id]!.$2, state: await _state(id)),
   ];
 
   Future<SetupState> _state(String id) async {

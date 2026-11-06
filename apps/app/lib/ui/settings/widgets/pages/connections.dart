@@ -151,30 +151,15 @@ class _Connections extends StatelessWidget {
               ],
             ),
           ),
-        for (final a in vm.agents)
+        for (final a in vm.used)
           _ConnectionItem(
             row: a,
             icon: vm.iconOf(a.info.id),
             checked: vm.checked,
             selected: a.info.id == chosen?.info.id,
             onPressed: () => vm.chooseAgent(a.info.id),
-            onEnabled: (on) => vm.setEnabled(a.info.id, on),
           ),
-        Pressable(
-          onPressed: () => context.go('/setup'),
-          semanticLabel: 'Add a connection',
-          builder: (context, state) => Container(
-            padding: const .symmetric(horizontal: 16, vertical: 14),
-            color: state.hovered ? c.accent.withValues(alpha: .5) : null,
-            child: Row(
-              spacing: 10,
-              children: [
-                AshlarIcon(AshlarIconsRoundedStroke.plus, size: 16, color: c.mutedForeground),
-                Flexible(child: Text('Add a connection', style: t.text.sm)),
-              ],
-            ),
-          ),
-        ),
+        _AddConnection(vm: vm),
       ],
     );
     final detail = chosen == null
@@ -227,14 +212,40 @@ class _Connections extends StatelessWidget {
   }
 }
 
-/// One connection in the list: its name, how it is, and whether it is used.
+/// The list's last row: adding a connection, in a dialog over Settings.
+class _AddConnection extends StatelessWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Pressable(
+      onPressed: () => addConnection(context, vm),
+      semanticLabel: 'Add a connection',
+      builder: (context, state) => Container(
+        padding: const .symmetric(horizontal: 16, vertical: 14),
+        color: state.hovered ? c.accent.withValues(alpha: .5) : null,
+        child: Row(
+          spacing: 10,
+          children: [
+            AshlarIcon(AshlarIconsRoundedStroke.plus, size: 16, color: c.mutedForeground),
+            Flexible(child: Text('Add a connection', style: t.text.sm)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One connection in the list: its name and how it is.
 class _ConnectionItem extends StatelessWidget {
   const new({
     required this.row,
     required this.checked,
     required this.selected,
     required this.onPressed,
-    required this.onEnabled,
     this.icon,
   });
   final AgentRow row;
@@ -243,7 +254,6 @@ class _ConnectionItem extends StatelessWidget {
   final String? icon;
   final bool checked, selected;
   final VoidCallback onPressed;
-  final ValueChanged<bool> onEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +297,6 @@ class _ConnectionItem extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(value: row.enabled, semanticLabel: 'Use ${row.info.name}', onChanged: onEnabled),
           ],
         ),
       ),
@@ -351,14 +360,27 @@ class _AgentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // A problem says its fix where it shows.
+              // A problem says its fix where it shows, and the fix runs here.
               if (row.problem != null)
-                Button(
-                  variant: .outline,
-                  size: .sm,
-                  onPressed: () => context.go('/setup'),
-                  child: const Text('Fix in setup'),
-                ),
+                if (vm.fixFor(row.info.id) case final fix?)
+                  Button(
+                    variant: .outline,
+                    size: .sm,
+                    onPressed: vm.working != null
+                        ? null
+                        : () async {
+                            final why = await vm.fixConnection(row.info.id);
+                            if (!context.mounted || why == null) return;
+                            showToast(
+                              context,
+                              title: "${row.info.name} isn't ready",
+                              description: why,
+                              type: .error,
+                            );
+                          },
+                    leading: vm.working == row.info.id ? const Spinner(size: 14) : null,
+                    child: Text(fix),
+                  ),
             ],
           ),
           if (ConnectionsSetup.kindOf(row.info.id) case final kind?) ...[
@@ -399,8 +421,8 @@ class _AgentCard extends StatelessWidget {
                   : 'Connected: ${[for (final c in connections) c.label].join(', ')}',
               style: muted,
             ),
-          // An agent added: what it is set best at, and a way to remove it.
-          if (row.info.assignedOnly) ...[
+          // An agent added from the registry: what it is set best at.
+          if (row.info.assignedOnly)
             Text(switch ([
               for (final k in WorkKind.values)
                 if (vm.settings.bestFor(k) == row.info.id) k.label,
@@ -408,39 +430,15 @@ class _AgentCard extends StatelessWidget {
               [] => 'Answers nothing yet: set what it is best at under Advanced.',
               final kinds => 'Answers: ${kinds.join(', ')}.',
             }, style: muted),
-            Padding(
-              padding: const .only(top: 6),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Button(
-                  variant: .ghost,
-                  size: .sm,
-                  onPressed: () async {
-                    final sure = await confirm(
-                      context,
-                      title: 'Remove ${row.info.name}?',
-                      body: vm.madeByHelmy(row.info.id)
-                          ? 'Helmy stops using it, and the copy Helmy installed goes.'
-                          : 'Helmy stops using it. The program itself stays.',
-                      action: 'Remove',
-                      destructive: true,
-                    );
-                    if (sure) await vm.removeAccount(row.info.id);
-                  },
-                  child: const Text('Remove from Helmy'),
-                ),
-              ),
-            ),
-          ],
-          // More accounts, more room: each has its own limits, and Helmy
-          // moves between them as one runs low.
-          if (SettingsViewModel.kindOf(row.info.id) case final kind?)
-            Padding(
-              padding: const .only(top: 6),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
+          Padding(
+            padding: const .only(top: 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // More accounts, more room: each has its own limits, and
+                // Helmy moves between them as one runs low.
+                if (SettingsViewModel.kindOf(row.info.id) case final kind?)
                   Button(
                     variant: .outline,
                     size: .sm,
@@ -448,28 +446,38 @@ class _AgentCard extends StatelessWidget {
                     leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
                     child: const Text('Add an account'),
                   ),
-                  if (vm.canRemove(row.info.id))
-                    Button(
-                      variant: .ghost,
-                      size: .sm,
-                      onPressed: () async {
-                        final sure = await confirm(
-                          context,
-                          title: 'Remove ${row.info.name}?',
-                          body: vm.madeByHelmy(row.info.id)
-                              ? 'Helmy stops using it, and its sign-in on this Mac goes. '
-                                    'The account itself is not touched.'
-                              : 'Helmy stops using it. Its folder and sign-in stay as they are.',
-                          action: 'Remove',
-                          destructive: true,
-                        );
-                        if (sure) await vm.removeAccount(row.info.id);
-                      },
-                      child: const Text('Remove from Helmy'),
-                    ),
-                ],
-              ),
+                Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: () async {
+                    final registry = row.info.assignedOnly;
+                    final ours = vm.canRemove(row.info.id) || vm.madeByHelmy(row.info.id);
+                    final group = vm.groupOf(row.info.id);
+                    final sure = await confirm(
+                      context,
+                      title: 'Remove ${group.length > 1 ? 'Ollama' : row.info.name}?',
+                      body: registry
+                          ? (vm.madeByHelmy(row.info.id)
+                                ? 'Helmy stops using it, and the copy Helmy installed goes.'
+                                : 'Helmy stops using it. The program itself stays.')
+                          : ours
+                          ? 'Its sign-in on this Mac goes, and Helmy stops using it. '
+                                'The account itself is not touched.'
+                          : 'Helmy stops using it. It stays installed and signed in on this '
+                                'Mac, and you can add it back from "Add a connection".',
+                      action: 'Remove',
+                      destructive: true,
+                    );
+                    if (!sure) return;
+                    await (registry
+                        ? vm.removeAccount(row.info.id)
+                        : vm.removeConnection(row.info.id));
+                  },
+                  child: const Text('Remove from Helmy'),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

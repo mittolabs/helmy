@@ -88,6 +88,16 @@ class DesktopService {
     }
   }
 
+  /// The first run's window, small and of one size, when [on]; the usual
+  /// one, resizable, when not. Static: it is set before the app runs.
+  static Future<void> compactWindow(bool on) async {
+    try {
+      await _channel.invokeMethod<void>('compactWindow', {'on': on});
+    } on Object {
+      // No runner, as in tests, or not macOS: the window stays as it is.
+    }
+  }
+
   /// Whether closing the window hides it (sessions keep working) or quits.
   Future<void> setKeepRunning(bool on) async {
     try {
