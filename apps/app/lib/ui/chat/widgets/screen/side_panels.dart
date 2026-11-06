@@ -298,45 +298,54 @@ class _Panel extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: SingleChildScrollView(
                       scrollDirection: .horizontal,
-                      child: Row(
-                        spacing: 2,
-                        children: [
-                          for (final tab in vm.tabs)
-                            _TabChip(
-                              label: _label(tab),
-                              // An action's: running, finished, or stopped by an error.
-                              icon: switch (tab) {
-                                PanelTab(action: _?, exitCode: null) =>
-                                  AshlarIconsRoundedStroke.play,
-                                PanelTab(action: _?, exitCode: 0) =>
-                                  AshlarIconsRoundedStroke.circleCheck,
-                                PanelTab(action: _?) => AshlarIconsRoundedStroke.circleAlert,
-                                _ => _kindOf(tab.kind).$2,
-                              },
-                              failed: tab.action != null && (tab.exitCode ?? 0) != 0,
-                              image: tab.kind == .preview ? tab.icon : null,
-                              on: tab == active,
-                              onPressed: () => vm.focus(tab),
-                              onClose: () => vm.closeTab(tab),
-                            ),
-                          DropdownMenu(
-                            items: [
-                              for (final kind in vm.addable)
-                                MenuItem(
-                                  leading: AshlarIcon(_kindOf(kind).$2, size: 16),
-                                  // Several pages and terminals; one of each other kind.
-                                  onPressed: () => switch (kind) {
-                                    .preview || .terminal => vm.add(kind),
-                                    .side => unawaited(vm.sideChat()),
-                                    _ => vm.show(kind),
+                      // The tabs are dragged, not the window, from here.
+                      child: NoWindowDrag(
+                        child: Row(
+                          key: vm.stripKey,
+                          spacing: 2,
+                          children: [
+                            for (final tab in vm.tabs)
+                              _DraggableTab(
+                                vm: vm,
+                                tab: tab,
+                                label: _label(tab),
+                                child: _TabChip(
+                                  label: _label(tab),
+                                  // An action's: running, finished, or stopped by an error.
+                                  icon: switch (tab) {
+                                    PanelTab(action: _?, exitCode: null) =>
+                                      AshlarIconsRoundedStroke.play,
+                                    PanelTab(action: _?, exitCode: 0) =>
+                                      AshlarIconsRoundedStroke.circleCheck,
+                                    PanelTab(action: _?) => AshlarIconsRoundedStroke.circleAlert,
+                                    _ => _kindOf(tab.kind).$2,
                                   },
-                                  child: Text(_kindOf(kind).$1),
+                                  failed: tab.action != null && (tab.exitCode ?? 0) != 0,
+                                  image: tab.kind == .preview ? tab.icon : null,
+                                  on: tab == active,
+                                  onPressed: () => vm.focus(tab),
+                                  onClose: () => vm.closeTab(tab),
                                 ),
-                            ],
-                            builder: (context, menu) =>
-                                tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
-                          ),
-                        ],
+                              ),
+                            DropdownMenu(
+                              items: [
+                                for (final kind in vm.addable)
+                                  MenuItem(
+                                    leading: AshlarIcon(_kindOf(kind).$2, size: 16),
+                                    // Several pages and terminals; one of each other kind.
+                                    onPressed: () => switch (kind) {
+                                      .preview || .terminal => vm.add(kind),
+                                      .side => unawaited(vm.sideChat()),
+                                      _ => vm.show(kind),
+                                    },
+                                    child: Text(_kindOf(kind).$1),
+                                  ),
+                              ],
+                              builder: (context, menu) =>
+                                  tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -413,6 +422,56 @@ class _InWindow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A tab chip that can be dragged out of the strip: let go off it (anywhere
+/// else in Helmy, or outside its window), the tab moves into a window of its
+/// own, where it was let go.
+class _DraggableTab extends StatelessWidget {
+  const _DraggableTab({
+    required this.vm,
+    required this.tab,
+    required this.label,
+    required this.child,
+  });
+  final ChatViewModel vm;
+  final PanelTab tab;
+  final String label;
+  final Widget child;
+
+  /// Let go on the strip (with some slack): a tab only nudged stays.
+  bool _onStrip(Offset at) {
+    final box = vm.stripKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return false;
+    final strip = box.localToGlobal(Offset.zero) & box.size;
+    return strip.inflate(24).contains(at);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Draggable<PanelTab>(
+      data: tab,
+      // Out of the strip only once it has moved a little: a click stays a click.
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Container(
+        padding: const .symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: c.popover,
+          border: Border.all(color: c.border),
+          borderRadius: .circular(t.radiusMd),
+        ),
+        child: Text(label, style: t.text.sm.copyWith(color: c.foreground)),
+      ),
+      childWhenDragging: Opacity(opacity: .4, child: child),
+      onDragEnd: (d) {
+        if (d.wasAccepted || tab.windowed || _onStrip(d.offset)) return;
+        context.read<HelmyWindows>().moveOut(vm, tab, atPointer: true);
+      },
+      child: child,
     );
   }
 }

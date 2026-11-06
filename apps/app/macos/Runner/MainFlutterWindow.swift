@@ -36,13 +36,74 @@ enum HelmyWindow {
 
   /// The Flutter view a window Flutter made draws in.
   static func flutterView(in window: NSWindow) -> NSView? {
+    controller(in: window)?.view
+  }
+
+  /// The Flutter view controller a window Flutter made draws with.
+  static func controller(in window: NSWindow) -> FlutterViewController? {
     func find(_ vc: NSViewController?) -> FlutterViewController? {
       guard let vc else { return nil }
       if let f = vc as? FlutterViewController { return f }
       for c in vc.children { if let f = find(c) { return f } }
       return nil
     }
-    return find(window.contentViewController)?.view
+    return find(window.contentViewController)
+  }
+
+  /// The window drawing Flutter's view [id].
+  static func window(ofView id: Int64) -> NSWindow? {
+    NSApp.windows.first { controller(in: $0).map { Int64($0.viewIdentifier) } == id }
+  }
+
+  // Controls in a window's title strip (the panel's tabs) that are dragged
+  // themselves: the window server moves a window by its title strip before
+  // the app sees the press, from the regions its views say can move it, so
+  // each such control gets a view over it that says it cannot. Clicks go
+  // through it to Flutter's view beneath. By window number, then id.
+  private static var noDragViews: [Int: [String: NoDragView]] = [:]
+
+  /// Control [id] in Flutter's view [view] at [rect] (Flutter's coordinates,
+  /// top-left origin); nil: gone.
+  static func setNoDrag(view: Int64, id: String, rect: NSRect?) {
+    guard let w = window(ofView: view), let host = flutterView(in: w) else { return }
+    var views = noDragViews[w.windowNumber, default: [:]]
+    guard let rect else {
+      views.removeValue(forKey: id)?.removeFromSuperview()
+      noDragViews[w.windowNumber] = views
+      return
+    }
+    let frame = NSRect(
+      x: rect.minX, y: host.isFlipped ? rect.minY : host.bounds.height - rect.maxY,
+      width: rect.width, height: rect.height)
+    if let v = views[id] {
+      v.frame = frame
+    } else {
+      let v = NoDragView(frame: frame)
+      host.addSubview(v)
+      views[id] = v
+    }
+    noDragViews[w.windowNumber] = views
+  }
+
+  /// A tab's window, once Flutter has made it: a window like any other on a
+  /// Mac (full screen, Split View, tiling at a screen's edges, Stage
+  /// Manager), and, dragged out, where it was let go.
+  static func tabWindowReady(title: String, atPointer: Bool) -> Bool {
+    guard let w = NSApp.windows.last(where: { $0.title == title }) else { return false }
+    w.collectionBehavior.insert([.managed, .fullScreenPrimary, .fullScreenAllowsTiling])
+    w.styleMask.insert([.resizable, .miniaturizable, .closable])
+    if atPointer {
+      let p = NSEvent.mouseLocation
+      var origin = NSPoint(x: p.x - 80, y: p.y - w.frame.height + 14)
+      if let screen = NSScreen.screens.first(where: { NSMouseInRect(p, $0.frame, false) }) {
+        let f = screen.visibleFrame
+        origin.x = min(max(origin.x, f.minX), f.maxX - w.frame.width)
+        origin.y = min(max(origin.y, f.minY), f.maxY - w.frame.height)
+      }
+      w.setFrameOrigin(origin)
+    }
+    w.makeKeyAndOrderFront(nil)
+    return true
   }
 
   static func adopt(_ w: NSWindow, messenger: FlutterBinaryMessenger) {
@@ -157,6 +218,7 @@ final class HelmyDropTarget: NSView {
 
   /// Clicks and the rest go to Flutter's view beneath: only drags stop here.
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let map = call.arguments as? NSDictionary,
@@ -513,6 +575,22 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         // The close button, with keep-running on.
         HelmyWindow.hide()
         result(nil)
+      case "tabWindowReady":
+        result(HelmyWindow.tabWindowReady(
+          title: args["title"] as? String ?? "", atPointer: args["atPointer"] as? Bool ?? false))
+      case "noDrag":
+        let r = args["rect"] as? [Double]
+        HelmyWindow.setNoDrag(
+          view: (args["view"] as? NSNumber)?.int64Value ?? -1, id: args["id"] as? String ?? "",
+          rect: r.map { NSRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) })
+        result(nil)
+      case "pointerOverMain":
+        // A tab's window dragged back: whether the pointer is over the main
+        // window, showing and not hidden by another of Helmy's in front.
+        guard let main = HelmyWindow.main, main.isVisible, !main.isMiniaturized else { return result(false) }
+        let p = NSEvent.mouseLocation
+        let number = NSWindow.windowNumber(at: p, belowWindowWithWindowNumber: 0)
+        result(NSMouseInRect(p, main.frame, false) && (number == main.windowNumber || number == 0))
       case "notificationsAllowed":
         // Whether macOS lets Helmy notify: false only when the user said no
         // (not before it was ever asked).
@@ -1550,4 +1628,39 @@ final class ShareMark {
     hide()
     onStop?()
   }
+}
+
+/// Over a control in a window's title strip that is dragged itself: the press
+/// lands here, so the window is not moved from it (it says it cannot be), and
+/// the press, drag and release go on to Flutter's view beneath, as do clicks.
+final class NoDragView: NSView {
+  override var mouseDownCanMoveWindow: Bool { false }
+
+  // The window server moves a window by its title strip before any view
+  // sees the press, from whether the window is movable then: so it is made
+  // unmovable while the pointer is over a control here, before any press.
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    trackingAreas.forEach(removeTrackingArea)
+    addTrackingArea(NSTrackingArea(
+      rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: self, userInfo: nil))
+  }
+  override func mouseEntered(with event: NSEvent) { window?.isMovable = false }
+  override func mouseExited(with event: NSEvent) {
+    // Mid-drag (a tab leaving the strip), movable again once let go.
+    if NSEvent.pressedMouseButtons & 1 == 0 { window?.isMovable = true }
+  }
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+  private var flutter: NSView? { superview }
+  override func mouseDown(with event: NSEvent) { flutter?.mouseDown(with: event) }
+  override func mouseDragged(with event: NSEvent) { flutter?.mouseDragged(with: event) }
+  override func mouseUp(with event: NSEvent) {
+    flutter?.mouseUp(with: event)
+    if !NSMouseInRect(convert(event.locationInWindow, from: nil), bounds, isFlipped) { window?.isMovable = true }
+  }
+  override func mouseMoved(with event: NSEvent) { flutter?.mouseMoved(with: event) }
+  override func rightMouseDown(with event: NSEvent) { flutter?.rightMouseDown(with: event) }
+  override func rightMouseUp(with event: NSEvent) { flutter?.rightMouseUp(with: event) }
+  override func scrollWheel(with event: NSEvent) { flutter?.scrollWheel(with: event) }
 }

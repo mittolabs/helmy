@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/repositories/settings_repository.dart';
+import '../../data/services/desktop_service.dart';
 import '../../utils/platform.dart';
 
 /// Below this window width the sidebar stops sitting beside the page: it is
@@ -94,4 +97,46 @@ class _TitleBarState extends State<TitleBar> {
       widget.child,
     ],
   );
+}
+
+/// Controls in a window's title strip whose drags are Flutter's (the panel's
+/// tabs, dragged out into a window of their own): where [child] is, told to
+/// the runner after each layout, so a press on it does not move the window.
+class NoWindowDrag extends StatefulWidget {
+  const NoWindowDrag({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<NoWindowDrag> createState() => _NoWindowDragState();
+}
+
+class _NoWindowDragState extends State<NoWindowDrag> {
+  static var _next = 0;
+  final _id = 'no-drag-${_next++}';
+  Rect? _told;
+  int? _view;
+
+  void _tell() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    final view = View.of(context).viewId;
+    if (rect == _told && view == _view) return;
+    _told = rect;
+    _view = view;
+    unawaited(DesktopService.noWindowDrag(view, _id, rect));
+  }
+
+  @override
+  void dispose() {
+    if (_view case final view?) unawaited(DesktopService.noWindowDrag(view, _id, null));
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tell());
+    return widget.child;
+  }
 }

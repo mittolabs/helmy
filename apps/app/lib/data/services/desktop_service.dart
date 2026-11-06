@@ -111,6 +111,41 @@ class DesktopService {
     }
   }
 
+  /// A tab's window titled [title], once made: full screen, Split View and
+  /// tiling as any Mac window, and placed where the pointer is when it was
+  /// [atPointer] (a tab dragged out).
+  static Future<void> tabWindowReady(String title, {required bool atPointer}) async {
+    try {
+      await _channel.invokeMethod<bool>('tabWindowReady', {'title': title, 'atPointer': atPointer});
+    } on Object {
+      // No runner, as in tests.
+    }
+  }
+
+  /// A control [id] in the title strip of Flutter's view [view], at [rect]
+  /// (null: gone): a drag from it is Flutter's, not the window's.
+  static Future<void> noWindowDrag(int view, String id, Rect? rect) async {
+    try {
+      await _channel.invokeMethod<void>('noDrag', {
+        'view': view,
+        'id': id,
+        'rect': rect == null ? null : [rect.left, rect.top, rect.width, rect.height],
+      });
+    } on Object {
+      // No runner, as in tests.
+    }
+  }
+
+  /// Whether the pointer is over the main window now: a tab's window
+  /// dragged back onto it.
+  static Future<bool> pointerOverMain() async {
+    try {
+      return await _channel.invokeMethod<bool>('pointerOverMain') ?? false;
+    } on Object {
+      return false;
+    }
+  }
+
   /// Whether closing the window hides it (sessions keep working) or quits.
   Future<void> setKeepRunning(bool on) async {
     keepRunning = on;

@@ -73,8 +73,10 @@ Future<void> main() async {
   final windows = HelmyWindows();
   // HELMY_TAB_WINDOW moves a tab of that kind (terminal, preview, files...)
   // into a window of its own, for looking at one while developing.
-  if (SidePanel.values.asNameMap()[Platform.environment['HELMY_TAB_WINDOW']] case final kind?) {
-    unawaited(windows.moveOutForLook(kind));
+  // With ":panel", the tab only shows in the panel (to drag out by hand).
+  final look = (Platform.environment['HELMY_TAB_WINDOW'] ?? '').split(':');
+  if (SidePanel.values.asNameMap()[look.first] case final kind?) {
+    unawaited(windows.moveOutForLook(kind, stay: look.length > 1 && look[1] == 'panel'));
   }
   runWidget(
     MultiProvider(

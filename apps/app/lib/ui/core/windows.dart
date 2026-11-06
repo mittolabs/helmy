@@ -16,6 +16,7 @@ import '../chat/widgets/chat_screen.dart' show panelTabBody, panelTabLabel;
 import 'ashlar/app.dart';
 import 'ashlar/button.dart';
 import 'ashlar/theme.dart';
+import 'ashlar/tooltip.dart';
 import 'helmy_look.dart';
 
 /// Helmy's windows, all drawn by one engine with Flutter's windowing: the
@@ -88,7 +89,7 @@ class HelmyWindows extends ChangeNotifier {
 
   /// Moves [tab] of [vm]'s panel into a window of its own, beside the main
   /// one, titled with the tab and its chat.
-  void moveOut(ChatViewModel vm, PanelTab tab) {
+  void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false}) {
     if (tab.windowed) return show(tab);
     final key = _keyOf(vm);
     if (key != null) holdChat(key, () => vm);
@@ -100,6 +101,14 @@ class HelmyWindows extends ChangeNotifier {
     );
     tab.windowed = true;
     tabs.add(w);
+    // Once the window is made: a Mac window like any (full screen, Split
+    // View, tiling), and, dragged out, where it was let go.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => Future<void>.delayed(
+        const Duration(milliseconds: 60),
+        () => DesktopService.tabWindowReady(w.title, atPointer: atPointer),
+      ),
+    );
     // The panel shows the next tab, or where this one went.
     vm.panelChanged();
     notifyListeners();
@@ -108,11 +117,12 @@ class HelmyWindows extends ChangeNotifier {
   /// For looking while developing (HELMY_TAB_WINDOW): in the chat on
   /// screen, a tab of [kind] shown in the panel, then moved into a window of
   /// its own a few seconds later, as a person would.
-  Future<void> moveOutForLook(SidePanel kind) async {
+  Future<void> moveOutForLook(SidePanel kind, {bool stay = false}) async {
     await Future<void>.delayed(const Duration(seconds: 3));
     final vm = _chats.values.firstOrNull?.vm;
     if (vm == null) return;
     final tab = vm.show(kind);
+    if (stay) return;
     await Future<void>.delayed(const Duration(seconds: 5));
     moveOut(vm, tab);
   }
@@ -233,6 +243,19 @@ class _TabWindowApp extends StatelessWidget {
                   child: Row(
                     spacing: 8,
                     children: [
+                      // Its grip: dragged back over Helmy's window, the tab
+                      // goes home to its chat's panel.
+                      Draggable<PanelTab>(
+                        data: window.tab,
+                        feedback: _Grip(label: window.title, lifted: true),
+                        childWhenDragging: const _Grip(label: ''),
+                        onDragEnd: (_) async {
+                          if (await DesktopService.pointerOverMain() && context.mounted) {
+                            context.read<HelmyWindows>().putBack(window.tab);
+                          }
+                        },
+                        child: const _Grip(label: ''),
+                      ),
                       Expanded(
                         child: Text(
                           window.title,
@@ -257,6 +280,44 @@ class _TabWindowApp extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// What a tab's window is dragged back by: its handle, and while dragging,
+/// the tab's name riding with the pointer.
+class _Grip extends StatelessWidget {
+  const _Grip({required this.label, this.lifted = false});
+  final String label;
+  final bool lifted;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final handle = Tooltip(
+      message: 'Drag onto Helmy to put it back',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: Padding(
+          padding: const .all(4),
+          child: AshlarIcon(
+            AshlarIconsRoundedStroke.gripVertical,
+            size: 16,
+            color: c.mutedForeground,
+          ),
+        ),
+      ),
+    );
+    if (!lifted) return handle;
+    return Container(
+      padding: const .symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: c.popover,
+        border: Border.all(color: c.border),
+        borderRadius: .circular(t.radiusMd),
+      ),
+      child: Text(label, style: t.text.sm.copyWith(color: c.foreground)),
     );
   }
 }

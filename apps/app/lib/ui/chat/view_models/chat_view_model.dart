@@ -800,6 +800,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// own: its screen, marks and logs go with it.
   final deviceKey = GlobalKey();
 
+  /// The panel's row of tabs, for telling a tab dropped off it (out into a
+  /// window of its own) from one let go on it.
+  final stripKey = GlobalKey();
+
   /// Where its top left sits, as last dragged; null until then (top right).
   Offset? deviceFloatAt;
 
