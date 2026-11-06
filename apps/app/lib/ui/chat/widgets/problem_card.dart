@@ -134,7 +134,7 @@ Future<void> runFix(
     case .retry:
       await vm.retry();
     case .setup:
-      context.go('/setup');
+      context.go('/settings?section=agents');
     case .wait:
       break;
     case .signIn || .startLocal:

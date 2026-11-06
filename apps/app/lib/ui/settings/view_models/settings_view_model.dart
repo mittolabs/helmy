@@ -209,6 +209,140 @@ class SettingsViewModel extends ChangeNotifier {
     checked = true;
     notifyListeners();
     unawaited(checkVersions());
+    unawaited(checkSetup());
+  }
+
+  // Adding, fixing and removing connections, here rather than in a setup
+  // page of their own.
+
+  /// Where each kind stands ('claude', 'codex', 'ollama'): installed,
+  /// signed in, running. Absent until checked.
+  final setupStates = <String, SetupState>{};
+
+  Future<void> checkSetup() async {
+    final s = setup;
+    if (s == null) return;
+    for (final c in await s.check()) {
+      setupStates[c.id] = c.state;
+    }
+    notifyListeners();
+  }
+
+  /// The connection being added or fixed now: a kind, or an engine id.
+  String? working;
+
+  /// The engines that are one connection to add or remove: both of Ollama's,
+  /// or the one account.
+  List<String> groupOf(String engineId) => ConnectionsSetup.kindOf(engineId) == 'ollama'
+      ? [
+          for (final e in _engines.engines)
+            if (ConnectionsSetup.kindOf(e.info.id) == 'ollama') e.info.id,
+        ]
+      : [engineId];
+
+  /// The connections Helmy uses, in the list's order.
+  List<AgentRow> get used => [
+    for (final a in agents)
+      if (a.enabled) a,
+  ];
+
+  /// Connections that were removed, to add back: one entry per group, by
+  /// the id of its first engine and the name to show.
+  List<({String id, String name})> get addable {
+    final out = <({String id, String name})>[];
+    final seen = <String>{};
+    for (final a in agents) {
+      if (a.enabled) continue;
+      final group = groupOf(a.info.id);
+      if (!seen.add(group.first)) continue;
+      out.add((
+        id: a.info.id,
+        name: ConnectionsSetup.kindOf(a.info.id) == 'ollama' ? 'Ollama' : a.info.name,
+      ));
+    }
+    return out;
+  }
+
+  /// Brings [kind] to ready on this Mac: installs it if it is missing, then
+  /// signs it in (or, for Ollama, starts it). Null when it is ready, else
+  /// what stopped it, in Helmy's words.
+  Future<String?> _ready(String kind) async {
+    final s = setup;
+    if (s == null) return "Helmy can't set connections up here.";
+    await checkSetup();
+    if (setupStates[kind] == .missing) {
+      if (!await s.install(kind)) {
+        return "It didn't install from here. Its install page is open in your browser.";
+      }
+      await checkSetup();
+    }
+    if (setupStates[kind] == .signedOut) {
+      if (!await s.signIn(kind)) {
+        return kind == 'ollama'
+            ? "Ollama didn't start. Open it, then try again."
+            : "Sign-in in the browser didn't finish. Try again when ready.";
+      }
+      await checkSetup();
+    }
+    return setupStates[kind] == .ready ? null : "It isn't ready yet. Try again in a moment.";
+  }
+
+  /// Adds back connection [engineId] (and the rest of its group), made ready
+  /// first. Null when it was added, else why not.
+  Future<String?> addConnection(String engineId) async {
+    if (working != null) return null;
+    working = engineId;
+    notifyListeners();
+    final kind = ConnectionsSetup.kindOf(engineId);
+    // Another account of a kind is ready when its own sign-in is; only the
+    // usual one is checked and fixed here.
+    final why = kind == null || engineId.contains('-') && kind != 'ollama'
+        ? null
+        : await _ready(kind);
+    if (why == null) {
+      final off = {...settings.disabledEngines}..removeAll(groupOf(engineId));
+      await update(settings.copyWith(disabledEngines: off));
+      chosenAgent = engineId;
+      await _checkEngines();
+    }
+    working = null;
+    notifyListeners();
+    return why;
+  }
+
+  /// What fixes [engineId]'s problem where it shows: 'Install', 'Sign in' or
+  /// 'Start'; null when setup has nothing to fix.
+  String? fixFor(String engineId) {
+    final kind = ConnectionsSetup.kindOf(engineId);
+    if (kind == null || engineId.contains('-') && kind != 'ollama') return null;
+    return switch (setupStates[kind]) {
+      .missing => 'Install',
+      .signedOut => kind == 'ollama' ? 'Start' : 'Sign in',
+      _ => null,
+    };
+  }
+
+  /// Fixes [engineId] in place. Null when it worked, else why not.
+  Future<String?> fixConnection(String engineId) async {
+    final kind = ConnectionsSetup.kindOf(engineId);
+    if (kind == null || working != null) return null;
+    working = engineId;
+    notifyListeners();
+    final why = await _ready(kind);
+    await _checkEngines();
+    working = null;
+    notifyListeners();
+    return why;
+  }
+
+  /// Removes [engineId] from Helmy. An account Helmy added goes with its
+  /// sign-in; any other stays installed and signed in on this Mac, so the
+  /// tool still works outside Helmy, and can be added back.
+  Future<void> removeConnection(String engineId) async {
+    if (canRemove(engineId)) return removeAccount(engineId);
+    final off = {...settings.disabledEngines, ...groupOf(engineId)};
+    if (chosenAgent == engineId) chosenAgent = null;
+    await update(settings.copyWith(disabledEngines: off));
   }
 
   // Versions: what is installed of each connection, and whether its maker
@@ -295,19 +429,13 @@ class SettingsViewModel extends ChangeNotifier {
   String? chosenAgent;
 
   AgentRow? get chosen {
-    final all = agents;
+    final all = used;
     return all.where((a) => a.info.id == chosenAgent).firstOrNull ?? all.firstOrNull;
   }
 
   void chooseAgent(String engineId) {
     chosenAgent = engineId;
     notifyListeners();
-  }
-
-  Future<void> setEnabled(String engineId, bool on) {
-    final off = {...settings.disabledEngines};
-    on ? off.remove(engineId) : off.add(engineId);
-    return update(settings.copyWith(disabledEngines: off));
   }
 
   // Skills and tools: what each engine can run, and the servers it reaches.

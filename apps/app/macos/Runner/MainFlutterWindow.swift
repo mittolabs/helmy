@@ -79,6 +79,23 @@ class MainFlutterWindow: NSWindow {
   override func close() {
     if AppDelegate.keepRunning && !AppDelegate.quitting { orderOut(nil) } else { super.close() }
   }
+
+  /// On: the first run's window, small and of one size, no full screen. Off:
+  /// the usual window, resizable, at its usual size.
+  func setCompact(_ on: Bool) {
+    if on {
+      styleMask.remove(.resizable)
+      collectionBehavior.remove(.fullScreenPrimary)
+      collectionBehavior.insert(.fullScreenNone)
+    } else {
+      styleMask.insert(.resizable)
+      collectionBehavior.remove(.fullScreenNone)
+      collectionBehavior.insert(.fullScreenPrimary)
+    }
+    standardWindowButton(.zoomButton)?.isEnabled = !on
+    setContentSize(on ? NSSize(width: 620, height: 700) : NSSize(width: 1200, height: 800))
+    center()
+  }
 }
 
 
@@ -324,6 +341,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
       case "keepRunning":
         AppDelegate.keepRunning = args["on"] as? Bool ?? true
+        result(nil)
+      case "compactWindow":
+        // The first run: a small window of one size; after it, the usual one.
+        let window = NSApp.windows.first { $0 is MainFlutterWindow } as? MainFlutterWindow
+        window?.setCompact(args["on"] as? Bool ?? false)
         result(nil)
       case "notificationsAllowed":
         // Whether macOS lets Helmy notify: false only when the user said no

@@ -18,8 +18,6 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
 import '../../../data/services/window_snapshots.dart';
 
-import 'package:go_router/go_router.dart';
-
 import '../../../domain/models/engine.dart';
 import '../../../domain/models/memory.dart';
 import '../../../data/services/chromium/chromium_service.dart';
@@ -28,6 +26,7 @@ import '../../../utils/format.dart';
 import '../../core/ashlar/app_theme.dart';
 import '../../../routing/settings_route.dart';
 import '../../core/ashlar/button.dart';
+import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/kbd.dart';
 import '../../core/ashlar/pressable.dart';

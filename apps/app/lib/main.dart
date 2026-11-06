@@ -51,20 +51,22 @@ Future<void> main() async {
   if (Platform.environment['HELMY_FLOAT'] case final video?) {
     WidgetsBinding.instance.addPostFrameCallback((_) => FloatingPlayers.openForLook(video));
   }
+  // HELMY_OPEN picks the first page, for looking at one while developing.
+  // First run: onboarding, straight after the splash.
+  final first =
+      Platform.environment['HELMY_OPEN'] ??
+      (!loaded.settings.settings.setupDone
+          ? '/welcome'
+          : last == null
+          ? '/'
+          : '/s/${last.id}');
+  // Onboarding has a small window of one size, set while the window is still
+  // hidden behind the splash.
+  if (first == '/welcome') await DesktopService.compactWindow(true);
   runApp(
     MultiProvider(
       providers: providers(loaded),
-      // HELMY_OPEN picks the first page, for looking at one while developing.
-      child: HelmyApp(
-        // First run: setup first.
-        initialLocation:
-            Platform.environment['HELMY_OPEN'] ??
-            (!loaded.settings.settings.setupDone
-                ? '/setup'
-                : last == null
-                ? '/'
-                : '/s/${last.id}'),
-      ),
+      child: HelmyApp(initialLocation: first),
     ),
   );
 }

@@ -19,8 +19,8 @@ Settings the way you add an account. After that they never show.
 - Which connection answers a message is Helmy's choice, made per message
   (capability, then measured headroom, then the model on this Mac), and is
   never shown.
-- Settings is the one place they appear, as connections to add, check and
-  turn off.
+- Settings (and the first-run onboarding) are the only places they appear,
+  as connections to add, check and remove.
 
 When a change would let one of them show through, it is a bug.
 
