@@ -327,8 +327,9 @@ class _Panel extends StatelessWidget {
                 tool(
                   expanded ? 'Back beside the conversation' : 'Expand',
                   expanded
-                      ? AshlarIconsRoundedStroke.arrowsMinimize
-                      : AshlarIconsRoundedStroke.arrowsMaximize,
+                      // Two diagonal arrows, out and in, as expanding reads.
+                      ? AshlarIconsRoundedStroke.minimize2
+                      : AshlarIconsRoundedStroke.maximize2,
                   vm.toggleExpanded,
                 ),
                 tool('Hide the panel', AshlarIconsRoundedStroke.x, vm.closePanel),

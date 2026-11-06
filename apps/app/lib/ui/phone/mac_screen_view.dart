@@ -289,7 +289,7 @@ class _MacScreenViewState extends State<MacScreenView> {
                     setState(() => _keyboard = !_keyboard);
                     _keyboard ? _typing.requestFocus() : _typing.unfocus();
                   }, on: _keyboard),
-                  round(AshlarIconsRoundedStroke.arrowsMinimize, 'Leave full screen', () {
+                  round(AshlarIconsRoundedStroke.minimize2, 'Leave full screen', () {
                     _setFull(false);
                   }),
                 ],
@@ -376,7 +376,7 @@ class _MacScreenViewState extends State<MacScreenView> {
                         size: .icon,
                         semanticLabel: 'Full screen',
                         onPressed: () => _setFull(true),
-                        child: const AshlarIcon(AshlarIconsRoundedStroke.arrowsMaximize, size: 20),
+                        child: const AshlarIcon(AshlarIconsRoundedStroke.maximize2, size: 20),
                       ),
                       Button(
                         variant: _keyboard ? .secondary : .ghost,

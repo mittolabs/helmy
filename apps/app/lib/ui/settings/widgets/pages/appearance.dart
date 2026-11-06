@@ -28,30 +28,88 @@ class _Appearance extends StatelessWidget {
             ],
           ),
         ),
-        _Row(
+        // As T3 Code shows its themes: a card each, its light and dark side
+        // by side, the one in use ringed.
+        _Block(
           title: 'Colors',
-          description: imported != null && s.palette == .imported
-              ? '${imported.name}, from VS Code, when ${imported.dark ? 'dark' : 'light'}; '
-                    "Helmy's own otherwise."
-              : 'For light and dark alike. Helmy\'s own is pure black when dark.',
-          control: SizedBox(
-            // Named, as greys this close tell apart only in use.
-            width: 300,
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final p in Palette.values)
-                  if (p != .imported || imported != null)
-                    _PaletteChip(
-                      label: p == .imported ? imported!.name : p.label,
-                      selected: s.palette == p,
-                      onPressed: () => vm.update(s.copyWith(palette: p)),
-                      colors: (b) =>
-                          themeFor(b, palette: p, accent: s.accent, imported: imported).colors,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 12,
+            children: [
+              Text(
+                imported != null && s.palette == .imported
+                    ? '${imported.name}, from VS Code, when ${imported.dark ? 'dark' : 'light'}; '
+                          "Helmy's own otherwise."
+                    : "For light and dark alike. Helmy's own is pure black when dark.",
+                style: AshlarTheme.of(context).text.xs
+                    .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
+              ),
+              LayoutBuilder(
+                builder: (context, box) {
+                  // A card needs room for its two orbs: as many across as fit, at most 3.
+                  final across = (box.maxWidth / 150).floor().clamp(1, 3);
+                  final width = (box.maxWidth - 10 * (across - 1)) / across;
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final p in Palette.values)
+                        if (p != .imported || imported != null)
+                          SizedBox(
+                            width: width,
+                            child: _PaletteCard(
+                              label: p == .imported ? imported!.name : p.label,
+                              selected: s.palette == p,
+                              onPressed: () => vm.update(s.copyWith(palette: p)),
+                              colors: (b) => themeFor(
+                                b,
+                                palette: p,
+                                accent: s.accent,
+                                imported: imported,
+                              ).colors,
+                            ),
+                          ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        // Right after the colors it tints: each accent a lit orb, named.
+        _Block(
+          title: 'Accent',
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 12,
+            children: [
+              Text(
+                'A color for the main buttons and what is chosen.',
+                style: AshlarTheme.of(context).text.xs
+                    .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
+              ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 10,
+                children: [
+                  for (final a in AccentChoice.values)
+                    _AccentChoice(
+                      label: a == .none
+                          ? 'None'
+                          : '${a.name[0].toUpperCase()}${a.name.substring(1)}',
+                      selected: s.accent == a,
+                      onPressed: () => vm.update(s.copyWith(accent: a)),
+                      color: a == .none
+                          ? null
+                          : themeFor(
+                              AshlarTheme.of(context).brightness,
+                              palette: s.palette,
+                              accent: a,
+                            ).colors.primary,
                     ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
         _Row(
@@ -128,28 +186,6 @@ class _Appearance extends StatelessWidget {
                   onPressed: () => _editTheme(context, vm),
                   child: Text(imported == null ? 'Make one...' : 'Edit...'),
                 ),
-              ],
-            ),
-          ),
-        ),
-        _Row(
-          title: 'Accent',
-          description: 'A color for the main buttons and what is chosen.',
-          control: SizedBox(
-            // Four to a line: they wrap rather than push past the page.
-            width: 4 * 38.0,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final a in AccentChoice.values)
-                  _Swatch(
-                    label: a == .none ? 'None' : '${a.name[0].toUpperCase()}${a.name.substring(1)}',
-                    selected: s.accent == a,
-                    onPressed: () => vm.update(s.copyWith(accent: a)),
-                    colors: (b) => themeFor(b, palette: s.palette, accent: a).colors,
-                    dot: true,
-                  ),
               ],
             ),
           ),
@@ -258,60 +294,87 @@ class _Appearance extends StatelessWidget {
 
 /// One choice of colors: a circle drawn in them (the page and its raised
 /// parts, or as a [dot] the main color), with its name under the pointer.
-class _Swatch extends StatelessWidget {
-  const _Swatch({
+/// One accent: a lit orb of its color (none: the palette's own, plain),
+/// its name under it; ringed, with a check, when it is the one in use.
+class _AccentChoice extends StatelessWidget {
+  const _AccentChoice({
     required this.label,
     required this.selected,
     required this.onPressed,
-    required this.colors,
-    this.dot = false,
+    required this.color,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onPressed;
-  final AshlarColors Function(Brightness brightness) colors;
-  final bool dot;
+
+  /// Null for none.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    final c = colors(t.brightness);
-    final grey = dot && label == 'None';
-    return Tooltip(
-      message: label,
-      child: Pressable(
-        onPressed: onPressed,
-        selected: selected,
-        semanticLabel: label,
-        builder: (context, state) => Container(
-          width: 30,
-          height: 30,
-          padding: const .all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected
-                  ? t.colors.ring
-                  : (state.hovered ? t.colors.border : const Color(0x00000000)),
-              width: 2,
+    final c = t.colors;
+    final hue = color;
+    return Pressable(
+      onPressed: onPressed,
+      selected: selected,
+      semanticLabel: '$label accent',
+      builder: (context, state) => SizedBox(
+        width: 58,
+        child: Column(
+          spacing: 6,
+          children: [
+            Container(
+              padding: const .all(2.5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? c.ring : (state.hovered ? c.border : const Color(0x00000000)),
+                  width: 1.5,
+                ),
+              ),
+              child: Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.border),
+                  gradient: RadialGradient(
+                    center: const Alignment(-.35, -.45),
+                    radius: .95,
+                    colors: hue == null
+                        ? [c.mutedForeground.withValues(alpha: .5), c.muted, c.background]
+                        : [
+                            Color.lerp(hue, const Color(0xFFFFFFFF), .35)!,
+                            hue,
+                            Color.lerp(hue, const Color(0xFF000000), .45)!,
+                          ],
+                    stops: const [0, .55, 1],
+                  ),
+                ),
+                child: selected
+                    ? AshlarIcon(
+                        AshlarIconsRoundedStroke.check,
+                        size: 15,
+                        color: hue == null || hue.computeLuminance() > .5
+                            ? c.foreground
+                            : const Color(0xFFFFFFFF),
+                      )
+                    : null,
+              ),
             ),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: t.colors.border),
-              color: dot ? (grey ? t.colors.muted : c.primary) : null,
-              gradient: dot
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      stops: const [.5, .5],
-                      colors: [c.background, c.muted],
-                    ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: t.text.xs.copyWith(
+                color: selected ? c.foreground : c.mutedForeground,
+                fontWeight: selected ? .w500 : null,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -320,8 +383,10 @@ class _Swatch extends StatelessWidget {
 
 /// A palette by name, drawn in its own colors: its raised surface, its
 /// words, and the tint of its quieter words.
-class _PaletteChip extends StatelessWidget {
-  const _PaletteChip({
+/// A palette, as T3 Code shows a theme: an orb of its light look and one of
+/// its dark, side by side, and its name; ringed when it is the one in use.
+class _PaletteCard extends StatelessWidget {
+  const _PaletteCard({
     required this.label,
     required this.selected,
     required this.onPressed,
@@ -336,37 +401,89 @@ class _PaletteChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    final c = colors(t.brightness);
+    final c = t.colors;
     return Pressable(
       onPressed: onPressed,
       selected: selected,
       semanticLabel: label,
       builder: (context, state) => Container(
-        padding: const .fromLTRB(8, 5, 10, 5),
+        // The ring's border is a point wider: as much less padding inside.
+        padding: selected ? const .fromLTRB(11, 15, 11, 9) : const .fromLTRB(12, 16, 12, 10),
         decoration: BoxDecoration(
-          color: c.muted,
-          borderRadius: .circular(t.radiusMd),
-          border: Border.all(
-            color: selected ? t.colors.ring : (state.hovered ? c.mutedForeground : c.border),
-            width: selected ? 2 : 1,
-          ),
+          color: state.hovered ? c.accent.withValues(alpha: .4) : c.card,
+          borderRadius: .circular(t.radiusLg),
+          border: Border.all(color: selected ? c.ring : c.border, width: selected ? 2 : 1),
         ),
-        child: Row(
-          mainAxisSize: .min,
-          spacing: 6,
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 12,
           children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(color: c.mutedForeground, shape: BoxShape.circle),
+            Row(
+              mainAxisAlignment: .center,
+              spacing: 10,
+              children: [
+                _Orb(colors(Brightness.light), ring: selected ? c.ring : null),
+                _Orb(colors(Brightness.dark), ring: selected ? c.ring : null),
+              ],
             ),
-            Text(
-              label,
-              style: t.text.xs.copyWith(color: c.foreground, fontWeight: .w500),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: t.text.sm.copyWith(fontWeight: .w500),
+                  ),
+                ),
+                if (selected)
+                  AshlarIcon(AshlarIconsRoundedStroke.check, size: 14, color: c.foreground),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One side of a palette as a soft lit sphere: its ground, its muted
+/// surface and its border, so a tint shows as it does in use.
+class _Orb extends StatelessWidget {
+  const _Orb(this.c, {this.ring});
+  final AshlarColors c;
+  final Color? ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = c.background.computeLuminance() < .2;
+    final orb = Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: c.border),
+        gradient: RadialGradient(
+          center: const Alignment(-.35, -.45),
+          radius: .95,
+          colors: dark
+              ? [c.mutedForeground.withValues(alpha: .55), c.muted, c.background]
+              // Lit from its muted surface into its border and muted text,
+              // where a light palette's tint lives.
+              : [c.muted, c.border, c.mutedForeground.withValues(alpha: .75)],
+          stops: const [0, .55, 1],
+        ),
+      ),
+    );
+    // As much room unringed as the ring takes, so names line up.
+    if (ring == null) return Padding(padding: const .all(3.5), child: orb);
+    return Container(
+      padding: const .all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ring!, width: 1.5),
+      ),
+      child: orb,
     );
   }
 }

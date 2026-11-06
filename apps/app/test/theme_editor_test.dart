@@ -44,6 +44,9 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
+    // Below the palettes and accents: scrolled to first.
+    await tester.ensureVisible(find.text('Make one...'));
+    await tester.pump();
     await tester.tap(find.text('Make one...'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Theme colors'), findsOneWidget);
