@@ -28,6 +28,7 @@ import 'ui/core/ashlar/markdown.dart';
 import 'ui/core/code_highlight.dart';
 import 'ui/chat/widgets/floating_player.dart';
 import 'ui/core/about_dialog.dart';
+import 'ui/core/windows.dart';
 import 'ui/phone/phone_app.dart';
 import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
@@ -40,6 +41,8 @@ Future<void> main() async {
   if (await _floatingPlayer() case (final window, final args)) {
     return runFloatingPlayer(window, args);
   }
+  // The main engine: every window Flutter's, so a panel tab can have one.
+  HelmyWindows.enable();
   await NotifyService.splash('Loading your chats and settings…');
   final loaded = await load();
   await NotifyService.splash('Opening Helmy…');
@@ -71,10 +74,14 @@ Future<void> main() async {
   // Onboarding has a small window of one size, set while the window is still
   // hidden behind the splash.
   if (first == '/welcome') await DesktopService.compactWindow(true);
-  runApp(
+  final windows = HelmyWindows();
+  runWidget(
     MultiProvider(
-      providers: providers(loaded),
-      child: HelmyApp(initialLocation: first),
+      providers: [...providers(loaded), ChangeNotifierProvider.value(value: windows)],
+      child: ListenableBuilder(
+        listenable: windows,
+        builder: (context, _) => windows.build(HelmyApp(initialLocation: first)),
+      ),
     ),
   );
 }

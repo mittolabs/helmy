@@ -98,8 +98,22 @@ class DesktopService {
     }
   }
 
+  /// Whether closing the window hides it (sessions keep working) or quits:
+  /// as last set, for the main window's close button.
+  static bool keepRunning = true;
+
+  /// Hides the main window: its close button with [keepRunning] on.
+  static Future<void> hideMainWindow() async {
+    try {
+      await _channel.invokeMethod<void>('hideMain');
+    } on Object {
+      // No runner, as in tests.
+    }
+  }
+
   /// Whether closing the window hides it (sessions keep working) or quits.
   Future<void> setKeepRunning(bool on) async {
+    keepRunning = on;
     try {
       await _channel.invokeMethod<void>('keepRunning', {'on': on});
     } on MissingPluginException {

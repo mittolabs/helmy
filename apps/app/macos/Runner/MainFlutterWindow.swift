@@ -10,41 +10,73 @@ import Speech
 import UserNotifications
 import WebKit
 
-class MainFlutterWindow: NSWindow {
-  override func awakeFromNib() {
-    // About Helmy is Helmy's own window, with its open-source credits.
-    DispatchQueue.main.async { About.take() }
-    let flutterViewController = FlutterViewController()
-    self.contentViewController = flutterViewController
-    self.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
-    self.center()
+/// Helmy's main window. Flutter makes it (its windowing, so panel tabs can
+/// have windows of their own drawn by the same engine: a window made here
+/// cannot share the engine with those), titled "Helmy"; this finds it and
+/// gives it Helmy's look and ways, as MainFlutterWindow did when the window
+/// was made here.
+enum HelmyWindow {
+  /// The main window, once Flutter has made it.
+  static weak var main: NSWindow?
+  static var dropTarget: HelmyDropTarget?
+
+  /// Watches for the main window, and adopts it as soon as it is made.
+  static func watch(engine: FlutterEngine) {
+    Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { timer in
+      guard let w = NSApp.windows.first(where: { $0.title == "Helmy" && flutterView(in: $0) != nil })
+      else { return }
+      timer.invalidate()
+      adopt(w, messenger: engine.binaryMessenger)
+      // The floating player's plugin attaches to the app's main window: now
+      // there is one.
+      (NSApp.delegate as? FlutterAppDelegate)?.mainFlutterWindow = w
+      FlutterMultiWindowPlugin.register(with: engine.registrar(forPlugin: "FlutterMultiWindowPlugin"))
+    }
+  }
+
+  /// The Flutter view a window Flutter made draws in.
+  static func flutterView(in window: NSWindow) -> NSView? {
+    func find(_ vc: NSViewController?) -> FlutterViewController? {
+      guard let vc else { return nil }
+      if let f = vc as? FlutterViewController { return f }
+      for c in vc.children { if let f = find(c) { return f } }
+      return nil
+    }
+    return find(window.contentViewController)?.view
+  }
+
+  static func adopt(_ w: NSWindow, messenger: FlutterBinaryMessenger) {
+    main = w
+    // Hidden behind the splash until Flutter has drawn its first frame.
+    if !Splash.shared.finished { w.alphaValue = 0 }
+    w.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
+    w.center()
     // As narrow as a phone: the layout steps down to one column.
-    self.minSize = NSSize(width: 360, height: 480)
+    w.minSize = NSSize(width: 360, height: 480)
 
     // Content runs under a transparent title bar; the app pads its top rows.
-    self.titleVisibility = .hidden
-    self.titlebarAppearsTransparent = true
-    self.styleMask.insert(.fullSizeContentView)
-    self.isMovableByWindowBackground = true
+    w.titleVisibility = .hidden
+    w.titlebarAppearsTransparent = true
+    w.styleMask.insert(.fullSizeContentView)
+    w.isMovableByWindowBackground = true
     // A taller title bar, as Finder's and Safari's: an empty unified toolbar
     // centers the window's buttons lower, and the app's title row with them
     // (titleLine in window_layout.dart).
     let toolbar = NSToolbar(identifier: "helmy")
     toolbar.showsBaselineSeparator = false
-    self.toolbar = toolbar
-    self.toolbarStyle = .unifiedCompact
+    w.toolbar = toolbar
+    w.toolbarStyle = .unifiedCompact
 
-    RegisterGeneratedPlugins(registry: flutterViewController)
-    // Each extra window (the floating player) is its own Flutter engine,
-    // and gets the same plugins: the player, window control.
-    FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
-      RegisterGeneratedPlugins(registry: controller)
-      // A floating window is rarely the focused one: it still sees the
-      // pointer, so its controls show when the pointer is over it.
-      controller.mouseTrackingMode = .always
+    // Files dropped on it, told to Dart as desktop_drop tells them: the
+    // plugin finds its window through a view of its own, which there is not.
+    if let view = flutterView(in: w) {
+      let channel = FlutterMethodChannel(name: "desktop_drop", binaryMessenger: messenger)
+      let target = HelmyDropTarget(frame: view.bounds, channel: channel)
+      target.autoresizingMask = [.width, .height]
+      view.addSubview(target)
+      channel.setMethodCallHandler(target.handle(_:result:))
+      dropTarget = target
     }
-    Notifier.shared.attach(to: flutterViewController.engine.binaryMessenger)
-    ScreenShare.attach(to: flutterViewController.engine.binaryMessenger)
 
     // In sight or not: focused (on top, being looked at), or not focused or
     // in the Dock. What a notification was about is seen once it is in sight.
@@ -53,7 +85,7 @@ class MainFlutterWindow: NSWindow {
       (NSWindow.didResignKeyNotification, false),
       (NSWindow.didMiniaturizeNotification, false),
     ] {
-      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
+      NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { _ in
         Notifier.shared.tell("inSight", seen)
       }
     }
@@ -64,51 +96,154 @@ class MainFlutterWindow: NSWindow {
       (NSWindow.willEnterFullScreenNotification, true),
       (NSWindow.willExitFullScreenNotification, false),
     ] {
-      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { _ in
+      NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { _ in
         Notifier.shared.tell("fullScreen", on)
       }
     }
-
-    // Hidden behind the splash until Flutter has drawn its first frame.
-    self.alphaValue = 0
-    Splash.shared.show(then: { [weak self] in
-      NSAnimationContext.runAnimationGroup { context in
-        context.duration = 0.25
-        self?.animator().alphaValue = 1
-      }
-    })
-
-    super.awakeFromNib()
+    if let pending = compactAsked { setCompact(pending) }
   }
 
-  /// Closing hides the window, so the Flutter engine and every session behind
-  /// it keep running; the Dock icon brings it back. Off, it closes as usual.
-  override func performClose(_ sender: Any?) {
-    if AppDelegate.keepRunning { orderOut(sender) } else { super.performClose(sender) }
-  }
-
-  override func close() {
-    if AppDelegate.keepRunning && !AppDelegate.quitting { orderOut(nil) } else { super.close() }
-  }
+  /// Asked before the window was made: applied when it is.
+  private static var compactAsked: Bool?
 
   /// On: the first run's window, small and of one size, no full screen. Off:
   /// the usual window, resizable, at its usual size.
-  func setCompact(_ on: Bool) {
-    if on {
-      styleMask.remove(.resizable)
-      collectionBehavior.remove(.fullScreenPrimary)
-      collectionBehavior.insert(.fullScreenNone)
-    } else {
-      styleMask.insert(.resizable)
-      collectionBehavior.remove(.fullScreenNone)
-      collectionBehavior.insert(.fullScreenPrimary)
+  static func setCompact(_ on: Bool) {
+    guard let w = main else {
+      compactAsked = on
+      return
     }
-    standardWindowButton(.zoomButton)?.isEnabled = !on
-    setContentSize(on ? NSSize(width: 620, height: 700) : NSSize(width: 1200, height: 800))
-    center()
+    compactAsked = nil
+    if on {
+      w.styleMask.remove(.resizable)
+      w.collectionBehavior.remove(.fullScreenPrimary)
+      w.collectionBehavior.insert(.fullScreenNone)
+    } else {
+      w.styleMask.insert(.resizable)
+      w.collectionBehavior.remove(.fullScreenNone)
+      w.collectionBehavior.insert(.fullScreenPrimary)
+    }
+    w.standardWindowButton(.zoomButton)?.isEnabled = !on
+    w.setContentSize(on ? NSSize(width: 620, height: 700) : NSSize(width: 1200, height: 800))
+    w.center()
+  }
+
+  /// The close button with keep-running on: hidden, so the engine and every
+  /// session behind it keep running; the Dock icon brings it back.
+  static func hide() {
+    main?.orderOut(nil)
   }
 }
 
+/// Files dragged onto a window, told over the desktop_drop channel as that
+/// plugin tells them (its own target is not public): where the pointer is,
+/// and on drop each file's path, a bookmark outside the app's container, and
+/// whether it is a folder. File promises (from browsers, Mail) are received
+/// into a folder of their own.
+final class HelmyDropTarget: NSView {
+  private let channel: FlutterMethodChannel
+  private let itemsLock = NSLock()
+
+  init(frame: NSRect, channel: FlutterMethodChannel) {
+    self.channel = channel
+    super.init(frame: frame)
+    var types = NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) }
+    types.append(.fileURL)
+    types.append(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
+    registerForDraggedTypes(types)
+  }
+
+  required init?(coder: NSCoder) { fatalError("not from a nib") }
+
+  /// Clicks and the rest go to Flutter's view beneath: only drags stop here.
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+  func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let map = call.arguments as? NSDictionary,
+          let bookmark = (map["apple-bookmark"] as? FlutterStandardTypedData)?.data
+    else { return result(FlutterMethodNotImplemented) }
+    var stale = false
+    let url = try? URL(
+      resolvingBookmarkData: bookmark, options: [.withSecurityScope], relativeTo: nil,
+      bookmarkDataIsStale: &stale)
+    switch call.method {
+    case "startAccessingSecurityScopedResource":
+      result(url?.startAccessingSecurityScopedResource() ?? false)
+    case "stopAccessingSecurityScopedResource":
+      url?.stopAccessingSecurityScopedResource()
+      result(true)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    channel.invokeMethod("entered", arguments: point(sender.draggingLocation))
+    return .copy
+  }
+
+  override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    channel.invokeMethod("updated", arguments: point(sender.draggingLocation))
+    return .copy
+  }
+
+  override func draggingExited(_ sender: NSDraggingInfo?) {
+    channel.invokeMethod("exited", arguments: nil)
+  }
+
+  private lazy var queue: OperationQueue = {
+    let q = OperationQueue()
+    q.qualityOfService = .userInitiated
+    return q
+  }()
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    let pb = sender.draggingPasteboard
+    var items: [[String: Any]] = []
+    var seen = Set<String>()
+    let group = DispatchGroup()
+
+    func push(_ url: URL, fromPromise: Bool) {
+      itemsLock.lock(); defer { itemsLock.unlock() }
+      let path = url.path
+      if !seen.insert(path).inserted { return }
+      let folder = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+      let bundle = Bundle.main.bundleIdentifier ?? ""
+      let container = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Containers/\(bundle)", isDirectory: true).path
+      let inside = path.hasPrefix(container) || path.hasPrefix(FileManager.default.temporaryDirectory.path)
+      let mark: Any = inside
+        ? NSNull()
+        : ((try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)) ?? NSNull())
+      items.append(["path": path, "apple-bookmark": mark, "isDirectory": folder, "fromPromise": fromPromise])
+    }
+
+    let urls = (pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    let legacy = (pb.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String]) ?? []
+    if !urls.isEmpty || !legacy.isEmpty {
+      urls.forEach { push($0, fromPromise: false) }
+      legacy.forEach { push(URL(fileURLWithPath: $0), fromPromise: false) }
+    } else if let receivers = pb.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil) as? [NSFilePromiseReceiver] {
+      let dest = FileManager.default.temporaryDirectory
+        .appendingPathComponent("Drops/\(UUID().uuidString)", isDirectory: true)
+      try? FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+      for r in receivers {
+        group.enter()
+        r.receivePromisedFiles(atDestination: dest, options: [:], operationQueue: queue) { url, error in
+          defer { group.leave() }
+          if error == nil { push(url, fromPromise: true) }
+        }
+      }
+    }
+    group.notify(queue: .main) { self.channel.invokeMethod("performOperation_macos", arguments: items) }
+    return true
+  }
+
+  private func point(_ location: NSPoint) -> [CGFloat] {
+    let p = convert(location, from: nil)
+    return [p.x, bounds.height - p.y]
+  }
+}
 
 /// The window Helmy shows while it starts, before Flutter has drawn anything:
 /// Helmy dreaming on a card, breathing, with its name. It follows the theme
@@ -247,6 +382,9 @@ final class Splash {
     DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.finish() }
   }
 
+  /// Faded out: the main window shows from here, made before or after.
+  private(set) var finished = false
+
   /// Dart is ready: fade out, no sooner than [minimum] after showing.
   func finish() {
     guard let w = window else { return }
@@ -254,6 +392,7 @@ final class Splash {
     window = nil
     let wait = max(0, Splash.minimum - Date().timeIntervalSince(shownAt))
     DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+      self?.finished = true
       self?.done?()
       self?.done = nil
       NSAnimationContext.runAnimationGroup({ context in
@@ -368,8 +507,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         result(nil)
       case "compactWindow":
         // The first run: a small window of one size; after it, the usual one.
-        let window = NSApp.windows.first { $0 is MainFlutterWindow } as? MainFlutterWindow
-        window?.setCompact(args["on"] as? Bool ?? false)
+        HelmyWindow.setCompact(args["on"] as? Bool ?? false)
+        result(nil)
+      case "hideMain":
+        // The close button, with keep-running on.
+        HelmyWindow.hide()
         result(nil)
       case "notificationsAllowed":
         // Whether macOS lets Helmy notify: false only when the user said no
@@ -380,7 +522,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "isActive":
         // In front and showing: a hidden or minimized window is not in sight,
         // though the app may still be the active one.
-        let window = NSApp.windows.first { $0 is MainFlutterWindow }
+        let window = HelmyWindow.main
         result(NSApp.isActive && (window?.isVisible ?? false) && !(window?.isMiniaturized ?? true))
       case "clearNotification":
         // A session's notification, gone from Notification Center once seen.
@@ -400,7 +542,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
       case "titleBarDoubleClick":
         // What a double-click on a title bar does, as set in Desktop & Dock.
-        let window = NSApp.mainWindow ?? NSApp.windows.first { $0 is MainFlutterWindow }
+        let window = NSApp.mainWindow ?? HelmyWindow.main
         switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
         case "Minimize": window?.performMiniaturize(nil)
         case "None": break
@@ -476,7 +618,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func all(_ v: NSView) -> [WKWebView] {
       (v as? WKWebView).map { [$0] } ?? v.subviews.flatMap(all)
     }
-    guard let root = (NSApp.mainWindow ?? NSApp.windows.first)?.contentView else { return nil }
+    guard let root = (NSApp.mainWindow ?? HelmyWindow.main)?.contentView else { return nil }
     return all(root).max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
   }
 
@@ -532,7 +674,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     func all(_ v: NSView) -> [WKWebView] {
       (v as? WKWebView).map { [$0] } ?? v.subviews.flatMap(all)
     }
-    guard let root = (NSApp.mainWindow ?? NSApp.windows.first)?.contentView,
+    guard let root = (NSApp.mainWindow ?? HelmyWindow.main)?.contentView,
           let web = all(root).max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
     else { return false }
     switch action {
