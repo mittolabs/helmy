@@ -148,7 +148,7 @@ class ShellScreen extends StatelessWidget {
                                 const _BackForward(),
                                 Tooltip(
                                   message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
-                                  child: const SidebarTrigger(),
+                                  child: const SidebarTrigger(size: .iconSm),
                                 ),
                               ],
                             ),
@@ -375,7 +375,7 @@ class ShellScreen extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                const _BackForward(),
+                                if (titleArrowsShown(context)) const _BackForward(),
                               ],
                             ),
                           ),
@@ -1323,7 +1323,8 @@ class _BackForward extends StatelessWidget {
         size: .iconSm,
         semanticLabel: label,
         onPressed: can ? go : null,
-        child: AshlarIcon(icon, size: 15),
+        // 16, as every icon on the title line.
+        child: AshlarIcon(icon, size: 16),
       ),
     );
     return ListenableBuilder(

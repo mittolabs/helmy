@@ -22,7 +22,13 @@ final windowFullScreen = ValueNotifier(false);
 /// them (show sidebar, back, forward), and the room those take with the gap
 /// after: where a page's title starts when the sidebar is hidden.
 const titleControlsGap = 8.0;
-const titleControlsRoom = titleControlsGap + 3 * 32;
+
+/// Whether back and forward join the sidebar's button there: not in a window
+/// as narrow as a phone, where the title row has no room for them.
+bool titleArrowsShown(BuildContext context) => MediaQuery.sizeOf(context).width >= 600;
+
+double titleControlsRoom(BuildContext context) =>
+    titleControlsGap + (titleArrowsShown(context) ? 3 : 1) * 32;
 
 /// Where a title row starts when the sidebar is not beside the page: after
 /// the window's buttons on a Mac (the app draws under its title bar there),

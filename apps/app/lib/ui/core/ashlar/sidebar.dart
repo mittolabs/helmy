@@ -739,7 +739,10 @@ class _ActionButton extends StatelessWidget {
 
 /// The button that opens and closes the [SidebarLayout] above it.
 class SidebarTrigger extends StatelessWidget {
-  const SidebarTrigger({super.key});
+  const SidebarTrigger({super.key, this.size = ButtonSize.icon});
+
+  /// Its button's size: smaller to sit in a row of small icon buttons.
+  final ButtonSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -747,7 +750,7 @@ class SidebarTrigger extends StatelessWidget {
     final end = SidebarLayout.of(context).widget.side == SidebarSide.end;
     return Button(
       variant: ButtonVariant.ghost,
-      size: ButtonSize.icon,
+      size: size,
       semanticLabel: 'Toggle sidebar',
       onPressed:
           context.dependOnInheritedWidgetOfExactType<_SlidIn>()?.close ??

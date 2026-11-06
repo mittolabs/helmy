@@ -49,7 +49,12 @@ class _Header extends StatelessWidget {
       // when the sidebar is not beside the page.
       // One row, centered on the window buttons' line, as a Mac title bar is:
       // the title, its folder, and the controls.
-      padding: .fromLTRB(sidebarBeside(context) ? 24 : titleRowStart + titleControlsRoom, titleLine - 16, 20, 8),
+      padding: .fromLTRB(
+        sidebarBeside(context) ? 24 : titleRowStart + titleControlsRoom(context),
+        titleLine - 16,
+        20,
+        8,
+      ),
       child: Row(
         spacing: 16,
         children: [

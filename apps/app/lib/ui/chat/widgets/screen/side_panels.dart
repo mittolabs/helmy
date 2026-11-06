@@ -261,7 +261,9 @@ class _Panel extends StatelessWidget {
             margin: .only(top: titleLine - 16),
             // Expanded, the bar starts past the window's buttons, as the header does.
             padding: .only(
-              left: expanded && !sidebarBeside(context) ? titleRowStart + titleControlsRoom : 6,
+              left: expanded && !sidebarBeside(context)
+                  ? titleRowStart + titleControlsRoom(context)
+                  : 6,
               right: 8,
             ),
             child: Row(
