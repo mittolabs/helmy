@@ -12,7 +12,7 @@ const narrowWindow = 960.0;
 /// Where the window's own buttons (close, minimize, zoom) end, from the
 /// window's left edge, and the line through their middle, from its top.
 const windowButtonsEnd = 72.0;
-const titleLine = 26.0;
+const titleLine = 20.0;
 
 /// Whether the window is in full screen, as macOS says. Its buttons are hidden
 /// there, so what sits after them moves to the edge.

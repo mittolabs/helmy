@@ -137,17 +137,21 @@ class ShellScreen extends StatelessWidget {
                         // On the window buttons' line, after them: going back
                         // and forward, and hiding the sidebar.
                         SizedBox(
-                          // The sidebar's header starts 8 below the window's top.
-                          height: (titleLine - 8) * 2,
-                          child: Row(
-                            children: [
-                              const Spacer(),
-                              const _BackForward(),
-                              Tooltip(
-                                message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
-                                child: const SidebarTrigger(),
-                              ),
-                            ],
+                          // The sidebar's header starts 8 below the window's top:
+                          // a row as tall as its buttons, moved onto the line.
+                          height: 32,
+                          child: Transform.translate(
+                            offset: const Offset(0, titleLine - 8 - 16),
+                            child: Row(
+                              children: [
+                                const Spacer(),
+                                const _BackForward(),
+                                Tooltip(
+                                  message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
+                                  child: const SidebarTrigger(),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         Row(

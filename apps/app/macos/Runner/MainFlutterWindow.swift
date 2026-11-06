@@ -32,7 +32,7 @@ class MainFlutterWindow: NSWindow {
     let toolbar = NSToolbar(identifier: "helmy")
     toolbar.showsBaselineSeparator = false
     self.toolbar = toolbar
-    self.toolbarStyle = .unified
+    self.toolbarStyle = .unifiedCompact
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     // Each extra window (the floating player) is its own Flutter engine,
