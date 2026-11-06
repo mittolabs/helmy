@@ -26,6 +26,13 @@ class MainFlutterWindow: NSWindow {
     self.titlebarAppearsTransparent = true
     self.styleMask.insert(.fullSizeContentView)
     self.isMovableByWindowBackground = true
+    // A taller title bar, as Finder's and Safari's: an empty unified toolbar
+    // centers the window's buttons lower, and the app's title row with them
+    // (titleLine in window_layout.dart).
+    let toolbar = NSToolbar(identifier: "helmy")
+    toolbar.showsBaselineSeparator = false
+    self.toolbar = toolbar
+    self.toolbarStyle = .unified
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     // Each extra window (the floating player) is its own Flutter engine,

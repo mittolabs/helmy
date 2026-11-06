@@ -130,26 +130,51 @@ class ShellScreen extends StatelessWidget {
                 width: width,
                 header: TitleBar(
                   child: Padding(
-                    // Clears the window's buttons, which sit over the sidebar.
-                    padding: const EdgeInsetsDirectional.only(start: 8, top: 30, end: 2),
-                    child: Row(
+                    padding: const EdgeInsetsDirectional.only(start: 8, end: 2),
+                    child: Column(
+                      crossAxisAlignment: .stretch,
                       children: [
-                        Image.asset(
-                          t.brightness == .dark
-                              ? 'assets/helmy/head-dark.png'
-                              : 'assets/helmy/head-light.png',
-                          width: 22,
-                          height: 22,
-                          semanticLabel: 'Helmy',
+                        // On the window buttons' line, after them: going back
+                        // and forward, and hiding the sidebar.
+                        SizedBox(
+                          // The sidebar's header starts 8 below the window's top.
+                          height: (titleLine - 8) * 2,
+                          child: Row(
+                            children: [
+                              const Spacer(),
+                              const _BackForward(),
+                              Tooltip(
+                                message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
+                                child: const SidebarTrigger(),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
-                        ),
-                        const _BackForward(),
-                        Tooltip(
-                          message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
-                          child: const SidebarTrigger(),
+                        Row(
+                          children: [
+                            Image.asset(
+                              t.brightness == .dark
+                                  ? 'assets/helmy/head-dark.png'
+                                  : 'assets/helmy/head-light.png',
+                              width: 22,
+                              height: 22,
+                              semanticLabel: 'Helmy',
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
+                            ),
+                            Tooltip(
+                              message: 'Search (${Desktop.current.keys('⌘K')})',
+                              child: Button(
+                                variant: .ghost,
+                                size: .iconSm,
+                                semanticLabel: 'Search',
+                                onPressed: () => showPalette(context, viewModel),
+                                child: const AshlarIcon(AshlarIconsRoundedStroke.search, size: 16),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -184,12 +209,6 @@ class ShellScreen extends StatelessWidget {
                           label: 'New chat',
                           shortcut: Desktop.current.keys('⌘N'),
                           onPressed: () => newSession(context, viewModel),
-                        ),
-                        _NavRow(
-                          icon: AshlarIconsRoundedStroke.search,
-                          label: 'Search',
-                          shortcut: Desktop.current.keys('⌘K'),
-                          onPressed: () => showPalette(context, viewModel),
                         ),
                         _NavRow(
                           icon: AshlarIconsRoundedStroke.clock,

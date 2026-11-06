@@ -11,6 +11,7 @@ import '../../../data/services/chat_apps.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
+import '../../core/window_layout.dart';
 
 /// A chat app in the conversation: its page at its full height, with its
 /// state from the chat and kept there, so it comes back as it was. Kept
@@ -219,7 +220,7 @@ class _FullApp extends StatelessWidget {
           child: SafeArea(
             child: Padding(
               // Clear of the window's own buttons, top left on a Mac.
-              padding: .fromLTRB(16, Platform.isMacOS ? 40 : 8, 16, 16),
+              padding: .fromLTRB(16, Platform.isMacOS ? titleLine * 2 : 8, 16, 16),
               child: Column(
                 crossAxisAlignment: .stretch,
                 spacing: 8,
