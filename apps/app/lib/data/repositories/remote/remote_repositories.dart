@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import '../../../domain/models/chat_item.dart';
@@ -6,6 +7,7 @@ import '../../../domain/models/engine.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/result.dart';
 import '../../services/engines/agent_engine.dart';
+import '../../services/chat_apps.dart';
 import '../../services/remote/remote_link.dart';
 import '../conversation_repository.dart';
 import '../session_repository.dart';
@@ -85,6 +87,8 @@ class RemoteConversations extends ConversationRepository {
   /// those not here yet.
   ChatItem _local(String id, ChatItem item) {
     String at(String path) {
+      // A chat app is the Mac's: the phone reaches it there, by its path.
+      if (isChatApp(path)) return path;
       if (_here[path] case final local?) return local;
       if (_asked.add(path)) unawaited(_fetch(id, path));
       return path;
@@ -213,4 +217,30 @@ class RemoteConversations extends ConversationRepository {
     _link.removeListener(_sync);
     super.dispose();
   }
+}
+
+/// The Mac's chat apps, over [RemoteLink]: pages and states kept on the
+/// Mac, so a game goes on where it was, on either.
+class RemoteChatApps implements ChatApps {
+  RemoteChatApps(this._link);
+  final RemoteLink _link;
+
+  @override
+  Future<String?> page(String session, String path) async {
+    final bytes = await _link.file(session, path);
+    return bytes == null ? null : utf8.decode(bytes, allowMalformed: true);
+  }
+
+  @override
+  Future<Object?> state(String session, String path) => _link.appState(session, path);
+
+  @override
+  Future<void> save(String session, String path, Object? state) =>
+      _link.appSave(session, path, state);
+
+  @override
+  Future<void> say(String session, String text) => _link.send(session, text);
+
+  @override
+  Stream<AppChange> get changes => _link.appChanges;
 }

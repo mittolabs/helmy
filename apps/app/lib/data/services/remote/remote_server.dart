@@ -10,6 +10,7 @@ import '../../repositories/conversation_repository.dart';
 import '../../repositories/session_repository.dart';
 import '../engines/agent_engine.dart';
 import '../../../utils/result.dart';
+import '../chat_apps.dart';
 import 'remote_crypto.dart';
 import 'screen_source.dart';
 
@@ -26,9 +27,31 @@ class RemoteServer {
     this._chats,
     this.port = defaultPort,
     this._screen,
+    this._apps,
   }) {
     _screen?.onFrame = _onFrame;
+    _apps?.changes.listen(_onApp);
     _screen?.onStopped = _onScreenStopped;
+  }
+
+  /// The chats' apps (games and things to use), kept in step on phones.
+  final ChatApps? _apps;
+
+  /// An app changed: each phone following its chat hears of it.
+  void _onApp(AppChange a) {
+    for (final c in [..._clients]) {
+      if (c.open.contains(a.session)) {
+        unawaited(
+          _send(c, {
+            'type': 'appState',
+            'id': a.session,
+            'path': a.path,
+            'state': a.state,
+            'page': a.page,
+          }),
+        );
+      }
+    }
   }
 
   /// This Mac's screen, for phones to see and use; null where it cannot be.
@@ -195,6 +218,17 @@ class RemoteServer {
         _conversations.answerQuestion(id, p);
       case 'file':
         await _send(c, await _file(id, '${m['path'] ?? ''}'));
+      case 'appState':
+        final path = '${m['path'] ?? ''}';
+        await _send(c, {
+          'type': 'appState',
+          'id': id,
+          'path': path,
+          'state': await _apps?.state(id, path),
+          'asked': true,
+        });
+      case 'appSave':
+        await _apps?.save(id, '${m['path'] ?? ''}', m['state']);
       case 'interrupt':
         _conversations.interrupt(id);
       case 'screen':
@@ -284,7 +318,9 @@ class RemoteServer {
   Future<Map<String, Object?>> _file(String id, String path) async {
     Map<String, Object?> no(String why) => {'type': 'file', 'path': path, 'trouble': why};
     final named = jsonEncode([for (final i in _conversations.of(id).items) i.toJson()]);
-    if (path.isEmpty || !named.contains(path)) return no('That file is not in this chat.');
+    // A chat's own apps are its, shown yet or not.
+    final app = path.isNotEmpty && await _apps?.page(id, path) != null;
+    if (path.isEmpty || !(named.contains(path) || app)) return no('That file is not in this chat.');
     final f = File(path);
     if (!f.existsSync()) return no('That file is no longer on the Mac.');
     if (f.lengthSync() > 25 * 1024 * 1024) return no('That file is too big to send to the phone.');

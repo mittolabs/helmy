@@ -38,6 +38,8 @@ import '../data/services/cloud_writer.dart';
 import '../data/services/remote/remote_host.dart';
 import '../data/services/remote/remote_server.dart';
 import '../data/services/local_writer.dart';
+import '../data/services/chat_app_tools.dart';
+import '../data/services/chat_apps.dart';
 import '../data/services/chat_tools.dart';
 import '../data/services/history_import.dart';
 import '../data/services/turn_log.dart';
@@ -236,6 +238,16 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       return repo;
     },
   ),
+  // Games and things to use, made by agents in chats.
+  Provider(
+    create: (context) => ChatAppsLocal(
+      appData: getApplicationSupportDirectory,
+      sessions: context.read(),
+      conversations: context.read(),
+    ),
+    dispose: (_, a) => a.dispose(),
+  ),
+  Provider<ChatApps>(create: (context) => context.read<ChatAppsLocal>()),
   // The rest of a session's chat, for its agent (decision 0014).
   Provider(
     lazy: false,
@@ -248,6 +260,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         final s = id == null ? null : sessions.byId(id);
         return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);
       };
+      tools.apps = ChatAppTools(context.read<ChatAppsLocal>());
       return tools.chats = ChatTools(
         sessions: context.read(),
         chats: context.read(),
@@ -352,6 +365,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         sessions: context.read(),
         conversations: context.read(),
         chats: context.read(),
+        apps: context.read<ChatAppsLocal>(),
         screen: Platform.isMacOS ? MacScreen() : null,
       )..screenAllowed = () => loaded.settings.settings.remoteScreen,
       context.read<SettingsRepository>(),

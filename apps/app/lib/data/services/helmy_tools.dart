@@ -5,6 +5,7 @@ import 'dart:math';
 
 import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
+import 'chat_app_tools.dart';
 import 'chat_tools.dart';
 import 'devices.dart';
 import 'mac/mac_tools.dart';
@@ -26,6 +27,10 @@ class HelmyTools {
 
   /// The rest of a session's chat, for its agent: set once chats are ready.
   ChatTools? chats;
+
+  /// Chat apps (games and things to use in the chat): set once
+  /// conversations are ready.
+  ChatAppTools? apps;
 
   /// What Helmy does on this Mac (keeping it awake, locking it, its sound):
   /// on a Mac only.
@@ -64,6 +69,7 @@ class HelmyTools {
     for (final t in deviceTools) 'mcp__helmy__$t',
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
     for (final t in ChatTools.names) 'mcp__helmy__$t',
+    for (final t in ChatAppTools.names) 'mcp__helmy__$t',
     for (final t in MacTools.free) 'mcp__helmy__$t',
     for (final t in MacTools.use) 'mcp__helmy__$t',
   ];
@@ -161,6 +167,7 @@ class HelmyTools {
               if (_devices != null && devicesAllowed()) ..._deviceToolList,
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
+              if (apps != null) ...ChatAppTools.list,
               if (mac != null) ...MacTools.list,
               if (mac?.control != null) ...MacTools.useList,
             ],
@@ -192,6 +199,9 @@ class HelmyTools {
     }
     if (ChatTools.names.contains(name) && chats != null) {
       return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    }
+    if (ChatAppTools.names.contains(name) && apps != null) {
+      return apps!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (MacTools.names.contains(name) && mac != null) {
       return mac!.call(name, (params['arguments'] as Map?) ?? const {}, session);

@@ -5,11 +5,13 @@ import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../data/services/chat_apps.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../../utils/platform.dart';
+import 'chat_app_view.dart';
 import 'player.dart';
 import '../../core/file_actions.dart';
 
@@ -79,7 +81,13 @@ class Media extends StatelessWidget {
     required this.words,
     required this.cwd,
     required this.actions,
+    this.apps,
+    this.session,
   });
+
+  /// Chat apps, and the chat this answer is in: an app shows live.
+  final ChatApps? apps;
+  final String? session;
 
   final String where;
   final String words;
@@ -91,6 +99,9 @@ class Media extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (apps != null && session != null && webViewHere && isChatApp(where)) {
+      return ChatAppView(apps: apps!, session: session!, path: where.trim(), words: words);
+    }
     final kind = kindOf(where);
     final at = locate(where, cwd);
     if (kind == null) {

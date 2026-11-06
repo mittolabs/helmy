@@ -15,6 +15,8 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../data/services/chat_apps.dart';
+
 import '../../../data/repositories/settings_repository.dart';
 import '../../../utils/project_files.dart';
 import '../../../utils/starters.dart';
@@ -607,8 +609,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         // What answers show (`![words](where)`): pictures,
                         // players, documents, pages.
                         child: MarkdownMedia(
-                          show: (where, words) =>
-                              Media(where: where, words: words, cwd: session.cwd, actions: vm),
+                          show: (where, words) => Media(
+                            where: where,
+                            words: words,
+                            cwd: session.cwd,
+                            actions: vm,
+                            apps: isChatApp(where) ? context.read<ChatApps>() : null,
+                            session: session.id,
+                          ),
                           child: _FadeUnderHeader(
                             child: Listener(
                               onPointerDown: (e) =>

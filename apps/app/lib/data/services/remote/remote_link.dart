@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/models/chat.dart';
 import '../../../domain/models/chat_item.dart';
+import '../chat_apps.dart';
 import 'remote_crypto.dart';
 
 /// A thread as a phone sees it: enough for its row and its state.
@@ -185,6 +186,14 @@ class RemoteLink extends ChangeNotifier {
         final data = m['data'];
         _files.remove(path)?.complete(data is String ? base64.decode(data) : null);
         return;
+      case 'appState':
+        final id = '${m['id']}', path = '${m['path']}';
+        if (m['asked'] == true) {
+          _appStates.remove(path)?.complete(m['state']);
+        } else {
+          _appChanges.add((session: id, path: path, state: m['state'], page: m['page'] == true));
+        }
+        return;
       case 'screen':
         screenOn = m['on'] == true;
         screenTrouble = m['trouble'] as String?;
@@ -252,6 +261,31 @@ class RemoteLink extends ChangeNotifier {
     );
   }
 
+  final _appStates = <String, Completer<Object?>>{};
+  final _appChanges = StreamController<AppChange>.broadcast();
+
+  /// Chat apps changed on the Mac (by the agent, or used there).
+  Stream<AppChange> get appChanges => _appChanges.stream;
+
+  /// A chat app's state, as the Mac keeps it.
+  Future<Object?> appState(String id, String path) {
+    final waiting = _appStates[path];
+    if (waiting != null) return waiting.future;
+    final c = _appStates[path] = Completer<Object?>();
+    unawaited(_send({'type': 'appState', 'id': id, 'path': path}));
+    return c.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        _appStates.remove(path);
+        return null;
+      },
+    );
+  }
+
+  /// Keeps what a chat app saved, on the Mac.
+  Future<void> appSave(String id, String path, Object? state) =>
+      _send({'type': 'appSave', 'id': id, 'path': path, 'state': state});
+
   /// Asks the Mac to show its screen here.
   Future<void> showScreen() async {
     _wantScreen = true;
@@ -282,6 +316,7 @@ class RemoteLink extends ChangeNotifier {
     _retry?.cancel();
     unawaited(_ws?.close());
     made.dispose();
+    unawaited(_appChanges.close());
     super.dispose();
   }
 }

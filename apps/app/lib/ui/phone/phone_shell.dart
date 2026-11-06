@@ -63,6 +63,7 @@ class _PhoneShellState extends State<PhoneShell> {
   RemoteLink get link => widget.link;
   late final _sessions = RemoteSessions(link);
   late final _conversations = RemoteConversations(link);
+  late final _apps = RemoteChatApps(link);
 
   /// The thread open now; null for a new chat.
   String? _open;
@@ -194,6 +195,7 @@ class _PhoneShellState extends State<PhoneShell> {
                             sessionId: open,
                             sessions: _sessions,
                             conversations: _conversations,
+                            apps: _apps,
                           ),
                   ),
                 ],
@@ -377,10 +379,12 @@ class _Chat extends StatefulWidget {
     required this.sessionId,
     required this.sessions,
     required this.conversations,
+    required this.apps,
   });
   final String sessionId;
   final RemoteSessions sessions;
   final RemoteConversations conversations;
+  final RemoteChatApps apps;
 
   @override
   State<_Chat> createState() => _ChatState();
@@ -421,8 +425,14 @@ class _ChatState extends State<_Chat> {
               child: rows.isEmpty
                   ? const Center(child: Spinner(size: 20))
                   : MarkdownMedia(
-                      show: (where, words) =>
-                          Media(where: where, words: words, cwd: session.cwd, actions: vm),
+                      show: (where, words) => Media(
+                        where: where,
+                        words: words,
+                        cwd: session.cwd,
+                        actions: vm,
+                        apps: widget.apps,
+                        session: session.id,
+                      ),
                       // Scrolling the conversation by hand puts the keyboard away.
                       child: NotificationListener<ScrollUpdateNotification>(
                         onNotification: (n) {
