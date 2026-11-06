@@ -3,15 +3,25 @@
 // recorded in Mittolabs' docs/notes/helmy-tab-windows-spike.md.
 // ignore_for_file: invalid_use_of_internal_member, implementation_imports
 
+import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/src/foundation/_features.dart' as features;
 import 'package:flutter/src/widgets/_window.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 
+import '../../data/repositories/settings_repository.dart';
 import '../../data/services/desktop_service.dart';
+import '../chat/view_models/chat_view_model.dart';
+import '../chat/widgets/chat_screen.dart' show panelTabBody, panelTabLabel;
+import 'ashlar/app.dart';
+import 'ashlar/button.dart';
+import 'ashlar/theme.dart';
+import 'helmy_look.dart';
 
 /// Helmy's windows, all drawn by one engine with Flutter's windowing: the
-/// main one, and (to come) a panel tab moved into a window of its own. One
-/// engine, so every window shares the app's state as it is.
+/// main one, and any panel tab moved into a window of its own. One engine,
+/// so every window shares the app's state as it is, and a tab moves between
+/// them whole (its key): a terminal's shell, a page, a device carry on.
 class HelmyWindows extends ChangeNotifier {
   /// Turns Flutter's windowing on, once the binding is up: the stable channel
   /// refuses its build flag, so its switch is set here, and the windowing
@@ -29,15 +39,137 @@ class HelmyWindows extends ChangeNotifier {
     delegate: _MainWindow(),
   );
 
-  /// The windows, for runWidget: the main one with the app in it.
+  /// Tabs in windows of their own, oldest first.
+  final List<TabWindow> tabs = [];
+
+  /// The windows, for runWidget: the main one with the app in it, then each
+  /// tab's.
   Widget build(Widget app) => ViewCollection(
-    views: [RegularWindow(controller: main, child: app)],
+    views: [
+      RegularWindow(controller: main, child: app),
+      for (final w in tabs)
+        RegularWindow(
+          key: ObjectKey(w),
+          controller: w.controller,
+          child: _TabWindowApp(window: w),
+        ),
+    ],
   );
+
+  // A chat's view model, held while its page or a tab's window shows it: a
+  // tab in a window outlives the page it came from, and the page, opened
+  // again, finds the same model (its tabs, their state) rather than a new one.
+
+  final _chats = <String, ({ChatViewModel vm, int holds})>{};
+
+  /// [key]'s view model: the one held, else one made by [create]. Each hold
+  /// is let go with [releaseChat].
+  ChatViewModel holdChat(String key, ChatViewModel Function() create) {
+    final kept = _chats[key];
+    final vm = kept?.vm ?? create();
+    _chats[key] = (vm: vm, holds: (kept?.holds ?? 0) + 1);
+    return vm;
+  }
+
+  /// Lets go of one hold on [key]'s view model: disposed with the last.
+  void releaseChat(String key) {
+    final kept = _chats[key];
+    if (kept == null) return;
+    if (kept.holds > 1) {
+      _chats[key] = (vm: kept.vm, holds: kept.holds - 1);
+      return;
+    }
+    _chats.remove(key);
+    kept.vm.dispose();
+  }
+
+  String? _keyOf(ChatViewModel vm) =>
+      _chats.entries.where((e) => identical(e.value.vm, vm)).firstOrNull?.key;
+
+  /// Moves [tab] of [vm]'s panel into a window of its own, beside the main
+  /// one, titled with the tab and its chat.
+  void moveOut(ChatViewModel vm, PanelTab tab) {
+    if (tab.windowed) return show(tab);
+    final key = _keyOf(vm);
+    if (key != null) holdChat(key, () => vm);
+    final w = TabWindow._(vm: vm, tab: tab, chatKey: key);
+    w.controller = RegularWindowController(
+      size: const Size(760, 620),
+      title: w.title,
+      delegate: _TabWindowClosed(this, w),
+    );
+    tab.windowed = true;
+    tabs.add(w);
+    // The panel shows the next tab, or where this one went.
+    vm.panelChanged();
+    notifyListeners();
+  }
+
+  /// For looking while developing (HELMY_TAB_WINDOW): in the chat on
+  /// screen, a tab of [kind] shown in the panel, then moved into a window of
+  /// its own a few seconds later, as a person would.
+  Future<void> moveOutForLook(SidePanel kind) async {
+    await Future<void>.delayed(const Duration(seconds: 3));
+    final vm = _chats.values.firstOrNull?.vm;
+    if (vm == null) return;
+    final tab = vm.show(kind);
+    await Future<void>.delayed(const Duration(seconds: 5));
+    moveOut(vm, tab);
+  }
+
+  /// Brings [tab]'s window to the front.
+  void show(PanelTab tab) {
+    for (final w in tabs) {
+      if (identical(w.tab, tab)) w.controller.activate();
+    }
+  }
+
+  /// Puts [tab] back in its chat's panel, and its window goes.
+  void putBack(PanelTab tab) {
+    final w = tabs.where((w) => identical(w.tab, tab)).firstOrNull;
+    if (w == null) return;
+    _drop(w);
+    w.controller.destroy();
+  }
+
+  /// [w] gone (put back, or its window closed): the tab is the panel's again.
+  void _drop(TabWindow w) {
+    if (!tabs.remove(w)) return;
+    w.tab.windowed = false;
+    w.vm.focus(w.tab);
+    notifyListeners();
+    final key = w.chatKey;
+    // After this frame: the tab is drawn in the panel again first.
+    if (key != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => releaseChat(key));
+    }
+  }
 
   @override
   void dispose() {
+    for (final w in [...tabs]) {
+      w.controller.destroy();
+    }
     main.dispose();
     super.dispose();
+  }
+}
+
+/// A panel tab in a window of its own.
+class TabWindow {
+  TabWindow._({required this.vm, required this.tab, required this.chatKey});
+  final ChatViewModel vm;
+  final PanelTab tab;
+
+  /// The hold on [vm] this window has (HelmyWindows.holdChat).
+  final String? chatKey;
+  late final RegularWindowController controller;
+
+  /// "Terminal 1 · Connect Four": the tab, then its chat.
+  String get title {
+    final chat = vm.chatTitle ?? vm.session?.title ?? '';
+    final tab = panelTabLabel(vm, this.tab);
+    return chat.isEmpty ? tab : '$tab · $chat';
   }
 }
 
@@ -52,5 +184,79 @@ class _MainWindow with RegularWindowControllerDelegate {
     } else {
       controller.destroy();
     }
+  }
+}
+
+/// A tab's window closed: the tab goes back to its chat's panel.
+class _TabWindowClosed with RegularWindowControllerDelegate {
+  _TabWindowClosed(this.windows, this.window);
+  final HelmyWindows windows;
+  final TabWindow window;
+
+  @override
+  void onWindowDestroyed() {
+    super.onWindowDestroyed();
+    windows._drop(window);
+  }
+}
+
+/// A tab's window: Helmy's look (as the main window's, always), a bar with
+/// the way back, and the tab as it was in the panel.
+class _TabWindowApp extends StatelessWidget {
+  const _TabWindowApp({required this.window});
+  final TabWindow window;
+
+  @override
+  Widget build(BuildContext context) {
+    final look = helmyLook(context.watch<SettingsRepository>().settings);
+    return AshlarApp(
+      title: window.title,
+      theme: look.light,
+      darkTheme: look.dark,
+      themeMode: look.mode,
+      builder: look.builder,
+      home: ListenableBuilder(
+        listenable: window.vm,
+        builder: (context, _) {
+          final t = AshlarTheme.of(context);
+          return ColoredBox(
+            color: t.colors.background,
+            child: Column(
+              crossAxisAlignment: .stretch,
+              children: [
+                Container(
+                  height: 40,
+                  padding: const .symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: t.colors.border)),
+                  ),
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          window.title,
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                          style: t.text.sm.copyWith(fontWeight: .w500),
+                        ),
+                      ),
+                      Button(
+                        variant: .ghost,
+                        size: .sm,
+                        leading: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 14),
+                        onPressed: () => context.read<HelmyWindows>().putBack(window.tab),
+                        child: const Text('Put back'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(child: panelTabBody(window.vm, window.tab, active: true)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

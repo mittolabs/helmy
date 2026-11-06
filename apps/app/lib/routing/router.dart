@@ -23,6 +23,7 @@ import '../ui/shell/widgets/shell_screen.dart';
 import '../ui/import/history_import_view_model.dart';
 import '../ui/onboarding/view_models/onboarding_view_model.dart';
 import '../ui/onboarding/widgets/onboarding_screen.dart';
+import '../ui/core/windows.dart';
 
 GoRouter router(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
@@ -91,8 +92,9 @@ GoRouter router(String initialLocation) => GoRouter(
         ),
         GoRoute(
           path: '/s/:id',
-          builder: (context, state) => _Kept(
+          builder: (context, state) => _KeptChat(
             key: ValueKey(state.uri.toString()),
+            id: state.uri.toString(),
             create: (context) => ChatViewModel(
               attention: context.read(),
               settings: context.read(),
@@ -185,6 +187,40 @@ GoRouter router(String initialLocation) => GoRouter(
 /// Makes a page's view model once and disposes it with the page, since
 /// go_router calls a route's builder again whenever it moves
 /// (docs/engineering/flutter.md).
+/// A chat's view model, held through HelmyWindows: the same one for its
+/// page and any of its tabs in a window of their own, so a tab outlives the
+/// page and the page, opened again, finds the tabs as they are. Without
+/// HelmyWindows (tests), kept as any other.
+class _KeptChat extends StatefulWidget {
+  const _KeptChat({super.key, required this.id, required this.create, required this.builder});
+  final String id;
+  final ChatViewModel Function(BuildContext context) create;
+  final Widget Function(ChatViewModel viewModel) builder;
+
+  @override
+  State<_KeptChat> createState() => _KeptChatState();
+}
+
+class _KeptChatState extends State<_KeptChat> {
+  late final HelmyWindows? _windows = context.read<HelmyWindows?>();
+  late final ChatViewModel viewModel =
+      _windows?.holdChat(widget.id, () => widget.create(context)) ?? widget.create(context);
+
+  @override
+  void dispose() {
+    final windows = _windows;
+    if (windows == null) {
+      viewModel.dispose();
+    } else {
+      windows.releaseChat(widget.id);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(viewModel);
+}
+
 class _Kept<T extends ChangeNotifier> extends StatefulWidget {
   const new({super.key, required this.create, required this.builder});
   final T Function(BuildContext context) create;

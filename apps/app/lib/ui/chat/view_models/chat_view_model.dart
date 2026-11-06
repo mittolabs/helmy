@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show GlobalKey;
 
 import '../../../data/repositories/attention_repository.dart';
 import '../../../data/repositories/conversation_repository.dart';
@@ -95,6 +96,13 @@ class PanelTab {
   /// A side chat tab's session, and the question to ask it once it shows.
   String? sideId;
   String? ask;
+
+  /// What it shows, kept whole wherever it is drawn: the panel, or a window
+  /// of its own. A terminal's shell, a page's state go with it.
+  final key = GlobalKey();
+
+  /// In a window of its own (HelmyWindows): the panel shows where it went.
+  bool windowed = false;
 }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
@@ -787,6 +795,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 
   /// The device floats over the conversation, out of the panel.
   bool deviceFloating = false;
+
+  /// The device, kept whole between its tab, floating and a window of its
+  /// own: its screen, marks and logs go with it.
+  final deviceKey = GlobalKey();
 
   /// Where its top left sits, as last dragged; null until then (top right).
   Offset? deviceFloatAt;

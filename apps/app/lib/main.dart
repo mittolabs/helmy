@@ -1,8 +1,6 @@
 import 'version.dart';
 import 'domain/models/settings.dart';
 import 'ui/core/key_bindings.dart';
-import 'domain/vscode_theme.dart';
-import 'domain/identity.dart';
 import 'ui/core/ashlar/toast.dart';
 import 'utils/platform.dart';
 
@@ -23,14 +21,12 @@ import 'data/repositories/session_repository.dart';
 import 'routing/router.dart';
 import 'routing/nav_history.dart';
 import 'ui/core/ashlar/app.dart';
-import 'ui/core/ashlar/app_theme.dart';
-import 'ui/core/ashlar/markdown.dart';
-import 'ui/core/code_highlight.dart';
 import 'ui/chat/widgets/floating_player.dart';
 import 'ui/core/about_dialog.dart';
 import 'ui/core/windows.dart';
+import 'ui/chat/view_models/chat_view_model.dart' show SidePanel;
+import 'ui/core/helmy_look.dart';
 import 'ui/phone/phone_app.dart';
-import 'ui/chat/widgets/step_input.dart' show CodeColors;
 
 Future<void> main() async {
   // On a phone, Helmy is a remote for Helmy on a Mac: nothing of the desktop
@@ -75,9 +71,17 @@ Future<void> main() async {
   // hidden behind the splash.
   if (first == '/welcome') await DesktopService.compactWindow(true);
   final windows = HelmyWindows();
+  // HELMY_TAB_WINDOW moves a tab of that kind (terminal, preview, files...)
+  // into a window of its own, for looking at one while developing.
+  if (SidePanel.values.asNameMap()[Platform.environment['HELMY_TAB_WINDOW']] case final kind?) {
+    unawaited(windows.moveOutForLook(kind));
+  }
   runWidget(
     MultiProvider(
-      providers: [...providers(loaded), ChangeNotifierProvider.value(value: windows)],
+      providers: [
+        ...providers(loaded),
+        ChangeNotifierProvider.value(value: windows),
+      ],
       child: ListenableBuilder(
         listenable: windows,
         builder: (context, _) => windows.build(HelmyApp(initialLocation: first)),
@@ -189,59 +193,13 @@ class _HelmyAppState extends State<HelmyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsRepository>().settings;
+    final look = helmyLook(context.watch<SettingsRepository>().settings);
     return AshlarApp.router(
       title: 'Helmy',
-      theme: themeFor(
-        .light,
-        palette: settings.palette,
-        accent: settings.accent,
-        font: settings.interfaceFont,
-        contrast: settings.contrast,
-        imported: importedThemeFromJson(settings.themeImport),
-      ),
-      darkTheme: themeFor(
-        .dark,
-        palette: settings.palette,
-        accent: settings.accent,
-        font: settings.interfaceFont,
-        contrast: settings.contrast,
-        imported: importedThemeFromJson(settings.themeImport),
-      ),
-      themeMode: switch (settings.theme) {
-        .system => AshlarThemeMode.system,
-        .light => AshlarThemeMode.light,
-        .dark => AshlarThemeMode.dark,
-      },
-      // Text size is a scale on every size the theme sets.
-      builder: (context, child) {
-        // Code's font, and how clocks read, for the helpers that draw them.
-        chosenCodeFont = settings.codeFont;
-        writingStyle = writingStyleFor(settings.commitStyle, settings.commitNote);
-        use24Hour = switch (settings.clock) {
-          .system => MediaQuery.of(context).alwaysUse24HourFormat,
-          .twelve => false,
-          .twentyFour => true,
-        };
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(settings.textSize.scale)),
-          child: MarkdownCodeWrap(
-            wrap: settings.wrapCode,
-            // Code in answers, plans and notes in syntax colors, in the theme's palette.
-            child: Builder(
-              builder: (context) {
-                final colors = CodeColors.of(context);
-                return MarkdownHighlight(
-                  highlight: (code, language, base) =>
-                      CodeHighlighter.spans(code, language, base, colors),
-                  child: child!,
-                );
-              },
-            ),
-          ),
-        );
-      },
+      theme: look.light,
+      darkTheme: look.dark,
+      themeMode: look.mode,
+      builder: look.builder,
       routerConfig: _router,
     );
   }
@@ -253,9 +211,7 @@ Future<(WindowController, FloatingArgs)?> _floatingPlayer() async {
   try {
     // The plugin can fail to answer (an engine it no longer has): the main
     // window does not wait on it.
-    final window = await WindowController.fromCurrentEngine().timeout(
-      const Duration(seconds: 2),
-    );
+    final window = await WindowController.fromCurrentEngine().timeout(const Duration(seconds: 2));
     final args = FloatingArgs.decode(window.arguments);
     return args == null ? null : (window, args);
   } on Object {

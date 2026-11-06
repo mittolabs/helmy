@@ -19,15 +19,11 @@ class _SidePanelsState extends State<_SidePanels> {
   // The one panel, moved whole between beside, expanded and hidden.
   final _panel = GlobalKey();
 
-  // The device, moved whole between its tab and floating: its screen, marks
-  // and logs go with it.
-  final _device = GlobalKey();
-
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final vm = widget.vm;
-      final panel = vm.tabs.isEmpty ? null : _Panel(key: _panel, vm: vm, device: _device);
+      final panel = vm.tabs.isEmpty ? null : _Panel(key: _panel, vm: vm);
       // No room left beside the conversation (a narrow window): no panel.
       final room = box.maxWidth - _SidePanels._chatMin - _Divider.width;
       final width = room <= 0 ? 0.0 : vm.panelWidth.clamp(0.0, room);
@@ -45,7 +41,7 @@ class _SidePanelsState extends State<_SidePanels> {
               area: box.biggest,
               // At first, the top right of the conversation, clear of the panel.
               start: shown ? box.maxWidth - width - _Divider.width : box.maxWidth,
-              child: DevicePanel(key: _device, vm: vm),
+              child: DevicePanel(key: vm.deviceKey, vm: vm),
             ),
         ],
       );
@@ -211,28 +207,55 @@ class _FloatingDevice extends StatelessWidget {
 };
 
 /// The panel: its tabs along the top, with + to add one, and the tab showing.
+/// A tab's name, as its chip (and its window, when it has one) shows it.
+String panelTabLabel(ChatViewModel vm, PanelTab tab) => switch (tab.kind) {
+  .preview when (tab.title ?? '').isNotEmpty => tab.title!,
+  .preview => switch (Uri.tryParse(tab.url ?? '')) {
+    final u? when u.host.isNotEmpty => u.host.replaceFirst('www.', ''),
+    final u? when u.scheme == 'file' => u.pathSegments.lastOrNull ?? 'Page',
+    _ => 'New page',
+  },
+  .changes =>
+    vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
+  .device => vm.device?.device?.name ?? 'Device',
+  .terminal when tab.action != null => tab.action!.name,
+  .side => vm.sideTitle(tab.sideId!),
+  .terminal => 'Terminal ${vm.tabs.where((t) => t.kind == .terminal).toList().indexOf(tab) + 1}',
+  _ => _kindOf(tab.kind).$1,
+};
+
+/// What a tab shows, the same in the panel and in a window of its own: kept
+/// whole by the tab's key wherever it is drawn, so a terminal's shell, a
+/// page, a device carry on as they were. [active] when it is the one in sight.
+Widget panelTabBody(ChatViewModel vm, PanelTab tab, {required bool active}) => KeyedSubtree(
+  key: tab.key,
+  child: switch (tab.kind) {
+    .changes => ChangesPanel(vm: vm),
+    .background => BackgroundPanel(vm: vm),
+    .preview => PreviewPanel(vm: vm, tab: tab, active: active),
+    .ship => ShipPanel(vm: vm),
+    .terminal => TerminalPanel(
+      cwd: vm.session?.cwd ?? homeDir,
+      active: active,
+      command: tab.action?.command,
+      name: tab.action?.name,
+      runs: tab.runs,
+      onOutput: tab.action == null ? null : (text) => vm.actionOutput(tab, text),
+      onExit: tab.action == null ? null : (code) => vm.actionEnded(tab, code),
+      onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
+    ),
+    .device => DevicePanel(key: vm.deviceKey, vm: vm),
+    .files => FilesPanel(vm: vm, active: active),
+    .side => SideChatPanel(vm: vm, tab: tab),
+  },
+);
+
+/// The panel: its tabs along the top, with + to add one, and the tab showing.
 class _Panel extends StatelessWidget {
-  const _Panel({super.key, required this.vm, required this.device});
+  const _Panel({super.key, required this.vm});
   final ChatViewModel vm;
 
-  /// The device's key, so it can move to float over the conversation whole.
-  final GlobalKey device;
-
-  String _label(PanelTab tab) => switch (tab.kind) {
-    .preview when (tab.title ?? '').isNotEmpty => tab.title!,
-    .preview => switch (Uri.tryParse(tab.url ?? '')) {
-      final u? when u.host.isNotEmpty => u.host.replaceFirst('www.', ''),
-      final u? when u.scheme == 'file' => u.pathSegments.lastOrNull ?? 'Page',
-      _ => 'New page',
-    },
-    .changes =>
-      vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
-    .device => vm.device?.device?.name ?? 'Device',
-    .terminal when tab.action != null => tab.action!.name,
-    .side => vm.sideTitle(tab.sideId!),
-    .terminal => 'Terminal ${vm.tabs.where((t) => t.kind == .terminal).toList().indexOf(tab) + 1}',
-    _ => _kindOf(tab.kind).$1,
-  };
+  String _label(PanelTab tab) => panelTabLabel(vm, tab);
 
   @override
   Widget build(BuildContext context) {
@@ -324,6 +347,13 @@ class _Panel extends StatelessWidget {
                     AshlarIconsRoundedStroke.pictureInPicture2,
                     vm.floatDevice,
                   ),
+                // Out into a window of its own, to put anywhere, any screen.
+                if (active != null && !active.windowed)
+                  tool(
+                    'Move to a new window',
+                    AshlarIconsRoundedStroke.appWindowMac,
+                    () => context.read<HelmyWindows>().moveOut(vm, active),
+                  ),
                 tool(
                   expanded ? 'Back beside the conversation' : 'Expand',
                   expanded
@@ -343,36 +373,46 @@ class _Panel extends StatelessWidget {
             index: active == null ? 0 : vm.tabs.indexOf(active),
             children: [
               for (final tab in vm.tabs)
-                KeyedSubtree(
-                  key: ValueKey(tab.id),
-                  child: switch (tab.kind) {
-                    .changes => ChangesPanel(vm: vm),
-                    .background => BackgroundPanel(vm: vm),
-                    .preview => PreviewPanel(
-                      vm: vm,
-                      tab: tab,
-                      active: tab == active && vm.panelOpen,
-                    ),
-                    .ship => ShipPanel(vm: vm),
-                    .terminal => TerminalPanel(
-                      cwd: vm.session?.cwd ?? homeDir,
-                      active: tab == active && vm.panelOpen,
-                      command: tab.action?.command,
-                      name: tab.action?.name,
-                      runs: tab.runs,
-                      onOutput: tab.action == null ? null : (text) => vm.actionOutput(tab, text),
-                      onExit: tab.action == null ? null : (code) => vm.actionEnded(tab, code),
-                      onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
-                    ),
-                    .device => DevicePanel(key: device, vm: vm),
-                    .files => FilesPanel(vm: vm, active: tab == active && vm.panelOpen),
-                    .side => SideChatPanel(vm: vm, tab: tab),
-                  },
-                ),
+                if (tab.windowed)
+                  _InWindow(vm: vm, tab: tab)
+                else
+                  panelTabBody(vm, tab, active: tab == active && vm.panelOpen),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Where a tab moved to a window of its own was: what it is, and the ways
+/// to it (bring its window forward) and back (into the panel again).
+class _InWindow extends StatelessWidget {
+  const _InWindow({required this.vm, required this.tab});
+  final ChatViewModel vm;
+  final PanelTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final windows = context.read<HelmyWindows>();
+    return Center(
+      child: Padding(
+        padding: const .all(24),
+        child: Empty(
+          icon: const AshlarIcon(AshlarIconsRoundedStroke.appWindowMac),
+          title: Text('${panelTabLabel(vm, tab)} is in its own window'),
+          description: const Text('It carries on there. Put it back to have it here again.'),
+          actions: [
+            Button(
+              variant: .outline,
+              size: .sm,
+              onPressed: () => windows.show(tab),
+              child: const Text('Show its window'),
+            ),
+            Button(size: .sm, onPressed: () => windows.putBack(tab), child: const Text('Put back')),
+          ],
+        ),
+      ),
     );
   }
 }
