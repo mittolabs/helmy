@@ -21,7 +21,7 @@ class ChatAppTools {
           'quiz, flashcards, a checklist, a form for several answers, a calculator, a picker. '
           'Give the whole page as one self-contained HTML file: no outside files or network, '
           'readable in light and dark (prefers-color-scheme), sized by its content and never by '
-          'the window (no 100vh), fitting a width of 340 to 900 pixels. The same name again '
+          'the window (no 100vh), fitting a width of 340 to 900 pixels and compact: at most 460 pixels tall in all, so it is whole on screen with the chat (a taller one is shrunk to fit). Keep words on it few: a title line, whose turn it is, and your line. The same name again '
           'replaces the app. It answers with the line that shows it: put that in your reply.\n\n'
           'The page talks to the chat through window.helmy, there before its own scripts run:\n'
           '- helmy.state: what was last saved, null at first. Draw from it on load, so the app '
