@@ -88,10 +88,25 @@ enum HelmyWindow {
   /// A tab's window, once Flutter has made it: a window like any other on a
   /// Mac (full screen, Split View, tiling at a screen's edges, Stage
   /// Manager), and, dragged out, where it was let go.
-  static func tabWindowReady(title: String, atPointer: Bool) -> Bool {
+  static func tabWindowReady(title: String, atPointer: Bool, kind: String) -> Bool {
     guard let w = NSApp.windows.last(where: { $0.title == title }) else { return false }
     w.collectionBehavior.insert([.managed, .fullScreenPrimary, .fullScreenAllowsTiling])
     w.styleMask.insert([.resizable, .miniaturizable, .closable])
+    // Where the last window of this kind was (a terminal's, a page's): on any
+    // screen still there, the same place and size; else beside the main one.
+    let key = "helmy.tabWindow.\(kind)"
+    if let saved = UserDefaults.standard.string(forKey: key).map(NSRectFromString),
+       saved.width > 200, saved.height > 150,
+       NSScreen.screens.contains(where: { $0.visibleFrame.intersects(saved) }) {
+      w.setFrame(saved, display: true)
+    }
+    for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+      NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { _ in
+        if !w.styleMask.contains(.fullScreen) {
+          UserDefaults.standard.set(NSStringFromRect(w.frame), forKey: key)
+        }
+      }
+    }
     if atPointer {
       let p = NSEvent.mouseLocation
       var origin = NSPoint(x: p.x - 80, y: p.y - w.frame.height + 14)
@@ -577,7 +592,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         result(nil)
       case "tabWindowReady":
         result(HelmyWindow.tabWindowReady(
-          title: args["title"] as? String ?? "", atPointer: args["atPointer"] as? Bool ?? false))
+          title: args["title"] as? String ?? "", atPointer: args["atPointer"] as? Bool ?? false,
+          kind: args["kind"] as? String ?? "tab"))
       case "noDrag":
         let r = args["rect"] as? [Double]
         HelmyWindow.setNoDrag(

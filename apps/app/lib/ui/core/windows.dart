@@ -106,7 +106,7 @@ class HelmyWindows extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => Future<void>.delayed(
         const Duration(milliseconds: 60),
-        () => DesktopService.tabWindowReady(w.title, atPointer: atPointer),
+        () => DesktopService.tabWindowReady(w.title, atPointer: atPointer, kind: tab.kind.name),
       ),
     );
     // The panel shows the next tab, or where this one went.

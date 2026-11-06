@@ -114,9 +114,19 @@ class DesktopService {
   /// A tab's window titled [title], once made: full screen, Split View and
   /// tiling as any Mac window, and placed where the pointer is when it was
   /// [atPointer] (a tab dragged out).
-  static Future<void> tabWindowReady(String title, {required bool atPointer}) async {
+  /// The last window of the same [kind] (terminal, preview...) says where
+  /// it opens: the same place and size, on a screen still there.
+  static Future<void> tabWindowReady(
+    String title, {
+    required bool atPointer,
+    required String kind,
+  }) async {
     try {
-      await _channel.invokeMethod<bool>('tabWindowReady', {'title': title, 'atPointer': atPointer});
+      await _channel.invokeMethod<bool>('tabWindowReady', {
+        'title': title,
+        'atPointer': atPointer,
+        'kind': kind,
+      });
     } on Object {
       // No runner, as in tests.
     }
