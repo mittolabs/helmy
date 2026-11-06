@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +12,6 @@ import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/theme.dart';
-import '../../core/ashlar/toast.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../../core/helmy_dialog.dart';
 import '../view_models/chat_view_model.dart';
@@ -74,35 +72,17 @@ class ProjectRunButton extends StatelessWidget {
   }
 }
 
-/// In the header: the project, as T3 Code's menu has it but chosen for you.
-/// Open it in your editor (the one you use, with the others a step away),
-/// run what it is worked with, add your own, and show it in Finder.
+/// In the header, in code: what the project runs, with your own added and
+/// changed. Opening it in an editor is where its files show (a file's
+/// preview, the Changes panel), and Finder is the folder's menu.
 class ProjectMenu extends StatelessWidget {
   const ProjectMenu({super.key, required this.vm});
   final ChatViewModel vm;
-
-  Future<void> _open(BuildContext context, [Editor? app]) async {
-    final e = app ?? vm.editor;
-    final ok = await vm.openIn(app);
-    if (!ok && context.mounted) {
-      showToast(
-        context,
-        title: e == null ? 'No editor found' : "${e.name} didn't open",
-        description: e == null
-            ? 'Install an editor such as VS Code, Cursor or Zed, and it shows here.'
-            : 'macOS would not open the project in it. Try again, or choose another app.',
-        type: .error,
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
-    final editor = vm.editor;
-    final others = vm.editors.where((e) => e.id != editor?.id).toList();
-    final folder = vm.session?.cwd ?? '';
     final groups = <String?, List<ProjectAction>>{};
     for (final a in vm.actions) {
       (groups[a.from] ??= []).add(a);
@@ -112,33 +92,6 @@ class ProjectMenu extends StatelessWidget {
       align: .end,
       width: 340,
       items: [
-        if (editor != null)
-          MenuItem(
-            leading: appIcon(editor),
-            shortcut: Text(Desktop.current.keys('⌘⇧O')),
-            onPressed: () => _open(context),
-            child: Text('Open in ${editor.name}'),
-          ),
-        if (others.isNotEmpty)
-          MenuSub(
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.appWindow, size: 16),
-            items: [
-              for (final e in others)
-                MenuItem(
-                  leading: appIcon(e),
-                  onPressed: () => _open(context, e),
-                  child: Text(e.name),
-                ),
-            ],
-            child: const Text('Open in'),
-          ),
-        if (Platform.isMacOS)
-          MenuItem(
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.folderOpen, size: 16),
-            onPressed: () => vm.reveal(folder),
-            child: const Text('Show in Finder'),
-          ),
-        const MenuSeparator(),
         for (final MapEntry(key: from, value: list) in groups.entries) ...[
           MenuLabel(child: Text(from ?? 'Yours')),
           for (final a in list)
@@ -178,16 +131,19 @@ class ProjectMenu extends StatelessWidget {
         ),
       ],
       builder: (context, menu) => Tooltip(
-        message: 'Project: open it, run it',
+        message: 'Run',
         child: Button(
           variant: .ghost,
           size: .icon,
-          semanticLabel: 'Project',
+          semanticLabel: 'What the project runs',
           onPressed: () {
             vm.refreshActions();
             menu.open();
           },
-          child: appIcon(editor),
+          child: AshlarIcon(
+            vm.actions.isEmpty ? AshlarIconsRoundedStroke.play : AshlarIconsRoundedStroke.chevronDown,
+            size: 16,
+          ),
         ),
       ),
     );

@@ -169,23 +169,12 @@ class _Header extends StatelessWidget {
             mainAxisSize: .min,
             spacing: 2,
             children: [
-              // The project: run it again, and the menu to open it, run more, add.
-              if (session.cwd.isNotEmpty) ...[
+              // Code's tools: run it again, and the menu of what it runs. Only in
+              // code; opening it in an editor is where its files show.
+              if (vm.codeFolder) ...[
                 ProjectRunButton(vm: vm, compact: MediaQuery.sizeOf(context).width < 820),
                 ProjectMenu(vm: vm),
               ],
-              // The terminal under the conversation, shown or hidden.
-              Tooltip(
-                message:
-                    '${vm.bottomOpen ? 'Hide' : 'Show'} the terminal (${Desktop.current.keys('⌘J')})',
-                child: Button(
-                  variant: vm.bottomOpen ? .secondary : .ghost,
-                  size: .icon,
-                  semanticLabel: vm.bottomOpen ? 'Hide the terminal' : 'Show the terminal',
-                  onPressed: vm.toggleBottom,
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.panelBottom, size: 16),
-                ),
-              ),
               // The panel beside the conversation, shown or hidden, its tabs kept.
               Tooltip(
                 message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
@@ -349,7 +338,7 @@ class _SessionMenu extends StatelessWidget {
   );
 }
 
-/// The session's folder, which a click changes.
+/// The session's folder: a click shows it in Finder or changes it.
 class _FolderButton extends StatelessWidget {
   const new({required this.vm, required this.cwd, required this.style});
   final ChatViewModel vm;
@@ -364,36 +353,52 @@ class _FolderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    return Tooltip(
-      message: switch ((isScratch(cwd), vm.busy)) {
-        (true, true) => 'No project: a folder of its own. Wait for the turn to end to choose one',
-        (true, false) => 'No project: a folder of its own. Click to choose a folder to work in',
-        (false, true) => '${tildePath(cwd)}. Wait for the turn to end to change the folder',
-        (false, false) => '${tildePath(cwd)}. Click to change the folder',
-      },
-      child: Pressable(
-        onPressed: vm.busy ? null : _pick,
-        semanticLabel: 'Folder ${tildePath(cwd)}, change',
-        builder: (context, state) => Row(
-          mainAxisSize: .min,
-          spacing: 4,
-          children: [
-            AshlarIcon(AshlarIconsRoundedStroke.folder, size: 14, color: style.color),
-            Flexible(
-              child: Text(
-                // The folder's name; the whole path is in the tooltip.
-                isScratch(cwd)
-                    ? 'No project'
-                    : tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
-                maxLines: 1,
-                overflow: .ellipsis,
-                style: style.copyWith(
-                  color: state.hovered ? t.colors.foreground : style.color,
-                  decoration: state.hovered ? TextDecoration.underline : null,
+    final scratch = isScratch(cwd);
+    return DropdownMenu(
+      items: [
+        if (Platform.isMacOS && !scratch)
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.folderOpen, size: 16),
+            onPressed: () => vm.reveal(cwd),
+            child: const Text('Show in Finder'),
+          ),
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.folderInput, size: 16),
+          // A folder changes between turns.
+          onPressed: vm.busy ? null : _pick,
+          child: Text(switch ((scratch, vm.busy)) {
+            (_, true) => 'Change folder after this turn',
+            (true, false) => 'Choose a folder...',
+            (false, false) => 'Change folder...',
+          }),
+        ),
+      ],
+      builder: (context, menu) => Tooltip(
+        message: scratch ? 'No project: a folder of its own' : tildePath(cwd),
+        child: Pressable(
+          onPressed: menu.open,
+          semanticLabel: 'Folder ${tildePath(cwd)}',
+          builder: (context, state) => Row(
+            mainAxisSize: .min,
+            spacing: 4,
+            children: [
+              AshlarIcon(AshlarIconsRoundedStroke.folder, size: 14, color: style.color),
+              Flexible(
+                child: Text(
+                  // The folder's name; the whole path is in the tooltip.
+                  isScratch(cwd)
+                      ? 'No project'
+                      : tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: style.copyWith(
+                    color: state.hovered ? t.colors.foreground : style.color,
+                    decoration: state.hovered ? TextDecoration.underline : null,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

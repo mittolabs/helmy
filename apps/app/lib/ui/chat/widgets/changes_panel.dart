@@ -20,6 +20,7 @@ import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../view_models/chat_view_model.dart';
 import 'diff_view.dart';
+import 'project_menu.dart' show appIcon;
 import '../../../utils/platform.dart';
 
 /// Beside the conversation: every file the session changed, each opening to
@@ -294,6 +295,22 @@ class _FileRowState extends State<_FileRow> {
                   overflow: .ellipsis,
                 ),
               ),
+              // Opened in the usual editor, at the file: where code's editor
+              // belongs, rather than in the header.
+              if (widget.vm.editor case final e? when state.hovered || open)
+                Tooltip(
+                  message: 'Open in ${e.name}',
+                  child: Button(
+                    variant: .ghost,
+                    size: .iconXs,
+                    semanticLabel: 'Open ${ch.path} in ${e.name}',
+                    onPressed: () => widget.vm.openIn(
+                      null,
+                      ch.path.startsWith('/') ? ch.path : '${widget.vm.session?.cwd}/${ch.path}',
+                    ),
+                    child: appIcon(e, size: 14),
+                  ),
+                ),
               Text(
                 '+${ch.added} -${ch.removed}',
                 style: t.text.xs.copyWith(
