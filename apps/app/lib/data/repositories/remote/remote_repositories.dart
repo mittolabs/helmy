@@ -239,7 +239,7 @@ class RemoteChatApps implements ChatApps {
       _link.appSave(session, path, state);
 
   @override
-  Future<void> say(String session, String text) => _link.send(session, text);
+  Future<void> say(String session, String path, String text) => _link.appSay(session, path, text);
 
   @override
   Stream<AppChange> get changes => _link.appChanges;

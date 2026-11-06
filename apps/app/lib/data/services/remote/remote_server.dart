@@ -227,6 +227,8 @@ class RemoteServer {
           'state': await _apps?.state(id, path),
           'asked': true,
         });
+      case 'appSay':
+        await _apps?.say(id, '${m['path'] ?? ''}', '${m['text'] ?? ''}');
       case 'appSave':
         await _apps?.save(id, '${m['path'] ?? ''}', m['state']);
       case 'interrupt':

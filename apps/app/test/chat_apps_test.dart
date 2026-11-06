@@ -13,7 +13,10 @@ import 'package:helmy/data/services/helmy_tools.dart';
 import 'package:helmy/data/services/remote/remote_crypto.dart';
 import 'package:helmy/data/services/remote/remote_link.dart';
 import 'package:helmy/data/services/remote/remote_server.dart';
+import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/session.dart';
+import 'package:helmy/ui/chat/view_models/chat_view_model.dart';
+import 'package:helmy/ui/chat/widgets/chat_items.dart';
 import 'package:helmy/ui/chat/widgets/chat_app_view.dart';
 import 'package:helmy/utils/result.dart';
 
@@ -142,5 +145,53 @@ void main() {
       'state': {'turn': 'you', 'x': 4, 'o': 0},
     }, s.id);
     expect((await next.timeout(const Duration(seconds: 3))).path, path);
+  });
+
+  test('a move in the app goes to the agent alone, marked as from the app', () async {
+    final path = await apps.make(s.id, 'Tic Tac Toe', '<p>board</p>');
+    await apps.say(s.id, path, 'I played the center square.');
+    final sent = repo.of(s.id).items.whereType<UserMessage>().single;
+    expect(sent.from, 'app:tic-tac-toe');
+    expect(fromApp(sent.from), isTrue);
+    expect(sent.text, contains('I played the center square.'));
+    // Not an app of this chat: nothing is sent.
+    await apps.say(s.id, '${root.path}/x.html', 'hi');
+    expect(repo.of(s.id).items.whereType<UserMessage>(), hasLength(1));
+  });
+
+  testWidgets('the chat shows none of a game\'s turns, only what needs the person', (tester) async {
+    late ChatViewModel vm;
+    await tester.runAsync(() async {
+      repo.of(s.id)
+        ..loaded = true
+        ..items.addAll([
+          UserMessage("let's play"),
+          AssistantText('a', 'Your move.'),
+          TurnSummary(ok: true),
+          UserMessage('From the chat app: I played center.')..from = 'app:tic-tac-toe',
+          ToolCall(id: 't1', name: 'mcp__helmy__app_state', input: {})..result = 'Set.',
+          AssistantText('b', 'Took a corner.'),
+          TurnSummary(ok: true),
+          UserMessage('From the chat app: I played top.')..from = 'app:tic-tac-toe',
+          PermissionPrompt(
+            requestId: '1',
+            toolName: 'Shell',
+            input: {'command': 'ls'},
+            suggestions: [],
+            toolUseId: 't2',
+          ),
+          ToolCall(id: 't2', name: 'Shell', input: {'command': 'ls'}),
+          TurnSummary(ok: false, error: 'stopped'),
+          UserMessage('good game'),
+        ]);
+      vm = ChatViewModel(sessionId: s.id, sessions: sessions, conversations: repo);
+    });
+    final ids = [for (final r in buildRows(vm)) r.id];
+    expect(ids, containsAll([0, 1, 'a2', 8, 10, 11]));
+    for (final hidden in [3, 4, 5, 'a6', 7, 9]) {
+      expect(ids, isNot(contains(hidden)), reason: 'item $hidden is the game\'s');
+    }
+    // Retrying is the person's last message, not a move.
+    expect(vm.lastAsk, 11);
   });
 }

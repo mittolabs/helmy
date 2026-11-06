@@ -29,13 +29,16 @@ class ChatAppTools {
           '- helmy.save(state): keeps any JSON value. Save after every change.\n'
           '- helmy.onState(fn): fn(state) runs when you set the state with app_state. Redraw '
           'from it.\n'
-          '- helmy.say(text): sends text to this chat as the user\'s message, for you to answer. '
-          'Write it to read well on its own, such as "I played the center square."\n\n'
+          '- helmy.say(text): tells you what the user did, for you to answer, such as "I played '
+          'the center square." It is not shown in the chat, and neither is your answer: the '
+          'game stays in the app and the chat stays for talking.\n\n'
           'In a game against you, you are the other player, never the page: no moves of yours '
           'in its code. On the user\'s move the page saves the new state, including whose turn '
           'it is, then says the move; it lets the user move only on their turn, shows when it is '
           'yours ("Helmy is thinking"), and has a way to start again (saved, and said). You '
-          'answer by reading the state with app_state, then setting it with your move.',
+          'answer by reading the state with app_state, then setting it with your move. What you '
+          'say about a move goes in the state too, as "said" (a short line, as a friend across '
+          'the table would say it), and the page shows state.said beside the board as yours.',
       'inputSchema': {
         'type': 'object',
         'properties': {

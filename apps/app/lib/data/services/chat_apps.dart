@@ -12,6 +12,13 @@ typedef AppChange = ({String session, String path, Object? state, bool page});
 /// Where chat apps live: Helmy's own folder, one folder per chat thread.
 const appsFolder = 'com.mittolabs.helmy/apps';
 
+/// What a message from a chat app is marked as from: its turn is the
+/// game's, kept out of the conversation.
+const appFrom = 'app:';
+
+/// Whether [from] (a message's sender) is a chat app.
+bool fromApp(String? from) => from != null && from.startsWith(appFrom);
+
 /// Whether [where], as an answer shows it, is a chat app.
 bool isChatApp(String where) {
   final w = where.trim();
@@ -33,19 +40,16 @@ abstract class ChatApps {
   /// Keeps what the app saved, and tells every view of it.
   Future<void> save(String session, String path, Object? state);
 
-  /// What the app says to the chat, sent as the user's message.
-  Future<void> say(String session, String text);
+  /// What the app says to the agent: the user's move, sent for the agent
+  /// alone, its turn kept out of the conversation.
+  Future<void> say(String session, String path, String text);
 
   Stream<AppChange> get changes;
 }
 
 /// On this Mac: pages and states as files in [appsFolder].
 class ChatAppsLocal implements ChatApps {
-  ChatAppsLocal({
-    required this._appData,
-    required this._sessions,
-    required this._conversations,
-  });
+  ChatAppsLocal({required this._appData, required this._sessions, required this._conversations});
 
   final Future<Directory> Function() _appData;
   final SessionRepository _sessions;
@@ -122,11 +126,18 @@ class ChatAppsLocal implements ChatApps {
   Future<bool> has(String session, String path) => _ours(session, path);
 
   @override
-  Future<void> say(String session, String text) async {
+  Future<void> say(String session, String path, String text) async {
     final s = _sessions.byId(session);
     final t = text.trim();
-    if (s == null || t.isEmpty) return;
-    await _conversations.send(s, t);
+    if (s == null || t.isEmpty || !await _ours(session, path)) return;
+    final name = path.split('/').last.replaceFirst(RegExp(r'\.html$'), '');
+    await _conversations.send(
+      s,
+      'From the chat app $path: $t\n\n'
+      '(Not shown in the chat, and neither is your reply: answer in the app, through '
+      'app_state. Put anything you say about your move in the state for the app to show.)',
+      from: '$appFrom$name',
+    );
   }
 
   Future<void> dispose() => _changes.close();

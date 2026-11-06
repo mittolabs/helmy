@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../domain/helmy_voice.dart';
+import '../services/chat_apps.dart';
 
 import 'package:flutter/widgets.dart';
 
@@ -244,9 +245,12 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
 
   Future<void> _finished(String sessionId, String title) async {
     if (await _inSightNow(sessionId)) return;
-    _unread.add(sessionId);
-    final last = _conversations.of(sessionId).items.lastOrNull;
+    final items = _conversations.of(sessionId).items;
+    final last = items.lastOrNull;
     final failed = last is TurnSummary && !last.ok || last is Notice;
+    // A move answered in a chat app is the game's, not news.
+    if (!failed && fromApp(items.whereType<UserMessage>().lastOrNull?.from)) return;
+    _unread.add(sessionId);
     _send(sessionId, title, failed ? 'Stopped: ${_short(last)}' : 'Finished', thumbsUp: !failed);
     _changed();
   }

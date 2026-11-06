@@ -282,6 +282,10 @@ class RemoteLink extends ChangeNotifier {
     );
   }
 
+  /// What a chat app says to the agent, on the Mac.
+  Future<void> appSay(String id, String path, String text) =>
+      _send({'type': 'appSay', 'id': id, 'path': path, 'text': text});
+
   /// Keeps what a chat app saved, on the Mac.
   Future<void> appSave(String id, String path, Object? state) =>
       _send({'type': 'appSave', 'id': id, 'path': path, 'state': state});

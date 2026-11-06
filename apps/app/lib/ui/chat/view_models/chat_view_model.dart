@@ -9,6 +9,7 @@ import '../../../data/repositories/conversation_repository.dart';
 import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/models/permission_rule.dart';
+import '../../../data/services/chat_apps.dart';
 import '../../../data/services/engines/agent_engine.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
@@ -1560,7 +1561,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// The index of the user's last message, whose answer Retry asks for again.
   int? get lastAsk {
     for (var i = items.length - 1; i >= 0; i--) {
-      if (items[i] is UserMessage) return i;
+      // A move in a chat app is the game's: retrying is the person's message.
+      if (items[i] case UserMessage(:final from) when !fromApp(from)) return i;
     }
     return null;
   }

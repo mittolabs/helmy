@@ -83,7 +83,7 @@ class _ChatAppViewState extends State<ChatAppView> with AutomaticKeepAliveClient
       unawaited(widget.apps.save(widget.session, widget.path, m['save']));
     }
     if (m['say'] case final String text when text.trim().isNotEmpty) {
-      unawaited(widget.apps.say(widget.session, text));
+      unawaited(widget.apps.say(widget.session, widget.path, text));
     }
   }
 

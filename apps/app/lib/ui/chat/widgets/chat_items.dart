@@ -20,6 +20,7 @@ import '../../../utils/diffs.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/plan.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../data/services/chat_apps.dart';
 import '../../../data/services/engines/attachments.dart';
 import '../../core/ashlar/dialog.dart';
 import '../../core/ashlar/dropdown_menu.dart';
@@ -83,9 +84,42 @@ List<ChatRow> buildRows(ChatViewModel vm) {
     run.clear();
   }
 
+  // In a turn a chat app began (a move in a game): it plays out in the app,
+  // so only what needs the person shows here.
+  var inApp = false;
   for (final (i, item) in items.indexed) {
     // A side chat shows from where it began; what came before it knows.
     if (i < vm.firstShown) continue;
+    if (item is UserMessage) inApp = fromApp(item.from);
+    if (inApp) {
+      final needed = switch (item) {
+        PermissionPrompt(decision: .pending) => true,
+        TurnSummary(ok: false) => true,
+        _ => false,
+      };
+      if (!needed) continue;
+      flush();
+      if (item is TurnSummary) {
+        rows.add((
+          id: i,
+          anchor: false,
+          child: ProblemCard(
+            problem: diagnose(item.error, engineId: item.engineId),
+            vm: vm,
+            last: i == items.length - 1,
+          ),
+        ));
+      } else if (item is PermissionPrompt) {
+        // Its step is not shown, so it is drawn from the request.
+        final call = ToolCall(id: item.requestId, name: item.toolName, input: item.input);
+        rows.add((
+          id: i,
+          anchor: false,
+          child: item.isQuestion ? _Question(item, vm) : _Step(call, item, vm),
+        ));
+      }
+      continue;
+    }
     final p = item is ToolCall ? promptsByTool[item.id] : null;
     final quiet =
         (item is ToolCall && p?.decision != PermissionDecision.pending) ||
