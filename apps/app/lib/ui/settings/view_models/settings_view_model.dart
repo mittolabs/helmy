@@ -223,6 +223,7 @@ class SettingsViewModel extends ChangeNotifier {
     for (final e in _engines.engines) {
       _problems[e.info.id] = await e.unavailableReason();
     }
+    unawaited(_readWho());
     checked = true;
     notifyListeners();
     unawaited(checkVersions());
@@ -561,6 +562,62 @@ class SettingsViewModel extends ChangeNotifier {
 
   /// Stops a browser sign-in that is waiting.
   void cancelAdding() => setup?.cancelSignIn();
+
+  /// Who each Claude Code and Codex account is signed in as, by engine id:
+  /// what "Ready" rests on, shown with it.
+  final who = <String, String>{};
+
+  Future<void> _readWho() async {
+    final s = setup;
+    if (s == null) return;
+    for (final e in _engines.engines) {
+      final id = e.info.id;
+      final kind = ConnectionsSetup.kindOf(id);
+      if (kind != 'claude' && kind != 'codex') continue;
+      final folder = settings.accounts.where((a) => a.id == id).firstOrNull?.folder;
+      // Another account outside settings has no folder known here.
+      if (folder == null && id.contains('-')) continue;
+      final name = await s.signedInAs(kind!, folder);
+      if (name == null) {
+        who.remove(id);
+      } else {
+        who[id] = name;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Signed-in account folders on this Mac that Helmy does not use yet
+  /// (~/.claude-work, ~/.codex-work): offered when adding, never added
+  /// without asking.
+  Future<List<({String kind, String name, String folder, String who})>> foundAccounts() async {
+    final s = setup;
+    if (s == null || homeDir.isEmpty) return const [];
+    final used = {for (final a in settings.accounts) a.folder};
+    final out = <({String kind, String name, String folder, String who})>[];
+    final shape = RegExp(r'^\.(claude|codex)-([A-Za-z0-9_-]+)$');
+    final List<FileSystemEntity> entries;
+    try {
+      entries = Directory(homeDir).listSync();
+    } on FileSystemException {
+      return const [];
+    }
+    for (final d in entries.whereType<Directory>()) {
+      final m = shape.firstMatch(d.path.split('/').last);
+      if (m == null || used.contains(d.path)) continue;
+      final kind = m[1]!;
+      final who = await s.signedInAs(kind, d.path);
+      if (who == null) continue;
+      final word = m[2]!.replaceAll(RegExp('[-_]+'), ' ');
+      out.add((
+        kind: kind,
+        name: '${word[0].toUpperCase()}${word.substring(1)}',
+        folder: d.path,
+        who: who,
+      ));
+    }
+    return out;
+  }
 
   /// Who is signed in to the [kind] account in [folder]; null when nobody.
   Future<String?> signedInAs(String kind, String folder) async =>

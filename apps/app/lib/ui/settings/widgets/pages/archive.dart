@@ -6,10 +6,22 @@ class _Archive extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
     final list = context.watch<SidebarViewModel?>();
-    if (list == null) return const _Page(children: []);
+    // Settings opened before the app's list was made (at launch, straight
+    // here): what is archived is not known, so it is not said to be empty.
+    if (list == null) {
+      return const _Page(
+        children: [
+          _Heading('Archived chats', first: true),
+          Empty(
+            border: true,
+            icon: AshlarIcon(AshlarIconsRoundedStroke.archive),
+            title: Text('Archived chats show here'),
+            description: Text('Close Settings and open it again to see them.'),
+          ),
+        ],
+      );
+    }
     final archived = list.entriesOf([
       for (final s in list.sessions)
         if (s.archived) s,
@@ -19,11 +31,12 @@ class _Archive extends StatelessWidget {
       children: [
         const _Heading('Archived chats', first: true),
         if (archived.isEmpty)
-          _Block(
-            title: 'Nothing archived',
-            child: Text(
+          const Empty(
+            border: true,
+            icon: AshlarIcon(AshlarIconsRoundedStroke.archive),
+            title: Text('Nothing archived'),
+            description: Text(
               'Chats you archive come here, out of the list, until you bring them back.',
-              style: muted,
             ),
           )
         else

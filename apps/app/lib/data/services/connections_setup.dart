@@ -171,12 +171,14 @@ class ConnectionsSetup {
   /// Who is signed in to the account in [folder], as the connection says:
   /// their email where it tells, "signed in" where it does not; null when
   /// nobody is.
-  Future<String?> signedInAs(String kind, String folder) async {
+  Future<String?> signedInAs(String kind, String? folder) async {
     switch (kind) {
       case 'claude':
         final bin = await _find('claude');
         if (bin == null) return null;
-        final r = await _run(bin, ['auth', 'status'], extra: {'CLAUDE_CONFIG_DIR': folder});
+        // The usual account is asked as it is: a folder named changes where
+        // Claude Code keeps its sign-in.
+        final r = await _run(bin, ['auth', 'status'], extra: {'CLAUDE_CONFIG_DIR': ?folder});
         try {
           final j = jsonDecode('${r?.stdout}') as Map;
           return j['loggedIn'] == true ? (j['email'] as String? ?? 'signed in') : null;
@@ -186,9 +188,9 @@ class ConnectionsSetup {
       case 'codex':
         final bin = await _find('codex');
         if (bin == null) return null;
-        final r = await _run(bin, ['login', 'status'], extra: {'CODEX_HOME': folder});
+        final r = await _run(bin, ['login', 'status'], extra: {'CODEX_HOME': ?folder});
         if (r?.exitCode != 0 || !'${r?.stdout}${r?.stderr}'.contains('Logged in')) return null;
-        return codexEmail(folder) ?? 'signed in';
+        return codexEmail(folder ?? '$homeDir/.codex') ?? 'signed in';
     }
     return null;
   }

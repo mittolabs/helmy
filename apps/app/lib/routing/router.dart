@@ -170,7 +170,11 @@ GoRouter router(String initialLocation) => GoRouter(
                 ..section =
                     SettingsSection.values.asNameMap()[state.uri.queryParameters['section']] ??
                     .general,
-          builder: (vm) => SettingsScreen(viewModel: vm),
+          // The app's chat list, which Settings opens over: its Archive.
+          builder: (vm) => ChangeNotifierProvider<SidebarViewModel?>.value(
+            value: SidebarViewModel.current,
+            child: SettingsScreen(viewModel: vm),
+          ),
           key: ValueKey(state.uri.toString()),
         ),
       ),

@@ -30,7 +30,7 @@ class _Setup extends ConnectionsSetup {
   }
 
   @override
-  Future<String?> signedInAs(String kind, String folder) async => who;
+  Future<String?> signedInAs(String kind, String? folder) async => who;
 }
 
 void main() {

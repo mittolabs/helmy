@@ -11,19 +11,6 @@ class _Agents extends StatelessWidget {
       children: [
         const _Heading('Connections', first: true),
         _Connections(vm: vm),
-        _Row(
-          title: 'Other agents',
-          description:
-              'Any agent that speaks the Agent Client Protocol: OpenCode, Gemini, Cursor and more '
-              'from the ACP registry, or one of your own.',
-          control: Button(
-            variant: .outline,
-            size: .sm,
-            onPressed: () => addAgent(context, vm),
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
-            child: const Text('Add an agent'),
-          ),
-        ),
         const _Heading('Routing'),
         _Row(
           title: 'Move to a connection with more room',
@@ -334,7 +321,11 @@ class _AgentCard extends StatelessWidget {
     final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
     final now = DateTime.now();
     final usage = row.usage;
-    final status = statusOf(row, checked);
+    // Ready rests on a sign-in: whose, said with it.
+    final signedIn = vm.who[row.info.id];
+    final status = statusOf(row, checked) == 'Ready' && signedIn != null
+        ? 'Ready, signed in as $signedIn'
+        : statusOf(row, checked);
     final can = [
       for (final c in row.info.capabilities)
         if (c != Capability.tools) c.label,

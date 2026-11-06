@@ -30,6 +30,10 @@ import '../../../domain/models/chat.dart';
 enum SessionActivity { idle, working, needsYou, unread }
 
 class SidebarViewModel extends ChangeNotifier {
+  /// The app's chat list, for what opens over the app outside its shell
+  /// (Settings, whose Archive lists the chats put away).
+  static SidebarViewModel? current;
+
   new({
     required this._sessions,
     required this._conversations,
@@ -42,6 +46,7 @@ class SidebarViewModel extends ChangeNotifier {
     ShipRepository? ship,
     this._prs,
   }) : _ship = ship {
+    current = this;
     _sessions.addListener(_checkGitHub);
     unawaited(_checkGitHub());
     // A chat whose pull request merged is done with, unless something in it
@@ -924,6 +929,7 @@ class SidebarViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (current == this) current = null;
     _disposed = true;
     _tidyTimer?.cancel();
     _firstSettle?.cancel();
