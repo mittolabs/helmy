@@ -255,14 +255,14 @@ void main() {
       );
       await tester.pump();
       double left() => tester.getTopLeft(find.bySemanticsLabel('Show sidebar')).dx;
-      expect(left(), windowButtonsEnd);
+      expect(left(), windowButtonsEnd + titleControlsGap);
       windowFullScreen.value = true;
       addTearDown(() => windowFullScreen.value = false);
       await tester.pump();
-      expect(left(), 16);
+      expect(left(), 16 + titleControlsGap);
       windowFullScreen.value = false;
       await tester.pump();
-      expect(left(), windowButtonsEnd);
+      expect(left(), windowButtonsEnd + titleControlsGap);
       vm.dispose();
       w.repo.dispose();
       await tester.runAsync(() => w.root.delete(recursive: true));
