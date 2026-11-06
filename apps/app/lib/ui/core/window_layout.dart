@@ -18,6 +18,12 @@ const titleLine = 20.0;
 /// there, so what sits after them moves to the edge.
 final windowFullScreen = ValueNotifier(false);
 
+/// The gap between the window's buttons and the sidebar's controls after
+/// them (show sidebar, back, forward), and the room those take with the gap
+/// after: where a page's title starts when the sidebar is hidden.
+const titleControlsGap = 8.0;
+const titleControlsRoom = titleControlsGap + 3 * 32;
+
 /// Where a title row starts when the sidebar is not beside the page: after
 /// the window's buttons on a Mac (the app draws under its title bar there),
 /// at the edge in full screen, and at the edge on Windows and Linux, whose

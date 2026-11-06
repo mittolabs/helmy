@@ -348,25 +348,35 @@ class ShellScreen extends StatelessWidget {
                           ListenableBuilder(
                             listenable: windowFullScreen,
                             builder: (context, button) => PositionedDirectional(
-                              start: titleRowStart,
-                              top: titleLine - 16,
+                              start: titleRowStart + titleControlsGap,
+                              // Measured 2 points high at titleLine - 16 over the
+                              // page, against the window's buttons.
+                              top: titleLine - 14,
                               child: button!,
                             ),
-                            child: Tooltip(
-                              message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
-                              child: Builder(
-                                builder: (context) => Button(
-                                  variant: .ghost,
-                                  size: .iconSm,
-                                  semanticLabel: 'Show sidebar',
-                                  onPressed: () => SidebarLayout.of(context).toggle(),
-                                  // The title's size, so the two read as one line.
-                                  child: const AshlarIcon(
-                                    AshlarIconsRoundedStroke.panelLeft,
-                                    size: 16,
+                            // Showing the sidebar, then back and forward, as
+                            // they sit in the sidebar when it shows.
+                            child: Row(
+                              mainAxisSize: .min,
+                              children: [
+                                Tooltip(
+                                  message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
+                                  child: Builder(
+                                    builder: (context) => Button(
+                                      variant: .ghost,
+                                      size: .iconSm,
+                                      semanticLabel: 'Show sidebar',
+                                      onPressed: () => SidebarLayout.of(context).toggle(),
+                                      // The title's size, so the two read as one line.
+                                      child: const AshlarIcon(
+                                        AshlarIconsRoundedStroke.panelLeft,
+                                        size: 16,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const _BackForward(),
+                              ],
                             ),
                           ),
                         ],
