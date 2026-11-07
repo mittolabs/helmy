@@ -1,3 +1,5 @@
+import '../../core/window_web_view.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -173,7 +175,7 @@ class _ChatAppViewState extends State<ChatAppView> with AutomaticKeepAliveClient
               )
             : Stack(
                 children: [
-                  WebViewWidget(controller: _c),
+                  WindowWebView(controller: _c),
                   if (!_ready) const Center(child: Spinner(size: 16)),
                   if (!widget.full)
                     Positioned(

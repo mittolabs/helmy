@@ -3,9 +3,13 @@
 // recorded in Mittolabs' docs/notes/helmy-tab-windows-spike.md.
 // ignore_for_file: invalid_use_of_internal_member, implementation_imports
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:flutter/src/foundation/_features.dart' as features;
 import 'package:flutter/src/widgets/_window.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -116,15 +120,29 @@ class HelmyWindows extends ChangeNotifier {
 
   /// For looking while developing (HELMY_TAB_WINDOW): in the chat on
   /// screen, a tab of [kind] shown in the panel, then moved into a window of
-  /// its own a few seconds later, as a person would.
-  Future<void> moveOutForLook(SidePanel kind, {bool stay = false}) async {
+  /// its own a few seconds later, as a person would; with [back], put back
+  /// in the panel a few seconds after that.
+  Future<void> moveOutForLook(SidePanel kind, {bool stay = false, bool back = false}) async {
+    // Frames go on while Helmy is out of sight behind other windows, as
+    // they would were it looked at.
+    Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => SchedulerBinding.instance.scheduleForcedFrame(),
+    );
     await Future<void>.delayed(const Duration(seconds: 3));
     final vm = _chats.values.firstOrNull?.vm;
     if (vm == null) return;
     final tab = vm.show(kind);
+    // HELMY_LOOK_URL: a page in it, for a Preview tab.
+    if (Platform.environment['HELMY_LOOK_URL'] case final url? when kind == .preview) {
+      vm.preview(url);
+    }
     if (stay) return;
     await Future<void>.delayed(const Duration(seconds: 5));
     moveOut(vm, tab);
+    if (!back) return;
+    await Future<void>.delayed(const Duration(seconds: 5));
+    putBack(tab);
   }
 
   /// Brings [tab]'s window to the front.

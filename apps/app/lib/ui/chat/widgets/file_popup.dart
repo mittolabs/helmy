@@ -1,3 +1,5 @@
+import '../../core/window_web_view.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -455,7 +457,7 @@ class _PdfState extends State<_Pdf> {
   }
 
   @override
-  Widget build(BuildContext context) => WebViewWidget(controller: _c);
+  Widget build(BuildContext context) => WindowWebView(controller: _c);
 }
 
 /// The picture macOS makes of a file (Quick Look): an office document's

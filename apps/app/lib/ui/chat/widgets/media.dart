@@ -1,3 +1,5 @@
+import '../../core/window_web_view.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -291,7 +293,7 @@ class _DocumentState extends State<_Document> {
 
   @override
   Widget build(BuildContext context) =>
-      _Frame(height: 420, maxHeight: 420, child: WebViewWidget(controller: _c));
+      _Frame(height: 420, maxHeight: 420, child: WindowWebView(controller: _c));
 }
 
 /// A picture of an office document's first page, by Quick Look.

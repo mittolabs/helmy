@@ -1,3 +1,4 @@
+import '../../core/window_web_view.dart';
 import '../../../data/repositories/settings_repository.dart';
 
 import 'package:provider/provider.dart';
@@ -772,7 +773,7 @@ class _PreviewPanelState extends State<PreviewPanel> {
                   // the native page would take it without Flutter seeing it.
                   ? Stack(
                       children: [
-                        WebViewWidget(controller: _c),
+                        WindowWebView(controller: _c),
                         ValueListenableBuilder(
                           valueListenable: openOverlays,
                           builder: (context, open, _) => open > 0
