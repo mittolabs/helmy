@@ -260,7 +260,9 @@ class _General extends StatelessWidget {
           title: 'Start in',
           description: s.folderMode == .fixed
               ? (s.fixedFolder == null ? 'No folder chosen yet.' : tildePath(s.fixedFolder!))
-              : 'Each new chat opens in the folder you last worked in.',
+              : s.folderMode == .last
+              ? 'Each new chat opens in the folder you last worked in.'
+              : 'Each new chat starts in no project; choose a folder from it when one is needed.',
           control: Row(
             spacing: 8,
             children: [
@@ -284,6 +286,7 @@ class _General extends StatelessWidget {
                   value: s.folderMode,
                   semanticLabel: 'Where new chats start',
                   options: const [
+                    SelectOption(FolderMode.none, 'No project'),
                     SelectOption(FolderMode.last, 'Last folder'),
                     SelectOption(FolderMode.fixed, 'The same folder'),
                   ],

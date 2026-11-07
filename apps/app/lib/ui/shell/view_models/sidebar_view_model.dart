@@ -18,6 +18,7 @@ import '../../../utils/diffs.dart';
 import '../../../utils/format.dart';
 
 import 'dart:async';
+import 'dart:io';
 
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/repositories/ship_repository.dart';
@@ -65,12 +66,7 @@ class SidebarViewModel extends ChangeNotifier {
     });
     // Once the list has been read.
     _firstSettle = Timer(const Duration(seconds: 5), () => unawaited(settleIdle()));
-    create = Command0(
-      () async => _sessions.create(
-        cwd: defaultFolder,
-        level: await _projects?.levelFor(defaultFolder) ?? _settings.settings.defaultLevel,
-      ),
-    );
+    create = Command0(_create);
     delete = Command1(_delete);
   }
 
@@ -85,6 +81,29 @@ class SidebarViewModel extends ChangeNotifier {
   Future<void> allowNotifications() async => _fixes?.apply(Fix.allowNotifications);
 
   late final Command0<Session> create;
+
+  /// A new session where [defaultFolder] says; in no project, a folder of
+  /// its own that Helmy keeps, made once its id is known.
+  Future<Result<Session>> _create() async {
+    final root = scratchRoot;
+    if (_settings.settings.folderMode == .none && root != null) {
+      final made = await _sessions.create(cwd: homeDir, level: _settings.settings.defaultLevel);
+      if (made case Ok(value: final s)) {
+        final dir = Directory('$root/${s.id}');
+        await dir.create(recursive: true);
+        final moved = s.copyWith(cwd: dir.path);
+        return switch (await _sessions.save(moved)) {
+          Ok() => .ok(moved),
+          Error(:final error) => .error(error),
+        };
+      }
+      return made;
+    }
+    return _sessions.create(
+      cwd: defaultFolder,
+      level: await _projects?.levelFor(defaultFolder) ?? _settings.settings.defaultLevel,
+    );
+  }
 
   /// A new session in [cwd], at that project's permissions.
   Future<Result<Session>> createIn(String cwd) async => _sessions.create(
@@ -338,9 +357,9 @@ class SidebarViewModel extends ChangeNotifier {
     }
   }
 
-  /// Where a new session starts: the folder last worked in or the one set in
-  /// settings, else home. It can be changed from the session itself, so
-  /// nothing is asked up front.
+  /// Where a new session starts, when in a project: the folder last worked
+  /// in or the one set in settings, else home. It can be changed from the
+  /// session itself, so nothing is asked up front.
   String get defaultFolder {
     final s = _settings.settings;
     final home = homeDir;

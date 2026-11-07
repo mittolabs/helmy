@@ -19,9 +19,9 @@ enum OnboardingStep {
   final String label;
 }
 
-/// Where new chats start, as chosen in the last step: where the last chat
-/// was ([folder] null), or always in [folder].
-typedef StartChoice = ({String? folder});
+/// Where new chats start, as chosen in the last step: in no project, where
+/// the last chat was, or always in [folder] ([mode] fixed).
+typedef StartChoice = ({FolderMode mode, String? folder});
 
 /// The first run, after the splash: the AI tools Helmy works through, the
 /// conversations already had in them, and where new chats start.
@@ -257,8 +257,8 @@ class OnboardingViewModel extends ChangeNotifier {
 
   // Folders.
 
-  /// Where new chats start; where the last chat was, to begin with.
-  StartChoice start = (folder: null);
+  /// Where new chats start; in no project, to begin with.
+  StartChoice start = (mode: .none, folder: null);
 
   /// A folder chosen from the file picker, offered beside the suggestions.
   String? picked;
@@ -270,7 +270,7 @@ class OnboardingViewModel extends ChangeNotifier {
 
   void pick(String folder) {
     picked = folder;
-    start = (folder: folder);
+    start = (mode: .fixed, folder: folder);
     notifyListeners();
   }
 
@@ -303,7 +303,7 @@ class OnboardingViewModel extends ChangeNotifier {
     await _settings.save(
       _settings.settings.copyWith(
         setupDone: true,
-        folderMode: start.folder == null ? FolderMode.last : FolderMode.fixed,
+        folderMode: start.mode,
         fixedFolder: start.folder,
       ),
     );

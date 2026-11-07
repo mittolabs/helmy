@@ -159,7 +159,7 @@ void main() {
     expect(settings.settings.setupDone, isTrue);
     expect(
       settings.settings.folderMode,
-      FolderMode.last,
+      FolderMode.none,
       reason: 'nothing chosen, nothing changed',
     );
     expect(find.text('home'), findsOneWidget);

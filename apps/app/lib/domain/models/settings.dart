@@ -5,8 +5,9 @@ import 'permission_rule.dart';
 import 'project_action.dart';
 import 'work.dart';
 
-/// Where a new session starts.
-enum FolderMode { last, fixed }
+/// Where a new session starts: in no project (a folder of its own, until
+/// one is chosen), where the last one was, or always in the same folder.
+enum FolderMode { none, last, fixed }
 
 /// How readily Helmy moves a session to an engine with more room.
 enum Switching {
@@ -287,7 +288,7 @@ class const ConnectionAccount({
 /// Everything the user can set, kept in one file.
 class const AppSettings({
   final PermissionLevel defaultLevel = .ask,
-  final FolderMode folderMode = .last,
+  final FolderMode folderMode = .none,
   final String? fixedFolder,
   final Set<String> disabledEngines = const {},
 
@@ -778,7 +779,7 @@ class const AppSettings({
 
   static AppSettings fromJson(Map<String, Object?> json) => AppSettings(
     defaultLevel: PermissionLevel.fromId(json['defaultLevel'] as String?),
-    folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .last,
+    folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .none,
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
     interfaceFont: json['interfaceFont'] as String?,

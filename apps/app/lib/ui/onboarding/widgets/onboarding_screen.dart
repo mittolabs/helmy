@@ -891,19 +891,27 @@ class _FoldersStep extends StatelessWidget {
         _Box(
           children: [
             _Choice(
+              icon: AshlarIconsRoundedStroke.message,
+              title: 'No project',
+              subtitle:
+                  'Each new chat starts on its own; choose a folder from it when one is needed.',
+              on: vm.start.mode == .none,
+              onPressed: () => vm.choose((mode: .none, folder: null)),
+            ),
+            _Choice(
               icon: AshlarIconsRoundedStroke.messages,
               title: 'Where you last worked',
               subtitle: 'Each new chat opens in the folder of your last one.',
-              on: vm.start.folder == null,
-              onPressed: () => vm.choose((folder: null)),
+              on: vm.start.mode == .last,
+              onPressed: () => vm.choose((mode: .last, folder: null)),
             ),
             for (final f in vm.folders)
               _Choice(
                 icon: AshlarIconsRoundedStroke.folder,
                 title: f == homeDir ? 'Home' : folderName(f),
                 subtitle: 'Always in ${tildePath(f)}',
-                on: vm.start.folder == f,
-                onPressed: () => vm.choose((folder: f)),
+                on: vm.start.mode == .fixed && vm.start.folder == f,
+                onPressed: () => vm.choose((mode: .fixed, folder: f)),
               ),
             _Choice(
               icon: AshlarIconsRoundedStroke.folderOpen,
@@ -1026,9 +1034,12 @@ class _Finished extends StatelessWidget {
       ),
       (
         AshlarIconsRoundedStroke.folder,
-        folder == null
-            ? 'New chats start where you last worked'
-            : 'New chats start in ${folder == homeDir ? 'Home' : tildePath(folder)}',
+        switch (vm.start.mode) {
+          .none => 'New chats start in no project',
+          .last => 'New chats start where you last worked',
+          .fixed =>
+            'New chats start in ${folder == homeDir ? 'Home' : tildePath(folder ?? homeDir)}',
+        },
       ),
     ];
     return Column(
