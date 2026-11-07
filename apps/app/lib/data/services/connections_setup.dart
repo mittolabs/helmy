@@ -31,6 +31,15 @@ class ConnectionsSetup {
   final CliLocator _locator;
   final DesktopService _desktop;
 
+  /// Connection [engineId] as shown in Settings: [fallback] (its own name),
+  /// or its kind with the name the user gave it, "Claude Code (Personal)".
+  static String shownName(String engineId, String fallback, Map<String, String> given) {
+    final name = given[engineId]?.trim() ?? '';
+    if (name.isEmpty) return fallback;
+    final kind = names[kindOf(engineId)]?.$1 ?? fallback;
+    return '$kind ($name)';
+  }
+
   /// Each connection's name, and a line on what it does.
   static const names = {
     'claude': ('Claude Code', 'Works in your folders and connected accounts'),

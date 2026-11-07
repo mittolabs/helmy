@@ -36,6 +36,10 @@ class _Pretend extends ConnectionsSetup {
   }
 
   @override
+  Future<String?> signedInAs(String kind, String? folder) async =>
+      folder == null || folder.endsWith('-work') ? 'sam@example.com' : null;
+
+  @override
   Future<bool> install(String id) async {
     asked.add('install $id');
     states[id] = SetupState.signedOut;
@@ -159,5 +163,30 @@ void main() {
       reason: 'nothing chosen, nothing changed',
     );
     expect(find.text('home'), findsOneWidget);
+  });
+
+  test('a found connection can be named, and another account used in its place', () async {
+    final settings = FakeSettingsRepository();
+    final setup = _Pretend()..states['claude'] = SetupState.ready;
+    final vm = OnboardingViewModel(setup: setup, settings: settings, engines: EngineRegistry([]));
+    await vm.check();
+    final claude = vm.checks!.firstWhere((c) => c.id == 'claude');
+    expect(vm.found, contains('claude'), reason: 'ready when first looked: found');
+    expect(vm.who['claude'], 'sam@example.com');
+    expect(vm.used('claude'), isTrue, reason: 'found, so on to begin with');
+
+    await vm.setName('claude', 'Personal');
+    expect(vm.shownName(claude), 'Claude Code (Personal)');
+
+    // A folder nobody is signed in to: refused, nothing changed.
+    expect(await vm.useAccountFolder('claude', 'Work', '/Users/sam/.claude-empty'), isNotNull);
+    expect(settings.settings.accounts, isEmpty);
+    expect(vm.used('claude'), isTrue);
+
+    // A signed-in folder: that account is added, the found one left out.
+    expect(await vm.useAccountFolder('claude', 'Work', '/Users/sam/.claude-work'), isNull);
+    expect(settings.settings.accounts.single.folder, '/Users/sam/.claude-work');
+    expect(settings.settings.accounts.single.name, 'Work');
+    expect(vm.used('claude'), isFalse);
   });
 }

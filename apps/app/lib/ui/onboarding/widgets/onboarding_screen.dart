@@ -12,6 +12,9 @@ import '../../../utils/platform.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/scroll_area.dart';
+import '../../core/ashlar/dialog.dart';
+import '../../core/ashlar/input.dart';
+import '../../core/helmy_dialog.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/theme.dart';
@@ -577,7 +580,7 @@ class _ConnectionRow extends StatelessWidget {
               crossAxisAlignment: .start,
               spacing: 2,
               children: [
-                Text(c.name, style: t.text.sm.copyWith(fontWeight: .w600)),
+                Text(vm.shownName(c), style: t.text.sm.copyWith(fontWeight: .w600)),
                 Text(
                   status,
                   style: t.text.xs.copyWith(
@@ -594,7 +597,27 @@ class _ConnectionRow extends StatelessWidget {
           else if (c.state == .ready)
             // Found ready, so on to begin with: Helmy's pick, and the person's
             // to undo here.
-            Switch(value: on, semanticLabel: 'Use ${c.name}', onChanged: (v) => vm.setUsed(c.id, v))
+            Row(
+              mainAxisSize: .min,
+              spacing: 8,
+              children: [
+                // Found as it was: its name, which account, which copy runs,
+                // all changeable here.
+                Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: vm.busy != null || vm.adding != null
+                      ? null
+                      : () => editConnection(context, vm, c),
+                  child: const Text('Edit'),
+                ),
+                Switch(
+                  value: on,
+                  semanticLabel: 'Use ${c.name}',
+                  onChanged: (v) => vm.setUsed(c.id, v),
+                ),
+              ],
+            )
           else
             Button(
               variant: .outline,
@@ -608,6 +631,196 @@ class _ConnectionRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Edits connection [c] as found: its name, which account Helmy uses for
+/// it (another, signed in now or from a folder already signed in, in its
+/// place), and which installed copy runs.
+Future<void> editConnection(BuildContext context, OnboardingViewModel vm, ConnectionCheck c) =>
+    showAshlarDialog<void>(
+      context: context,
+      builder: (context) => _EditConnection(vm: vm, c: c),
+    );
+
+class _EditConnection extends StatefulWidget {
+  const _EditConnection({required this.vm, required this.c});
+  final OnboardingViewModel vm;
+  final ConnectionCheck c;
+
+  @override
+  State<_EditConnection> createState() => _EditConnectionState();
+}
+
+class _EditConnectionState extends State<_EditConnection> {
+  late final _name = TextEditingController(text: widget.vm.nameOf(widget.c.id));
+  String? _trouble;
+  bool _signingIn = false;
+  late Future<String?> _program = widget.vm.programOf(widget.c.id);
+
+  OnboardingViewModel get vm => widget.vm;
+  ConnectionCheck get c => widget.c;
+  bool get _accounts => c.id != 'ollama';
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _anotherAccount() async {
+    setState(() {
+      _signingIn = true;
+      _trouble = null;
+    });
+    final ok = await vm.useAnotherAccount(c.id, _name.text);
+    if (!mounted) return;
+    if (ok) return Navigator.pop(context);
+    setState(() {
+      _signingIn = false;
+      _trouble = "The sign-in didn't finish, so nothing changed. Try again when ready.";
+    });
+  }
+
+  Future<void> _folder() async {
+    final folder = await getDirectoryPath(
+      initialDirectory: homeDir,
+      confirmButtonText: 'Use this account',
+    );
+    if (folder == null || !mounted) return;
+    final why = await vm.useAccountFolder(c.id, _name.text, folder);
+    if (!mounted) return;
+    if (why == null) return Navigator.pop(context);
+    setState(() => _trouble = why);
+  }
+
+  Future<void> _choose() async {
+    final file = await openFile(confirmButtonText: 'Use this program');
+    if (file == null) return;
+    await vm.setProgram(c.id, file.path);
+    if (mounted) setState(() => _program = vm.programOf(c.id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final label = t.text.sm.copyWith(fontWeight: .w500);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground, height: 1.4);
+    final who = vm.who[c.id];
+    return HelmyDialog(
+      title: 'Edit ${c.name}',
+      icon: AshlarIconsRoundedStroke.pencil,
+      maxWidth: 460,
+      content: Column(
+        crossAxisAlignment: .stretch,
+        mainAxisSize: .min,
+        children: [
+          Text('Name', style: label),
+          const SizedBox(height: 2),
+          Text('To tell it apart from other accounts, as "${c.name} (Personal)".', style: muted),
+          const SizedBox(height: 6),
+          Input(
+            controller: _name,
+            enabled: !_signingIn,
+            placeholder: 'Personal',
+            semanticLabel: 'Name',
+          ),
+          if (_accounts) ...[
+            const SizedBox(height: 18),
+            Text('Account', style: label),
+            const SizedBox(height: 2),
+            Text(
+              who == null ? 'Signed in on this Mac.' : 'Signed in as $who on this Mac.',
+              style: muted,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: _signingIn ? null : _anotherAccount,
+                  child: Text(_signingIn ? 'Signing in, in your browser...' : 'Sign in to another'),
+                ),
+                Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: _signingIn ? null : _folder,
+                  child: const Text('Use a signed-in folder...'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Another account is used in its place; this one stays signed in on your Mac '
+              'for the ${c.name} you run yourself.',
+              style: muted,
+            ),
+          ],
+          const SizedBox(height: 18),
+          Text('Program', style: label),
+          const SizedBox(height: 6),
+          FutureBuilder(
+            future: _program,
+            builder: (context, snap) => Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: Text(
+                    snap.connectionState != .done
+                        ? 'Finding it...'
+                        : snap.data == null
+                        ? 'Not found.'
+                        : '${vm.programChosen(c.id) ? 'Chosen' : 'Found'}: ${tildePath(snap.data!)}',
+                    maxLines: 2,
+                    overflow: .ellipsis,
+                    style: muted,
+                  ),
+                ),
+                if (vm.programChosen(c.id))
+                  Button(
+                    variant: .ghost,
+                    size: .xs,
+                    onPressed: () async {
+                      await vm.setProgram(c.id, null);
+                      if (mounted) setState(() => _program = vm.programOf(c.id));
+                    },
+                    child: const Text('Find it again'),
+                  ),
+                Button(
+                  variant: .outline,
+                  size: .xs,
+                  onPressed: _choose,
+                  child: const Text('Choose...'),
+                ),
+              ],
+            ),
+          ),
+          if (_trouble != null) ...[
+            const SizedBox(height: 12),
+            Text(_trouble!, style: muted.copyWith(color: t.colors.destructive)),
+          ],
+        ],
+      ),
+      actions: [
+        Button(
+          variant: .outline,
+          onPressed: _signingIn ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        Button(
+          onPressed: _signingIn
+              ? null
+              : () async {
+                  await vm.setName(c.id, _name.text);
+                  if (context.mounted) Navigator.pop(context);
+                },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

@@ -158,15 +158,16 @@ class OnboardingViewModel extends ChangeNotifier {
 
   /// Adds another account of [kind], signed in through the browser; false
   /// when sign-in did not finish.
-  Future<bool> addAccount(String kind) async {
+  Future<bool> addAccount(String kind, {String? name}) async {
     if (adding != null) return false;
     adding = kind;
     notifyListeners();
-    // Named as Settings names them, "Codex 2" and on; changed there.
+    // Named as Settings names them, "Codex 2" and on, unless named here.
     final taken = {for (final e in _engines.engines) e.info.id};
     final base = kind == 'claude' ? 'Claude Code' : 'Codex';
     final n = 2 + _settings.settings.accounts.where((a) => a.kind == kind).length;
-    final made = await _setup.addAccount(kind, '$base $n', taken: taken);
+    final given = name?.trim() ?? '';
+    final made = await _setup.addAccount(kind, given.isEmpty ? '$base $n' : given, taken: taken);
     if (made != null) {
       final s = _settings.settings;
       await _settings.save(s.copyWith(accounts: [...s.accounts, made]));
@@ -176,6 +177,82 @@ class OnboardingViewModel extends ChangeNotifier {
     adding = null;
     notifyListeners();
     return made != null;
+  }
+
+  // Editing a found connection: its name, which installed copy runs, and
+  // another account in its place.
+
+  /// The name given to connection [id], or '' for none.
+  String nameOf(String id) => _settings.settings.connectionNames[id] ?? '';
+
+  /// [id] shown as Settings will show it: "Claude Code (Personal)".
+  String shownName(ConnectionCheck c) =>
+      ConnectionsSetup.shownName(c.id, c.name, _settings.settings.connectionNames);
+
+  /// Names connection [id] (each of its engines, for Ollama's two); '' for
+  /// none.
+  Future<void> setName(String id, String name) async {
+    final s = _settings.settings;
+    final names = {...s.connectionNames};
+    for (final e in {id, ..._group(id)}) {
+      if (name.trim().isEmpty) {
+        names.remove(e);
+      } else {
+        names[e] = name.trim();
+      }
+    }
+    await _settings.save(s.copyWith(connectionNames: names));
+    notifyListeners();
+  }
+
+  /// Where connection [id]'s program is now, chosen or found; null when not.
+  Future<String?> programOf(String id) => _setup.programOf(id);
+
+  /// Whether [id]'s program was chosen by hand.
+  bool programChosen(String id) => _settings.settings.programs.containsKey(id);
+
+  /// Runs [path] for connection [id]; null to find it again by itself.
+  Future<void> setProgram(String id, String? path) async {
+    final s = _settings.settings;
+    final programs = {...s.programs};
+    if (path == null) {
+      programs.remove(id);
+    } else {
+      programs[id] = path;
+    }
+    await _settings.save(s.copyWith(programs: programs));
+    await check();
+  }
+
+  /// Another account of [kind] in place of the one found: signed in now,
+  /// through the browser, under [name]; the found one is left out. False
+  /// when the sign-in did not finish (and nothing changed).
+  Future<bool> useAnotherAccount(String kind, String name) async {
+    final ok = await addAccount(kind, name: name);
+    if (ok) await setUsed(kind, false);
+    return ok;
+  }
+
+  /// The [kind] account already signed in to [folder] (~/.claude-work), under
+  /// [name], in place of the one found. Null when it was taken, else why not.
+  Future<String?> useAccountFolder(String kind, String name, String folder) async {
+    final who = await _setup.signedInAs(kind, folder);
+    if (who == null) {
+      return "Nobody is signed in there. Pick the folder an account's sign-in is kept in.";
+    }
+    final given = name.trim().isEmpty ? folder.split('/').last.replaceFirst('.', '') : name.trim();
+    var id = '$kind-${ConnectionsSetup.slugOf(given)}';
+    final taken = {for (final e in _engines.engines) e.info.id};
+    for (var n = 2; taken.contains(id); n++) {
+      id = '$kind-${ConnectionsSetup.slugOf(given)}-$n';
+    }
+    final account = ConnectionAccount(id: id, kind: kind, name: given, folder: folder);
+    final s = _settings.settings;
+    await _settings.save(s.copyWith(accounts: [...s.accounts, account]));
+    _engines.add(account);
+    added[kind] = (added[kind] ?? 0) + 1;
+    await setUsed(kind, false);
+    return null;
   }
 
   // Folders.

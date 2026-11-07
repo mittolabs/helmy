@@ -367,6 +367,10 @@ class const AppSettings({
   /// Helmy cannot find them.
   final Map<String, String> programs = const {},
 
+  /// Names given to connections, by engine id ('claude': 'Personal'): shown
+  /// as "Claude Code (Personal)" in Settings, to tell accounts apart.
+  final Map<String, String> connectionNames = const {},
+
   /// Whether the assistant may use the simulators, emulators and phones in
   /// the Device panel.
   final bool agentDevices = true,
@@ -545,6 +549,7 @@ class const AppSettings({
     String? commitStyle,
     Map<String, String>? hookSigning,
     Map<String, String>? programs,
+    Map<String, String>? connectionNames,
     bool? agentDevices,
     Map<String, Object?>? themeImport,
     bool? carryOnAfterRestart,
@@ -626,6 +631,7 @@ class const AppSettings({
     commitStyle: commitStyle ?? this.commitStyle,
     hookSigning: hookSigning ?? this.hookSigning,
     programs: programs ?? this.programs,
+    connectionNames: connectionNames ?? this.connectionNames,
     agentDevices: agentDevices ?? this.agentDevices,
     themeImport: themeImport ?? this.themeImport,
     carryOnAfterRestart: carryOnAfterRestart ?? this.carryOnAfterRestart,
@@ -710,6 +716,7 @@ class const AppSettings({
     'commitStyle': commitStyle,
     'hookSigning': hookSigning,
     'programs': programs,
+    'connectionNames': connectionNames,
     'agentDevices': agentDevices,
     'themeImport': themeImport,
     'carryOnAfterRestart': carryOnAfterRestart,
@@ -793,6 +800,10 @@ class const AppSettings({
     },
     programs: {
       for (final e in ((json['programs'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
+    },
+    connectionNames: {
+      for (final e in ((json['connectionNames'] as Map?) ?? const {}).entries)
+        '${e.key}': '${e.value}',
     },
     agentDevices: json['agentDevices'] as bool? ?? true,
     themeImport: (json['themeImport'] as Map?)?.cast<String, Object?>(),

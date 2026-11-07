@@ -270,7 +270,11 @@ class _ConnectionItem extends StatelessWidget {
                 spacing: 2,
                 children: [
                   Text(
-                    row.info.name,
+                    ConnectionsSetup.shownName(
+                      row.info.id,
+                      row.info.name,
+                      context.watch<SettingsRepository>().settings.connectionNames,
+                    ),
                     maxLines: 1,
                     overflow: .ellipsis,
                     style: t.text.sm.copyWith(fontWeight: .w500),
@@ -346,7 +350,14 @@ class _AgentCard extends StatelessWidget {
                   crossAxisAlignment: .start,
                   spacing: 2,
                   children: [
-                    Text(row.info.name, style: t.text.base.copyWith(fontWeight: .w600)),
+                    Text(
+                      ConnectionsSetup.shownName(
+                        row.info.id,
+                        row.info.name,
+                        vm.settings.connectionNames,
+                      ),
+                      style: t.text.base.copyWith(fontWeight: .w600),
+                    ),
                     Text(status, style: muted),
                   ],
                 ),
