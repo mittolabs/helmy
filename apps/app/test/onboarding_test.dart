@@ -82,7 +82,15 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
     expect(setup.asked, ['sign in claude']);
-    expect(find.text('Ready'), findsOneWidget);
+    // Ready now, and on: a switch to leave it out.
+    expect(find.bySemanticsLabel(RegExp('^Use ')), findsOneWidget);
+    expect(find.text('Skip for now'), findsNothing);
+    // Switched off, nothing is in use: on with nothing, or skip.
+    await tester.tap(find.bySemanticsLabel(RegExp('^Use ')));
+    await tester.pumpAndSettle();
+    expect(find.text('Skip for now'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel(RegExp('^Use ')));
+    await tester.pumpAndSettle();
     expect(find.text('Skip for now'), findsNothing);
     expect(
       find.text('Add another claude account'),

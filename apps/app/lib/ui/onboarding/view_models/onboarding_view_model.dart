@@ -76,10 +76,55 @@ class OnboardingViewModel extends ChangeNotifier {
   /// The accounts added here, by kind, to say so under the connection.
   final added = <String, int>{};
 
-  bool get anyReady => checks?.any((c) => c.state == .ready) ?? false;
+  /// One found ready and left on: Helmy has something to work through.
+  bool get anyReady => checks?.any((c) => c.state == .ready && used(c.id)) ?? false;
+
+  /// Who each ready connection is signed in as, by its id: said on its row,
+  /// so it is plain what Helmy would use.
+  final who = <String, String>{};
+
+  /// Ready when Helmy first looked: found on this Mac, and said so, as Helmy
+  /// switched them on without being asked.
+  Set<String>? found;
 
   Future<void> check() async {
     checks = await _setup.check();
+    found ??= {
+      for (final c in checks ?? const <ConnectionCheck>[])
+        if (c.state == .ready) c.id,
+    };
+    notifyListeners();
+    for (final c in checks ?? const <ConnectionCheck>[]) {
+      if (c.state != .ready || c.id == 'ollama') continue;
+      final name = await _setup.signedInAs(c.id, null);
+      if (name != null) who[c.id] = name;
+    }
+    notifyListeners();
+  }
+
+  /// The engines that are connection [id] (Ollama's two as one; the usual
+  /// account, not others added).
+  List<String> _group(String id) => [
+    for (final e in _engines.engines)
+      if (ConnectionsSetup.kindOf(e.info.id) == id && (id == 'ollama' || e.info.id == id))
+        e.info.id,
+  ];
+
+  /// Whether Helmy uses connection [id]: found ready, it is, until switched
+  /// off here (or removed in Settings).
+  bool used(String id) {
+    final off = _settings.settings.disabledEngines;
+    final group = _group(id);
+    return group.isEmpty ? !off.contains(id) : !group.every(off.contains);
+  }
+
+  /// Switches connection [id] on or off for Helmy: it stays installed and
+  /// signed in on this Mac either way.
+  Future<void> setUsed(String id, bool on) async {
+    final s = _settings.settings;
+    final group = {..._group(id), if (_group(id).isEmpty) id};
+    final off = on ? ({...s.disabledEngines}..removeAll(group)) : {...s.disabledEngines, ...group};
+    await _settings.save(s.copyWith(disabledEngines: off));
     notifyListeners();
   }
 

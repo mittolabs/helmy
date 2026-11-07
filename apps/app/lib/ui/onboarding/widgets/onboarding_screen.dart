@@ -13,6 +13,7 @@ import '../../core/ashlar/button.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/spinner.dart';
+import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/toast.dart';
 import '../../import/import_list.dart';
@@ -91,8 +92,9 @@ const _guide = {
     image: 'assets/helmy/onboarding-connect.png',
     title: 'Connect your AI tools',
     say:
-        "I get things done through the AI tools you already use. Each one marked Ready is "
-        'set. Press Install or Sign in on any you want, then Continue.',
+        'I get things done through the AI tools you already use. I found some on this Mac and '
+        "switched them on: switch off any you don't want me to use. Press Install or Sign in "
+        'on others, then Continue.',
   ),
   OnboardingStep.chats: (
     image: 'assets/helmy/onboarding-chats.png',
@@ -542,12 +544,20 @@ class _ConnectionRow extends StatelessWidget {
     final busy = vm.busy == c.id;
     final trouble = vm.trouble[c.id];
     final added = vm.added[c.id];
+    final on = vm.used(c.id);
+    final who = vm.who[c.id];
     final status = busy
         ? vm.doing
         : trouble ??
               switch (c.state) {
-                .ready =>
-                  added == null ? c.does : '${c.does}. $added more account${added == 1 ? '' : 's'}',
+                // Off: Helmy leaves it be. On: whose it is, so the choice is
+                // plain.
+                .ready when !on => 'Not used by Helmy. Switch it on to use it.',
+                .ready => [
+                  if (vm.found?.contains(c.id) ?? false) 'Found on this Mac',
+                  who == null ? c.does : 'Signed in as $who',
+                  if (added != null) '$added more account${added == 1 ? '' : 's'}',
+                ].join(' · '),
                 .missing => 'Not on this Mac yet',
                 .signedOut =>
                   c.id == 'ollama' ? 'Installed, not running' : 'Installed, not signed in',
@@ -582,14 +592,9 @@ class _ConnectionRow extends StatelessWidget {
           if (busy)
             const Spinner(size: 16)
           else if (c.state == .ready)
-            Row(
-              mainAxisSize: .min,
-              spacing: 4,
-              children: [
-                AshlarIcon(AshlarIconsRoundedStroke.check, size: 14, color: t.colors.foreground),
-                Text('Ready', style: t.text.sm),
-              ],
-            )
+            // Found ready, so on to begin with: Helmy's pick, and the person's
+            // to undo here.
+            Switch(value: on, semanticLabel: 'Use ${c.name}', onChanged: (v) => vm.setUsed(c.id, v))
           else
             Button(
               variant: .outline,
