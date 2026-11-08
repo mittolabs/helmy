@@ -315,6 +315,8 @@ class _AgentCard extends StatelessWidget {
       : row.problem ??
             (row.downUntil != null
                 ? 'Resting after a failure, back ${_until(row.downUntil!, DateTime.now())}'
+                : row.paused
+                ? 'Off: no messages go to it'
                 : row.enabled
                 ? 'Ready'
                 : 'Turned off: no messages go to it');
@@ -383,6 +385,15 @@ class _AgentCard extends StatelessWidget {
                     leading: vm.working == row.info.id ? const Spinner(size: 14) : null,
                     child: Text(fix),
                   ),
+              // On or off, and nothing else changes: off, no messages go to
+              // it. The last one on stays on, or nothing would answer.
+              Switch(
+                value: !row.paused,
+                semanticLabel: 'Use ${row.info.name}',
+                onChanged: !row.paused && vm.used.where((a) => !a.paused).length <= 1
+                    ? null
+                    : (on) => vm.setPaused(row.info.id, !on),
+              ),
             ],
           ),
           if (ConnectionsSetup.kindOf(row.info.id) case final kind?) ...[

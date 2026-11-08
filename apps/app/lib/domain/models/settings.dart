@@ -291,6 +291,8 @@ class const AppSettings({
   final FolderMode folderMode = .none,
   final String? fixedFolder,
   final Set<String> disabledEngines = const {},
+  // Turned off with their switch: still listed, no messages go to them.
+  final Set<String> pausedEngines = const {},
 
   /// Fonts chosen in Appearance, by family; null is the system's own.
   final String? interfaceFont,
@@ -525,6 +527,10 @@ class const AppSettings({
   }
 
   /// Whether sessions in [repo] each get their own working copy.
+  /// Whether messages may go to [engineId]: neither removed nor turned off.
+  bool uses(String engineId) =>
+      !disabledEngines.contains(engineId) && !pausedEngines.contains(engineId);
+
   bool ownCopiesIn(String repo) => project(repo).ownCopies ?? ownCopies;
 
   AppSettings copyWith({
@@ -532,6 +538,7 @@ class const AppSettings({
     FolderMode? folderMode,
     String? fixedFolder,
     Set<String>? disabledEngines,
+    Set<String>? pausedEngines,
     List<ConnectionAccount>? accounts,
     List<PairedPhone>? phones,
     String? interfaceFont,
@@ -614,6 +621,7 @@ class const AppSettings({
     folderMode: folderMode ?? this.folderMode,
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
+    pausedEngines: pausedEngines ?? this.pausedEngines,
     accounts: accounts ?? this.accounts,
     phones: phones ?? this.phones,
     interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
@@ -698,6 +706,7 @@ class const AppSettings({
     'folderMode': folderMode.name,
     'fixedFolder': fixedFolder,
     'disabledEngines': disabledEngines.toList(),
+    'pausedEngines': pausedEngines.toList(),
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
     if (phones.isNotEmpty) 'phones': [for (final p in phones) p.toJson()],
     'bestAt': bestAt,
@@ -782,6 +791,7 @@ class const AppSettings({
     folderMode: FolderMode.values.asNameMap()[json['folderMode']] ?? .none,
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
+    pausedEngines: {...((json['pausedEngines'] as List?) ?? const []).whereType<String>()},
     interfaceFont: json['interfaceFont'] as String?,
     codeFont: json['codeFont'] as String?,
     promptFont: json['promptFont'] as String?,

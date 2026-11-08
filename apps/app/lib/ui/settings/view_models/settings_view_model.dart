@@ -56,6 +56,8 @@ enum SettingsSection {
 typedef AgentRow = ({
   EngineInfo info,
   bool enabled,
+  // Turned off with its switch: listed, but no messages go to it.
+  bool paused,
   String? problem,
   Usage? usage,
   DateTime? downUntil,
@@ -353,6 +355,15 @@ class SettingsViewModel extends ChangeNotifier {
     return why;
   }
 
+  /// Turns [engineId] on or off: off, no messages go to it, and nothing
+  /// else changes (its sign-in, its install, its place in the list).
+  Future<void> setPaused(String engineId, bool off) async {
+    final paused = off
+        ? {...settings.pausedEngines, engineId}
+        : ({...settings.pausedEngines}..remove(engineId));
+    await update(settings.copyWith(pausedEngines: paused));
+  }
+
   /// Removes [engineId] from Helmy. An account Helmy added goes with its
   /// sign-in; any other stays installed and signed in on this Mac, so the
   /// tool still works outside Helmy, and can be added back.
@@ -437,6 +448,7 @@ class SettingsViewModel extends ChangeNotifier {
       (
         info: e.info,
         enabled: !settings.disabledEngines.contains(e.info.id),
+        paused: settings.pausedEngines.contains(e.info.id),
         problem: _problems[e.info.id],
         usage: _meter.usageOf(e.info.id),
         downUntil: _meter.downUntil(e.info.id),

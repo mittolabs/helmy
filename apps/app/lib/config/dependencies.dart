@@ -224,7 +224,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         meter: context.read(),
         storage: context.read(),
         sessions: context.read(),
-        enabled: (id) => !loaded.settings.settings.disabledEngines.contains(id),
+        enabled: (id) => loaded.settings.settings.uses(id),
         rules: () => loaded.settings.settings.rules,
         snapshots: Snapshots(),
         worktrees: context.read<Worktrees>(),
@@ -293,7 +293,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       cloud: CloudWriter(
         context.read(),
         context.read(),
-        (id) => !loaded.settings.settings.disabledEngines.contains(id),
+        (id) => loaded.settings.settings.uses(id),
       ),
       naming: () => loaded.settings.settings.namingNote,
     ),
