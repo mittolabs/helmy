@@ -72,6 +72,9 @@ void main() {
       router.choose(candidates: [claude, stranger], current: null, kind: WorkKind.quick),
       'opencode',
     );
+    // Alone (the others turned off), it answers everything.
+    expect(router.choose(candidates: [stranger], current: null), 'opencode');
+    expect(router.choose(candidates: [stranger], current: null, kind: WorkKind.code), 'opencode');
   });
 
   test("the user's choices are kept; Mittolabs's stand for the rest", () {

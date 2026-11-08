@@ -77,10 +77,12 @@ class HeadroomRouter implements EngineRouter {
   }) {
     final best = kind == null ? null : _bestAt(kind);
     // One that says nothing of itself answers only what it is set best at.
-    final known = [
+    // Unless it is all there is: it answering beats nothing answering.
+    final picked = [
       for (final e in candidates)
         if (!e.assignedOnly || (best != null && _family(e.id) == best)) e,
     ];
+    final known = picked.isEmpty ? candidates : picked;
     // When nobody has what is needed, the best any engine can do still beats nothing.
     final able = known.where((e) => e.capabilities.containsAll(needs)).toList();
     var pool = [for (final e in able.isEmpty ? known : able) e.id];
