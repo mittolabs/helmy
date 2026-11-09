@@ -364,11 +364,11 @@ class _ClaudeRun implements EngineRun {
   void interrupt() => _process.interrupt();
 
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer) {
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) {
     if (answer == .deny) {
       _process.respond(prompt.requestId, {
         'behavior': 'deny',
-        'message': 'The user declined this tool call.',
+        'message': why ?? 'The user declined this tool call.',
       });
       return;
     }

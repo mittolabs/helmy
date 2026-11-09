@@ -87,7 +87,7 @@ class _Run implements EngineRun {
   @override
   void interrupt() {}
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer) {}
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) {}
   @override
   void answerQuestion(PermissionPrompt prompt) {}
   @override

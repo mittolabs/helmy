@@ -255,7 +255,23 @@ enum BackgroundStatus {
   };
 }
 
-enum PermissionDecision { pending, allowed, allowedAlways, allowedByRule, denied, cancelled }
+enum PermissionDecision {
+  pending,
+  allowed,
+  allowedAlways,
+  allowedByRule,
+  denied,
+  cancelled,
+
+  /// Being judged by Helmy (`Approvals`): nobody is asked meanwhile.
+  checking,
+
+  /// Let go ahead by Helmy, which said why.
+  allowedByHelmy,
+
+  /// Stopped by Helmy, which told the agent why.
+  blockedByHelmy,
+}
 
 /// Claude wants to use a tool and the CLI asked us. Also carries
 /// AskUserQuestion, which arrives the same way.
@@ -275,6 +291,13 @@ class PermissionPrompt extends ChatItem {
   final String? toolUseId;
   PermissionDecision decision = .pending;
 
+  /// Helmy's word on it: why it let it go or stopped it, or, put to the
+  /// person, the question in plain words.
+  String? why;
+
+  /// Already looked at by Helmy (not saved: a restart ends the run that asked).
+  bool judged = false;
+
   /// Answers chosen so far, when this is an AskUserQuestion.
   final Map<String, String> answers = {};
 
@@ -293,16 +316,22 @@ class PermissionPrompt extends ChatItem {
     'input': input,
     'toolUseId': toolUseId,
     // A restart ends the process that asked, so a pending prompt cannot be answered.
-    'decision': (decision == .pending ? PermissionDecision.cancelled : decision).name,
+    'decision':
+        (decision == .pending || decision == .checking ? PermissionDecision.cancelled : decision)
+            .name,
+    'why': ?why,
   };
 
-  static PermissionPrompt fromJson(Map<String, Object?> json) => PermissionPrompt(
-    requestId: json['requestId']! as String,
-    toolName: json['toolName']! as String,
-    input: (json['input'] as Map?)?.cast<String, Object?>() ?? {},
-    suggestions: const [],
-    toolUseId: json['toolUseId'] as String?,
-  )..decision = PermissionDecision.values.byName(json['decision']! as String);
+  static PermissionPrompt fromJson(Map<String, Object?> json) =>
+      PermissionPrompt(
+          requestId: json['requestId']! as String,
+          toolName: json['toolName']! as String,
+          input: (json['input'] as Map?)?.cast<String, Object?>() ?? {},
+          suggestions: const [],
+          toolUseId: json['toolUseId'] as String?,
+        )
+        ..decision = PermissionDecision.values.byName(json['decision']! as String)
+        ..why = json['why'] as String?;
 }
 
 /// The end of a turn, with what the CLI reported it cost.

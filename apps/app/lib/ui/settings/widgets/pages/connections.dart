@@ -57,25 +57,6 @@ class _Agents extends StatelessWidget {
                   ),
                 ),
         ),
-        const _Heading('Always allowed'),
-        if (s.rules.isEmpty)
-          const _Row(
-            title: 'No rules yet',
-            description:
-                'Choose "Always allow" on an approval, and steps like it are allowed from then on.',
-            control: SizedBox.shrink(),
-          )
-        else
-          for (final r in s.rules)
-            _Row(
-              title: r.label,
-              control: Button(
-                size: .sm,
-                variant: .ghost,
-                onPressed: () => vm.update(s.copyWith(rules: [...s.rules]..remove(r))),
-                child: const Text('Remove'),
-              ),
-            ),
       ],
     );
   }

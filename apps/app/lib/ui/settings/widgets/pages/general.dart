@@ -243,20 +243,6 @@ class _General extends StatelessWidget {
         _NamingNote(vm: vm),
         const _Heading('New chats'),
         _Row(
-          title: 'Permissions',
-          description: 'What Helmy may do without asking, until you change it in a chat.',
-          control: SizedBox(
-            width: 180,
-            child: Select<PermissionLevel>(
-              size: .sm,
-              value: s.defaultLevel,
-              semanticLabel: 'Default permissions',
-              options: [for (final l in PermissionLevel.values) SelectOption(l, l.label)],
-              onChanged: (l) => vm.update(s.copyWith(defaultLevel: l)),
-            ),
-          ),
-        ),
-        _Row(
           title: 'Start in',
           description: s.folderMode == .fixed
               ? (s.fixedFolder == null ? 'No folder chosen yet.' : tildePath(s.fixedFolder!))

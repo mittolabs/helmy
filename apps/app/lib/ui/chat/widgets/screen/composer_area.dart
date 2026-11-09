@@ -193,66 +193,6 @@ class _SuggestionList extends StatelessWidget {
   }
 }
 
-/// The permission level, as a quiet chip that opens a menu.
-class _LevelChip extends StatelessWidget {
-  const new({required this.vm, required this.level});
-  final ChatViewModel vm;
-  final PermissionLevel level;
-
-  /// What the agent may do at [l], in a line.
-  static String _what(PermissionLevel l) => switch (l) {
-    .ask => 'Asks before edits and commands',
-    .edit => 'Edits files without asking',
-    .readOnly => 'Reads and plans; changes nothing',
-    .full => 'Does anything without asking',
-  };
-
-  static IconData _icon(PermissionLevel l) => switch (l) {
-    .ask => AshlarIconsRoundedStroke.shield,
-    .edit => AshlarIconsRoundedStroke.pencil,
-    .readOnly => AshlarIconsRoundedStroke.eye,
-    .full => AshlarIconsRoundedStroke.zap,
-  };
-
-  @override
-  Widget build(BuildContext context) => DropdownMenu(
-    side: .top,
-    width: 300,
-    items: [
-      for (final l in PermissionLevel.values)
-        MenuItem(
-          leading: AshlarIcon(_icon(l), size: 15),
-          trailing: l == level ? const AshlarIcon(AshlarIconsRoundedStroke.check, size: 14) : null,
-          onPressed: () => vm.setLevel(l),
-          child: Padding(
-            padding: const .symmetric(vertical: 1),
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 1,
-              children: [
-                Text(l.label),
-                Text(
-                  _what(l),
-                  style: AshlarTheme.of(context).text.xs
-                      .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
-                ),
-              ],
-            ),
-          ),
-        ),
-    ],
-    builder: (context, menu) => Button(
-      variant: .ghost,
-      size: .sm,
-      semanticLabel: 'Permissions: ${level.label}',
-      onPressed: vm.busy ? null : menu.open,
-      leading: AshlarIcon(_icon(level), size: 14),
-      trailing: const AshlarIcon(AshlarIconsRoundedStroke.chevronDown, size: 14),
-      child: Text(level.label),
-    ),
-  );
-}
-
 /// A file waiting to go with the next message.
 class _Attached extends StatelessWidget {
   const new({required this.path, required this.vm});

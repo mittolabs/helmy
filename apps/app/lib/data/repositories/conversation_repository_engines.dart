@@ -27,6 +27,7 @@ import '../services/storage_service.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
 import '../../utils/platform.dart';
+import '../services/approvals.dart';
 
 /// A message on its way: which engine has it, where its output starts, and
 /// which engines already failed it.
@@ -479,7 +480,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
       run = await engine.start(
         EngineLaunch(
           cwd: session.cwd,
-          level: session.level,
+          // Every connection asks Helmy, which decides (Approvals); planning
+          // stays read-only until the plan is approved.
+          level: session.level == .readOnly ? PermissionLevel.readOnly : PermissionLevel.ask,
           resumeId: session.threads[engineId]?.resumeId,
           sessionId: session.id,
           brief: session.brief,
@@ -523,7 +526,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     }
     c.thinking = run.status.thinking;
     c.context = run.status.context ?? c.context;
-    _applyRules(sessionId, run);
+    _judgeApprovals(sessionId, run);
     _meter.report(engineId, run.status.usage);
     final turn = _turns[sessionId];
     if (ended && turn != null && turn.engineId == engineId) {
@@ -655,15 +658,100 @@ class ConversationRepositoryEngines extends ConversationRepository {
     unawaited(send(session, q.text, attachments: q.attachments, needs: q.needs, from: q.from));
   }
 
-  /// Answers, without asking, any approval a rule in settings covers.
-  void _applyRules(String sessionId, EngineRun run) {
+  late final _approvals = Approvals(_engines, _router, _enabled);
+
+  /// Helmy's blocks in a session: in a row, and in all. Past a few, the
+  /// person is asked rather than the agent stopped again.
+  final _blocks = <String, ({int inRow, int total})>{};
+
+  /// Decides each approval a connection asks for, without asking the person
+  /// (`Approvals`): rules kept from before first; then what only looks or
+  /// changes the chat's folder, at once; the rest judged against what the
+  /// person asked. Only what cannot be undone, or leaves the Mac, is put to
+  /// them, as a question. Their own questions and plans stay theirs.
+  void _judgeApprovals(String sessionId, EngineRun run) {
+    final c = of(sessionId);
+    final session = _sessions.byId(sessionId);
+    if (session == null) return;
     final rules = _rules();
-    if (rules.isEmpty) return;
-    for (final p in of(sessionId).items.whereType<PermissionPrompt>()) {
-      if (p.decision != .pending || !rules.any((r) => r.allows(p))) continue;
-      run.answer(p, .allow);
-      p.decision = .allowedByRule;
+    for (final p in c.items.whereType<PermissionPrompt>()) {
+      if (p.decision != .pending || p.judged) continue;
+      p.judged = true;
+      if (p.isQuestion || p.toolName == 'ExitPlanMode') continue;
+      if (rules.any((r) => r.allows(p))) {
+        run.answer(p, .allow);
+        p.decision = .allowedByRule;
+        continue;
+      }
+      final call = p.toolUseId == null
+          ? null
+          : c.items.whereType<ToolCall>().where((t) => t.id == p.toolUseId).lastOrNull;
+      final folder = session.cwd;
+      // What no wording should get past the person, first: prompt
+      // injection's aims (secrets, downloaded code, persistence, an agent's
+      // own permissions).
+      if (Approvals.mustAsk(p, folder) case final question?) {
+        _settleApproval(sessionId, run, p, (verdict: Verdict.ask, why: question));
+        continue;
+      }
+      if (Approvals.atOnce(p, folder, call: call) case final now?) {
+        _settleApproval(sessionId, run, p, now);
+        continue;
+      }
+      p.decision = .checking;
+      final asked = [
+        // The person's own words: not a chat app's turns, which a page
+        // could have written.
+        for (final m in c.items.whereType<UserMessage>())
+          if (m.text.trim().isNotEmpty && !(m.from ?? '').startsWith('app:')) m.text.trim(),
+      ];
+      unawaited(
+        _approvals
+            .judge(p, asked: asked, folder: folder)
+            .then((j) => _settleApproval(sessionId, run, p, j)),
+      );
     }
+  }
+
+  void _settleApproval(String sessionId, EngineRun run, PermissionPrompt p, Judgment j) {
+    // Answered or ended meanwhile: nothing left to decide.
+    if (p.decision != .pending && p.decision != .checking) return;
+    var verdict = j.verdict;
+    var why = j.why;
+    final blocks = _blocks[sessionId] ?? (inRow: 0, total: 0);
+    if (verdict == .block) {
+      if (blocks.inRow >= 2 || blocks.total >= 19) {
+        // Stopped again and again: the person decides.
+        verdict = .ask;
+        why = 'I keep stopping this: ${why.isEmpty ? 'it looks unsafe' : why} Let it go ahead?';
+      }
+      _blocks[sessionId] = (inRow: blocks.inRow + 1, total: blocks.total + 1);
+    } else if (verdict == .allow) {
+      _blocks[sessionId] = (inRow: 0, total: blocks.total);
+    }
+    p.why = why.isEmpty ? null : why;
+    try {
+      switch (verdict) {
+        case .allow:
+          run.answer(p, .allow);
+          p.decision = .allowedByHelmy;
+        case .block:
+          run.answer(
+            p,
+            .deny,
+            why:
+                "Helmy didn't allow this: $why Find a safer way to do what the person asked, "
+                "or ask them; don't try to get round this.",
+          );
+          p.decision = .blockedByHelmy;
+        case .ask:
+          p.decision = .pending;
+      }
+    } on Object {
+      // The run that asked has ended.
+      p.decision = .cancelled;
+    }
+    notifyListeners();
   }
 
   /// `!command`: run in the session's folder by Helmy itself, no agent.
@@ -875,7 +963,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       final run = _runs[key];
       if (run == null) continue;
       if (e.info.liveModeSwitch) {
-        run.setLevel(level);
+        run.setLevel(level == .readOnly ? PermissionLevel.readOnly : PermissionLevel.ask);
       } else {
         // Takes the level at launch: the next message starts it again.
         await _close(key);

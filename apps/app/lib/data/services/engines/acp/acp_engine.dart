@@ -464,7 +464,7 @@ class _AcpRun implements EngineRun {
   /// Picks the agent's own option of the kind answered: once, always, or
   /// no. Cancelled when it offered none of that kind.
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer) {
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) {
     final kinds = switch (answer) {
       .allow => ['allow_once', 'allow_always'],
       .allowForSession => ['allow_always', 'allow_once'],

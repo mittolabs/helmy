@@ -190,19 +190,6 @@ class _Projects extends StatelessWidget {
                 ),
               ),
               _Row(
-                title: 'What Helmy may do without asking',
-                description: 'For new chats here.',
-                control: _Choice<PermissionLevel?>(
-                  value: s.project(repo).level,
-                  label: 'Permission level in ${folderName(repo)}',
-                  options: {
-                    null: 'As everywhere (${s.defaultLevel.label})',
-                    for (final l in PermissionLevel.values) l: l.label,
-                  },
-                  onChanged: (v) => vm.setProject(repo, level: v, clearLevel: v == null),
-                ),
-              ),
-              _Row(
                 title: 'Icon and pin',
                 description:
                     'An emoji it goes by in the list, and pinned, its chats first when the list '

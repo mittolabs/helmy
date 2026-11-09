@@ -562,7 +562,7 @@ class _CodexRun implements EngineRun {
   Object _rpcId(String requestId) => int.tryParse(requestId) ?? requestId;
 
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer) =>
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) =>
       _rpc.reply(_rpcId(prompt.requestId), {
         'decision': switch (answer) {
           .allow => 'accept',

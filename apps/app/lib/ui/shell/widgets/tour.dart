@@ -18,7 +18,6 @@ enum TourStop {
     'Chats start on their own. When the work belongs to a project, '
     'choose its folder here and I work in it.',
   ),
-  level('How much I do before checking with you. Ask first is the careful start.'),
   attach('Give me files, pictures and screenshots of any window to work from.'),
   panel(
     'A browser, a terminal, your files and my changes, beside the chat. '
@@ -38,7 +37,6 @@ enum TourStop {
   String get picture => switch (this) {
     message => 'assets/helmy/onboarding-chats.png',
     folder => 'assets/helmy/onboarding-folders.png',
-    level => 'assets/helmy/tour-level.png',
     attach => 'assets/helmy/tour-attach.png',
     panel => 'assets/helmy/tour-panel.png',
     scheduled => 'assets/helmy/onboarding-done.png',

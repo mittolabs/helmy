@@ -236,7 +236,7 @@ class OllamaChatRun implements EngineRun {
   }
 
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer) {}
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) {}
 
   @override
   void answerQuestion(PermissionPrompt prompt) {}

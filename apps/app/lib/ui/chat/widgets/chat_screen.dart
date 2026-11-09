@@ -776,15 +776,6 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                 ),
                               ),
-                              _tourMark(
-                                TourStop.level,
-                                Tooltip(
-                                  message: vm.busy
-                                      ? 'Wait for the turn to end to change this'
-                                      : 'What Helmy may do without asking',
-                                  child: _LevelChip(vm: vm, level: session.level),
-                                ),
-                              ),
                             ],
                             trailing: [
                               if (vm.busy)

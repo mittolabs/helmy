@@ -182,7 +182,7 @@ class _Step extends StatelessWidget {
     final c = t.colors;
     final p = prompt;
     final asking = p != null && p.decision == .pending;
-    final denied = p?.decision == .denied;
+    final denied = p?.decision == .denied || p?.decision == .blockedByHelmy;
     final failed = call.isError || denied;
     final running = !call.done && !asking && !denied && vm.busy;
     final muted = t.text.sm.copyWith(color: c.mutedForeground);
@@ -273,6 +273,15 @@ class _Step extends StatelessWidget {
               _MarkdownResult(md)
             else if (call.result != null && call.result!.isNotEmpty && diffsOf(call).isEmpty)
               _Code(stepResult(call.result!), error: call.isError),
+            // What Helmy decided about it, on its own, and why.
+            if (p != null && (p.decision == .allowedByHelmy || p.decision == .blockedByHelmy))
+              Text(
+                [
+                  p.decision == .allowedByHelmy ? 'I let this go ahead' : "I didn't let this run",
+                  if ((p.why ?? '').isNotEmpty) p.why!,
+                ].join(': '),
+                style: t.text.xs.copyWith(color: c.mutedForeground),
+              ),
             _StepCopy(call: call, vm: vm),
           ],
         ),
@@ -289,34 +298,23 @@ class _Step extends StatelessWidget {
         crossAxisAlignment: .stretch,
         spacing: 8,
         children: [
+          // Only what cannot be undone, or leaves this Mac, comes here: Helmy's
+          // question about the outcome, then the step itself.
+          Text(
+            (p.why ?? '').isNotEmpty ? p.why! : 'Let this go ahead?',
+            style: t.text.sm.copyWith(fontWeight: .w500),
+          ),
           step,
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              Button(size: .sm, onPressed: () => vm.allow(p), child: const Text('Allow')),
-              if (p.suggestions.isNotEmpty)
-                Button(
-                  size: .sm,
-                  variant: .outline,
-                  onPressed: () => vm.allow(p, forSession: true),
-                  child: const Text('Allow in this thread'),
-                ),
-              if (vm.ruleFor(p) case final rule?)
-                Button(
-                  size: .sm,
-                  variant: .outline,
-                  onPressed: () => vm.allowAlways(p, rule),
-                  // Its first letter only lowered: a path keeps its own case.
-                  child: Text(
-                    'Always allow: ${rule.label[0].toLowerCase()}${rule.label.substring(1)}',
-                  ),
-                ),
+              Button(size: .sm, onPressed: () => vm.allow(p), child: const Text('Go ahead')),
               Button(
                 size: .sm,
                 variant: .ghost,
                 onPressed: () => vm.deny(p),
-                child: const Text('Deny'),
+                child: const Text("Don't"),
               ),
             ],
           ),

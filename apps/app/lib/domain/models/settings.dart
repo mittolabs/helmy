@@ -942,7 +942,6 @@ const restorableSettings = <String, List<String>>{
   "Each file's change open": ['diffFilesOpen'],
   'Reach Helmy from your phone': ['remoteOn'],
   'See and use this Mac from your phone': ['remoteScreen'],
-  'Permissions': ['defaultLevel'],
   'Start in': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],
   'Show pages with': ['previewWith'],

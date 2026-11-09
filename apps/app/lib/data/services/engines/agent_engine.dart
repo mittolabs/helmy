@@ -102,7 +102,9 @@ abstract class EngineRun {
   Future<bool> steer(String text, {List<String> attachments = const []});
 
   void interrupt();
-  void answer(PermissionPrompt prompt, PermissionAnswer answer);
+
+  /// [why]: for a denial, what the agent is told (where it can be told).
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why});
 
   /// Sends the chosen answers of a question prompt.
   void answerQuestion(PermissionPrompt prompt);

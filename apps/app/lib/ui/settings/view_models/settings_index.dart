@@ -71,11 +71,6 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'settle settled done inactive automatically archive',
   ),
-  (
-    title: 'Permissions',
-    section: .general,
-    keywords: 'ask first full access read only edit approvals allowed',
-  ),
   (title: 'Start in', section: .general, keywords: 'folder new chat project directory where'),
   (
     title: 'Snapshots with both Shift keys',
@@ -170,7 +165,6 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'advanced code writing research pictures quick questions which connection strengths',
   ),
   (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
-  (title: 'Always allowed', section: .agents, keywords: 'rules permissions allow commands'),
   // Skills and tools.
   (title: 'MCP servers', section: .tools, keywords: 'skills tools mcp plugins integrations'),
   // Memory.
