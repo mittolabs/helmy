@@ -33,6 +33,15 @@ enum TourStop {
 
   /// What Helmy says about it.
   final String line;
+
+  /// Helmy, as it says it: holding what the stop is about where there is a
+  /// picture of that, else waving.
+  String get picture => switch (this) {
+    message => 'assets/helmy/onboarding-chats.png',
+    folder => 'assets/helmy/onboarding-folders.png',
+    scheduled => 'assets/helmy/onboarding-done.png',
+    _ => 'assets/helmy/hello.png',
+  };
 }
 
 /// Marks [child] as the part of the window that [stop] points at.
@@ -349,7 +358,7 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: .start,
             spacing: 12,
             children: [
-              Image.asset('assets/helmy/hello.png', width: 40, height: 40, semanticLabel: 'Helmy'),
+              Image.asset(stop.picture, width: 40, height: 40, semanticLabel: 'Helmy'),
               Expanded(
                 child: Text(stop.line, style: t.text.sm.copyWith(color: c.popoverForeground)),
               ),
