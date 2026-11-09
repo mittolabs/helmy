@@ -11,8 +11,10 @@ abstract class ProjectRepository {
   /// The top folder of the repository [folder] is in; null when none.
   Future<String?> repoOf(String folder);
 
-  /// What Helmy may do without asking in a new session in [folder]: its
-  /// project's level, or the one for everywhere.
+  /// The level a new chat in [folder] starts at: always the one where Helmy
+  /// judges each action. A level saved before approvals were Helmy's (a
+  /// project's, or the default) has no setting left to change it, so it no
+  /// longer counts.
   Future<PermissionLevel> levelFor(String folder);
 
   /// Removes a session's own working copy at [path] of [repo], keeping its
@@ -44,11 +46,7 @@ class ProjectRepositoryGit implements ProjectRepository {
   Future<String?> repoOf(String folder) => _git.repoOf(folder);
 
   @override
-  Future<PermissionLevel> levelFor(String folder) async {
-    final s = _settings.settings;
-    final repo = await _git.repoOf(folder);
-    return (repo == null ? null : s.project(repo).level) ?? s.defaultLevel;
-  }
+  Future<PermissionLevel> levelFor(String folder) async => .ask;
 
   @override
   Future<bool> removeCopy(String repo, String path) => _git.remove(repo, path);

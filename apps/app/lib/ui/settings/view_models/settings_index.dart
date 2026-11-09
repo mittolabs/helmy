@@ -182,11 +182,6 @@ const List<SettingEntry> settingsIndex = [
   (title: 'Shortcuts', section: .keyboard, keywords: 'keyboard keybindings hotkeys keys'),
   // Projects.
   (title: 'Projects', section: .projects, keywords: 'repositories folders actions scripts'),
-  (
-    title: 'What Helmy may do without asking',
-    section: .projects,
-    keywords: 'project permissions level',
-  ),
   // Phone.
   (
     title: 'Reach Helmy from your phone',

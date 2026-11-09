@@ -176,7 +176,7 @@ class _TaskCard extends StatelessWidget {
               else
                 'done',
               tildePath(task.cwd),
-              task.level.label,
+              task.level == .readOnly ? 'only looks' : 'does the work',
             ].join('  ·  '),
             style: muted,
           ),
@@ -242,7 +242,9 @@ class _TaskEditorState extends State<_TaskEditor> {
   late final _name = TextEditingController(text: widget.task?.name ?? '');
   late final _prompt = TextEditingController(text: widget.task?.prompt ?? '');
   late String _cwd = widget.task?.cwd ?? widget.vm.defaultFolder;
-  late PermissionLevel _level = widget.task?.level ?? .readOnly;
+  // Helmy judges what a run may do; all that is left to choose is whether it
+  // may change anything at all.
+  late PermissionLevel _level = (widget.task?.level ?? .readOnly) == .readOnly ? .readOnly : .ask;
   late Repeat _repeat = widget.task?.schedule.repeat ?? .daily;
 
   /// Minutes after midnight.
@@ -512,7 +514,10 @@ class _TaskEditorState extends State<_TaskEditor> {
                   'Helmy may',
                   Select<PermissionLevel>(
                     value: _level,
-                    options: [for (final l in PermissionLevel.values) SelectOption(l, l.label)],
+                    options: const [
+                      SelectOption(PermissionLevel.readOnly, 'Only look'),
+                      SelectOption(PermissionLevel.ask, 'Do the work'),
+                    ],
                     onChanged: (l) => setState(() => _level = l),
                   ),
                 ),
@@ -542,7 +547,7 @@ class _TaskEditorState extends State<_TaskEditor> {
                 'That time has passed.'
               else
                 'Runs next ${monthDay(next)} at ${clock(next)}.',
-              if (_level == .ask) 'Each approval it needs waits for you, with a notification.',
+              if (_level == .ask) 'Anything that can\'t be undone waits for you, with a notification.',
             ].join(' '),
             style: t.text.xs.copyWith(color: t.colors.mutedForeground),
           ),

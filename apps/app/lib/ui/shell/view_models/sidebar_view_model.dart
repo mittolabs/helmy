@@ -87,7 +87,7 @@ class SidebarViewModel extends ChangeNotifier {
   Future<Result<Session>> _create() async {
     final root = scratchRoot;
     if (_settings.settings.folderMode == .none && root != null) {
-      final made = await _sessions.create(cwd: homeDir, level: _settings.settings.defaultLevel);
+      final made = await _sessions.create(cwd: homeDir, level: .ask);
       if (made case Ok(value: final s)) {
         final dir = Directory('$root/${s.id}');
         await dir.create(recursive: true);
@@ -101,14 +101,14 @@ class SidebarViewModel extends ChangeNotifier {
     }
     return _sessions.create(
       cwd: defaultFolder,
-      level: await _projects?.levelFor(defaultFolder) ?? _settings.settings.defaultLevel,
+      level: await _projects?.levelFor(defaultFolder) ?? .ask,
     );
   }
 
   /// A new session in [cwd], at that project's permissions.
   Future<Result<Session>> createIn(String cwd) async => _sessions.create(
     cwd: cwd,
-    level: await _projects?.levelFor(cwd) ?? _settings.settings.defaultLevel,
+    level: await _projects?.levelFor(cwd) ?? .ask,
   );
   late final Command1<void, String> delete;
 
