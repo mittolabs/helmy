@@ -13,7 +13,7 @@ class Hero extends StatelessComponent {
     div(classes: 'glow-field', attributes: {'aria-hidden': 'true'}, []),
     div(classes: 'wrap hero-grid', [
       div(classes: 'copy', [
-        p(classes: 'eyebrow reveal', [Component.text('An assistant for your Mac')]),
+        p(classes: 'eyebrow reveal', [Component.text('Your AI that gets things done')]),
         h1(classes: 'reveal', [
           Component.text('Dream it.'),
           br(),
@@ -31,7 +31,7 @@ class Hero extends StatelessComponent {
           a(classes: 'btn btn-ghost', href: '#how', [Component.text('See how it works')]),
         ]),
         p(classes: 'note reveal', [
-          Component.text('For macOS. Free while it grows. Your phone joins it in a scan.'),
+          Component.text('Free and open source. Your phone joins it in a scan.'),
         ]),
       ]),
       div(classes: 'hero-art reveal', [
@@ -210,6 +210,34 @@ class Approvals extends StatelessComponent {
   ]);
 }
 
+/// Open source: Helmy's code is the person's to read, change and run.
+class OpenSource extends StatelessComponent {
+  const OpenSource({super.key});
+
+  @override
+  Component build(BuildContext context) => section(id: 'open', classes: 'open wrap', [
+    div(classes: 'open-copy', [
+      p(classes: 'eyebrow reveal', [Component.text('Open source')]),
+      h2(classes: 'reveal', [Component.text('Yours to read, change and run.')]),
+      p(classes: 'lead reveal', [
+        Component.text(
+          "Helmy's code is BSD licensed, and opens with the first public release. It resells "
+          'nothing: it runs on the subscriptions you already have, so there is nothing to pay '
+          'Helmy for. Don\'t like something? Change it, or ship your own build.',
+        ),
+      ]),
+      ul(classes: 'points reveal', [
+        li([Component.text('Free, with no account of ours.')]),
+        li([Component.text('Your chats, files and secrets stay on your machine.')]),
+        li([Component.text('What a self-hoster would want stays in the open app.')]),
+      ]),
+    ]),
+    div(classes: 'feature-media reveal', [
+      const Pose(src: '/helmy/onboarding-folders.png', alt: 'Helmy holding an open folder', note: 'all of it'),
+    ]),
+  ]);
+}
+
 /// The way to get it, honestly: not out yet.
 class Get extends StatelessComponent {
   const Get({super.key});
@@ -224,17 +252,17 @@ class Get extends StatelessComponent {
       height: 200,
       loading: MediaLoading.lazy,
     ),
-    h2(classes: 'reveal', [Component.text('Coming to your Mac.')]),
+    h2(classes: 'reveal', [Component.text('Coming soon.')]),
     p(classes: 'lead reveal center', [
       Component.text(
-        'Helmy is in early use now. The first public build comes signed and notarized, so '
-        'it opens like any app. It needs macOS 12 or later, and Claude Code, Codex, OpenCode '
-        'or Ollama to work through: Helmy sets them up for you on first run.',
+        'Helmy is in early use now. The first public build comes signed, so it opens like any '
+        'app, and with its source. It works through Claude Code, Codex, OpenCode or Ollama: '
+        'Helmy sets them up for you on first run.',
       ),
     ]),
     div(classes: 'cta center reveal', [
       span(classes: 'btn btn-accent disabled', attributes: {'aria-disabled': 'true'}, [
-        Component.text('Download for macOS, soon'),
+        Component.text('Download, soon'),
       ]),
     ]),
   ]);

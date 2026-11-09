@@ -4,7 +4,6 @@ import 'package:jaspr_router/jaspr_router.dart';
 
 import 'pages/changelog.dart';
 import 'pages/home.dart';
-import 'pages/pricing.dart';
 
 /// The site, pre-rendered. The only script in the browser is the reveal on
 /// scroll in web/reveal.js.
@@ -17,7 +16,6 @@ class App extends StatelessComponent {
     Router(
       routes: [
         Route(path: '/', builder: (context, state) => const Home()),
-        Route(path: '/pricing', builder: (context, state) => const Pricing()),
         Route(path: '/changelog', builder: (context, state) => const Changelog()),
       ],
     ),

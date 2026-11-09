@@ -14,7 +14,7 @@ class Nav extends StatelessComponent {
       ]),
       nav(classes: 'links', [
         a(href: '/#how', [Component.text('How it works')]),
-        a(href: '/pricing', [Component.text('Pricing')]),
+        a(href: '/#open', [Component.text('Open source')]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),
@@ -39,7 +39,7 @@ class Footer extends StatelessComponent {
       ]),
       nav(classes: 'footer-links', [
         a(href: '/#how', [Component.text('How it works')]),
-        a(href: '/pricing', [Component.text('Pricing')]),
+        a(href: '/#open', [Component.text('Open source')]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),

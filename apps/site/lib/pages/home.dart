@@ -96,6 +96,8 @@ class Home extends StatelessComponent {
           note: 'keeps them',
         ),
       ),
+      const Divider(DividerShape.loop),
+      const OpenSource(),
       const Divider(DividerShape.wander),
       const Get(),
     ]),
