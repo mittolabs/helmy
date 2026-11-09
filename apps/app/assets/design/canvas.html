@@ -58,6 +58,37 @@
   .cbox button { all: unset; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
   .cbox button.go { background: var(--ring); color: #fff; }
   .cbox button.no { color: var(--muted); }
+  /* Devices: a bezel or a browser window round each screen, outside it,
+     so the screen keeps its size. Shown with Frames on. */
+  /* Over the screen (its notch shows on it); clicks pass through. */
+  .chrome { position: absolute; pointer-events: none; display: none; box-sizing: border-box; z-index: 2; }
+  #world.framed .chrome { display: block; }
+  .board[data-device=phone] .chrome { inset: -12px; border: 12px solid #0b0b0b; border-radius: 54px;
+    box-shadow: 0 0 0 1.5px #34343a, 0 18px 48px rgba(0,0,0,.35); }
+  .board[data-device=phone] .island { position: absolute; top: 9px; left: 50%; width: 112px; height: 32px;
+    margin-left: -56px; border-radius: 16px; background: #000; }
+  #world.framed .board[data-device=phone] .frame { border-radius: 42px; }
+  .board[data-device=tablet] .chrome { inset: -16px; border: 16px solid #0b0b0b; border-radius: 34px;
+    box-shadow: 0 0 0 1.5px #34343a, 0 18px 48px rgba(0,0,0,.3); }
+  #world.framed .board[data-device=tablet] .frame { border-radius: 18px; }
+  .board[data-device=desktop] .chrome { inset: -38px -1px -1px -1px; border: 1px solid #3a3a3e; border-radius: 11px;
+    box-shadow: 0 18px 48px rgba(0,0,0,.3); }
+  .board[data-device=desktop] .bar { position: absolute; left: 0; right: 0; top: 0; height: 37px; background: #26262a;
+    border-radius: 10px 10px 0 0; display: flex; align-items: center; gap: 7px; padding: 0 14px; box-sizing: border-box; }
+  .bar i { width: 11px; height: 11px; border-radius: 6px; background: #4a4a50; }
+  .bar span { margin: 0 auto; padding: 4px 18px; border-radius: 7px; background: #1a1a1d; color: #a0a0a8;
+    font-size: 12px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #world.framed .board[data-device=desktop] .frame { border-radius: 0 0 10px 10px; }
+  .board:not([data-device=phone]) .island,
+  .board:not([data-device=desktop]) .bar { display: none; }
+  #world.framed .board[data-device=phone] .strip { bottom: calc(100% + 16px); }
+  #world.framed .board[data-device=tablet] .strip { bottom: calc(100% + 20px); }
+  #world.framed .board[data-device=desktop] .strip { bottom: calc(100% + 42px); }
+  /* A web page drawn at a phone's, a tablet's or a desktop's width. */
+  .strip .widths { display: none; gap: 2px; }
+  .board.responsive:hover .strip .widths { display: flex; }
+  .strip .widths button { display: block; width: auto; height: auto; padding: 2px 6px; font-size: 11px; }
+  .strip .widths button.on { color: var(--text); background: var(--strip-hover); }
   #empty { position: absolute; inset: 0; display: none; place-items: center; color: var(--muted); text-align: center; padding: 24px; }
 </style>
 </head>
@@ -154,6 +185,36 @@
     if (!b || !el) return;
     Object.assign(el.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
     el.querySelector('.strip').dataset.w = b.w;
+    el.dataset.device = deviceOf(b);
+    for (const wb of el.querySelectorAll('.widths button')) wb.classList.toggle('on', Number(wb.dataset.w) === b.w);
+  }
+
+  /** What a screen is shown as: the device its index names, else one its width suggests. */
+  const deviceOf = (b) => b.device ?? (b.w <= 500 ? 'phone' : b.w <= 1100 ? 'tablet' : 'desktop');
+
+  /** A responsive page's height: its content's, at its width. */
+  function fitHeight(file) {
+    const b = canvas?.boards[file];
+    if (!b?.responsive) return false;
+    const doc = docOf(file);
+    const h = Math.max(200, Math.ceil(doc?.documentElement.scrollHeight ?? 0));
+    if (!doc || h === b.h) return false;
+    b.h = h;
+    place(file);
+    marks();
+    return true;
+  }
+
+  /** A responsive page drawn at [w] wide, kept in the index. */
+  function widthTo(file, w) {
+    const b = canvas.boards[file];
+    if (!b || b.w === w) return;
+    const before = indexText();
+    b.w = w;
+    place(file);
+    apply();
+    // Laid out again at the new width: then its height, then saved.
+    requestAnimationFrame(() => requestAnimationFrame(() => { fitHeight(file); saveIndex(before); }));
   }
 
   function draw(changed) {
@@ -176,11 +237,34 @@
         strip.append(name,
           button('expand', 'Fit this screen', () => fit(file)),
           button('download', 'Save a copy', () => tell({ download: file })));
+        const widths = document.createElement('span');
+        widths.className = 'widths';
+        for (const [label, w] of [['Phone', 390], ['Tablet', 834], ['Desktop', 1440]]) {
+          const wb = document.createElement('button');
+          wb.textContent = label;
+          wb.dataset.w = w;
+          wb.title = `Draw it ${w} wide`;
+          wb.addEventListener('pointerdown', (e) => e.stopPropagation());
+          wb.addEventListener('click', (e) => { e.stopPropagation(); widthTo(file, w); });
+          widths.append(wb);
+        }
+        strip.insertBefore(widths, strip.children[1]);
+        const chrome = document.createElement('div');
+        chrome.className = 'chrome';
+        const island = document.createElement('div');
+        island.className = 'island';
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.innerHTML = '<i></i><i></i><i></i><span></span>';
+        chrome.append(island, bar);
+        el.append(chrome);
         const frame = document.createElement('div');
         frame.className = 'frame';
         const iframe = document.createElement('iframe');
         iframe.src = base + file;
         iframe.title = b.title ?? file;
+        // A responsive page is as tall as what it holds at its width.
+        iframe.addEventListener('load', () => fitHeight(file));
         frame.append(iframe);
         el.append(strip, frame);
         boards.set(file, el);
@@ -192,6 +276,8 @@
       place(file);
       el.style.setProperty('--radius', (b.radius ?? 0) + 'px');
       el.querySelector('.name').textContent = b.title ?? file.replace(/\.html?$/, '');
+      el.querySelector('.bar span').textContent = b.title ?? file;
+      el.classList.toggle('responsive', !!b.responsive);
       world.append(el); // back to front, in order
     }
     for (const [file, el] of boards) if (!seen.has(file)) { el.remove(); boards.delete(file); }
@@ -694,6 +780,7 @@
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
     tool: (t) => setTool(t),
     undo: () => undo(),
+    frames: (on) => { world.classList.toggle('framed', !!on); },
     // The comments still waiting to go, by key: the rest's pins go.
     pins: (keys) => { pins = pins.filter((p) => keys.includes(p.key)); if (!pins.length) pinCount = 0; marks(); },
     // A key Helmy caught for the canvas (macOS gives some to the app first).
