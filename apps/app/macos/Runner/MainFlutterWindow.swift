@@ -1,4 +1,5 @@
 import ApplicationServices
+import AVFoundation
 import Cocoa
 import CoreAudio
 import CoreImage
@@ -628,6 +629,21 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let count = args["count"] as? Int ?? 0
         NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
         result(nil)
+      case "dictate":
+        // Speech from the microphone, as words while it is spoken.
+        if args["on"] as? Bool == true {
+          Dictation.shared.start { result($0) }
+        } else {
+          Dictation.shared.stop()
+          result(nil)
+        }
+      case "speak":
+        // Words said aloud in the Mac's own voice; told when they end.
+        Speaker.shared.say(args["text"] as? String ?? "")
+        result(nil)
+      case "stopSpeaking":
+        Speaker.shared.stop()
+        result(nil)
       case "transcribe":
         // A sound file's words, recognized on this Mac.
         Transcriber.transcribe(path: args["path"] as? String ?? "") { text, error in
@@ -997,6 +1013,123 @@ enum Transcriber {
         }
       }
     }
+  }
+}
+
+/// Dictation: the microphone, recognized as it is spoken, on this Mac where
+/// it can be. Each change of the words goes to Dart ("dictation": text, and
+/// whether it is final); a pause of a second and a half ends what was said
+/// ("final"), and listening stops.
+final class Dictation {
+  static let shared = Dictation()
+  private let engine = AVAudioEngine()
+  private var request: SFSpeechAudioBufferRecognitionRequest?
+  private var task: SFSpeechRecognitionTask?
+  private var quiet: Timer?
+  private var said = ""
+
+  /// Starts listening; [done] gets nil, or why it could not.
+  func start(_ done: @escaping (String?) -> Void) {
+    stop()
+    SFSpeechRecognizer.requestAuthorization { status in
+      guard status == .authorized else {
+        return DispatchQueue.main.async { done("Speech recognition is not allowed for Helmy. Allow it in System Settings, Privacy & Security, Speech Recognition.") }
+      }
+      AVCaptureDevice.requestAccess(for: .audio) { allowed in
+        DispatchQueue.main.async {
+          guard allowed else {
+            return done("Helmy may not use the microphone. Allow it in System Settings, Privacy & Security, Microphone.")
+          }
+          done(self.listen())
+        }
+      }
+    }
+  }
+
+  private func listen() -> String? {
+    guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+      return "Speech recognition is not available right now."
+    }
+    let request = SFSpeechAudioBufferRecognitionRequest()
+    request.shouldReportPartialResults = true
+    request.contextualStrings = ["Helmy", "Mittolabs"]
+    if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
+    self.request = request
+    said = ""
+    let input = engine.inputNode
+    let format = input.outputFormat(forBus: 0)
+    input.removeTap(onBus: 0)
+    input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+      request.append(buffer)
+    }
+    engine.prepare()
+    do { try engine.start() } catch {
+      input.removeTap(onBus: 0)
+      return "The microphone could not be started: \(error.localizedDescription)"
+    }
+    task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+      guard let self else { return }
+      DispatchQueue.main.async {
+        if let result {
+          self.said = result.bestTranscription.formattedString
+          let last = result.isFinal
+          Notifier.shared.tell("dictation", ["text": self.said, "final": last])
+          if last { self.stop() } else { self.waitForQuiet() }
+        } else if error != nil {
+          Notifier.shared.tell("dictation", ["text": self.said, "final": true])
+          self.stop()
+        }
+      }
+    }
+    return nil
+  }
+
+  /// A pause after words ends them.
+  private func waitForQuiet() {
+    quiet?.invalidate()
+    quiet = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+      guard let self, !self.said.isEmpty else { return }
+      Notifier.shared.tell("dictation", ["text": self.said, "final": true])
+      self.stop()
+    }
+  }
+
+  func stop() {
+    quiet?.invalidate()
+    quiet = nil
+    if engine.isRunning { engine.stop() }
+    engine.inputNode.removeTap(onBus: 0)
+    request?.endAudio()
+    task?.cancel()
+    request = nil
+    task = nil
+  }
+}
+
+/// Words said aloud in the Mac's own voice ("spoken" to Dart when done).
+final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
+  static let shared = Speaker()
+  private let synth = AVSpeechSynthesizer()
+
+  override init() {
+    super.init()
+    synth.delegate = self
+  }
+
+  func say(_ text: String) {
+    synth.stopSpeaking(at: .immediate)
+    guard !text.isEmpty else { return Notifier.shared.tell("spoken", true) }
+    synth.speak(AVSpeechUtterance(string: text))
+  }
+
+  func stop() { synth.stopSpeaking(at: .immediate) }
+
+  func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
+    Notifier.shared.tell("spoken", true)
+  }
+
+  func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) {
+    Notifier.shared.tell("spoken", false)
   }
 }
 

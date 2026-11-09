@@ -23,6 +23,8 @@ class Composer extends StatelessWidget {
     this.attachments = const [],
     this.actions = const [],
     this.trailing = const [],
+    this.tray,
+    this.onVoice,
     this.font,
   });
 
@@ -48,6 +50,12 @@ class Composer extends StatelessWidget {
   /// At the end of the row, before send: stop.
   final List<Widget> trailing;
 
+  /// A strip tucked under the box: the chat's project, its files, its tools.
+  final Widget? tray;
+
+  /// A voice conversation: offered in Send's place while the box is empty.
+  final VoidCallback? onVoice;
+
   /// Sends on Enter unless Shift is held, or with [withMeta] only on ⌘Enter.
   /// Call from the focus node's handler.
   static KeyEventResult handleEnter(KeyEvent e, VoidCallback send, {bool withMeta = false}) {
@@ -71,7 +79,7 @@ class Composer extends StatelessWidget {
       fontFamily: font ?? t.text.fontFamily,
     );
     final dark = t.brightness == .dark;
-    return Container(
+    final box = Container(
       padding: const .fromLTRB(16, 10, 10, 10),
       decoration: BoxDecoration(
         // On black, a solid grey that stands off the page; on white, a tint.
@@ -129,6 +137,31 @@ class Composer extends StatelessWidget {
                 listenable: controller,
                 builder: (context, _) {
                   final ready = controller.text.trim().isNotEmpty || attachments.isNotEmpty;
+                  // Nothing to send: talk instead.
+                  if (!ready && onVoice != null) {
+                    return Tooltip(
+                      message: 'Talk with Helmy',
+                      child: Pressable(
+                        onPressed: onVoice,
+                        semanticLabel: 'Talk with Helmy',
+                        builder: (context, state) => AnimatedContainer(
+                          duration: t.duration,
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: .circle,
+                            color: c.primary.withValues(alpha: state.hovered ? .85 : 1),
+                          ),
+                          alignment: .center,
+                          child: AshlarIcon(
+                            AshlarIconsRoundedStroke.waveSine,
+                            size: 16,
+                            color: c.primaryForeground,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   return Tooltip(
                     message: 'Send (Enter)',
                     child: Pressable(
@@ -159,6 +192,32 @@ class Composer extends StatelessWidget {
           ),
         ],
       ),
+    );
+    final tray = this.tray;
+    if (tray == null) return box;
+    // Tucked under the box, a shade apart, as one piece with it.
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      children: [
+        box,
+        Padding(
+          padding: const .symmetric(horizontal: 14),
+          child: Container(
+            padding: const .fromLTRB(10, 6, 10, 6),
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF1E1E1E) : c.muted.withValues(alpha: .7),
+              borderRadius: const .vertical(bottom: .circular(16)),
+              border: Border(
+                left: BorderSide(color: dark ? const Color(0x1AFFFFFF) : c.border),
+                right: BorderSide(color: dark ? const Color(0x1AFFFFFF) : c.border),
+                bottom: BorderSide(color: dark ? const Color(0x1AFFFFFF) : c.border),
+              ),
+            ),
+            child: tray,
+          ),
+        ),
+      ],
     );
   }
 }

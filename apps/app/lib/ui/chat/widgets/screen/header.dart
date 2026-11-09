@@ -70,27 +70,8 @@ class _Header extends StatelessWidget {
                   builder: (context, box) => Row(
                     spacing: 8,
                     children: [
-                      // A breadcrumb: the folder, then the session in it. In its
-                      // own copy, the repository it is a copy of.
-                      // The folder keeps its name whole unless it is very long;
-                      // with too little room, the session's title alone.
-                      if (box.maxWidth >= 140) ...[
-                        Flexible(
-                          flex: 2,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 200),
-                            child: TourTarget(
-                              stop: .folder,
-                              child: _FolderButton(
-                                vm: vm,
-                                cwd: session.ownCopy ? session.repo! : session.cwd,
-                                style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Text('/', style: t.text.sm.copyWith(color: c.mutedForeground, height: 1)),
-                      ],
+                      // The chat's title; its folder is in the tray under the
+                      // message box.
                       Flexible(
                         flex: 3,
                         // The chat: its threads are in the conversation, each

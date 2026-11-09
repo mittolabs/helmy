@@ -62,6 +62,42 @@ class DesktopService {
     }
   }
 
+  /// Starts or stops dictation (words come on notify's dictation); why it
+  /// could not start, or null.
+  Future<String?> dictate({required bool on}) async {
+    if (Desktop.current != .mac) return 'Dictation works on a Mac.';
+    try {
+      return await _channel.invokeMethod<String>('dictate', {'on': on});
+    } on MissingPluginException {
+      return 'Dictation is not available here.';
+    } on PlatformException catch (e) {
+      return e.message;
+    }
+  }
+
+  /// Says [text] aloud in the Mac's voice; notify's spoken says when done.
+  Future<void> speak(String text) async {
+    if (Desktop.current != .mac) return;
+    try {
+      await _channel.invokeMethod<void>('speak', {'text': text});
+    } on MissingPluginException {
+      // Nothing to say it with.
+    } on PlatformException {
+      // Nothing to say it with.
+    }
+  }
+
+  Future<void> stopSpeaking() async {
+    if (Desktop.current != .mac) return;
+    try {
+      await _channel.invokeMethod<void>('stopSpeaking');
+    } on MissingPluginException {
+      // Nothing speaking.
+    } on PlatformException {
+      // Nothing speaking.
+    }
+  }
+
   /// Keeps [value] in the login Keychain under [account] (Helmy's vault).
   Future<bool> vaultSet(String account, String value) async {
     if (Desktop.current != .mac) return false;

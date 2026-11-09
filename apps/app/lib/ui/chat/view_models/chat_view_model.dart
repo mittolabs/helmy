@@ -598,6 +598,14 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   Future<void> reveal(String path) async => _desktop?.reveal(path);
 
+  /// Dictation on or off; why it could not start, or null.
+  Future<String?> dictate({required bool on}) async =>
+      await _desktop?.dictate(on: on) ?? 'Dictation is not available here.';
+
+  /// Says [text] aloud, and stops saying it.
+  Future<void> speak(String text) async => _desktop?.speak(text);
+  Future<void> stopSpeaking() async => _desktop?.stopSpeaking();
+
   /// The keyboard to Helmy's own view, or back to the web view it came from.
   Future<void> keysTo({required bool toPage}) async => _desktop?.keysTo(toPage: toPage);
 

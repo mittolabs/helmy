@@ -74,6 +74,8 @@ import '../../../utils/platform.dart';
 import 'file_popup.dart';
 import '../../../data/services/vault.dart';
 import '../../../data/services/vault_tools.dart';
+import '../../../data/services/notify_service.dart' show dictation, spoken;
+import '../../../routing/settings_route.dart';
 
 part 'screen/composer_area.dart';
 part 'screen/empty.dart';
@@ -81,6 +83,8 @@ part 'screen/find.dart';
 part 'screen/header.dart';
 part 'screen/side_panels.dart';
 part 'screen/vault_card.dart';
+part 'screen/tray.dart';
+part 'screen/voice.dart';
 
 class ChatScreen extends StatefulWidget {
   const new({super.key, required this.viewModel, this.bar});
@@ -412,6 +416,58 @@ class _ChatScreenState extends State<ChatScreen> {
     _deliver(kept);
   }
 
+  /// What the message box says while the chat works or waits; null otherwise.
+  String? _working(ChatViewModel vm) => vm.heldUntil != null
+      ? 'Waiting for room. What you send waits its turn.'
+      : vm.busy
+      ? context.watch<SettingsRepository>().settings.steerByDefault
+            ? 'Working. What you send goes in now, redirecting it; '
+                  '${Desktop.current.keys('⇧⌘Enter')} has it wait its turn instead.'
+            : 'Working. What you send waits its turn; '
+                  '${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
+      : null;
+
+  // Dictation: words heard go into the box after what was typed.
+  bool _dictating = false;
+  String? _dictationTrouble;
+  String _beforeDictation = '';
+  StreamSubscription<({String text, bool last})>? _dictated;
+
+  Future<void> _dictate(bool on) async {
+    if (!on) {
+      await _dictated?.cancel();
+      _dictated = null;
+      await vm.dictate(on: false);
+      if (mounted) setState(() => _dictating = false);
+      return;
+    }
+    final before = _text.text.trimRight();
+    _beforeDictation = before.isEmpty ? '' : '$before ';
+    _dictated ??= dictation.stream.listen((w) {
+      if (!mounted || !_dictating) return;
+      _text.value = TextEditingValue(
+        text: '$_beforeDictation${w.text}',
+        selection: TextSelection.collapsed(
+          offset: (_beforeDictation.length + w.text.length).toInt(),
+        ),
+      );
+      if (w.last) unawaited(_dictate(false));
+    });
+    setState(() {
+      _dictating = true;
+      _dictationTrouble = null;
+    });
+    final why = await vm.dictate(on: true);
+    if (why != null && mounted) {
+      await _dictated?.cancel();
+      _dictated = null;
+      setState(() {
+        _dictating = false;
+        _dictationTrouble = why;
+      });
+    }
+  }
+
   /// What the vault asks in this chat; nothing where there is no vault.
   static List<VaultRequest> _vaultAsks(BuildContext context, String session) {
     try {
@@ -549,6 +605,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Dictation ends with the chat it was for.
+    if (_dictating) unawaited(vm.dictate(on: false));
+    unawaited(_dictated?.cancel());
     // Left: what was being written stays with the thread.
     vm.keepDraft(_text.text);
     unawaited(vm.saveDraft());
@@ -792,15 +851,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                 : widget.bar != null
                                 ? 'Ask on the side'
                                 : 'Type / for commands, @ for files',
-                            status: vm.heldUntil != null
-                                ? 'Waiting for room. What you send waits its turn.'
-                                : vm.busy
-                                ? context.watch<SettingsRepository>().settings.steerByDefault
-                                      ? 'Working. What you send goes in now, redirecting it; '
-                                            '${Desktop.current.keys('⇧⌘Enter')} has it wait its turn instead.'
-                                      : 'Working. What you send waits its turn; '
-                                            '${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
-                                : null,
+                            status: _dictating
+                                ? 'Listening. Speak, and pause when you are done.'
+                                : _dictationTrouble ?? _working(vm),
                             attachments: [
                               for (final path in vm.attachments) _Attached(path: path, vm: vm),
                               for (var i = 0; i < vm.comments.length; i++)
@@ -846,7 +899,25 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                             ],
+                            // The project, files and tools, under the box; talk instead of typing.
+                            tray: widget.bar == null ? _Tray(vm: vm, session: session) : null,
+                            onVoice: widget.bar == null && Platform.isMacOS
+                                ? () => unawaited(
+                                    showAshlarDialog<void>(
+                                      context: context,
+                                      builder: (_) => _VoiceSession(vm: vm),
+                                    ),
+                                  )
+                                : null,
                             trailing: [
+                              if (Platform.isMacOS)
+                                ComposerButton(
+                                  icon: _dictating
+                                      ? AshlarIconsRoundedStroke.playerStop
+                                      : AshlarIconsRoundedStroke.microphone,
+                                  label: _dictating ? 'Stop dictating' : 'Dictate',
+                                  onPressed: () => unawaited(_dictate(!_dictating)),
+                                ),
                               if (vm.busy)
                                 ComposerButton(
                                   icon: AshlarIconsRoundedStroke.square,

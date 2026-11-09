@@ -10,6 +10,12 @@ import '../../ui/core/window_layout.dart';
 /// Counts presses of About Helmy in the app's menu.
 final aboutRequests = ValueNotifier<int>(0);
 
+/// Words heard by dictation as they come, and whether they are all.
+final dictation = StreamController<({String text, bool last})>.broadcast();
+
+/// Words said aloud have ended (true) or were cut short (false).
+final spoken = StreamController<bool>.broadcast();
+
 /// Counts presses of Help, Show the Tour.
 final tourRequests = ValueNotifier<int>(0);
 
@@ -24,6 +30,11 @@ class NotifyService {
       if (call.method == 'inSight') _inSight.add(call.arguments == true);
       if (call.method == 'about') aboutRequests.value++;
       if (call.method == 'tour') tourRequests.value++;
+      if (call.method == 'dictation' && call.arguments is Map) {
+        final a = call.arguments as Map;
+        dictation.add((text: '${a['text'] ?? ''}', last: a['final'] == true));
+      }
+      if (call.method == 'spoken') spoken.add(call.arguments == true);
       if (call.method == 'quitAsked') quitAsked.value++;
       if (call.method == 'snapshot' && call.arguments is Map) {
         _snapshots.add((call.arguments as Map).cast<String, Object?>());
