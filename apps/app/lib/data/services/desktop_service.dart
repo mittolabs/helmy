@@ -62,6 +62,19 @@ class DesktopService {
     }
   }
 
+  /// Gives the keyboard to Helmy's own view ([toPage] false) or back to the
+  /// web view it was taken from; false where it could not.
+  Future<bool> keysTo({required bool toPage}) async {
+    if (Desktop.current != .mac) return false;
+    try {
+      return await _channel.invokeMethod<bool>('keysTo', {'to': toPage ? 'page' : 'app'}) ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   /// Does [action] to the page in the Preview panel ('inspect', 'zoom',
   /// 'hardReload', 'appearance'); false where it cannot.
   Future<bool> webPage(String action, [Map<String, Object?> args = const {}]) async {

@@ -701,10 +701,33 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "webPage":
         // The page in the Preview panel: the largest web view in the window.
         result(Notifier.webPage(args["do"] as? String ?? "", args))
+      case "keysTo":
+        // The keyboard to Helmy's own view (which passes keys on to the page
+        // it means them for) or back to the web view that had it.
+        result(Notifier.keysTo(args["to"] as? String ?? "app"))
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  /// The web view the keyboard was taken from, to give it back.
+  private static weak var keysFrom: NSView?
+
+  /// Moves the keyboard: "app", from a web view to the Flutter view of its
+  /// window (macOS hands some keys, the arrows, Esc, Enter, to neither
+  /// otherwise); "page", back to that web view. True when it moved.
+  static func keysTo(_ to: String) -> Bool {
+    guard let w = NSApp.keyWindow else { return false }
+    if to == "page" {
+      guard let web = keysFrom, web.window === w else { return false }
+      return w.makeFirstResponder(web)
+    }
+    var v = w.firstResponder as? NSView
+    while let x = v, !(x is WKWebView) { v = x.superview }
+    guard let web = v, let flutter = HelmyWindow.flutterView(in: w) else { return false }
+    keysFrom = web
+    return w.makeFirstResponder(flutter)
   }
 
   /// The largest web view in the main window: the Preview panel's page.

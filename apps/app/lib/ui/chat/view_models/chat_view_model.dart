@@ -598,6 +598,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   Future<void> reveal(String path) async => _desktop?.reveal(path);
 
+  /// The keyboard to Helmy's own view, or back to the web view it came from.
+  Future<void> keysTo({required bool toPage}) async => _desktop?.keysTo(toPage: toPage);
+
   @override
   Future<bool> copyImage(String path) async => await _desktop?.copyImage(path) ?? false;
 

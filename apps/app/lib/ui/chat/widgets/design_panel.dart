@@ -198,8 +198,15 @@ class _DesignPanelState extends State<DesignPanel> {
     }
     if (m['download'] case final String file) unawaited(_saveCopy(file));
     if (m['tool'] case final String tool when tool != _tool) setState(() => _tool = tool);
-    if (m['typing'] case final bool t) _typing = t;
-    if (m['active'] == true && !_keys.hasFocus) _keys.requestFocus();
+    if (m['typing'] case final bool t) {
+      _typing = t;
+      // Typing: the web view keeps the keyboard, for the text.
+      unawaited(widget.vm.keysTo(toPage: t));
+    }
+    if (m['active'] == true && !_typing) {
+      if (!_keys.hasFocus) _keys.requestFocus();
+      unawaited(widget.vm.keysTo(toPage: false));
+    }
     if (m['problem'] case final String why) {
       _problemTimer?.cancel();
       setState(() => _problem = why);
@@ -297,6 +304,11 @@ class _DesignPanelState extends State<DesignPanel> {
                   onPressed: () => _useTool('hand'),
                   child: const AshlarIcon(AshlarIconsRoundedStroke.hand, size: 14),
                 ),
+              ),
+              tool(
+                AshlarIconsRoundedStroke.undo2,
+                'Undo (⌘Z)',
+                () => unawaited(_run('HelmyCanvas.undo()')),
               ),
               Container(
                 width: 1,

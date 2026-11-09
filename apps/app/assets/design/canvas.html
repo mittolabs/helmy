@@ -573,6 +573,7 @@
     zoomOut: () => zoomAt(0.8, innerWidth / 2, innerHeight / 2),
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
     tool: (t) => setTool(t),
+    undo: () => undo(),
     // A key Helmy caught for the canvas (macOS gives some to the app first).
     key: (key, shift, meta, up) => {
       const e = { key, shiftKey: shift, metaKey: meta, ctrlKey: false, preventDefault() {} };
