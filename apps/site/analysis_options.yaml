@@ -1,0 +1,7 @@
+# The jaspr_lints analyzer plugin is declared once, in the workspace root's
+# analysis_options.yaml.
+include: package:lints/recommended.yaml
+
+formatter:
+  page_width: 120
+  trailing_commas: preserve
