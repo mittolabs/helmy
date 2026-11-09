@@ -40,5 +40,4 @@ void main() {
 }
 
 /// An Open Graph tag, which is keyed by `property` rather than `name`.
-Component _property(String property, String content) =>
-    meta(attributes: {'property': property, 'content': content});
+Component _property(String property, String content) => meta(attributes: {'property': property, 'content': content});

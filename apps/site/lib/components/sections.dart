@@ -1,6 +1,8 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
+import '../release.dart';
+
 /// The opening: what Helmy is, in its own words, with Helmy itself beside
 /// the app it lives in.
 class Hero extends StatelessComponent {
@@ -24,7 +26,7 @@ class Hero extends StatelessComponent {
           ),
         ]),
         div(classes: 'cta reveal', [
-          a(classes: 'btn btn-accent', href: '#get', [Component.text('Get Helmy')]),
+          a(classes: 'btn btn-accent', href: '/download', [Component.text('Get Helmy')]),
           a(classes: 'btn btn-ghost', href: '#how', [Component.text('See how it works')]),
         ]),
         p(classes: 'note reveal', [
@@ -89,10 +91,7 @@ class WorksWith extends StatelessComponent {
     div(classes: 'works-row reveal', [
       for (final (logo, name) in _tools)
         div(classes: 'works-chip', [
-          if (logo != null)
-            img(src: logo, alt: '', width: 20, height: 20)
-          else
-            span(classes: 'works-dot', []),
+          if (logo != null) img(src: logo, alt: '', width: 20, height: 20) else span(classes: 'works-dot', []),
           span([Component.text(name)]),
         ]),
     ]),
@@ -233,27 +232,40 @@ class Get extends StatelessComponent {
   const Get({super.key});
 
   @override
-  Component build(BuildContext context) => section(id: 'get', classes: 'get wrap', [
-    img(
-      classes: 'get-mascot reveal',
-      src: '/helmy/onboarding-done.png',
-      alt: 'Helmy jumping for joy',
-      width: 200,
-      height: 200,
-      loading: MediaLoading.lazy,
-    ),
-    h2(classes: 'reveal', [Component.text('Coming soon.')]),
-    p(classes: 'lead reveal center', [
-      Component.text(
-        'Helmy is in early use now. The first public build will be signed, so it opens like '
-        'any other app, and the source ships with it. On first run it connects to Claude '
-        "Code, Codex, OpenCode or Ollama. Have none? It installs OpenCode for you.",
+  Component build(BuildContext context) {
+    final out = Release.load() != null;
+    return section(id: 'get', classes: 'get wrap', [
+      img(
+        classes: 'get-mascot reveal',
+        src: '/helmy/onboarding-done.png',
+        alt: 'Helmy jumping for joy',
+        width: 200,
+        height: 200,
+        loading: MediaLoading.lazy,
       ),
-    ]),
-    div(classes: 'cta center reveal', [
-      span(classes: 'btn btn-accent disabled', attributes: {'aria-disabled': 'true'}, [
-        Component.text('Download, soon'),
+      h2(classes: 'reveal', [Component.text(out ? 'Get Helmy.' : 'Coming soon.')]),
+      p(classes: 'lead reveal center', [
+        Component.text(
+          out
+              ? 'Free and open source. On first run it connects to Claude Code, Codex, OpenCode '
+                    "or Ollama. Have none? It installs OpenCode for you."
+              : 'Helmy is in early use now. The first public build will be signed, so it opens '
+                    "like any other app, and the source ships with it. On first run it connects to "
+                    "Claude Code, Codex, OpenCode or Ollama. Have none? It installs OpenCode for you.",
+        ),
       ]),
-    ]),
-  ]);
+      div(classes: 'cta center reveal', [
+        if (out)
+          a(classes: 'btn btn-accent', href: '/download', [Component.text('Download')])
+        else
+          span(
+            classes: 'btn btn-accent disabled',
+            attributes: {'aria-disabled': 'true'},
+            [
+              Component.text('Download, soon'),
+            ],
+          ),
+      ]),
+    ]);
+  }
 }

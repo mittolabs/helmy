@@ -18,7 +18,7 @@ class Nav extends StatelessComponent {
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),
-      a(classes: 'btn btn-light btn-sm', href: '/#get', [Component.text('Get Helmy')]),
+      a(classes: 'btn btn-light btn-sm', href: '/download', [Component.text('Get Helmy')]),
     ]),
   ]);
 }
@@ -33,7 +33,9 @@ class Footer extends StatelessComponent {
       div(classes: 'footer-brand', [
         img(src: '/helmy/hello.png', alt: '', width: 44, height: 44),
         div([
-          p([strong([Component.text('Helmy')])]),
+          p([
+            strong([Component.text('Helmy')]),
+          ]),
           p(classes: 'muted', [Component.text('Dream it, do it. Made by Mittolabs.')]),
         ]),
       ]),
@@ -42,6 +44,7 @@ class Footer extends StatelessComponent {
         a(href: '/#open', [Component.text('Open source')]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
+        a(href: '/download', [Component.text('Download')]),
       ]),
       p(classes: 'muted small', [Component.text('© 2026 Mittolabs')]),
     ]),

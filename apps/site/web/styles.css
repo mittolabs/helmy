@@ -195,3 +195,19 @@ p { margin: 0; }
 .open { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 40px 0; }
 .open-copy { display: flex; flex-direction: column; gap: 18px; }
 @media (max-width: 860px) { .open { grid-template-columns: 1fr; } }
+
+/* Download: the latest release's files, grouped by system. */
+.download { max-width: 860px; padding-top: clamp(64px, 9vw, 112px); padding-bottom: 96px; display: flex; flex-direction: column; gap: 28px; }
+.download-head { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.download-head img { border-radius: 15px; }
+.download-head h1 { font-size: clamp(36px, 5vw, 56px); }
+.download-version { text-align: center; color: var(--faint); font-size: 14px; }
+.download-version a:hover { color: var(--ink); }
+.download-system { display: grid; gap: 14px; margin-top: 12px; }
+.download-system h2 { font-size: 20px; letter-spacing: -0.01em; }
+.download-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.download-card { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 14px; background: var(--card); transition: background 0.2s ease, transform 0.2s ease; }
+.download-card:hover { background: #1b1b1b; transform: translateY(-1px); }
+.download-card img { border-radius: 8px; flex: none; }
+.download-name { font-weight: 600; }
+.download-meta { color: var(--faint); font-size: 14px; }

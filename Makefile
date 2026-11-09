@@ -50,6 +50,7 @@ site-dev:
 	cd $(SITE) && $(JASPR) serve
 
 site:
+	gh api repos/mittolabs/helmy/releases/latest > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
 	cd $(SITE) && $(JASPR) build
 
 docs-dev:

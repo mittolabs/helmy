@@ -47,7 +47,9 @@ class Changelog extends StatelessComponent {
             for (final r in releases)
               article(classes: 'release reveal', [
                 h3([Component.text(r.title)]),
-                ul([for (final l in r.lines) li([Component.text(l)])]),
+                ul([
+                  for (final l in r.lines) li([Component.text(l)]),
+                ]),
               ]),
         ]),
       ]),
