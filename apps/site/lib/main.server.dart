@@ -29,7 +29,7 @@ void main() {
           rel: 'stylesheet',
           href:
               'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800'
-              '&family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap',
+              '&family=Inter:wght@400;500;600;700&display=swap',
         ),
         link(rel: 'stylesheet', href: '/styles.css'),
         script(src: '/reveal.js', defer: true),

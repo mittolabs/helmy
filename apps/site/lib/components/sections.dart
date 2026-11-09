@@ -1,8 +1,6 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
-import 'scribble.dart';
-
 /// The opening: what Helmy is, in its own words, with Helmy itself beside
 /// the app it lives in.
 class Hero extends StatelessComponent {
@@ -40,11 +38,6 @@ class Hero extends StatelessComponent {
           alt: 'Helmy, a small astronaut, waving',
           width: 320,
           height: 320,
-        ),
-        const Scribble(
-          classes: 'tag-hello',
-          direction: ScribbleDirection.downLeft,
-          text: 'says hi,\nthen gets to work',
         ),
       ]),
     ]),
@@ -151,15 +144,13 @@ class Feature extends StatelessComponent {
 
 /// Helmy holding something, big, for a feature with no screenshot of its own.
 class Pose extends StatelessComponent {
-  const Pose({super.key, required this.src, required this.alt, this.note});
+  const Pose({super.key, required this.src, required this.alt});
   final String src, alt;
-  final String? note;
 
   @override
   Component build(BuildContext context) => div(classes: 'pose', [
     div(classes: 'pose-glow', attributes: {'aria-hidden': 'true'}, []),
     img(src: src, alt: alt, width: 300, height: 300, loading: MediaLoading.lazy),
-    if (note != null) p(classes: 'pose-note', [Component.text(note!)]),
   ]);
 }
 
@@ -232,7 +223,7 @@ class OpenSource extends StatelessComponent {
       ]),
     ]),
     div(classes: 'feature-media reveal', [
-      const Pose(src: '/helmy/onboarding-folders.png', alt: 'Helmy holding an open folder', note: 'all of it'),
+      const Pose(src: '/helmy/onboarding-folders.png', alt: 'Helmy holding an open folder'),
     ]),
   ]);
 }

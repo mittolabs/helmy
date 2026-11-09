@@ -34,7 +34,6 @@ class Home extends StatelessComponent {
         media: Pose(
           src: '/helmy/onboarding-connect.png',
           alt: 'Helmy holding a plug',
-          note: 'plugs into what you have',
         ),
       ),
       const Divider(DividerShape.wander),
@@ -92,7 +91,6 @@ class Home extends StatelessComponent {
         media: Pose(
           src: '/helmy/shield.png',
           alt: 'Helmy holding a shield',
-          note: 'keeps them',
         ),
       ),
       const Divider(DividerShape.loop),
