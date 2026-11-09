@@ -1,4 +1,5 @@
 import 'chat_item.dart';
+import '../../utils/format.dart';
 
 /// What a rule allows without asking: commands that start a certain way, or
 /// edits under a folder. Kept in settings, so it lasts.
@@ -10,7 +11,8 @@ class const PermissionRule({required final String kind, required final String pr
 
   String get label => switch (kind) {
     'command' => 'Commands starting "${prefix.trim()}"',
-    'edit' => 'Edits in $prefix',
+    // The folder as the user reads it: one with no project is the chat's own.
+    'edit' => isScratch(prefix) ? "Edits in this chat's folder" : 'Edits in ${tildePath(prefix)}',
     _ => '$kind: $prefix',
   };
 

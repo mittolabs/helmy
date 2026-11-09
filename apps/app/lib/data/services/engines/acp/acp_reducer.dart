@@ -168,8 +168,27 @@ class AcpReducer {
   static Map<String, Object?> inputOf(Map<String, Object?> u) {
     final raw = (u['rawInput'] as Map?)?.cast<String, Object?>() ?? {};
     final path = (u['locations'] as List?)?.whereType<Map>().firstOrNull?['path'];
+    // A change, in the names Claude Code's edits use, so the chat draws it
+    // as a diff: the protocol's own diff where it sends one, else the
+    // agent's input (OpenCode writes with content, edits with oldString).
+    final diff = (u['content'] as List?)
+        ?.whereType<Map>()
+        .where((c) => c['type'] == 'diff')
+        .firstOrNull;
+    final edit = u['kind'] == 'edit';
     return {
       ...raw,
+      if (edit && diff != null) ...{
+        'old_string': '${diff['oldText'] ?? ''}',
+        'new_string': '${diff['newText'] ?? ''}',
+        'file_path': ?diff['path'],
+      } else if (edit && raw['oldString'] is String) ...{
+        'old_string': raw['oldString'],
+        'new_string': '${raw['newString'] ?? ''}',
+      } else if (edit && raw['content'] is String) ...{
+        'old_string': '',
+        'new_string': raw['content'],
+      },
       'file_path': ?path,
       if (raw['filePath'] case final String p) 'file_path': p,
       if (raw['command'] case final String c) 'command': c,

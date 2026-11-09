@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/services/engines/acp/acp_reducer.dart';
 import 'package:helmy/domain/models/chat_item.dart';
+import 'package:helmy/utils/diffs.dart';
 
 /// An ACP agent's updates, as OpenCode 2.2.5 sent them (recorded
 /// 2026-11-05), become the chat's items.
@@ -121,5 +122,31 @@ void main() {
       );
     }
     expect(items.whereType<TaskList>().single.tasks.single.status, TaskStatus.done);
+  });
+
+  test('a file written or edited shows as a change, not as its raw input', () {
+    final written = ToolCall(
+      id: 'w',
+      name: AcpReducer.nameOf({'kind': 'edit'}),
+      input: AcpReducer.inputOf({
+        'kind': 'edit',
+        'rawInput': {'filePath': '/tmp/song.py', 'content': 'a\nb'},
+      }),
+    );
+    expect(diffsOf(written).single.added, 2);
+    expect(diffsOf(written).single.path, '/tmp/song.py');
+    final edited = ToolCall(
+      id: 'e',
+      name: 'Edit',
+      input: AcpReducer.inputOf({
+        'kind': 'edit',
+        'rawInput': {'filePath': '/tmp/song.py'},
+        'content': [
+          {'type': 'diff', 'path': '/tmp/song.py', 'oldText': 'a\nb', 'newText': 'a\nc'},
+        ],
+      }),
+    );
+    final d = diffsOf(edited).single;
+    expect((d.added, d.removed), (1, 1));
   });
 }

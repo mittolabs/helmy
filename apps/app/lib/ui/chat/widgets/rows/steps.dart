@@ -307,7 +307,10 @@ class _Step extends StatelessWidget {
                   size: .sm,
                   variant: .outline,
                   onPressed: () => vm.allowAlways(p, rule),
-                  child: Text('Always allow: ${rule.label.toLowerCase()}'),
+                  // Its first letter only lowered: a path keeps its own case.
+                  child: Text(
+                    'Always allow: ${rule.label[0].toLowerCase()}${rule.label.substring(1)}',
+                  ),
                 ),
               Button(
                 size: .sm,
