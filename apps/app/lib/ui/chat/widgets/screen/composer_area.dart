@@ -284,8 +284,8 @@ class _Attached extends StatelessWidget {
 
 /// A comment on part of the conversation, waiting to go with the next
 /// message: the words chosen, and a line to say what about them.
-class _Comment extends StatelessWidget {
-  const new({required this.i, required this.vm, required this.latest});
+class _Comment extends StatefulWidget {
+  const new({super.key, required this.i, required this.vm, required this.latest});
   final int i;
   final ChatViewModel vm;
 
@@ -293,9 +293,24 @@ class _Comment extends StatelessWidget {
   final bool latest;
 
   @override
+  State<_Comment> createState() => _CommentState();
+}
+
+class _CommentState extends State<_Comment> {
+  // Its words as they came (a comment made on the design canvas has them).
+  late final _words = TextEditingController(text: widget.vm.comments[widget.i].note);
+
+  @override
+  void dispose() {
+    _words.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
+    final (i, vm, latest) = (widget.i, widget.vm, widget.latest);
     final comment = vm.comments[i];
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
@@ -329,8 +344,10 @@ class _Comment extends StatelessWidget {
                   ),
                   Input(
                     key: ValueKey('comment-${comment.id}'),
+                    controller: _words,
                     size: .sm,
-                    autofocus: latest,
+                    // Its words already written: the keyboard stays where it is.
+                    autofocus: latest && _words.text.isEmpty,
                     placeholder: 'What about it?',
                     semanticLabel: 'Comment ${i + 1}',
                     onChanged: (v) => vm.noteComment(i, v),

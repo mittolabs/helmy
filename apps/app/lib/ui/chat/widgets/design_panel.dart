@@ -68,6 +68,7 @@ class _DesignPanelState extends State<DesignPanel> {
     LogicalKeyboardKey.space: ' ',
     LogicalKeyboardKey.keyV: 'v',
     LogicalKeyboardKey.keyH: 'h',
+    LogicalKeyboardKey.keyC: 'c',
     LogicalKeyboardKey.keyZ: 'z',
     LogicalKeyboardKey.equal: '=',
     LogicalKeyboardKey.minus: '-',
@@ -97,6 +98,40 @@ class _DesignPanelState extends State<DesignPanel> {
   String? _problem;
   Timer? _problemTimer;
 
+  /// Comments made on the canvas, by the pin's key: their ids in the
+  /// message box. A pin goes when its comment is sent or removed.
+  final _pins = <String, int>{};
+
+  void _comment(Map<dynamic, dynamic> c) {
+    final key = '${c['key']}';
+    final file = '${c['file']}';
+    final screen = '${c['screen']}';
+    final el = c['element'];
+    final what = el is Map
+        ? [
+            'the ${el['tag']}',
+            if ('${el['words']}'.isNotEmpty) '"${el['words']}"',
+            'at ${el['path']}',
+          ].join(' ')
+        : 'the whole screen';
+    final id = widget.vm.comment(
+      '${ChatViewModel.designComment}"$screen" (design/$file), $what',
+      note: '${c['note'] ?? ''}',
+    );
+    if (id != null) _pins[key] = id;
+  }
+
+  /// The pins whose comments still wait to go.
+  void _syncPins() {
+    if (_pins.isEmpty) return;
+    final waiting = {for (final c in widget.vm.comments) c.id};
+    final before = _pins.length;
+    _pins.removeWhere((_, id) => !waiting.contains(id));
+    if (_pins.length != before) {
+      unawaited(_run('HelmyCanvas.pins(${jsonEncode(_pins.keys.toList())})'));
+    }
+  }
+
   /// Move (select, edit, drag) or hand (pan only).
   String _tool = 'select';
 
@@ -111,12 +146,14 @@ class _DesignPanelState extends State<DesignPanel> {
     unawaited(_c.setJavaScriptMode(JavaScriptMode.unrestricted));
     unawaited(_c.addJavaScriptChannel('Helmy', onMessageReceived: (m) => _fromPage(m.message)));
     widget.vm.addListener(_follow);
+    widget.vm.addListener(_syncPins);
     _follow();
   }
 
   @override
   void dispose() {
     widget.vm.removeListener(_follow);
+    widget.vm.removeListener(_syncPins);
     unawaited(_watch?.cancel());
     _settle?.cancel();
     _look?.cancel();
@@ -197,6 +234,7 @@ class _DesignPanelState extends State<DesignPanel> {
       });
     }
     if (m['download'] case final String file) unawaited(_saveCopy(file));
+    if (m['comment'] case final Map c) _comment(c);
     if (m['tool'] case final String tool when tool != _tool) setState(() => _tool = tool);
     if (m['typing'] case final bool t) {
       _typing = t;
@@ -303,6 +341,16 @@ class _DesignPanelState extends State<DesignPanel> {
                   semanticLabel: 'Move around',
                   onPressed: () => _useTool('hand'),
                   child: const AshlarIcon(AshlarIconsRoundedStroke.hand, size: 14),
+                ),
+              ),
+              Tooltip(
+                message: 'Comment, for the agent (C)',
+                child: Button(
+                  variant: _tool == 'comment' ? .secondary : .ghost,
+                  size: .iconXs,
+                  semanticLabel: 'Comment',
+                  onPressed: () => _useTool('comment'),
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
                 ),
               ),
               tool(

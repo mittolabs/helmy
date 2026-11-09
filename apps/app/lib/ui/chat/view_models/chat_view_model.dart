@@ -1383,13 +1383,20 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// Whether something waits to go besides the words typed.
   bool get hasExtras => attachments.isNotEmpty || comments.isNotEmpty;
 
-  /// A comment on [quote], its words to come; the message box takes them.
-  void comment(String quote) {
+  /// A comment on [quote], its words to come ([note], or the message box
+  /// takes them); its id, or null when there is nothing to comment on.
+  int? comment(String quote, {String note = ''}) {
     final q = quote.trim();
-    if (q.isEmpty) return;
-    comments.add((id: _nextComment++, quote: q, note: ''));
+    if (q.isEmpty) return null;
+    final id = _nextComment++;
+    comments.add((id: id, quote: q, note: note));
     notifyListeners();
+    return id;
   }
+
+  /// How a comment on the design canvas begins: its quote names the screen,
+  /// its file and the element.
+  static const designComment = 'Design · ';
 
   void noteComment(int i, String note) {
     if (i < 0 || i >= comments.length) return;
@@ -1405,7 +1412,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// [comments] as they go ahead of the message: each part quoted (cut
   /// short when long), and what was said about it.
   static String commentsText(List<({int id, String quote, String note})> comments) => [
-    'About these parts of the conversation:',
+    if (comments.every((c) => c.quote.startsWith(designComment)))
+      'About these parts of the design (each a file in the design folder: read it before changing it):'
+    else if (comments.any((c) => c.quote.startsWith(designComment)))
+      'About these parts of the conversation and the design:'
+    else
+      'About these parts of the conversation:',
     for (final c in comments) ...[
       '',
       for (final line in (c.quote.length <= 600 ? c.quote : '${c.quote.substring(0, 600)}…').split(

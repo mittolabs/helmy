@@ -735,7 +735,12 @@ class _ChatScreenState extends State<ChatScreen> {
                             attachments: [
                               for (final path in vm.attachments) _Attached(path: path, vm: vm),
                               for (var i = 0; i < vm.comments.length; i++)
-                                _Comment(i: i, vm: vm, latest: i == vm.comments.length - 1),
+                                _Comment(
+                                  key: ValueKey(vm.comments[i].id),
+                                  i: i,
+                                  vm: vm,
+                                  latest: i == vm.comments.length - 1,
+                                ),
                             ],
                             actions: [
                               DropdownMenu(

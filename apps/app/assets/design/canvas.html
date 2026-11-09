@@ -43,6 +43,21 @@
   .handle.s { cursor: ns-resize; }
   .tag { position: absolute; transform: translateY(-100%); margin-top: -4px; padding: 1px 5px; border-radius: 4px;
     background: var(--ring); color: #fff; font-size: 11px; white-space: nowrap; pointer-events: none; }
+  #stage.commenting { cursor: crosshair; }
+  .pin { position: absolute; width: 22px; height: 22px; margin: -22px 0 0 0; border-radius: 11px 11px 11px 2px;
+    background: var(--ring); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
+  .cbox { position: absolute; width: 260px; padding: 10px; box-sizing: border-box; border-radius: 10px; pointer-events: auto;
+    background: var(--bg); color: var(--text); border: 1px solid var(--dot); box-shadow: 0 8px 28px rgba(0,0,0,.28);
+    display: flex; flex-direction: column; gap: 8px; -webkit-user-select: text; user-select: text; }
+  .cbox .about { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cbox textarea { font: inherit; font-size: 13px; resize: none; height: 64px; padding: 8px; border-radius: 6px; box-sizing: border-box;
+    border: 1px solid var(--dot); background: transparent; color: var(--text); outline: none; }
+  .cbox textarea:focus { border-color: var(--ring); }
+  .cbox .row { display: flex; justify-content: flex-end; gap: 6px; }
+  .cbox button { all: unset; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .cbox button.go { background: var(--ring); color: #fff; }
+  .cbox button.no { color: var(--muted); }
   #empty { position: absolute; inset: 0; display: none; place-items: center; color: var(--muted); text-align: center; padding: 24px; }
 </style>
 </head>
@@ -74,6 +89,9 @@
   let picked = null;          // { file, el } (el null: the screen itself)
   let typing = null;          // { file, el, before, html }
   const undos = [];           // { file, text }
+  let pins = [];              // comments waiting to go: { key, file, x, y, n }
+  let pinCount = 0;
+  let commentBox = null;      // { el (the box), file, target, x, y }
 
   const tell = (m) => { try { Helmy.postMessage(JSON.stringify(m)); } catch (_) {} };
 
@@ -264,6 +282,23 @@
       overlay.append(d);
     };
     if (hover && !(picked && hover.file === picked.file && hover.el === picked.el) && !typing) box(rectOf(hover.file, hover.el), 'hover');
+    for (const p of pins) {
+      const b = canvas?.boards[p.file];
+      if (!b) continue;
+      const d = document.createElement('div');
+      d.className = 'pin';
+      d.textContent = p.n;
+      Object.assign(d.style, { left: view.x + (b.x + p.x) * view.s + 'px', top: view.y + (b.y + p.y) * view.s + 'px' });
+      overlay.append(d);
+    }
+    if (commentBox) {
+      const b = canvas.boards[commentBox.file];
+      Object.assign(commentBox.el.style, {
+        left: Math.min(innerWidth - 270, view.x + (b.x + commentBox.x) * view.s + 8) + 'px',
+        top: Math.min(innerHeight - 150, view.y + (b.y + commentBox.y) * view.s + 8) + 'px',
+      });
+      overlay.append(commentBox.el);
+    }
     if (!picked || !canvas?.boards[picked.file]) return;
     const r = rectOf(picked.file, picked.el);
     if (picked.el) {
@@ -397,6 +432,7 @@
     if (e.target.closest('button')) return;
     stage.focus();
     if (typing) stopTyping(true);
+    if (commentBox) closeComment();
     const start = { cx: e.clientX, cy: e.clientY };
     const panning = tool === 'hand' || space || e.button === 1;
     const handle = e.target.closest('.handle');
@@ -412,6 +448,10 @@
       const file = strip.parentElement.dataset.file, b = canvas.boards[file];
       pick({ file, el: null });
       drag = { kind: 'screen', ...start, file, x: b.x, y: b.y, before: indexText() };
+    } else if (!panning && tool === 'comment' && screenAt(e.clientX, e.clientY)) {
+      const at = screenAt(e.clientX, e.clientY);
+      openComment(at.file, elementAt(at.file, at.x, at.y), at.x, at.y);
+      return;
     } else if (!panning && tool === 'select' && screenAt(e.clientX, e.clientY)) {
       const at = screenAt(e.clientX, e.clientY);
       const el = elementAt(at.file, at.x, at.y);
@@ -434,7 +474,7 @@
 
   stage.addEventListener('pointermove', (e) => {
     if (!drag) {
-      if (tool !== 'select' || space || typing) return;
+      if ((tool !== 'select' && tool !== 'comment') || space || typing || commentBox) return;
       const at = screenAt(e.clientX, e.clientY);
       const next = at ? { file: at.file, el: elementAt(at.file, at.x, at.y) } : null;
       if (next?.file !== hover?.file || next?.el !== hover?.el) { hover = next?.el ? next : null; marks(); }
@@ -496,6 +536,78 @@
     else fit(at.file);
   });
 
+  // ---- Comments -----------------------------------------------------------
+
+  /** Where [el] is in its page, as a selector the agent can find it by. */
+  function pathOf(el) {
+    const parts = [];
+    for (let e = el; e && e.tagName && e.tagName !== 'BODY' && e.tagName !== 'HTML'; e = e.parentElement) {
+      let part = e.tagName.toLowerCase();
+      if (e.id) { parts.unshift(part + '#' + e.id); break; }
+      const same = [...(e.parentElement?.children ?? [])].filter((c) => c.tagName === e.tagName);
+      if (same.length > 1) part += `:nth-of-type(${same.indexOf(e) + 1})`;
+      parts.unshift(part);
+    }
+    return ['body', ...parts].join(' > ');
+  }
+
+  function openComment(file, target, x, y) {
+    closeComment();
+    const b = canvas.boards[file];
+    const el = document.createElement('div');
+    el.className = 'cbox';
+    const about = document.createElement('div');
+    about.className = 'about';
+    const words = target ? (target.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60) : '';
+    about.textContent = (b.title ?? file) + ' · ' + (target ? (words ? `${target.tagName.toLowerCase()} "${words}"` : target.tagName.toLowerCase()) : 'the whole screen');
+    const text = document.createElement('textarea');
+    text.placeholder = 'What should change here?';
+    const row = document.createElement('div');
+    row.className = 'row';
+    const no = document.createElement('button');
+    no.className = 'no'; no.textContent = 'Cancel';
+    const go = document.createElement('button');
+    go.className = 'go'; go.textContent = 'Add to message';
+    row.append(no, go);
+    el.append(about, text, row);
+    for (const ev of ['pointerdown', 'wheel', 'dblclick']) el.addEventListener(ev, (e) => e.stopPropagation());
+    no.addEventListener('click', () => closeComment());
+    go.addEventListener('click', () => sendComment());
+    text.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); }
+      if (e.key === 'Escape') { e.preventDefault(); closeComment(); }
+    });
+    commentBox = { el, text, file, target, x, y };
+    marks();
+    tell({ typing: true }); // the keyboard to the box
+    setTimeout(() => text.focus(), 0);
+  }
+
+  function closeComment() {
+    if (!commentBox) return;
+    commentBox.el.remove();
+    commentBox = null;
+    tell({ typing: false });
+    stage.focus();
+    marks();
+  }
+
+  function sendComment() {
+    const c = commentBox;
+    if (!c) return;
+    const note = c.text.value.trim();
+    if (!note) { closeComment(); return; }
+    const b = canvas.boards[c.file];
+    const key = 'p' + Date.now() + Math.random().toString(36).slice(2, 6);
+    const words = c.target ? (c.target.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80) : '';
+    tell({ comment: {
+      key, file: c.file, screen: b.title ?? c.file, note,
+      element: c.target ? { tag: c.target.tagName.toLowerCase(), words, path: pathOf(c.target) } : null,
+    } });
+    pins.push({ key, file: c.file, x: c.x, y: c.y, n: ++pinCount });
+    closeComment();
+  }
+
   // ---- Keys ---------------------------------------------------------------
 
   let nudge = null; // a run of arrow presses, saved once it stops
@@ -503,12 +615,19 @@
   function setTool(next) {
     tool = next;
     stage.classList.toggle('hand', tool === 'hand' || space);
+    stage.classList.toggle('commenting', tool === 'comment');
+    if (tool !== 'comment') closeComment();
     hover = null;
     marks();
     tell({ tool });
   }
 
   function onKey(e) {
+    if (commentBox) {
+      if (e.key === 'Enter' && !e.shiftKey) sendComment();
+      if (e.key === 'Escape') closeComment();
+      return;
+    }
     if (typing) {
       if (e.key === 'Enter' && !e.shiftKey) stopTyping(true);
       if (e.key === 'Escape') stopTyping(false);
@@ -522,6 +641,7 @@
     if (e.key === ' ' && !space) { space = true; stage.classList.add('hand'); e.preventDefault(); return; }
     if (e.key === 'v' || e.key === 'V') return setTool('select');
     if (e.key === 'h' || e.key === 'H') return setTool('hand');
+    if (e.key === 'c' || e.key === 'C') return setTool('comment');
     if (e.shiftKey && e.key === '!') return fit();
     if (e.key === 'Escape') { if (picked) pick(null); else fit(); return; }
     if (e.key === 'Enter' && picked?.el && typeable(picked.el)) { e.preventDefault(); startTyping(picked.file, picked.el); return; }
@@ -574,6 +694,8 @@
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
     tool: (t) => setTool(t),
     undo: () => undo(),
+    // The comments still waiting to go, by key: the rest's pins go.
+    pins: (keys) => { pins = pins.filter((p) => keys.includes(p.key)); if (!pins.length) pinCount = 0; marks(); },
     // A key Helmy caught for the canvas (macOS gives some to the app first).
     key: (key, shift, meta, up) => {
       const e = { key, shiftKey: shift, metaKey: meta, ctrlKey: false, preventDefault() {} };
