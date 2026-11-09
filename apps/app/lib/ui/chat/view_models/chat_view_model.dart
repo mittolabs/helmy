@@ -602,8 +602,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   Future<void> forgetLesson(Learned item) => _conversations.forgetLesson(sessionId, item);
 
   /// Dictation on or off; why it could not start, or null.
-  Future<String?> dictate({required bool on}) async =>
-      await _desktop?.dictate(on: on) ?? 'Dictation is not available here.';
+  /// (Null from the desktop is it working, not it missing.)
+  Future<String?> dictate({required bool on}) async {
+    final desktop = _desktop;
+    if (desktop == null) return 'Dictation is not available here.';
+    return desktop.dictate(on: on);
+  }
 
   /// Says [text] aloud, and stops saying it.
   Future<void> speak(String text) async => _desktop?.speak(text);

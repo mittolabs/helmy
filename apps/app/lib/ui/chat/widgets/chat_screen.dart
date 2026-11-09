@@ -851,8 +851,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                 : widget.bar != null
                                 ? 'Ask on the side'
                                 : 'Type / for commands, @ for files',
+                            listening: _dictating,
                             status: _dictating
-                                ? 'Listening. Speak, and pause when you are done.'
+                                ? 'Listening. Pause when you are done, or press stop.'
                                 : _dictationTrouble ?? _working(vm),
                             attachments: [
                               for (final path in vm.attachments) _Attached(path: path, vm: vm),
@@ -916,6 +917,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ? AshlarIconsRoundedStroke.playerStop
                                       : AshlarIconsRoundedStroke.microphone,
                                   label: _dictating ? 'Stop dictating' : 'Dictate',
+                                  live: _dictating,
                                   onPressed: () => unawaited(_dictate(!_dictating)),
                                 ),
                               if (vm.busy)

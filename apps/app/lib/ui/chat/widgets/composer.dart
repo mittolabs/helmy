@@ -20,6 +20,7 @@ class Composer extends StatelessWidget {
     required this.onSubmit,
     required this.placeholder,
     this.status,
+    this.listening = false,
     this.attachments = const [],
     this.actions = const [],
     this.trailing = const [],
@@ -40,6 +41,10 @@ class Composer extends StatelessWidget {
 
   /// A short line above the text when something needs saying.
   final String? status;
+
+  /// The microphone is on: [status] gets a pulsing red dot, so it is plain
+  /// that Helmy is listening.
+  final bool listening;
 
   /// Files going with the message, above the text.
   final List<Widget> attachments;
@@ -95,7 +100,18 @@ class Composer extends StatelessWidget {
         crossAxisAlignment: .stretch,
         spacing: 6,
         children: [
-          if (status != null) Text(status!, style: t.text.xs.copyWith(color: c.mutedForeground)),
+          if (status != null && listening)
+            Row(
+              spacing: 8,
+              children: [
+                const _Recording(),
+                Expanded(
+                  child: Text(status!, style: t.text.xs.copyWith(color: c.foreground)),
+                ),
+              ],
+            )
+          else if (status != null)
+            Text(status!, style: t.text.xs.copyWith(color: c.mutedForeground)),
           if (attachments.isNotEmpty) Wrap(spacing: 6, runSpacing: 6, children: attachments),
           ListenableBuilder(
             listenable: controller,
@@ -224,21 +240,74 @@ class Composer extends StatelessWidget {
 
 /// A small quiet button for the composer's row.
 class ComposerButton extends StatelessWidget {
-  const new({super.key, required this.icon, required this.label, required this.onPressed});
+  const new({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.live = false,
+  });
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+
+  /// Something is on that this button stops (the microphone): filled red.
+  final bool live;
 
   @override
   Widget build(BuildContext context) => Tooltip(
     message: label,
     child: Button(
-      variant: .ghost,
+      variant: live ? .destructive : .ghost,
       size: .iconSm,
       round: true,
       semanticLabel: label,
       onPressed: onPressed,
       child: AshlarIcon(icon, size: 16),
+    ),
+  );
+}
+
+/// A red dot that pulses while the microphone is on; still when the person
+/// has asked for less motion.
+class _Recording extends StatefulWidget {
+  const _Recording();
+
+  @override
+  State<_Recording> createState() => _RecordingState();
+}
+
+class _RecordingState extends State<_Recording> with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pulse
+        ..stop()
+        ..value = 1;
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: Tween(begin: 0.35, end: 1.0).animate(_pulse),
+    child: Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: AshlarTheme.of(context).colors.destructive,
+        shape: BoxShape.circle,
+      ),
     ),
   );
 }
