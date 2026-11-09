@@ -290,11 +290,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       writer: context.read(),
       log: context.read(),
       // Where this Mac has no model: the cheapest in the cloud.
-      cloud: CloudWriter(
-        context.read(),
-        context.read(),
-        (id) => loaded.settings.settings.uses(id),
-      ),
+      cloud: CloudWriter(context.read(), context.read(), (id) => loaded.settings.settings.uses(id)),
       naming: () => loaded.settings.settings.namingNote,
     ),
     dispose: (_, k) => k.dispose(),

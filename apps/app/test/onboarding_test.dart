@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/connections_setup.dart';
 import 'package:helmy/data/services/desktop_service.dart';
+import 'package:helmy/data/services/engines/acp/free_agent.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/domain/models/settings.dart';
 import 'package:helmy/ui/core/ashlar/app.dart';
@@ -48,6 +49,56 @@ class _Pretend extends ConnectionsSetup {
 }
 
 void main() {
+  test('nothing online to answer: the free connection is set up by itself', () async {
+    final settings = FakeSettingsRepository();
+    var installs = 0;
+    final vm = OnboardingViewModel(
+      setup: _Pretend(),
+      settings: settings,
+      engines: EngineRegistry([]),
+      installFree: () async {
+        installs++;
+        return const ConnectionAccount(
+          id: freeAgentId,
+          kind: 'acp',
+          name: 'OpenCode',
+          command: 'opencode',
+        );
+      },
+    );
+    expect(vm.anyReady, isFalse);
+    await vm.check();
+    await pumpEventQueue();
+    expect(installs, 1);
+    expect(settings.settings.accounts.map((a) => a.id), [freeAgentId]);
+    expect(vm.anyReady, isTrue, reason: 'Helmy can answer the first message');
+    await vm.addFree();
+    expect(installs, 1, reason: 'once');
+  });
+
+  test('Claude Code or Codex ready: the free connection is only offered', () async {
+    final setup = _Pretend()..states['claude'] = SetupState.ready;
+    var installs = 0;
+    final vm = OnboardingViewModel(
+      setup: setup,
+      settings: FakeSettingsRepository(),
+      engines: EngineRegistry([]),
+      installFree: () async {
+        installs++;
+        return const ConnectionAccount(
+          id: freeAgentId,
+          kind: 'acp',
+          name: 'OpenCode',
+          command: 'opencode',
+        );
+      },
+    );
+    await vm.check();
+    await pumpEventQueue();
+    expect(installs, 0);
+    expect(vm.offersFree, isTrue);
+  });
+
   testWidgets('three steps after the splash: connections, chats, folders, then Helmy', (
     tester,
   ) async {

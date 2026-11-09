@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/services/connections_setup.dart';
+import '../../../data/services/engines/acp/free_agent.dart';
 import '../../../data/services/desktop_service.dart';
 import '../../../utils/format.dart';
 import '../../../utils/platform.dart';
@@ -485,7 +486,10 @@ class _ConnectionsStep extends StatelessWidget {
           )
         else
           _Box(
-            children: [for (final c in checks) _ConnectionRow(vm: vm, c: c)],
+            children: [
+              for (final c in checks) _ConnectionRow(vm: vm, c: c),
+              if (vm.offersFree) _FreeRow(vm: vm),
+            ],
           ),
         // More accounts, more room: each has its own limits.
         if (checks != null)
@@ -531,6 +535,69 @@ class _ConnectionsStep extends StatelessWidget {
           trailing: const AshlarIcon(AshlarIconsRoundedStroke.arrowRight, size: 14),
           child: const Text('Continue'),
         ),
+      ),
+    );
+  }
+}
+
+/// OpenCode on its free models: no account, so Helmy answers from the
+/// first message. Set up by itself when nothing else could answer.
+class _FreeRow extends StatelessWidget {
+  const new({required this.vm});
+  final OnboardingViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final trouble = vm.freeTrouble;
+    final on = vm.used(freeAgentId);
+    final status = vm.freeBusy
+        ? 'Setting it up, a minute or so…'
+        : trouble ??
+              (!vm.freeAdded
+                  ? 'Free models, no account needed'
+                  : on
+                  ? 'Ready · free models, no account needed'
+                  : 'Not used by Helmy. Switch it on to use it.');
+    return Padding(
+      padding: const .symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        spacing: 12,
+        children: [
+          const _Tile(AshlarIconsRoundedStroke.sparkles),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              spacing: 2,
+              children: [
+                Text('OpenCode', style: t.text.sm.copyWith(fontWeight: .w600)),
+                Text(
+                  status,
+                  style: t.text.xs.copyWith(
+                    color: trouble != null && !vm.freeBusy
+                        ? t.colors.destructive
+                        : t.colors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (vm.freeBusy)
+            const Spinner(size: 16)
+          else if (vm.freeAdded)
+            Switch(
+              value: on,
+              semanticLabel: 'Use OpenCode',
+              onChanged: (v) => vm.setUsed(freeAgentId, v),
+            )
+          else
+            Button(
+              variant: .outline,
+              size: .sm,
+              onPressed: vm.busy == null ? vm.addFree : null,
+              child: Text(trouble == null ? 'Add' : 'Try again'),
+            ),
+        ],
       ),
     );
   }

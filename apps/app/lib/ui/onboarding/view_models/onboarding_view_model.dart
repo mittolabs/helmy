@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
+import '../../../data/services/engines/acp/free_agent.dart';
 import '../../../data/services/engines/engine_registry.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/platform.dart';
@@ -26,7 +27,17 @@ typedef StartChoice = ({FolderMode mode, String? folder});
 /// The first run, after the splash: the AI tools Helmy works through, the
 /// conversations already had in them, and where new chats start.
 class OnboardingViewModel extends ChangeNotifier {
-  new({required this._setup, required this._settings, required this._engines, this.import});
+  new({
+    required this._setup,
+    required this._settings,
+    required this._engines,
+    this.import,
+    this._installFree,
+  });
+
+  /// Installs the free connection (installFreeAgent); null where it is not
+  /// offered (a test).
+  final Future<ConnectionAccount> Function()? _installFree;
 
   final ConnectionsSetup _setup;
   final SettingsRepository _settings;
@@ -77,7 +88,44 @@ class OnboardingViewModel extends ChangeNotifier {
   final added = <String, int>{};
 
   /// One found ready and left on: Helmy has something to work through.
-  bool get anyReady => checks?.any((c) => c.state == .ready && used(c.id)) ?? false;
+  bool get anyReady =>
+      (checks?.any((c) => c.state == .ready && used(c.id)) ?? false) ||
+      (freeAdded && used(freeAgentId));
+
+  // The free connection: OpenCode on its free models, no account needed.
+
+  /// Whether the free connection is offered here.
+  bool get offersFree => _installFree != null;
+
+  /// Whether it is in Helmy.
+  bool get freeAdded => _settings.settings.accounts.any((a) => a.id == freeAgentId);
+
+  /// Being installed; and what stopped it, in Helmy's words.
+  bool freeBusy = false;
+  String? freeTrouble;
+
+  /// Installs and adds the free connection. Done by itself when nothing
+  /// else could answer, so the first message gets an answer.
+  Future<void> addFree() async {
+    final install = _installFree;
+    if (install == null || freeBusy || freeAdded) return;
+    freeBusy = true;
+    freeTrouble = null;
+    notifyListeners();
+    try {
+      final a = await install();
+      final s = _settings.settings;
+      await _settings.save(s.copyWith(accounts: [...s.accounts, a]));
+      _engines.add(a);
+    } on Object {
+      freeTrouble =
+          "It didn't download: the agent list or its download didn't answer. "
+          'Check the internet connection and try again.';
+    } finally {
+      freeBusy = false;
+      notifyListeners();
+    }
+  }
 
   /// Who each ready connection is signed in as, by its id: said on its row,
   /// so it is plain what Helmy would use.
@@ -94,6 +142,10 @@ class OnboardingViewModel extends ChangeNotifier {
         if (c.state == .ready) c.id,
     };
     notifyListeners();
+    // Nothing online to answer (Claude Code and Codex not ready): the free
+    // connection, so Helmy answers from the first message.
+    final online = checks?.any((c) => c.state == .ready && c.id != 'ollama') ?? false;
+    if (!online) unawaited(addFree());
     for (final c in checks ?? const <ConnectionCheck>[]) {
       if (c.state != .ready || c.id == 'ollama') continue;
       final name = await _setup.signedInAs(c.id, null);

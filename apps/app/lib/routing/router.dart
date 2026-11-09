@@ -24,6 +24,7 @@ import '../ui/import/history_import_view_model.dart';
 import '../ui/onboarding/view_models/onboarding_view_model.dart';
 import '../ui/onboarding/widgets/onboarding_screen.dart';
 import '../ui/core/windows.dart';
+import '../data/services/engines/acp/free_agent.dart';
 
 GoRouter router(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
@@ -124,6 +125,7 @@ GoRouter router(String initialLocation) => GoRouter(
       path: '/welcome',
       builder: (context, state) => _Kept(
         create: (context) => OnboardingViewModel(
+          installFree: installFreeAgent,
           setup: context.read(),
           settings: context.read(),
           engines: context.read(),
