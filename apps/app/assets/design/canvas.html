@@ -10,15 +10,16 @@
   }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
     font: 13px -apple-system, BlinkMacSystemFont, "Inter", sans-serif; -webkit-user-select: none; user-select: none; }
-  #stage { position: absolute; inset: 0; cursor: default;
+  #stage { position: absolute; inset: 0; cursor: default; outline: none;
     background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 24px 24px; }
+  #stage.hand { cursor: grab; }
   #stage.panning { cursor: grabbing; }
   #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   .board { position: absolute; }
   .strip { position: absolute; left: 0; bottom: 100%; height: 28px; display: flex; align-items: center;
-    gap: 6px; color: var(--muted); white-space: nowrap; }
+    gap: 6px; color: var(--muted); white-space: nowrap; cursor: default; }
   .strip .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-  .strip button { all: unset; width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center;
+  .strip button { all: unset; width: 22px; height: 22px; border-radius: 5px; place-items: center;
     color: var(--muted); cursor: pointer; }
   /* Its buttons show on the screen under the pointer, so the name has the room. */
   .strip button { display: none; }
@@ -28,15 +29,25 @@
   .frame { position: absolute; inset: 0; overflow: hidden; background: #fff; border-radius: var(--radius, 0);
     box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.10); }
   .frame iframe { border: 0; width: 100%; height: 100%; display: block; pointer-events: none; background: #fff; }
-  .board.focused .frame { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .board.picked .frame, .board.focused .frame { outline: 2px solid var(--ring); outline-offset: 2px; }
   .note { position: absolute; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; white-space: pre-wrap; }
   .note.sticky { font-weight: 400; font-size: 15px; letter-spacing: 0; padding: 12px; border-radius: 6px;
     background: #fde68a; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+  .box { position: absolute; box-sizing: border-box; border: 1px solid var(--ring); pointer-events: none; }
+  .box.hover { opacity: .55; }
+  .handle { position: absolute; width: 9px; height: 9px; box-sizing: border-box; margin: -4px 0 0 -4px;
+    background: #fff; border: 1.5px solid var(--ring); border-radius: 2px; pointer-events: auto; }
+  .handle.se { cursor: nwse-resize; }
+  .handle.e { cursor: ew-resize; }
+  .handle.s { cursor: ns-resize; }
+  .tag { position: absolute; transform: translateY(-100%); margin-top: -4px; padding: 1px 5px; border-radius: 4px;
+    background: var(--ring); color: #fff; font-size: 11px; white-space: nowrap; pointer-events: none; }
   #empty { position: absolute; inset: 0; display: none; place-items: center; color: var(--muted); text-align: center; padding: 24px; }
 </style>
 </head>
 <body>
-<div id="stage"><div id="world"></div></div>
+<div id="stage" tabindex="0"><div id="world"></div><div id="overlay"></div></div>
 <div id="empty"></div>
 <script>
 (() => {
@@ -44,6 +55,7 @@
   const base = 'd/' + params.get('d') + '/';
   const stage = document.getElementById('stage');
   const world = document.getElementById('world');
+  const overlay = document.getElementById('overlay');
   const empty = document.getElementById('empty');
   const icons = {
     expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
@@ -54,7 +66,18 @@
   let fitted = false;
   const boards = new Map();   // file -> element
 
+  // Editing: the tool, what is under the pointer, what is picked, what is
+  // being typed into, and what to undo.
+  let tool = 'select';
+  let space = false;
+  let hover = null;           // { file, el }
+  let picked = null;          // { file, el } (el null: the screen itself)
+  let typing = null;          // { file, el, before, html }
+  const undos = [];           // { file, text }
+
   const tell = (m) => { try { Helmy.postMessage(JSON.stringify(m)); } catch (_) {} };
+
+  // ---- Drawing --------------------------------------------------------
 
   function apply() {
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
@@ -65,6 +88,7 @@
       el.style.transform = `scale(${1 / view.s})`;
       el.style.width = (Number(el.dataset.w) * view.s) + 'px';
     }
+    marks();
     tell({ zoom: view.s });
   }
 
@@ -102,8 +126,16 @@
     b.innerHTML = icons[kind];
     b.title = label;
     b.setAttribute('aria-label', label);
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     return b;
+  }
+
+  function place(file) {
+    const b = canvas.boards[file], el = boards.get(file);
+    if (!b || !el) return;
+    Object.assign(el.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
+    el.querySelector('.strip').dataset.w = b.w;
   }
 
   function draw(changed) {
@@ -117,6 +149,7 @@
       if (!el) {
         el = document.createElement('div');
         el.className = 'board';
+        el.dataset.file = file;
         const strip = document.createElement('div');
         strip.className = 'strip';
         strip.style.transformOrigin = '0 100%';
@@ -132,14 +165,14 @@
         iframe.title = b.title ?? file;
         frame.append(iframe);
         el.append(strip, frame);
-        el.addEventListener('dblclick', () => fit(file));
         boards.set(file, el);
       } else if (changed === true || (changed ?? []).includes(file)) {
+        if (typing?.file === file) continue; // being typed into: the person's text stands
         el.querySelector('iframe').src = base + file + '?v=' + Date.now();
+        if (picked?.file === file) picked = { file, el: null };
       }
-      Object.assign(el.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
+      place(file);
       el.style.setProperty('--radius', (b.radius ?? 0) + 'px');
-      el.querySelector('.strip').dataset.w = b.w;
       el.querySelector('.name').textContent = b.title ?? file.replace(/\.html?$/, '');
       world.append(el); // back to front, in order
     }
@@ -173,35 +206,363 @@
     }
   }
 
-  // Pan with two fingers or the wheel; pinch or Ctrl+wheel zooms at the pointer.
+  // ---- Where things are -----------------------------------------------
+
+  const toWorld = (cx, cy) => ({ x: (cx - view.x) / view.s, y: (cy - view.y) / view.s });
+
+  /** The screen under a point on the canvas, front first, and the point on it. */
+  function screenAt(cx, cy) {
+    const p = toWorld(cx, cy);
+    const order = canvas?.order ?? Object.keys(canvas?.boards ?? {});
+    for (let i = order.length - 1; i >= 0; i--) {
+      const b = canvas.boards[order[i]];
+      if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+        return { file: order[i], x: p.x - b.x, y: p.y - b.y };
+      }
+    }
+    return null;
+  }
+
+  const docOf = (file) => {
+    try { return boards.get(file)?.querySelector('iframe').contentDocument ?? null; } catch (_) { return null; }
+  };
+
+  /** The element at a point on a screen; null for the page itself, or for
+   *  what fills it (the screen's own container counts as the screen). */
+  function elementAt(file, x, y) {
+    const doc = docOf(file);
+    const el = doc?.elementFromPoint(x, y);
+    if (!el || el === doc.body || el === doc.documentElement) return null;
+    const b = canvas.boards[file], r = el.getBoundingClientRect();
+    return r.width >= b.w * 0.95 && r.height >= b.h * 0.95 ? null : el;
+  }
+
+  /** Where [el] (on [file]) is on the canvas, in the canvas page's pixels. */
+  function rectOf(file, el) {
+    const b = canvas.boards[file];
+    if (!el) return { x: view.x + b.x * view.s, y: view.y + b.y * view.s, w: b.w * view.s, h: b.h * view.s };
+    const r = el.getBoundingClientRect();
+    return { x: view.x + (b.x + r.left) * view.s, y: view.y + (b.y + r.top) * view.s, w: r.width * view.s, h: r.height * view.s };
+  }
+
+  const nameOf = (el) => {
+    const tag = el.tagName.toLowerCase();
+    const words = (el.textContent ?? '').trim().replace(/\s+/g, ' ');
+    return words && words.length <= 24 ? `${tag} · ${words}` : tag;
+  };
+
+  /** Marks on the canvas: under the pointer, picked, with its handles. */
+  function marks() {
+    overlay.textContent = '';
+    for (const [file, el] of boards) el.classList.toggle('picked', picked?.file === file && !picked.el);
+    if (picked?.el && !picked.el.isConnected) picked = null;
+    if (hover?.el && !hover.el.isConnected) hover = null;
+    const box = (r, cls) => {
+      const d = document.createElement('div');
+      d.className = 'box ' + cls;
+      Object.assign(d.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+      overlay.append(d);
+    };
+    if (hover && !(picked && hover.file === picked.file && hover.el === picked.el) && !typing) box(rectOf(hover.file, hover.el), 'hover');
+    if (!picked || !canvas?.boards[picked.file]) return;
+    const r = rectOf(picked.file, picked.el);
+    if (picked.el) {
+      box(r, 'picked');
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = nameOf(picked.el);
+      Object.assign(tag.style, { left: r.x + 'px', top: r.y + 'px' });
+      overlay.append(tag);
+    }
+    if (typing) return;
+    for (const [kind, x, y] of [['e', r.x + r.w, r.y + r.h / 2], ['s', r.x + r.w / 2, r.y + r.h], ['se', r.x + r.w, r.y + r.h]]) {
+      const h = document.createElement('div');
+      h.className = 'handle ' + kind;
+      h.dataset.kind = kind;
+      Object.assign(h.style, { left: x + 'px', top: y + 'px' });
+      overlay.append(h);
+    }
+  }
+
+  function pick(next) {
+    picked = next;
+    marks();
+  }
+
+  // ---- Saving ---------------------------------------------------------
+
+  /** A screen's page as its file, without what editing added. */
+  function sourceOf(file) {
+    const doc = docOf(file);
+    if (!doc) return null;
+    const html = doc.documentElement.cloneNode(true);
+    for (const el of html.querySelectorAll('[contenteditable]')) el.removeAttribute('contenteditable');
+    return (doc.doctype ? '<!doctype html>\n' : '') + html.outerHTML + '\n';
+  }
+
+  async function put(file, text) {
+    try {
+      await fetch(base + file, { method: 'PUT', body: text });
+    } catch (_) {
+      tell({ problem: "That change wasn't saved: Helmy couldn't write " + file + '.' });
+    }
+  }
+
+  /** Saves [file] as it now is; [before] is what an undo puts back. */
+  async function save(file, before) {
+    const text = sourceOf(file);
+    if (text == null || text === before) return;
+    undos.push({ file, text: before });
+    await put(file, text);
+  }
+
+  const indexText = () => JSON.stringify(canvas, null, 2) + '\n';
+
+  async function saveIndex(before) {
+    const text = indexText();
+    if (text === before) return;
+    undos.push({ file: 'canvas.json', text: before });
+    await put('canvas.json', text);
+  }
+
+  async function undo() {
+    const u = undos.pop();
+    if (!u) return;
+    await put(u.file, u.text);
+    if (u.file === 'canvas.json') {
+      canvas = JSON.parse(u.text);
+      draw([]);
+    } else {
+      boards.get(u.file)?.querySelector('iframe').setAttribute('src', base + u.file + '?v=' + Date.now());
+    }
+    pick(null);
+  }
+
+  // ---- Typing into a screen --------------------------------------------
+
+  const typeable = (el) => !['INPUT', 'TEXTAREA', 'SELECT', 'IMG', 'SVG', 'VIDEO', 'IFRAME'].includes(el.tagName.toUpperCase()) &&
+    [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+
+  function startTyping(file, el) {
+    const iframe = boards.get(file).querySelector('iframe');
+    typing = { file, el, before: sourceOf(file), html: el.innerHTML, iframe };
+    tell({ typing: true });
+    pick({ file, el });
+    el.contentEditable = 'true';
+    iframe.style.pointerEvents = 'auto';
+    iframe.focus();
+    el.focus();
+    const doc = el.ownerDocument, range = doc.createRange();
+    range.selectNodeContents(el);
+    doc.getSelection().removeAllRanges();
+    doc.getSelection().addRange(range);
+    const keys = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); stopTyping(true); }
+      if (e.key === 'Escape') { e.preventDefault(); stopTyping(false); }
+    };
+    const blur = () => stopTyping(true);
+    // On the page: the key comes to the page's focus, not always the element.
+    doc.addEventListener('keydown', keys, true);
+    el.addEventListener('blur', blur);
+    typing.off = () => { doc.removeEventListener('keydown', keys, true); el.removeEventListener('blur', blur); };
+  }
+
+  function stopTyping(keep) {
+    const t = typing;
+    if (!t) return;
+    typing = null;
+    tell({ typing: false });
+    t.off();
+    if (!keep) t.el.innerHTML = t.html;
+    t.el.removeAttribute('contenteditable');
+    t.el.ownerDocument.getSelection()?.removeAllRanges();
+    t.iframe.style.pointerEvents = 'none';
+    stage.focus();
+    if (keep && t.el.innerHTML !== t.html) save(t.file, t.before);
+    marks();
+  }
+
+  // ---- The pointer --------------------------------------------------------
+
+  let drag = null;
+
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
     else { view.x -= e.deltaX; view.y -= e.deltaY; apply(); }
   }, { passive: false });
-  // Drag anywhere to pan.
-  let drag = null;
+
   stage.addEventListener('pointerdown', (e) => {
+    tell({ active: true }); // Helmy hands the keys over to the canvas
     if (e.target.closest('button')) return;
-    drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+    stage.focus();
+    if (typing) stopTyping(true);
+    const start = { cx: e.clientX, cy: e.clientY };
+    const panning = tool === 'hand' || space || e.button === 1;
+    const handle = e.target.closest('.handle');
+    const strip = e.target.closest('.strip');
+    if (!panning && handle && picked) {
+      // Resizing what is picked: an element by its inline size, a screen by its frame.
+      const r = picked.el ? picked.el.getBoundingClientRect() : canvas.boards[picked.file];
+      drag = { kind: 'size', side: handle.dataset.kind, ...start, file: picked.file, el: picked.el,
+        w: picked.el ? r.width : r.w, h: picked.el ? r.height : r.h,
+        before: picked.el ? sourceOf(picked.file) : indexText() };
+    } else if (!panning && strip) {
+      // A screen dragged by its name.
+      const file = strip.parentElement.dataset.file, b = canvas.boards[file];
+      pick({ file, el: null });
+      drag = { kind: 'screen', ...start, file, x: b.x, y: b.y, before: indexText() };
+    } else if (!panning && tool === 'select' && screenAt(e.clientX, e.clientY)) {
+      const at = screenAt(e.clientX, e.clientY);
+      const el = elementAt(at.file, at.x, at.y);
+      pick({ file: at.file, el });
+      if (el) {
+        const cs = el.ownerDocument.defaultView.getComputedStyle(el);
+        drag = { kind: 'element', ...start, file: at.file, el, static: cs.position === 'static',
+          left: parseFloat(el.style.left) || 0, top: parseFloat(el.style.top) || 0, before: sourceOf(at.file) };
+      } else {
+        const b = canvas.boards[at.file];
+        drag = { kind: 'screen', ...start, file: at.file, x: b.x, y: b.y, before: indexText() };
+      }
+    } else {
+      if (!panning && tool === 'select') pick(null);
+      drag = { kind: 'pan', ...start, x: view.x, y: view.y };
+      stage.classList.add('panning');
+    }
     stage.setPointerCapture(e.pointerId);
-    stage.classList.add('panning');
   });
+
   stage.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    view.x = drag.vx + e.clientX - drag.x;
-    view.y = drag.vy + e.clientY - drag.y;
-    apply();
+    if (!drag) {
+      if (tool !== 'select' || space || typing) return;
+      const at = screenAt(e.clientX, e.clientY);
+      const next = at ? { file: at.file, el: elementAt(at.file, at.x, at.y) } : null;
+      if (next?.file !== hover?.file || next?.el !== hover?.el) { hover = next?.el ? next : null; marks(); }
+      return;
+    }
+    const dx = e.clientX - drag.cx, dy = e.clientY - drag.cy;
+    // A click's jiggle is not a drag.
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    drag.moved = true;
+    const wx = dx / view.s, wy = dy / view.s;
+    switch (drag.kind) {
+      case 'pan':
+        view.x = drag.x + dx; view.y = drag.y + dy; apply(); return;
+      case 'screen': {
+        const b = canvas.boards[drag.file];
+        b.x = Math.round(drag.x + wx); b.y = Math.round(drag.y + wy);
+        place(drag.file); break;
+      }
+      case 'element':
+        if (drag.static) drag.el.style.position = 'relative';
+        drag.el.style.left = Math.round(drag.left + wx) + 'px';
+        drag.el.style.top = Math.round(drag.top + wy) + 'px';
+        break;
+      case 'size': {
+        const w = Math.max(drag.el ? 4 : 40, Math.round(drag.w + (drag.side === 's' ? 0 : wx)));
+        const h = Math.max(drag.el ? 4 : 40, Math.round(drag.h + (drag.side === 'e' ? 0 : wy)));
+        if (drag.el) {
+          if (drag.side !== 's') drag.el.style.width = w + 'px';
+          if (drag.side !== 'e') drag.el.style.height = h + 'px';
+        } else {
+          const b = canvas.boards[drag.file];
+          b.w = w; b.h = h; place(drag.file); apply();
+        }
+        break;
+      }
+    }
+    marks();
   });
-  const stop = () => { drag = null; stage.classList.remove('panning'); };
-  stage.addEventListener('pointerup', stop);
-  stage.addEventListener('pointercancel', stop);
-  addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') fit();
-    if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomAt(1.25, innerWidth / 2, innerHeight / 2); }
-    if ((e.metaKey || e.ctrlKey) && e.key === '-') { e.preventDefault(); zoomAt(0.8, innerWidth / 2, innerHeight / 2); }
-    if (e.shiftKey && e.key === '!') fit();
+
+  const release = () => {
+    const d = drag;
+    drag = null;
+    stage.classList.remove('panning');
+    if (!d?.moved) return;
+    if (d.kind === 'screen' || (d.kind === 'size' && !d.el)) saveIndex(d.before);
+    if (d.kind === 'element' || (d.kind === 'size' && d.el)) save(d.file, d.before);
+  };
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', release);
+  stage.addEventListener('pointerleave', () => { if (!drag && hover) { hover = null; marks(); } });
+
+  stage.addEventListener('dblclick', (e) => {
+    if (tool !== 'select') return;
+    drag = null;
+    const at = screenAt(e.clientX, e.clientY);
+    if (!at) return;
+    const el = elementAt(at.file, at.x, at.y);
+    if (el && typeable(el)) startTyping(at.file, el);
+    else fit(at.file);
   });
+
+  // ---- Keys ---------------------------------------------------------------
+
+  let nudge = null; // a run of arrow presses, saved once it stops
+
+  function setTool(next) {
+    tool = next;
+    stage.classList.toggle('hand', tool === 'hand' || space);
+    hover = null;
+    marks();
+    tell({ tool });
+  }
+
+  function onKey(e) {
+    if (typing) {
+      if (e.key === 'Enter' && !e.shiftKey) stopTyping(true);
+      if (e.key === 'Escape') stopTyping(false);
+      return;
+    }
+    const cmd = e.metaKey || e.ctrlKey;
+    if (cmd && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+    if (cmd && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomAt(1.25, innerWidth / 2, innerHeight / 2); return; }
+    if (cmd && e.key === '-') { e.preventDefault(); zoomAt(0.8, innerWidth / 2, innerHeight / 2); return; }
+    if (cmd) return;
+    if (e.key === ' ' && !space) { space = true; stage.classList.add('hand'); e.preventDefault(); return; }
+    if (e.key === 'v' || e.key === 'V') return setTool('select');
+    if (e.key === 'h' || e.key === 'H') return setTool('hand');
+    if (e.shiftKey && e.key === '!') return fit();
+    if (e.key === 'Escape') { if (picked) pick(null); else fit(); return; }
+    if (e.key === 'Enter' && picked?.el && typeable(picked.el)) { e.preventDefault(); startTyping(picked.file, picked.el); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && picked?.el) {
+      e.preventDefault();
+      const { file, el } = picked, before = sourceOf(file);
+      el.remove();
+      pick(null);
+      save(file, before);
+      return;
+    }
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (arrows[e.key] && picked) {
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1, [ax, ay] = arrows[e.key];
+      if (!nudge || nudge.file !== picked.file || nudge.el !== picked.el) {
+        nudge = { file: picked.file, el: picked.el, before: picked.el ? sourceOf(picked.file) : indexText() };
+      }
+      if (picked.el) {
+        const el = picked.el;
+        if (el.ownerDocument.defaultView.getComputedStyle(el).position === 'static') el.style.position = 'relative';
+        el.style.left = ((parseFloat(el.style.left) || 0) + ax * step) + 'px';
+        el.style.top = ((parseFloat(el.style.top) || 0) + ay * step) + 'px';
+      } else {
+        const b = canvas.boards[picked.file];
+        b.x += ax * step; b.y += ay * step; place(picked.file);
+      }
+      marks();
+      clearTimeout(nudge.timer);
+      const n = nudge;
+      n.timer = setTimeout(() => {
+        if (n.el) save(n.file, n.before); else saveIndex(n.before);
+        if (nudge === n) nudge = null;
+      }, 400);
+    }
+  }
+  function onKeyUp(e) {
+    if (e.key === ' ') { space = false; stage.classList.toggle('hand', tool === 'hand'); }
+  }
+  addEventListener('keydown', onKey);
+  addEventListener('keyup', onKeyUp);
 
   // What Helmy's toolbar and the folder watch call.
   window.HelmyCanvas = {
@@ -211,6 +572,12 @@
     zoomIn: () => zoomAt(1.25, innerWidth / 2, innerHeight / 2),
     zoomOut: () => zoomAt(0.8, innerWidth / 2, innerHeight / 2),
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
+    tool: (t) => setTool(t),
+    // A key Helmy caught for the canvas (macOS gives some to the app first).
+    key: (key, shift, meta, up) => {
+      const e = { key, shiftKey: shift, metaKey: meta, ctrlKey: false, preventDefault() {} };
+      if (up) onKeyUp(e); else onKey(e);
+    },
   };
   load();
 })();

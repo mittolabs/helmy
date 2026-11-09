@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -43,6 +44,67 @@ class _DesignPanelState extends State<DesignPanel> {
   List<({String file, String title})> _screens = const [];
   double _zoom = 1;
 
+  /// Keyboard focus while the canvas is used: every key goes on to the
+  /// page (Enter keeps typing, Esc lets go, arrows nudge), none to Helmy's
+  /// own shortcuts or the message box.
+  late final _keys = FocusNode(debugLabel: 'Design canvas', onKeyEvent: _onKey);
+
+  /// Whether text on a screen is being typed into.
+  bool _typing = false;
+
+  /// The canvas's keys, as the page names them. macOS gives some keys to
+  /// the app before the page: these are passed on to it from here. While
+  /// typing, only Enter and Esc are; the rest stay with the text.
+  static final _canvasKeys = {
+    LogicalKeyboardKey.enter: 'Enter',
+    LogicalKeyboardKey.numpadEnter: 'Enter',
+    LogicalKeyboardKey.escape: 'Escape',
+    LogicalKeyboardKey.arrowLeft: 'ArrowLeft',
+    LogicalKeyboardKey.arrowRight: 'ArrowRight',
+    LogicalKeyboardKey.arrowUp: 'ArrowUp',
+    LogicalKeyboardKey.arrowDown: 'ArrowDown',
+    LogicalKeyboardKey.delete: 'Delete',
+    LogicalKeyboardKey.backspace: 'Backspace',
+    LogicalKeyboardKey.space: ' ',
+    LogicalKeyboardKey.keyV: 'v',
+    LogicalKeyboardKey.keyH: 'h',
+    LogicalKeyboardKey.keyZ: 'z',
+    LogicalKeyboardKey.equal: '=',
+    LogicalKeyboardKey.minus: '-',
+    LogicalKeyboardKey.digit1: '!',
+  };
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    final key = _canvasKeys[e.logicalKey];
+    final keys = HardwareKeyboard.instance;
+    if (key == null ||
+        (_typing && key != 'Enter' && key != 'Escape') ||
+        (key == '!' && !keys.isShiftPressed) ||
+        ((key == 'z' || key == '=' || key == '-') && !keys.isMetaPressed)) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
+    final up = e is KeyUpEvent;
+    if (up && key != ' ') return KeyEventResult.handled;
+    unawaited(
+      _run(
+        'HelmyCanvas.key(${jsonEncode(key)}, ${keys.isShiftPressed}, ${keys.isMetaPressed}, $up)',
+      ),
+    );
+    return KeyEventResult.handled;
+  }
+
+  /// A change the canvas could not save, for a moment.
+  String? _problem;
+  Timer? _problemTimer;
+
+  /// Move (select, edit, drag) or hand (pan only).
+  String _tool = 'select';
+
+  void _useTool(String tool) {
+    setState(() => _tool = tool);
+    unawaited(_run('HelmyCanvas.tool(${jsonEncode(tool)})'));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +120,8 @@ class _DesignPanelState extends State<DesignPanel> {
     unawaited(_watch?.cancel());
     _settle?.cancel();
     _look?.cancel();
+    _problemTimer?.cancel();
+    _keys.dispose();
     super.dispose();
   }
 
@@ -91,7 +155,11 @@ class _DesignPanelState extends State<DesignPanel> {
       return;
     }
     _watch = dir.watch(recursive: true).listen((e) {
-      _changed.add(e.path.substring(folder.length + 1));
+      // The canvas's own saves are already on screen.
+      final path = e is FileSystemMoveEvent ? (e.destination ?? e.path) : e.path;
+      if (path.endsWith('.helmy-saving') || DesignServer.shared.savedJustNow(path)) return;
+      if (!path.startsWith('$folder/')) return;
+      _changed.add(path.substring(folder.length + 1));
       // A burst of writes, redrawn once.
       _settle?.cancel();
       _settle = Timer(const Duration(milliseconds: 150), () {
@@ -129,6 +197,16 @@ class _DesignPanelState extends State<DesignPanel> {
       });
     }
     if (m['download'] case final String file) unawaited(_saveCopy(file));
+    if (m['tool'] case final String tool when tool != _tool) setState(() => _tool = tool);
+    if (m['typing'] case final bool t) _typing = t;
+    if (m['active'] == true && !_keys.hasFocus) _keys.requestFocus();
+    if (m['problem'] case final String why) {
+      _problemTimer?.cancel();
+      setState(() => _problem = why);
+      _problemTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted) setState(() => _problem = null);
+      });
+    }
   }
 
   /// A copy of [file] (a screen) in Downloads, shown in the Finder.
@@ -200,6 +278,32 @@ class _DesignPanelState extends State<DesignPanel> {
                   ),
                 ),
               ),
+              Tooltip(
+                message: 'Select and edit (V)',
+                child: Button(
+                  variant: _tool == 'select' ? .secondary : .ghost,
+                  size: .iconXs,
+                  semanticLabel: 'Select and edit',
+                  onPressed: () => _useTool('select'),
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.mousePointer2, size: 14),
+                ),
+              ),
+              Tooltip(
+                message: 'Move around (H, or hold Space)',
+                child: Button(
+                  variant: _tool == 'hand' ? .secondary : .ghost,
+                  size: .iconXs,
+                  semanticLabel: 'Move around',
+                  onPressed: () => _useTool('hand'),
+                  child: const AshlarIcon(AshlarIconsRoundedStroke.hand, size: 14),
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 16,
+                margin: const .symmetric(horizontal: 4),
+                color: c.border,
+              ),
               tool(
                 AshlarIconsRoundedStroke.zoomOut,
                 'Zoom out',
@@ -229,11 +333,19 @@ class _DesignPanelState extends State<DesignPanel> {
             ],
           ),
         ),
+        if (_problem != null)
+          Padding(
+            padding: const .fromLTRB(12, 0, 12, 6),
+            child: Text(_problem!, style: t.text.xs.copyWith(color: c.destructive)),
+          ),
         Container(height: 1, color: c.border),
         Expanded(
           child: Stack(
             children: [
-              WindowWebView(controller: _c),
+              Focus(
+                focusNode: _keys,
+                child: WindowWebView(controller: _c),
+              ),
               // A click on the canvas while a menu is open closes the menu.
               ValueListenableBuilder(
                 valueListenable: openOverlays,
