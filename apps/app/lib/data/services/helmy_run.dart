@@ -54,6 +54,10 @@ lines=$(curl -sf --unix-socket "$sock" -H "X-Folder: $PWD" "http://helmy/env") |
   exit 69
 }
 while IFS=' ' read -r name value; do
+  if [[ "$name" == "!" ]]; then
+    echo "helmy: $(printf %s "$value" | base64 -D)" >&2
+    continue
+  fi
   [[ -n "$name" ]] && export "$name=$(printf %s "$value" | base64 -D)"
 done <<< "$lines"
 exec "$@"
@@ -91,8 +95,13 @@ class HelmyRunServer {
         res.statusCode = HttpStatus.notFound;
         return await res.close();
       }
-      final env = await _vault.envFor(projectFor(folder, _vault.all.keys));
+      final problems = <String>[];
+      final env = await _vault.envFor(projectFor(folder, _vault.all.keys), problems: problems);
       res.headers.contentType = ContentType.text;
+      // What could not be fetched, said in the terminal.
+      for (final p in problems) {
+        res.writeln('! ${base64.encode(utf8.encode(p))}');
+      }
       for (final e in env.entries) {
         res.writeln('${e.key} ${base64.encode(utf8.encode(e.value))}');
       }

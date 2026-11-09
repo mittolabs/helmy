@@ -83,6 +83,35 @@ class _VaultPage extends StatelessWidget {
               ),
             ),
         ],
+        const _Heading('HashiCorp Vault'),
+        _Row(
+          title: vault.hcVault == null ? 'Not connected' : 'Connected',
+          description: vault.hcVault == null
+              ? 'Use secrets kept in your HashiCorp Vault: Helmy fetches each when it runs '
+                    'something, and never keeps a copy. Add one here with From HashiCorp Vault.'
+              : [
+                  vault.hcVault!.address,
+                  if (vault.hcVault!.namespace.isNotEmpty) 'namespace ${vault.hcVault!.namespace}',
+                ].join(', '),
+          control: vault.hcVault == null
+              ? Button(
+                  variant: .outline,
+                  size: .sm,
+                  onPressed: () => unawaited(
+                    showAshlarDialog<void>(
+                      context: context,
+                      builder: (_) => _HcVaultDialog(vault: vault),
+                    ),
+                  ),
+                  child: const Text('Connect'),
+                )
+              : Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: () => unawaited(vault.disconnectHcVault()),
+                  child: const Text('Disconnect'),
+                ),
+        ),
         const _Heading('In a terminal'),
         _Row(
           title: 'helmy run',
@@ -123,6 +152,11 @@ class _SecretDialogState extends State<_SecretDialog> {
   late final _name = TextEditingController(text: widget.name ?? '');
   final _value = TextEditingController();
   late String _scope = widget.scope ?? sharedScope;
+
+  /// Kept in HashiCorp Vault: its path and field, fetched when used.
+  bool _fromHc = false;
+  final _path = TextEditingController();
+  final _field = TextEditingController();
   String? _trouble;
   bool _saving = false;
 
@@ -130,6 +164,8 @@ class _SecretDialogState extends State<_SecretDialog> {
   void dispose() {
     _name.dispose();
     _value.dispose();
+    _path.dispose();
+    _field.dispose();
     super.dispose();
   }
 
@@ -139,7 +175,13 @@ class _SecretDialogState extends State<_SecretDialog> {
       setState(() => _trouble = 'A name in capitals, digits and _, such as STRIPE_SECRET_KEY.');
       return;
     }
-    if (_value.text.isEmpty) {
+    final path = _path.text.trim().replaceAll(RegExp(r'^/+|/+$'), '');
+    final field = _field.text.trim();
+    if (_fromHc && (path.isEmpty || field.isEmpty)) {
+      setState(() => _trouble = 'Give its path (secret/data/app) and its field (STRIPE_KEY).');
+      return;
+    }
+    if (!_fromHc && _value.text.isEmpty) {
       setState(() => _trouble = 'Paste or type the secret.');
       return;
     }
@@ -147,7 +189,11 @@ class _SecretDialogState extends State<_SecretDialog> {
       _saving = true;
       _trouble = null;
     });
-    final ok = await widget.vault.put(_scope, name, _value.text);
+    final ok = await widget.vault.put(
+      _scope,
+      name,
+      _fromHc ? '${Vault.hcRef}$path#$field' : _value.text,
+    );
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pop();
@@ -181,15 +227,43 @@ class _SecretDialogState extends State<_SecretDialog> {
               placeholder: 'STRIPE_SECRET_KEY',
               semanticLabel: 'Name',
             ),
-          Input(
-            controller: _value,
-            size: .sm,
-            obscureText: true,
-            autofocus: replacing,
-            placeholder: 'The secret',
-            semanticLabel: 'The secret',
-            onSubmitted: (_) => unawaited(_save()),
-          ),
+          if (widget.vault.hcVault != null)
+            Row(
+              spacing: 8,
+              children: [
+                Switch(
+                  value: _fromHc,
+                  size: .sm,
+                  semanticLabel: 'From HashiCorp Vault',
+                  onChanged: (v) => setState(() => _fromHc = v),
+                ),
+                Text('From HashiCorp Vault', style: t.text.xs),
+              ],
+            ),
+          if (_fromHc) ...[
+            Input(
+              controller: _path,
+              size: .sm,
+              placeholder: 'Its path: secret/data/app',
+              semanticLabel: 'Path in HashiCorp Vault',
+            ),
+            Input(
+              controller: _field,
+              size: .sm,
+              placeholder: 'Its field: STRIPE_KEY',
+              semanticLabel: 'Field',
+              onSubmitted: (_) => unawaited(_save()),
+            ),
+          ] else
+            Input(
+              controller: _value,
+              size: .sm,
+              obscureText: true,
+              autofocus: replacing,
+              placeholder: 'The secret',
+              semanticLabel: 'The secret',
+              onSubmitted: (_) => unawaited(_save()),
+            ),
           if (!replacing && scopes.length > 1)
             Select<String>(
               size: .sm,
@@ -259,6 +333,107 @@ class _HelmyRunInstallState extends State<_HelmyRunInstall> {
             width: 220,
             child: Text(why, style: t.text.xs.copyWith(color: t.colors.destructive)),
           ),
+      ],
+    );
+  }
+}
+
+/// Connects HashiCorp Vault: its address, a token (kept in the Keychain),
+/// and a namespace where there is one. Checked before it is kept.
+class _HcVaultDialog extends StatefulWidget {
+  const new({required this.vault});
+  final Vault vault;
+
+  @override
+  State<_HcVaultDialog> createState() => _HcVaultDialogState();
+}
+
+class _HcVaultDialogState extends State<_HcVaultDialog> {
+  final _address = TextEditingController();
+  final _token = TextEditingController();
+  final _namespace = TextEditingController();
+  bool _checking = false;
+  String? _trouble;
+
+  @override
+  void dispose() {
+    _address.dispose();
+    _token.dispose();
+    _namespace.dispose();
+    super.dispose();
+  }
+
+  Future<void> _connect() async {
+    setState(() {
+      _checking = true;
+      _trouble = null;
+    });
+    final why = await widget.vault.connectHcVault(
+      _address.text,
+      _token.text,
+      namespace: _namespace.text,
+    );
+    if (!mounted) return;
+    if (why == null) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _checking = false;
+        _trouble = why;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    return HelmyDialog(
+      title: 'Connect HashiCorp Vault',
+      icon: AshlarIconsRoundedStroke.lock,
+      body:
+          'Helmy fetches a secret from it only when running something that needs it, and keeps '
+          "no copy. The token goes into your Mac's Keychain.",
+      content: Column(
+        crossAxisAlignment: .stretch,
+        mainAxisSize: .min,
+        spacing: 10,
+        children: [
+          Input(
+            controller: _address,
+            size: .sm,
+            autofocus: true,
+            placeholder: 'https://vault.example.com:8200',
+            semanticLabel: 'Address',
+          ),
+          Input(
+            controller: _token,
+            size: .sm,
+            obscureText: true,
+            placeholder: 'A token that can read the secrets',
+            semanticLabel: 'Token',
+          ),
+          Input(
+            controller: _namespace,
+            size: .sm,
+            placeholder: 'Namespace (Enterprise and HCP only)',
+            semanticLabel: 'Namespace',
+            onSubmitted: (_) => unawaited(_connect()),
+          ),
+          if (_trouble case final why?)
+            Text(why, style: t.text.xs.copyWith(color: t.colors.destructive)),
+        ],
+      ),
+      actions: [
+        Button(
+          variant: .outline,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        Button(
+          onPressed: _checking ? null : () => unawaited(_connect()),
+          leading: _checking ? const Spinner(size: 12) : null,
+          child: const Text('Connect'),
+        ),
       ],
     );
   }

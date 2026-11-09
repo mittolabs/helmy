@@ -128,4 +128,42 @@ void main() {
     expect(HelmyRunServer.projectFor('/code/app', scopes), '/code/app');
     expect(HelmyRunServer.projectFor('/code/apple', scopes), '/code/apple');
   });
+
+  test('a secret kept in HashiCorp Vault is fetched when used, never kept', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((r) async {
+      final ok = r.headers.value('x-vault-token') == 'good-token';
+      r.response.statusCode = !ok
+          ? 403
+          : switch (r.uri.path) {
+              '/v1/auth/token/lookup-self' || '/v1/secret/data/app' => 200,
+              _ => 404,
+            };
+      if (ok && r.uri.path == '/v1/auth/token/lookup-self') r.response.write('{"data":{}}');
+      if (ok && r.uri.path == '/v1/secret/data/app') {
+        r.response.write('{"data":{"data":{"STRIPE_KEY":"sk_live_from_vault"}}}');
+      }
+      await r.response.close();
+    });
+    final address = 'http://127.0.0.1:${server.port}';
+    expect(await vault.connectHcVault(address, 'bad-token'), contains('refused'));
+    expect(vault.hcVault, isNull);
+    expect(await vault.connectHcVault(address, 'good-token'), isNull);
+    expect(
+      await vault.put('/p', 'STRIPE_SECRET_KEY', '${Vault.hcRef}secret/data/app#STRIPE_KEY'),
+      isTrue,
+    );
+    expect(await vault.put('/p', 'MISSING', '${Vault.hcRef}secret/data/app#NOPE'), isTrue);
+    final problems = <String>[];
+    expect(await vault.envFor('/p', problems: problems), {
+      'STRIPE_SECRET_KEY': 'sk_live_from_vault',
+    });
+    expect(problems.single, contains('MISSING'));
+    expect(
+      keychain.items.values,
+      isNot(contains('sk_live_from_vault')),
+      reason: 'fetched, not kept',
+    );
+  });
 }

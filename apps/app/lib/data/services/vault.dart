@@ -23,6 +23,12 @@ class Vault extends ChangeNotifier {
   /// Projects whose .env files the person chose to keep as they are.
   Set<String> _keptEnv = {};
 
+  /// A HashiCorp Vault to fetch secrets from, by reference; its token is in
+  /// the Keychain.
+  ({String address, String namespace})? hcVault;
+
+  static const _hcToken = 'source|hcvault';
+
   Future<void> load() async {
     try {
       final j = jsonDecode(await indexFile.readAsString());
@@ -32,6 +38,9 @@ class Vault extends ChangeNotifier {
             '${e.key}': [for (final n in (e.value as List? ?? const [])) '$n'],
         };
         _keptEnv = {for (final k in (j['keptEnv'] as List?) ?? const []) '$k'};
+        if (j['hcVault'] case final Map h when '${h['address'] ?? ''}'.isNotEmpty) {
+          hcVault = (address: '${h['address']}', namespace: '${h['namespace'] ?? ''}');
+        }
       }
     } on Object {
       _names = {};
@@ -45,6 +54,7 @@ class Vault extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert({
         'names': _names,
         'keptEnv': [..._keptEnv],
+        if (hcVault case final h?) 'hcVault': {'address': h.address, 'namespace': h.namespace},
       }),
     );
   }
@@ -104,16 +114,107 @@ class Vault extends ChangeNotifier {
   }
 
   /// The values a command in [project] runs with, by name: shared first,
-  /// the project's over them. Never shown to an agent.
-  Future<Map<String, String>> envFor(String project) async {
+  /// the project's over them. Never shown to an agent. One kept as a
+  /// reference (`hcvault://path#key`) is fetched now, never stored; what
+  /// could not be is said in [problems].
+  Future<Map<String, String>> envFor(String project, {List<String>? problems}) async {
     final env = <String, String>{};
     for (final scope in [sharedScope, project]) {
       for (final name in _names[scope] ?? const <String>[]) {
         final v = await _keychain.get(_account(scope, name));
-        if (v != null) env[name] = v;
+        if (v == null) continue;
+        if (!v.startsWith(hcRef)) {
+          env[name] = v;
+          continue;
+        }
+        final got = await _fetchHc(v);
+        if (got.value != null) {
+          env[name] = got.value!;
+        } else {
+          problems?.add("$name couldn't be fetched from HashiCorp Vault: ${got.why}");
+        }
       }
     }
     return env;
+  }
+
+  // HashiCorp Vault.
+
+  /// How a reference to a secret in HashiCorp Vault begins.
+  static const hcRef = 'hcvault://';
+
+  /// Connects to the HashiCorp Vault at [address] with [token]: checked
+  /// first (the token looks itself up), kept only if it works. Why not, or null.
+  Future<String?> connectHcVault(String address, String token, {String namespace = ''}) async {
+    final a = address.trim().replaceAll(RegExp(r'/+$'), '');
+    if (!RegExp(r'^https?://').hasMatch(a)) {
+      return 'Give its address, such as https://vault.example.com:8200.';
+    }
+    final check = await _hcGet(a, token.trim(), namespace.trim(), 'auth/token/lookup-self');
+    if (check.json == null) return 'It answered no: ${check.why}';
+    if (!await _keychain.set(_hcToken, token.trim())) {
+      return "The token wasn't kept: the Keychain refused it.";
+    }
+    hcVault = (address: a, namespace: namespace.trim());
+    await _save();
+    notifyListeners();
+    return null;
+  }
+
+  Future<void> disconnectHcVault() async {
+    await _keychain.delete(_hcToken);
+    hcVault = null;
+    await _save();
+    notifyListeners();
+  }
+
+  /// A reference's value; or why it could not be had.
+  Future<({String? value, String why})> _fetchHc(String ref) async {
+    final h = hcVault;
+    if (h == null) return (value: null, why: 'it is not connected (Settings, Vault).');
+    final token = await _keychain.get(_hcToken);
+    if (token == null) return (value: null, why: 'its token is missing; connect it again.');
+    final m = RegExp(r'^hcvault://([^#]+)#(.+)$').firstMatch(ref);
+    if (m == null) {
+      return (value: null, why: 'the reference should look like hcvault://secret/data/app#KEY.');
+    }
+    final got = await _hcGet(h.address, token, h.namespace, m[1]!);
+    final json = got.json;
+    if (json == null) return (value: null, why: got.why);
+    // KV version 2 keeps the fields under data.data; version 1 under data.
+    final data = json['data'];
+    final fields = data is Map && data['data'] is Map ? data['data'] as Map : data;
+    final v = fields is Map ? fields[m[2]] : null;
+    return v == null ? (value: null, why: 'no field ${m[2]} at ${m[1]}.') : (value: '$v', why: '');
+  }
+
+  /// HttpClients made for HashiCorp Vault (a test gives its own).
+  @visibleForTesting
+  HttpClient Function() httpClient = HttpClient.new;
+
+  Future<({Map<dynamic, dynamic>? json, String why})> _hcGet(
+    String address,
+    String token,
+    String namespace,
+    String path,
+  ) async {
+    final client = httpClient()..connectionTimeout = const Duration(seconds: 8);
+    try {
+      final req = await client.getUrl(Uri.parse('$address/v1/$path'));
+      req.headers.set('X-Vault-Token', token);
+      if (namespace.isNotEmpty) req.headers.set('X-Vault-Namespace', namespace);
+      final res = await req.close().timeout(const Duration(seconds: 15));
+      final body = await res.transform(utf8.decoder).join();
+      if (res.statusCode == 403) return (json: null, why: 'the token was refused (403).');
+      if (res.statusCode == 404) return (json: null, why: 'nothing at $path (404).');
+      if (res.statusCode != 200) return (json: null, why: 'it answered ${res.statusCode}.');
+      final j = jsonDecode(body);
+      return j is Map ? (json: j, why: '') : (json: null, why: 'its answer was not understood.');
+    } on Object catch (e) {
+      return (json: null, why: "it couldn't be reached (${e.runtimeType}).");
+    } finally {
+      client.close(force: true);
+    }
   }
 
   /// [text] with every value in [env] put as its name in brackets: what a

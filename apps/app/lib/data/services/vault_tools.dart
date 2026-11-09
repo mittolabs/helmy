@@ -166,9 +166,15 @@ class VaultTools {
           if (!yes) return says("The person said not to run it.", error: true);
         }
         final seconds = ((args['timeoutSeconds'] as num?)?.toInt() ?? 120).clamp(1, 300);
-        final env = await _vault.envFor(project);
+        final problems = <String>[];
+        final env = await _vault.envFor(project, problems: problems);
         final ran = await _run(command, cwdOf(session) ?? project, env, Duration(seconds: seconds));
-        return says(Vault.redact(ran, env));
+        return says(
+          [
+            if (problems.isNotEmpty) 'Run without some secrets: ${problems.join(' ')}\n',
+            Vault.redact(ran, env),
+          ].join('\n'),
+        );
       case 'vault_ask':
         final wanted = '${args['name'] ?? ''}'.trim();
         final key = Vault.validName(wanted) ? wanted : Vault.nameFrom(wanted);
