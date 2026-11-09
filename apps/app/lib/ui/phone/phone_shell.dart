@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../data/repositories/remote/remote_repositories.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/remote/remote_link.dart';
+import 'design_view.dart';
 import '../../domain/models/settings.dart';
 import '../../utils/format.dart';
 import '../../version.dart';
@@ -192,6 +193,7 @@ class _PhoneShellState extends State<PhoneShell> {
                         ? _Home(link: link, starting: _starting, onSend: _start)
                         : _Chat(
                             key: ValueKey(open),
+                            link: link,
                             sessionId: open,
                             sessions: _sessions,
                             conversations: _conversations,
@@ -376,11 +378,13 @@ class _HomeState extends State<_Home> {
 class _Chat extends StatefulWidget {
   const _Chat({
     super.key,
+    required this.link,
     required this.sessionId,
     required this.sessions,
     required this.conversations,
     required this.apps,
   });
+  final RemoteLink link;
   final String sessionId;
   final RemoteSessions sessions;
   final RemoteConversations conversations;
@@ -453,6 +457,28 @@ class _ChatState extends State<_Chat> {
                       ),
                     ),
             ),
+            // A design made here: to hold in the hand.
+            if (widget.link.hasDesign(widget.sessionId))
+              Padding(
+                padding: const .fromLTRB(12, 0, 12, 8),
+                child: Align(
+                  alignment: .centerLeft,
+                  child: Button(
+                    variant: .outline,
+                    size: .sm,
+                    leading: const AshlarIcon(AshlarIconsRoundedStroke.layoutDashboard, size: 14),
+                    onPressed: () => unawaited(
+                      Navigator.of(context).push(
+                        AshlarPageRoute(
+                          builder: (_) =>
+                              PhoneDesignView(link: widget.link, sessionId: widget.sessionId),
+                        ),
+                      ),
+                    ),
+                    child: const Text('See the design'),
+                  ),
+                ),
+              ),
             Padding(
               padding: const .fromLTRB(12, 0, 12, 10),
               child: TapRegion(

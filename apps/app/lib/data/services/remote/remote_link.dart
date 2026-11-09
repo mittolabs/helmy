@@ -20,6 +20,8 @@ typedef RemoteThread = ({
   bool needsYou,
   DateTime? heldUntil,
   String last,
+  // It has a design in its folder, to look at on the phone.
+  bool design,
 });
 
 /// A chat as a phone sees it, its threads newest first.
@@ -186,6 +188,12 @@ class RemoteLink extends ChangeNotifier {
         final data = m['data'];
         _files.remove(path)?.complete(data is String ? base64.decode(data) : null);
         return;
+      case 'design':
+        _designs.remove('${m['id']}')?.complete(m['none'] == true ? null : m);
+        return;
+      case 'designChanged':
+        _designChanges.add('${m['id']}');
+        return;
       case 'appState':
         final id = '${m['id']}', path = '${m['path']}';
         if (m['asked'] == true) {
@@ -215,6 +223,7 @@ class RemoteLink extends ChangeNotifier {
     needsYou: t['needsYou'] == true,
     heldUntil: DateTime.tryParse('${t['heldUntil'] ?? ''}'),
     last: '${t['last'] ?? ''}',
+    design: t['design'] == true,
   );
 
   /// Follows [id]'s conversation as it goes.
@@ -260,6 +269,36 @@ class RemoteLink extends ChangeNotifier {
       },
     );
   }
+
+  final _designs = <String, Completer<Map<String, Object?>?>>{};
+  final _designChanges = StreamController<String>.broadcast();
+
+  /// The chats whose design changed on the Mac, while watched.
+  Stream<String> get designChanges => _designChanges.stream;
+
+  /// [id]'s design: its index ('canvas'), its screens in order ('order') and
+  /// each screen's page ('screens'); null when it has none, or the Mac did
+  /// not answer.
+  Future<Map<String, Object?>?> design(String id) {
+    final waiting = _designs[id];
+    if (waiting != null) return waiting.future;
+    final c = _designs[id] = Completer<Map<String, Object?>?>();
+    unawaited(_send({'type': 'design', 'id': id}));
+    return c.future.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        _designs.remove(id);
+        return null;
+      },
+    );
+  }
+
+  /// Whether thread [id] has a design.
+  bool hasDesign(String id) => chats.any((c) => c.threads.any((t) => t.id == id && t.design));
+
+  /// Told of changes to [id]'s design while [on].
+  Future<void> watchDesign(String id, {required bool on}) =>
+      _send({'type': 'designWatch', 'id': id, 'on': on});
 
   final _appStates = <String, Completer<Object?>>{};
   final _appChanges = StreamController<AppChange>.broadcast();
@@ -321,6 +360,7 @@ class RemoteLink extends ChangeNotifier {
     unawaited(_ws?.close());
     made.dispose();
     unawaited(_appChanges.close());
+    unawaited(_designChanges.close());
     super.dispose();
   }
 }

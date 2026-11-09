@@ -11,6 +11,7 @@ import '../../repositories/session_repository.dart';
 import '../engines/agent_engine.dart';
 import '../../../utils/result.dart';
 import '../chat_apps.dart';
+import '../design_bundle.dart';
 import 'remote_crypto.dart';
 import 'screen_source.dart';
 
@@ -231,6 +232,24 @@ class RemoteServer {
         await _apps?.say(id, '${m['path'] ?? ''}', '${m['text'] ?? ''}');
       case 'appSave':
         await _apps?.save(id, '${m['path'] ?? ''}', m['state']);
+      case 'design':
+        final s = _sessions.byId(id);
+        final bundle = s == null ? null : await designBundle('${s.cwd}/design');
+        await _send(c, {'type': 'design', 'id': id, ...?bundle, if (bundle == null) 'none': true});
+      case 'designWatch':
+        // While the phone shows a chat's design: told when its files change.
+        unawaited(c.designs.remove(id)?.cancel());
+        final s = _sessions.byId(id);
+        final dir = s == null ? null : Directory('${s.cwd}/design');
+        if (m['on'] != true || dir == null || !dir.existsSync()) return;
+        Timer? settle;
+        c.designs[id] = dir.watch(recursive: true).listen((e) {
+          if (e.path.endsWith('.helmy-saving')) return;
+          settle?.cancel();
+          settle = Timer(const Duration(milliseconds: 300), () {
+            if (c.designs.containsKey(id)) unawaited(_send(c, {'type': 'designChanged', 'id': id}));
+          });
+        });
       case 'interrupt':
         _conversations.interrupt(id);
       case 'screen':
@@ -290,6 +309,7 @@ class RemoteServer {
       'needsYou': c.pendingPrompts > 0,
       'heldUntil': c.heldUntil?.toIso8601String(),
       'last': last == null ? '' : last.text.trim().split('\n').first,
+      'design': File('${s.cwd}/design/canvas.json').existsSync(),
     };
   }
 
@@ -332,6 +352,10 @@ class RemoteServer {
   /// A phone gone: no longer watching either.
   void _gone(_Client c) {
     _clients.remove(c);
+    for (final w in c.designs.values) {
+      unawaited(w.cancel());
+    }
+    c.designs.clear();
     if (c.watching) unawaited(_unwatch(c));
   }
 
@@ -501,4 +525,7 @@ class _Client {
   /// The conversations it has open, and how many items it was sent of each.
   final open = <String>{};
   final sent = <String, int>{};
+
+  /// The designs it has open, by chat: their folders watched.
+  final designs = <String, StreamSubscription<FileSystemEvent>>{};
 }
