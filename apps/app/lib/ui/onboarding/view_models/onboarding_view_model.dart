@@ -355,6 +355,7 @@ class OnboardingViewModel extends ChangeNotifier {
     await _settings.save(
       _settings.settings.copyWith(
         setupDone: true,
+        tourDue: true,
         folderMode: start.mode,
         fixedFolder: start.folder,
       ),
@@ -362,7 +363,8 @@ class OnboardingViewModel extends ChangeNotifier {
   }
 
   /// Ends the first run without choosing anything more.
-  Future<void> skip() => _settings.save(_settings.settings.copyWith(setupDone: true));
+  Future<void> skip() =>
+      _settings.save(_settings.settings.copyWith(setupDone: true, tourDue: true));
 
   @override
   void dispose() {

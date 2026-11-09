@@ -293,6 +293,8 @@ class const AppSettings({
   final Set<String> disabledEngines = const {},
   // Turned off with their switch: still listed, no messages go to them.
   final Set<String> pausedEngines = const {},
+  // The first-run tour, owed once the first run ends.
+  final bool tourDue = false,
 
   /// Fonts chosen in Appearance, by family; null is the system's own.
   final String? interfaceFont,
@@ -539,6 +541,7 @@ class const AppSettings({
     String? fixedFolder,
     Set<String>? disabledEngines,
     Set<String>? pausedEngines,
+    bool? tourDue,
     List<ConnectionAccount>? accounts,
     List<PairedPhone>? phones,
     String? interfaceFont,
@@ -622,6 +625,7 @@ class const AppSettings({
     fixedFolder: fixedFolder ?? this.fixedFolder,
     disabledEngines: disabledEngines ?? this.disabledEngines,
     pausedEngines: pausedEngines ?? this.pausedEngines,
+    tourDue: tourDue ?? this.tourDue,
     accounts: accounts ?? this.accounts,
     phones: phones ?? this.phones,
     interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
@@ -707,6 +711,7 @@ class const AppSettings({
     'fixedFolder': fixedFolder,
     'disabledEngines': disabledEngines.toList(),
     'pausedEngines': pausedEngines.toList(),
+    'tourDue': tourDue,
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
     if (phones.isNotEmpty) 'phones': [for (final p in phones) p.toJson()],
     'bestAt': bestAt,
@@ -792,6 +797,7 @@ class const AppSettings({
     fixedFolder: json['fixedFolder'] as String?,
     disabledEngines: {...((json['disabledEngines'] as List?) ?? const []).whereType<String>()},
     pausedEngines: {...((json['pausedEngines'] as List?) ?? const []).whereType<String>()},
+    tourDue: json['tourDue'] as bool? ?? false,
     interfaceFont: json['interfaceFont'] as String?,
     codeFont: json['codeFont'] as String?,
     promptFont: json['promptFont'] as String?,

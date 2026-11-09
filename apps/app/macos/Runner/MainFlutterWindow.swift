@@ -979,6 +979,17 @@ final class About: NSObject {
       item.target = About.shared
       item.action = #selector(About.show(_:))
     }
+    // Help: the first-run tour, again.
+    if let help = NSApp.mainMenu?.items.first(where: { $0.title == "Help" })?.submenu {
+      let tour = NSMenuItem(title: "Show the Tour", action: #selector(About.tour(_:)), keyEquivalent: "")
+      tour.target = About.shared
+      help.insertItem(tour, at: 0)
+    }
+  }
+
+  @objc func tour(_ sender: Any?) {
+    NSApp.activate(ignoringOtherApps: true)
+    Notifier.shared.tell("tour", true)
   }
 
   // The Mac's own About window: Helmy, its version, and the notice. The

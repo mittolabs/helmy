@@ -10,6 +10,9 @@ import '../../ui/core/window_layout.dart';
 /// Counts presses of About Helmy in the app's menu.
 final aboutRequests = ValueNotifier<int>(0);
 
+/// Counts presses of Help, Show the Tour.
+final tourRequests = ValueNotifier<int>(0);
+
 /// Counts ⌘Q pressed once while chats work, held back for a second press.
 final quitAsked = ValueNotifier<int>(0);
 
@@ -20,6 +23,7 @@ class NotifyService {
       if (call.method == 'fullScreen') windowFullScreen.value = call.arguments == true;
       if (call.method == 'inSight') _inSight.add(call.arguments == true);
       if (call.method == 'about') aboutRequests.value++;
+      if (call.method == 'tour') tourRequests.value++;
       if (call.method == 'quitAsked') quitAsked.value++;
       if (call.method == 'snapshot' && call.arguments is Map) {
         _snapshots.add((call.arguments as Map).cast<String, Object?>());

@@ -47,6 +47,7 @@ import '../../../utils/result.dart';
 import '../view_models/chat_view_model.dart';
 import '../../../data/repositories/stash_repository.dart';
 import '../../shell/view_models/sidebar_view_model.dart';
+import '../../shell/widgets/tour.dart';
 import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
@@ -352,6 +353,11 @@ class _ChatScreenState extends State<ChatScreen> {
       selection: TextSelection.collapsed(offset: start + paste.length),
     );
   }
+
+  /// [child] as the part the first-run tour points at, in the chat itself
+  /// (not one on the side).
+  Widget _tourMark(TourStop stop, Widget child) =>
+      widget.bar == null ? TourTarget(stop: stop, child: child) : child;
 
   void _submit(String text) {
     if (text.trim().isEmpty && !vm.hasExtras) return;
@@ -704,76 +710,85 @@ class _ChatScreenState extends State<ChatScreen> {
                     Padding(
                       padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 20),
                       child: inColumn(
-                        Composer(
-                          controller: _text,
-                          focusNode: _composer,
-                          font: context.watch<SettingsRepository>().settings.promptFont,
-                          onSubmit: _submit,
-                          placeholder: vm.pendingNeeds.contains(Capability.imageGeneration)
-                              ? 'Describe the change to this image'
-                              : widget.bar != null
-                              ? 'Ask on the side'
-                              : 'Type / for commands, @ for files',
-                          status: vm.heldUntil != null
-                              ? 'Waiting for room. What you send waits its turn.'
-                              : vm.busy
-                              ? context.watch<SettingsRepository>().settings.steerByDefault
-                                    ? 'Working. What you send goes in now, redirecting it; '
-                                          '${Desktop.current.keys('⇧⌘Enter')} has it wait its turn instead.'
-                                    : 'Working. What you send waits its turn; '
-                                          '${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
-                              : null,
-                          attachments: [
-                            for (final path in vm.attachments) _Attached(path: path, vm: vm),
-                            for (var i = 0; i < vm.comments.length; i++)
-                              _Comment(i: i, vm: vm, latest: i == vm.comments.length - 1),
-                          ],
-                          actions: [
-                            DropdownMenu(
-                              side: .top,
-                              items: [
-                                MenuItem(
-                                  leading: const AshlarIcon(
-                                    AshlarIconsRoundedStroke.paperclip,
-                                    size: 16,
-                                  ),
-                                  onPressed: () async {
-                                    final files = await openFiles(confirmButtonText: 'Attach');
-                                    vm.attach(files.map((f) => f.path));
-                                  },
-                                  child: const Text('Attach files...'),
-                                ),
-                                if (Platform.isMacOS)
+                        _tourMark(
+                          TourStop.message,
+                          Composer(
+                            controller: _text,
+                            focusNode: _composer,
+                            font: context.watch<SettingsRepository>().settings.promptFont,
+                            onSubmit: _submit,
+                            placeholder: vm.pendingNeeds.contains(Capability.imageGeneration)
+                                ? 'Describe the change to this image'
+                                : widget.bar != null
+                                ? 'Ask on the side'
+                                : 'Type / for commands, @ for files',
+                            status: vm.heldUntil != null
+                                ? 'Waiting for room. What you send waits its turn.'
+                                : vm.busy
+                                ? context.watch<SettingsRepository>().settings.steerByDefault
+                                      ? 'Working. What you send goes in now, redirecting it; '
+                                            '${Desktop.current.keys('⇧⌘Enter')} has it wait its turn instead.'
+                                      : 'Working. What you send waits its turn; '
+                                            '${Desktop.current.keys('⇧⌘Enter')} sends it now instead.'
+                                : null,
+                            attachments: [
+                              for (final path in vm.attachments) _Attached(path: path, vm: vm),
+                              for (var i = 0; i < vm.comments.length; i++)
+                                _Comment(i: i, vm: vm, latest: i == vm.comments.length - 1),
+                            ],
+                            actions: [
+                              DropdownMenu(
+                                side: .top,
+                                items: [
                                   MenuItem(
                                     leading: const AshlarIcon(
-                                      AshlarIconsRoundedStroke.appWindow,
+                                      AshlarIconsRoundedStroke.paperclip,
                                       size: 16,
                                     ),
-                                    onPressed: () => pickWindow(context, vm),
-                                    child: const Text('Snapshot a window...'),
+                                    onPressed: () async {
+                                      final files = await openFiles(confirmButtonText: 'Attach');
+                                      vm.attach(files.map((f) => f.path));
+                                    },
+                                    child: const Text('Attach files...'),
                                   ),
-                              ],
-                              builder: (context, menu) => ComposerButton(
-                                icon: AshlarIconsRoundedStroke.plus,
-                                label: 'Attach files or a window (or paste a picture)',
-                                onPressed: menu.open,
+                                  if (Platform.isMacOS)
+                                    MenuItem(
+                                      leading: const AshlarIcon(
+                                        AshlarIconsRoundedStroke.appWindow,
+                                        size: 16,
+                                      ),
+                                      onPressed: () => pickWindow(context, vm),
+                                      child: const Text('Snapshot a window...'),
+                                    ),
+                                ],
+                                builder: (context, menu) => _tourMark(
+                                  TourStop.attach,
+                                  ComposerButton(
+                                    icon: AshlarIconsRoundedStroke.plus,
+                                    label: 'Attach files or a window (or paste a picture)',
+                                    onPressed: menu.open,
+                                  ),
+                                ),
                               ),
-                            ),
-                            Tooltip(
-                              message: vm.busy
-                                  ? 'Wait for the turn to end to change this'
-                                  : 'What Helmy may do without asking',
-                              child: _LevelChip(vm: vm, level: session.level),
-                            ),
-                          ],
-                          trailing: [
-                            if (vm.busy)
-                              ComposerButton(
-                                icon: AshlarIconsRoundedStroke.square,
-                                label: 'Stop',
-                                onPressed: vm.interrupt,
+                              _tourMark(
+                                TourStop.level,
+                                Tooltip(
+                                  message: vm.busy
+                                      ? 'Wait for the turn to end to change this'
+                                      : 'What Helmy may do without asking',
+                                  child: _LevelChip(vm: vm, level: session.level),
+                                ),
                               ),
-                          ],
+                            ],
+                            trailing: [
+                              if (vm.busy)
+                                ComposerButton(
+                                  icon: AshlarIconsRoundedStroke.square,
+                                  label: 'Stop',
+                                  onPressed: vm.interrupt,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

@@ -79,10 +79,13 @@ class _Header extends StatelessWidget {
                           flex: 2,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 200),
-                            child: _FolderButton(
-                              vm: vm,
-                              cwd: session.ownCopy ? session.repo! : session.cwd,
-                              style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
+                            child: TourTarget(
+                              stop: .folder,
+                              child: _FolderButton(
+                                vm: vm,
+                                cwd: session.ownCopy ? session.repo! : session.cwd,
+                                style: t.text.sm.copyWith(color: c.mutedForeground, height: 1),
+                              ),
                             ),
                           ),
                         ),
@@ -176,21 +179,24 @@ class _Header extends StatelessWidget {
                 ProjectMenu(vm: vm),
               ],
               // The panel beside the conversation, shown or hidden, its tabs kept.
-              Tooltip(
-                message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-                child: Button(
-                  variant: vm.panelOpen ? .secondary : .ghost,
-                  size: .icon,
-                  semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-                  onPressed: () {
-                    if (vm.tabs.isEmpty) {
-                      // Nothing in it yet: a page to start from.
-                      webViewHere ? vm.add(.preview) : vm.show(.changes);
-                    } else {
-                      vm.togglePanel();
-                    }
-                  },
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+              TourTarget(
+                stop: .panel,
+                child: Tooltip(
+                  message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                  child: Button(
+                    variant: vm.panelOpen ? .secondary : .ghost,
+                    size: .icon,
+                    semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                    onPressed: () {
+                      if (vm.tabs.isEmpty) {
+                        // Nothing in it yet: a page to start from.
+                        webViewHere ? vm.add(.preview) : vm.show(.changes);
+                      } else {
+                        vm.togglePanel();
+                      }
+                    },
+                    child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+                  ),
                 ),
               ),
               _SessionMenu(vm: vm),
