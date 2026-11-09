@@ -306,46 +306,104 @@ class _CommentState extends State<_Comment> {
     super.dispose();
   }
 
+  /// How the chip names what the comment is on: a screen of the design
+  /// and its element ("Today", "Heading · "Today, 3 habits""), else the
+  /// words quoted from the conversation. The full quote, file and path
+  /// included, is what the agent gets.
+  static ({IconData icon, String title, String? detail}) _shown(String quote) {
+    final design = RegExp(
+      r'^Design · "(.*)" \(design/[^)]*\), (?:the whole screen|the (\w+)(?: "(.*)")? at .*)$',
+    ).firstMatch(quote);
+    if (design == null) {
+      return (
+        icon: AshlarIconsRoundedStroke.quote,
+        title: quote.replaceAll(RegExp(r'\s+'), ' '),
+        detail: null,
+      );
+    }
+    final tag = design.group(2);
+    final words = design.group(3);
+    return (
+      icon: AshlarIconsRoundedStroke.layoutDashboard,
+      title: design.group(1)!,
+      detail: tag == null
+          ? 'The whole screen'
+          : [_tagName(tag), if (words != null && words.isNotEmpty) '"$words"'].join(' · '),
+    );
+  }
+
+  static String _tagName(String tag) => switch (tag) {
+    'h1' || 'h2' || 'h3' || 'h4' || 'h5' || 'h6' => 'Heading',
+    'p' => 'Text',
+    'span' || 'b' || 'strong' || 'em' || 'i' || 'small' || 'label' => 'Text',
+    'a' => 'Link',
+    'button' => 'Button',
+    'input' || 'textarea' || 'select' => 'Field',
+    'img' || 'svg' || 'picture' => 'Picture',
+    'li' => 'List item',
+    'ul' || 'ol' => 'List',
+    'nav' => 'Navigation',
+    'header' => 'Header',
+    'footer' => 'Footer',
+    _ => 'Box',
+  };
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final (i, vm, latest) = (widget.i, widget.vm, widget.latest);
     final comment = vm.comments[i];
+    final shown = _shown(comment.quote);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
+      constraints: const BoxConstraints(maxWidth: 440),
       child: Container(
-        padding: const .fromLTRB(10, 8, 4, 8),
+        padding: const .fromLTRB(8, 8, 4, 8),
         decoration: BoxDecoration(
-          color: c.muted.withValues(alpha: .4),
+          color: c.muted.withValues(alpha: .35),
           border: .all(color: c.border),
-          borderRadius: .circular(t.radiusMd),
+          borderRadius: .circular(t.radiusLg),
         ),
         child: Row(
           crossAxisAlignment: .start,
-          spacing: 6,
+          spacing: 10,
           children: [
+            // What it is on, at a glance.
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: c.background,
+                border: .all(color: c.border),
+                borderRadius: .circular(t.radiusMd),
+              ),
+              child: Center(child: AshlarIcon(shown.icon, size: 15, color: c.mutedForeground)),
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: .stretch,
-                spacing: 6,
+                spacing: 2,
                 children: [
-                  Container(
-                    padding: const .only(left: 8),
-                    decoration: BoxDecoration(
-                      border: Border(left: BorderSide(color: c.mutedForeground, width: 2)),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: shown.title,
+                          style: TextStyle(color: c.foreground, fontWeight: .w500),
+                        ),
+                        if (shown.detail != null) TextSpan(text: '  ${shown.detail}'),
+                      ],
                     ),
-                    child: Text(
-                      comment.quote,
-                      maxLines: 2,
-                      overflow: .ellipsis,
-                      style: t.text.xs.copyWith(color: c.mutedForeground),
-                    ),
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: t.text.xs.copyWith(color: c.mutedForeground),
                   ),
+                  // The words, as plain text to write in: no box in a box.
                   Input(
                     key: ValueKey('comment-${comment.id}'),
                     controller: _words,
                     size: .sm,
+                    decorated: false,
                     // Its words already written: the keyboard stays where it is.
                     autofocus: latest && _words.text.isEmpty,
                     placeholder: 'What about it?',
