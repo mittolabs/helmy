@@ -74,6 +74,29 @@ class _PreviewPanelState extends State<PreviewPanel> {
 
   /// What a menu action had to say (it could not be done), for a moment.
   String? _note;
+
+  /// A passkey the page asked for, refused (what the system said): shown
+  /// above the page with the way through, until the next page.
+  String? _passkeyRefused;
+
+  // Tells Helmy when the page's passkey request is refused: macOS lets only
+  // the browsers Apple approves use passkeys inside a web view.
+  static const _watchPasskeys = '''(() => {
+  const c = navigator.credentials;
+  if (!c || window.__helmyPasskeys) return;
+  window.__helmyPasskeys = true;
+  for (const k of ['get', 'create']) {
+    const own = c[k] && c[k].bind(c);
+    if (!own) continue;
+    c[k] = (o) => {
+      const p = own(o);
+      if (o && o.publicKey) p.catch((e) => {
+        try { Helmy.postMessage(JSON.stringify({passkey: k, error: String(e && e.name)})); } catch (_) {}
+      });
+      return p;
+    };
+  }
+})()''';
   Timer? _noteTimer;
 
   // Chromium, when the user chose it: the browser, the page open in it, and
@@ -246,11 +269,15 @@ class _PreviewPanelState extends State<PreviewPanel> {
       _c.setNavigationDelegate(
         NavigationDelegate(
           onUrlChange: (change) => _moved(change.url ?? _at),
-          onPageStarted: (_) => _loadingAt(.05),
+          onPageStarted: (_) {
+            _loadingAt(.05);
+            if (_passkeyRefused != null) setState(() => _passkeyRefused = null);
+          },
           onProgress: (p) => _loadingAt(p / 100),
           onPageFinished: (_) {
             _loadingAt(1);
             unawaited(_readPage());
+            unawaited(_runScript(_watchPasskeys));
             // The light or dark chosen, kept from page to page.
             if (_appearance != 'system') {
               unawaited(widget.vm.webPage('appearance', {'appearance': _appearance}));
@@ -261,7 +288,17 @@ class _PreviewPanelState extends State<PreviewPanel> {
     );
     // Marks made on the page come back through this channel (the built-in browser).
     unawaited(
-      _c.addJavaScriptChannel('Helmy', onMessageReceived: (m) => _marking.fromPage(m.message)),
+      _c.addJavaScriptChannel(
+        'Helmy',
+        onMessageReceived: (m) {
+          if (m.message.startsWith('{"passkey"')) {
+            final why = (jsonDecode(m.message) as Map)['error'];
+            if (mounted) setState(() => _passkeyRefused = '$why');
+            return;
+          }
+          _marking.fromPage(m.message);
+        },
+      ),
     );
     widget.vm.addListener(_follow);
     if (widget.active) widget.vm.browser?.attach(widget.vm.sessionId, _driver);
@@ -725,6 +762,8 @@ class _PreviewPanelState extends State<PreviewPanel> {
             padding: const .fromLTRB(12, 0, 12, 6),
             child: Text(_note!, style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
           ),
+        if (_passkeyRefused != null && !_chromium)
+          _PasskeyBar(onClose: () => setState(() => _passkeyRefused = null)),
         if (_sizesOpen)
           DeviceSizeBar(
             size: _device,
@@ -1002,6 +1041,61 @@ class _GripState extends State<_Grip> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A passkey refused on the page: why, and the way through there.
+class _PasskeyBar extends StatelessWidget {
+  const _PasskeyBar({required this.onClose});
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Container(
+      margin: const .fromLTRB(12, 0, 12, 8),
+      padding: const .fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: c.muted,
+        border: Border.all(color: c.border),
+        borderRadius: .circular(t.radiusMd),
+      ),
+      child: Row(
+        crossAxisAlignment: .start,
+        spacing: 10,
+        children: [
+          Padding(
+            padding: const .only(top: 1),
+            child: AshlarIcon(AshlarIconsRoundedStroke.key, size: 16, color: c.foreground),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              spacing: 2,
+              children: [
+                Text(
+                  "Passkeys don't work in this browser",
+                  style: t.text.sm.copyWith(fontWeight: .w500),
+                ),
+                Text(
+                  'macOS keeps passkeys for the browsers Apple approves. Choose '
+                  '"Try another way" on the page to sign in with your password or a code.',
+                  style: t.text.xs.copyWith(color: c.mutedForeground),
+                ),
+              ],
+            ),
+          ),
+          Button(
+            variant: .ghost,
+            size: .icon,
+            semanticLabel: 'Close',
+            onPressed: onClose,
+            child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 14),
+          ),
+        ],
       ),
     );
   }
