@@ -15,3 +15,11 @@ document.querySelectorAll(".reveal").forEach((el, i) => {
   el.style.transitionDelay = `${Math.min(i % 4, 3) * 70}ms`;
   seen.observe(el);
 });
+
+// The nav fills in once the page leaves the top.
+const nav = document.querySelector(".nav");
+if (nav) {
+  const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 8);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+}

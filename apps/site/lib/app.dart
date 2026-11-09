@@ -5,8 +5,8 @@ import 'package:jaspr_router/jaspr_router.dart';
 import 'pages/changelog.dart';
 import 'pages/home.dart';
 
-/// The site, pre-rendered. The only script in the browser is the reveal on
-/// scroll in web/reveal.js.
+/// The site, pre-rendered. The only script in the browser is web/reveal.js:
+/// the reveal on scroll, and the nav filling in once the page scrolls.
 class App extends StatelessComponent {
   const App({super.key});
 
