@@ -72,6 +72,7 @@ import '../ui/chat/widgets/player.dart' show PoppedOut;
 import '../data/repositories/project_repository.dart';
 import '../data/services/webhooks.dart';
 import '../data/repositories/stash_repository.dart';
+import '../data/repositories/lesson_repository.dart';
 import '../data/services/approvals.dart';
 import '../domain/models/chat_item.dart';
 import '../data/services/helmy_run.dart';
@@ -108,6 +109,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.chats),
   // Drafts put aside with ⌘S, to go on with in any chat.
   ChangeNotifierProvider(create: (context) => StashRepository(loaded.storage)..load()),
+  // What Helmy has learned working with the person, across projects.
+  ChangeNotifierProvider(create: (context) => LessonRepository(loaded.storage)..load()),
   // The vault: secrets in the Keychain, their names beside the settings.
   ChangeNotifierProvider(
     create: (context) {
@@ -252,6 +255,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         snapshots: Snapshots(),
         worktrees: context.read<Worktrees>(),
         log: context.read(),
+        lessons: context.read<LessonRepository>(),
         ownCopies: (repo) => loaded.settings.settings.ownCopiesIn(repo),
         decider: Decider(model: () => loaded.settings.settings.ollamaModel),
       );

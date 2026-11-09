@@ -65,6 +65,7 @@ import '../view_models/settings_view_model.dart';
 import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
 import '../../../data/services/helmy_run.dart';
+import '../../../data/repositories/lesson_repository.dart';
 import '../../../data/services/vault.dart';
 
 part 'pages/add_account.dart';

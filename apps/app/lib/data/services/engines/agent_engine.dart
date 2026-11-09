@@ -17,6 +17,10 @@ class const EngineLaunch({
   /// The brief of the thread's chat, frozen when the thread began (decision
   /// `0014`): sent with Helmy's instructions on every run of the thread.
   final String? brief,
+
+  /// What Helmy has learned working with the person (LessonRepository),
+  /// as instructions, frozen with the thread as its brief is.
+  final String? lessons,
 });
 
 /// State an engine reports alongside the items it writes.

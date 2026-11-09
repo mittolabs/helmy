@@ -356,7 +356,7 @@ class _AcpRun implements EngineRun {
       } else {
         session = await _rpc.request('session/new', {'cwd': launch.cwd, 'mcpServers': servers});
         _sessionId = session['sessionId'] as String?;
-        _identity = identityWith(launch.brief);
+        _identity = identityWith(launch.brief, lessons: launch.lessons);
       }
       await _choose(session, launch.level);
       status.resumeId = _sessionId;

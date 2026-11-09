@@ -110,4 +110,7 @@ abstract class ConversationRepository extends ChangeNotifier {
   Future<void> stop(String sessionId);
 
   Future<void> forget(String sessionId);
+
+  /// Takes back a lesson Helmy learned in [sessionId]'s chat.
+  Future<void> forgetLesson(String sessionId, Learned item) async {}
 }

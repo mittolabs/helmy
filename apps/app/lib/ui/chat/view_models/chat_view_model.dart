@@ -598,6 +598,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   @override
   Future<void> reveal(String path) async => _desktop?.reveal(path);
 
+  /// Takes back a lesson Helmy learned here.
+  Future<void> forgetLesson(Learned item) => _conversations.forgetLesson(sessionId, item);
+
   /// Dictation on or off; why it could not start, or null.
   Future<String?> dictate({required bool on}) async =>
       await _desktop?.dictate(on: on) ?? 'Dictation is not available here.';

@@ -23,6 +23,10 @@ sealed class ChatItem {
     'turn' => TurnSummary.fromJson(json),
     'image' => ImageItem(json['path']! as String, json['prompt'] as String?),
     'tasks' => TaskList.fromJson(json),
+    'learned' => Learned(
+      json['lesson']! as String,
+      json['text']! as String,
+    )..undone = json['undone'] == true,
     _ => Notice(
       json['text'] as String? ?? '',
       fix: json['fix'] as String?,
@@ -429,5 +433,24 @@ class Notice extends ChatItem {
     'text': text,
     'fix': ?fix,
     'details': ?details,
+  };
+}
+
+/// Something Helmy learned from the chat, said quietly where it was learned,
+/// with a way to take it back. Not part of what the agents read.
+class Learned extends ChatItem {
+  new(this.lessonId, this.text);
+  final String lessonId;
+  final String text;
+
+  /// Taken back by the person.
+  bool undone = false;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'kind': 'learned',
+    'lesson': lessonId,
+    'text': text,
+    if (undone) 'undone': true,
   };
 }

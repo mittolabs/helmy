@@ -54,12 +54,15 @@ String writingStyleFor(String style, String note) => switch (style) {
 /// Helmy's instructions for a thread in a chat (decision `0014`): with the
 /// chat's brief as it stood when the thread began. Frozen for the thread, so
 /// every run sends the same text and the provider's cache of it holds.
-String identityWith(String? brief) {
+String identityWith(String? brief, {String? lessons}) {
   final b = brief?.trim() ?? '';
   final style = writingStyle.trim();
-  final base = style.isEmpty
-      ? helmyIdentity
-      : '$helmyIdentity\n\nHow the user wants commit messages and pull requests written: $style';
+  final learned = lessons?.trim() ?? '';
+  final base = [
+    helmyIdentity,
+    if (style.isNotEmpty) 'How the user wants commit messages and pull requests written: $style',
+    if (learned.isNotEmpty) learned,
+  ].join('\n\n');
   if (b.isEmpty) return base;
   return '$base\n\n'
       '## What this chat has come to\n\n'

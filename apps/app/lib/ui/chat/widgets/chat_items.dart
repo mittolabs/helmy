@@ -180,6 +180,8 @@ List<ChatRow> buildRows(ChatViewModel vm) {
         rows.add((id: i, anchor: false, child: _Image(image, vm)));
       case TaskList list:
         rows.add((id: i, anchor: false, child: _Tasks(list)));
+      case Learned l:
+        if (!l.undone) rows.add((id: i, anchor: false, child: _Learned(l, vm)));
       case TurnSummary s:
         if (!s.ok) {
           rows.add((
@@ -267,4 +269,40 @@ class _AnswerHover extends StatelessWidget {
 Future<void> copyWithToast(BuildContext context, ChatViewModel vm, String text) async {
   await vm.copy(text);
   if (context.mounted) showToast(context, title: 'Copied', duration: const Duration(seconds: 2));
+}
+
+/// "I'll remember: …", quietly, with Undo.
+class _Learned extends StatelessWidget {
+  const _Learned(this.item, this.vm);
+  final Learned item;
+  final ChatViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Row(
+      spacing: 8,
+      children: [
+        AshlarIcon(AshlarIconsRoundedStroke.bulb, size: 14, color: c.mutedForeground),
+        Flexible(
+          child: Text(
+            "I'll remember: ${item.text}",
+            style: t.text.xs.copyWith(color: c.mutedForeground),
+          ),
+        ),
+        Pressable(
+          onPressed: () => vm.forgetLesson(item),
+          semanticLabel: 'Undo',
+          builder: (context, state) => Text(
+            'Undo',
+            style: t.text.xs.copyWith(
+              color: state.hovered ? c.foreground : c.mutedForeground,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -6,6 +6,23 @@ class _Memory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final LessonRepository lessons;
+    try {
+      lessons = context.watch<LessonRepository>();
+    } on ProviderNotFoundException {
+      return _files(context);
+    }
+    if (lessons.all.isEmpty) return _files(context);
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        _Lessons(lessons: lessons),
+        Expanded(child: _files(context)),
+      ],
+    );
+  }
+
+  Widget _files(BuildContext context) {
     final t = AshlarTheme.of(context);
     if (vm.loadingMemory) return const Center(child: Spinner(size: 18));
     // Nothing to choose: said, rather than asking for a choice.
@@ -298,6 +315,49 @@ class _MemoryEditorState extends State<_MemoryEditor> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// What Helmy has learned working with the person: each lesson, where it
+/// holds, and a way to drop it.
+class _Lessons extends StatelessWidget {
+  const new({required this.lessons});
+  final LessonRepository lessons;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: SingleChildScrollView(
+        padding: const .fromLTRB(8, 0, 32, 16),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          children: [
+            const _Heading('What Helmy has learned', first: true),
+            for (final l in lessons.all.reversed)
+              _Row(
+                title: l.text,
+                description: [
+                  l.scope == everywhere ? 'Everywhere' : 'In ${tildePath(l.scope)}',
+                  switch (l.kind) {
+                    'correction' => 'from a correction',
+                    'worked' => 'from what worked',
+                    _ => 'from a habit',
+                  },
+                ].join(', '),
+                control: Button(
+                  variant: .ghost,
+                  size: .sm,
+                  onPressed: () => unawaited(lessons.remove(l.id)),
+                  child: Text('Forget', style: TextStyle(color: c.foreground)),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

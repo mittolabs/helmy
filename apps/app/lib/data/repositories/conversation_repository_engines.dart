@@ -28,6 +28,8 @@ import 'conversation_repository.dart';
 import 'session_repository.dart';
 import '../../utils/platform.dart';
 import '../services/approvals.dart';
+import '../services/learner.dart';
+import 'lesson_repository.dart';
 
 /// A message on its way: which engine has it, where its output starts, and
 /// which engines already failed it.
@@ -77,6 +79,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     this._decider,
     this._worktrees,
     this._log,
+    this._lessons,
     bool Function(String repo)? ownCopies,
     this.holdMargin = const Duration(seconds: 30),
   }) : _ownCopies = ownCopies ?? ((_) => false),
@@ -88,6 +91,72 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// What each turn cost, measured (decision `0014`).
   final TurnLog? _log;
+
+  /// What Helmy has learned working with the person, across projects.
+  final LessonRepository? _lessons;
+  late final _learner = Learner(_engines, _router, _enabled);
+
+  /// When each chat was last read for lessons, and how far.
+  final _learnedAt = <String, DateTime>{};
+  final _learnedTo = <String, int>{};
+
+  /// Reads what is new in [sessionId]'s conversation for lessons, at most
+  /// every ten minutes; keeps what it finds and says so in the chat, with
+  /// Undo (decided 2026-11-09: learn, and say so).
+  Future<void> _learn(String sessionId) async {
+    final lessons = _lessons;
+    final session = _sessions.byId(sessionId);
+    if (lessons == null || session == null || session.sideOf != null) return;
+    final last = _learnedAt[sessionId];
+    if (last != null && DateTime.now().difference(last) < const Duration(minutes: 10)) return;
+    final c = of(sessionId);
+    final from = _learnedTo[sessionId] ?? 0;
+    final fresh = c.items.skip(from).toList();
+    // What the person said, what came back, and what went wrong or was refused.
+    final lines = <String>[
+      for (final i in fresh)
+        switch (i) {
+          UserMessage(:final text, :final from) when !(from ?? '').startsWith('app:') =>
+            'Person: ${text.trim()}',
+          AssistantText(:final text) when text.trim().isNotEmpty =>
+            'Assistant: ${text.trim().length > 600 ? '${text.trim().substring(0, 600)}…' : text.trim()}',
+          PermissionPrompt(decision: .denied, :final toolName, :final input) =>
+            'The person refused: $toolName ${input['command'] ?? input['file_path'] ?? ''}',
+          TurnSummary(ok: false, :final error) => 'It failed: ${error ?? ''}',
+          _ => '',
+        },
+    ].where((l) => l.isNotEmpty).toList();
+    if (!lines.any((l) => l.startsWith('Person: '))) return;
+    _learnedAt[sessionId] = DateTime.now();
+    _learnedTo[sessionId] = c.items.length;
+    final project = session.repo ?? session.cwd;
+    final found = await _learner.learn(lines.join('\n'), known: lessons.forProject(project));
+    for (final f in found) {
+      final lesson = Lesson(
+        id: '${DateTime.now().microsecondsSinceEpoch}-${found.indexOf(f)}',
+        text: f.text,
+        scope: f.everywhere ? everywhere : project,
+        kind: f.kind,
+        learnedAt: DateTime.now(),
+        chatId: session.chatId,
+        sessionId: sessionId,
+      );
+      await lessons.add(lesson);
+      c.items.add(Learned(lesson.id, lesson.text));
+    }
+    if (found.isNotEmpty) {
+      await _persist(sessionId);
+      notifyListeners();
+    }
+  }
+
+  @override
+  Future<void> forgetLesson(String sessionId, Learned item) async {
+    item.undone = true;
+    await _lessons?.remove(item.lessonId);
+    await _persist(sessionId);
+    notifyListeners();
+  }
 
   /// How long after a limit resets a held message goes: a reset is not
   /// always to the second.
@@ -486,6 +555,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
           resumeId: session.threads[engineId]?.resumeId,
           sessionId: session.id,
           brief: session.brief,
+          lessons: _lessons == null
+              ? null
+              : LessonRepository.asInstructions(_lessons.forProject(session.repo ?? session.cwd)),
         ),
         of(session.id).items,
       );
@@ -530,6 +602,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
     _meter.report(engineId, run.status.usage);
     final turn = _turns[sessionId];
     if (ended && turn != null && turn.engineId == engineId) {
+      // What the turn taught, read in the background.
+      unawaited(_learn(sessionId));
       if (!turn.unasked && _failedClean(c, turn)) {
         final askedForTools = c.items
             .skip(turn.start)
