@@ -21,15 +21,15 @@ class Home extends StatelessComponent {
       const Feature(
         id: 'how',
         eyebrow: 'Helmy chooses',
-        title: 'You say what. Helmy decides how.',
+        title: 'You say what. Helmy figures out how.',
         lead:
-            'Every message goes to the connection that can do it, then to the one with the most '
-            'of its limit left. Quick questions can go to free models. A thread moves when another '
-            'has clearly more room, and carries the conversation with it.',
+            'Each message goes to whichever tool can handle it and has the most room left. '
+            'Quick questions can go to free models. If another account has a lot more room, '
+            'the chat moves there, history and all.',
         points: [
-          'No model pickers, no effort dials.',
-          'Several Claude Code or Codex accounts, used in turn.',
-          'A model on this Mac answers when nothing online can.',
+          'No model picker. No effort dial.',
+          'Two Claude accounts? Helmy takes turns.',
+          'With Ollama, a model on your Mac answers when you are offline.',
         ],
         media: Pose(
           src: '/helmy/onboarding-connect.png',
@@ -41,15 +41,14 @@ class Home extends StatelessComponent {
       const Feature(
         flip: true,
         eyebrow: 'Design',
-        title: 'Screens on a canvas, made while you talk.',
+        title: 'Design screens by asking for them.',
         lead:
-            'Ask for an app\'s screens or a landing page and Helmy lays them out beside the chat: '
-            'live pages you can pan, zoom, retype and drag, in each device\'s frame. Point at a '
-            'part and say what to change.',
+            "Ask for an app's screens or a landing page. They show up next to the chat as real "
+            'pages you can zoom, drag and retype. Point at something and say what to change.',
         points: [
-          'Phones, tablets and web pages that reflow at every width.',
-          'Your edits go back into the files; the agent picks them up.',
-          'Comments on any element go to the agent with your message.',
+          'Phone, tablet and web sizes. Drag a page to any width.',
+          'Your edits save to the files, so Helmy sees them.',
+          'Leave a comment on any element and send it with your message.',
         ],
         media: MacWindow(
           src: '/shots/comment.jpg',
@@ -59,15 +58,15 @@ class Home extends StatelessComponent {
       const Divider(DividerShape.loop),
       const Feature(
         eyebrow: 'In your hand',
-        title: 'Your Mac, and its designs, on your phone.',
+        title: 'Take it with you.',
         lead:
-            'Pair your phone with one scan. Your chats come with you, live: send, approve, stop. '
-            'Open a design and hold it in your hand, links between screens and all, redrawn as '
-            'the Mac changes it.',
+            'Scan a code to pair your phone, and your chats follow you, live. Send a message, '
+            'approve something or stop a task from wherever you are. Designs open there too, '
+            'and you can tap from screen to screen.',
         points: [
-          'Sealed with a key only your pairing code carries.',
-          'Same Wi-Fi, or anywhere over Tailscale.',
-          'See and use the Mac\'s screen when you need to.',
+          'Encrypted with a key only your pairing code has.',
+          'Works on the same Wi-Fi, or anywhere with Tailscale.',
+          "Need the Mac itself? Its screen is a tap away.",
         ],
         media: Phone(
           src: '/shots/phone-design.jpg',
@@ -80,15 +79,15 @@ class Home extends StatelessComponent {
       const Feature(
         flip: true,
         eyebrow: 'The vault',
-        title: 'Secrets the agent uses, and never sees.',
+        title: 'Your keys stay out of the chat.',
         lead:
-            'API keys live in your Mac\'s Keychain, or in HashiCorp Vault. The agent gets their '
-            'names and runs what needs them through Helmy, which blanks every value in what '
-            'comes back. It can\'t read .env files at all.',
+            "API keys live in your Mac's Keychain or in HashiCorp Vault. Helmy can run things "
+            'that need them, but only ever sees their names. If a key turns up in the output, '
+            "it's blanked out. And .env files are off limits.",
         points: [
-          'Asked for a key, you type it in a private field, never the chat.',
-          'A key pasted by mistake is caught before it\'s sent.',
-          'helmy run gives your own terminal the same secrets.',
+          'When a key is needed, you type it in a private field, not the chat.',
+          'Paste a key by accident and Helmy stops it before it goes out.',
+          'Use the same keys in your own terminal with helmy run.',
         ],
         media: Pose(
           src: '/helmy/shield.png',

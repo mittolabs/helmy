@@ -103,8 +103,10 @@ p { margin: 0; }
 @media (max-width: 720px) { .links { display: none; } .nav .btn { margin-left: auto; } }
 
 /* The opening. */
-.hero { position: relative; padding: clamp(56px, 9vw, 120px) 0 40px; overflow: hidden; }
-.glow-field { position: absolute; inset: -20% -10% auto; height: 760px; pointer-events: none;
+/* Under the bar, not below it: its glow runs up behind the bar's fade, so
+   there is no edge where one ends and the other begins. */
+.hero { position: relative; margin-top: -64px; padding: calc(clamp(56px, 9vw, 120px) + 64px) 0 40px; overflow: hidden; }
+.glow-field { position: absolute; inset: 0 -10% auto; height: 860px; pointer-events: none;
   background: radial-gradient(600px 380px at 72% 30%, var(--accent-glow), transparent 70%),
               radial-gradient(500px 300px at 20% 10%, rgba(120,140,255,0.08), transparent 70%); }
 .hero-grid { position: relative; display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 40px; align-items: center; }

@@ -13,7 +13,7 @@ class Hero extends StatelessComponent {
     div(classes: 'glow-field', attributes: {'aria-hidden': 'true'}, []),
     div(classes: 'wrap hero-grid', [
       div(classes: 'copy', [
-        p(classes: 'eyebrow reveal', [Component.text('Your AI that gets things done')]),
+        p(classes: 'eyebrow reveal', [Component.text('Your AI assistant that gets things done')]),
         h1(classes: 'reveal', [
           Component.text('Dream it.'),
           br(),
@@ -21,9 +21,8 @@ class Hero extends StatelessComponent {
         ]),
         p(classes: 'lead reveal', [
           Component.text(
-            'Tell Helmy what you want done. It works in your folders and your accounts, '
-            'through the Claude Code, Codex and OpenCode you already have, and picks the right '
-            'one for each message so your limits last.',
+            'Tell Helmy what you want done, and it does the work in your folders and accounts. '
+            'It runs on Claude Code, Codex or OpenCode, so you use what you already have.',
           ),
         ]),
         div(classes: 'cta reveal', [
@@ -31,7 +30,7 @@ class Hero extends StatelessComponent {
           a(classes: 'btn btn-ghost', href: '#how', [Component.text('See how it works')]),
         ]),
         p(classes: 'note reveal', [
-          Component.text('Free and open source. Your phone joins it in a scan.'),
+          Component.text('Free and open source. Pairs with your phone in one scan.'),
         ]),
       ]),
       div(classes: 'hero-art reveal', [
@@ -106,8 +105,8 @@ class WorksWith extends StatelessComponent {
     ]),
     p(classes: 'muted reveal center', [
       Component.text(
-        'Helmy resells nothing. It signs into the tools you have, and when one runs low it '
-        'moves to another, with the conversation intact. No model pickers: it chooses.',
+        "Helmy doesn't resell anything. Sign in with the accounts you already have. When one "
+        'runs low, Helmy switches to another, and the conversation comes along.',
       ),
     ]),
   ]);
@@ -174,7 +173,7 @@ class Approvals extends StatelessComponent {
     div(classes: 'stat reveal', [
       p(classes: 'stat-number', [Component.text('93%')]),
       p(classes: 'muted', [
-        Component.text('of permission prompts are approved anyway, measured by '),
+        Component.text('of permission prompts get approved anyway, according to '),
         a(
           href: 'https://www.anthropic.com/engineering/claude-code-auto-mode',
           [Component.text('Anthropic')],
@@ -184,12 +183,12 @@ class Approvals extends StatelessComponent {
     ]),
     div(classes: 'approvals-copy', [
       p(classes: 'eyebrow reveal', [Component.text('No more Allow, Allow, Allow')]),
-      h2(classes: 'reveal', [Component.text('Asked only what matters.')]),
+      h2(classes: 'reveal', [Component.text('It only asks when it matters.')]),
       p(classes: 'lead reveal', [
         Component.text(
-          'Helmy decides what the agents may do, against what you actually asked for. What only '
-          'reads, or changes this chat\'s folder, goes ahead: it can be undone. Anything that '
-          'leaves your Mac or can\'t be undone comes to you as one plain question.',
+          'Helmy checks every action against what you asked for. Reading files and editing in '
+          "the chat's folder just happen, since they can be undone. Anything that leaves your "
+          "Mac or can't be taken back comes to you as one plain question.",
         ),
       ]),
       div(classes: 'ask-card reveal', [
@@ -201,9 +200,9 @@ class Approvals extends StatelessComponent {
       ]),
       p(classes: 'muted small reveal', [
         Component.text(
-          'What the judge sees is what you asked and the action, never what a web page or a '
-          'file says, so a planted instruction can\'t argue its way through. Passwords, keys, '
-          'downloaded scripts and sudo always come to you.',
+          'The check sees your messages and the action, never the contents of a web page or a '
+          "file. Instructions hidden in them can't talk their way past it. Passwords, keys, "
+          'downloaded scripts and sudo always ask you first.',
         ),
       ]),
     ]),
@@ -221,15 +220,15 @@ class OpenSource extends StatelessComponent {
       h2(classes: 'reveal', [Component.text('Yours to read, change and run.')]),
       p(classes: 'lead reveal', [
         Component.text(
-          "Helmy's code is BSD licensed, and opens with the first public release. It resells "
-          'nothing: it runs on the subscriptions you already have, so there is nothing to pay '
-          'Helmy for. Don\'t like something? Change it, or ship your own build.',
+          'Helmy is BSD licensed, and the code goes public with the first release. There is '
+          "nothing to pay for. It runs on subscriptions you already have. Don't like "
+          'something? Change it, or ship your own build.',
         ),
       ]),
       ul(classes: 'points reveal', [
-        li([Component.text('Free, with no account of ours.')]),
-        li([Component.text('Your chats, files and secrets stay on your machine.')]),
-        li([Component.text('What a self-hoster would want stays in the open app.')]),
+        li([Component.text('Free. No Helmy account to make.')]),
+        li([Component.text('Your chats, files and keys stay on your Mac.')]),
+        li([Component.text("Nothing you'd want for yourself is held back.")]),
       ]),
     ]),
     div(classes: 'feature-media reveal', [
@@ -255,9 +254,9 @@ class Get extends StatelessComponent {
     h2(classes: 'reveal', [Component.text('Coming soon.')]),
     p(classes: 'lead reveal center', [
       Component.text(
-        'Helmy is in early use now. The first public build comes signed, so it opens like any '
-        'app, and with its source. It works through Claude Code, Codex, OpenCode or Ollama: '
-        'Helmy sets them up for you on first run.',
+        'Helmy is in early use now. The first public build will be signed, so it opens like '
+        'any other app, and the source ships with it. On first run it connects to Claude '
+        "Code, Codex, OpenCode or Ollama. Have none? It installs OpenCode for you.",
       ),
     ]),
     div(classes: 'cta center reveal', [
