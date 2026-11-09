@@ -78,6 +78,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/helmy/
+    - assets/design/
     - assets/helmy/bin/
     - assets/logos/
 

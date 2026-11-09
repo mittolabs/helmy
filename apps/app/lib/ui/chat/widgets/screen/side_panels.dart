@@ -204,6 +204,7 @@ class _FloatingDevice extends StatelessWidget {
   .ship => ('Pull request', AshlarIconsRoundedStroke.gitPullRequest),
   .device => ('Device', AshlarIconsRoundedStroke.smartphone),
   .background => ('Background', AshlarIconsRoundedStroke.loader),
+  .design => ('Design', AshlarIconsRoundedStroke.layoutDashboard),
 };
 
 /// The panel: its tabs along the top, with + to add one, and the tab showing.
@@ -247,6 +248,7 @@ Widget panelTabBody(ChatViewModel vm, PanelTab tab, {required bool active}) => K
     .device => DevicePanel(key: vm.deviceKey, vm: vm),
     .files => FilesPanel(vm: vm, active: active),
     .side => SideChatPanel(vm: vm, tab: tab),
+    .design => DesignPanel(vm: vm),
   },
 );
 

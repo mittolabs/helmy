@@ -50,7 +50,7 @@ import '../../../data/services/webhooks.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
-enum SidePanel { changes, background, preview, terminal, files, side, ship, device }
+enum SidePanel { changes, background, preview, terminal, files, side, ship, device, design }
 
 /// What came of a snapshot.
 enum SnapResult {
@@ -880,6 +880,34 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     if (_wasBusy && !busy) countChanges(turnEnded: true);
     _wasBusy = busy;
     _findServer();
+    _lookForDesign();
+  }
+
+  // The design canvas: shown by itself when the agent lays one out.
+
+  /// When the chat's `design/canvas.json` last changed, as last looked;
+  /// [_designNever] before the first look, so a design already there when
+  /// the chat opens stays where it was.
+  DateTime? _designAt = _designNever;
+  static final _designNever = DateTime(0);
+  DateTime _designLooked = DateTime(0);
+
+  void _lookForDesign() {
+    final cwd = session?.cwd;
+    if (cwd == null || !webViewHere) return;
+    // Often called while a turn streams: at most twice a second.
+    final now = DateTime.now();
+    if (now.difference(_designLooked) < const Duration(milliseconds: 500)) return;
+    _designLooked = now;
+    final index = File('$cwd/design/canvas.json');
+    final at = index.existsSync() ? index.lastModifiedSync() : null;
+    final before = _designAt;
+    _designAt = at;
+    if (at == null || before == _designNever || at == before) return;
+    // Once, when the design appears or the chat has no Design tab: later
+    // changes redraw it where it is, without taking the panel over.
+    if (tabs.any((t) => t.kind == .design)) return;
+    show(.design);
   }
 
   // Project actions: run, test, build, as the project's files say, and those
@@ -1101,6 +1129,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   List<SidePanel> get addable => [
     // (Only where there is a web view to show it in.)
     if (webViewHere) .preview,
+    if (webViewHere) .design,
     .terminal,
     .files,
     if (!embedded) .side,

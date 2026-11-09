@@ -52,6 +52,7 @@ import '../../core/helmy_dialog.dart';
 import 'background_panel.dart';
 import 'changes_panel.dart';
 import 'media.dart';
+import 'design_panel.dart';
 import 'files_panel.dart';
 import 'window_picker.dart';
 import '../../../data/services/window_snapshots.dart';
