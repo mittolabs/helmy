@@ -52,7 +52,7 @@ void main() {
       'git push',
       'git commit -m x',
       'find . -delete',
-      'find . -exec rm {} \;',
+      r'find . -exec rm {} \;',
       'sed -i s/a/b/ a.txt',
       'cat \$(echo secret)',
       'npm install',

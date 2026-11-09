@@ -72,6 +72,11 @@ import '../ui/chat/widgets/player.dart' show PoppedOut;
 import '../data/repositories/project_repository.dart';
 import '../data/services/webhooks.dart';
 import '../data/repositories/stash_repository.dart';
+import '../data/services/approvals.dart';
+import '../domain/models/chat_item.dart';
+import '../data/services/helmy_run.dart';
+import '../data/services/vault.dart';
+import '../data/services/vault_tools.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -103,6 +108,24 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider.value(value: loaded.chats),
   // Drafts put aside with ⌘S, to go on with in any chat.
   ChangeNotifierProvider(create: (context) => StashRepository(loaded.storage)..load()),
+  // The vault: secrets in the Keychain, their names beside the settings.
+  ChangeNotifierProvider(
+    create: (context) {
+      final root = scratchRoot;
+      final support = root == null
+          ? Directory.systemTemp.path
+          : root.substring(0, root.lastIndexOf('/'));
+      final vault = Vault(
+        indexFile: File('$support/vault.json'),
+        keychain: _DesktopKeychain(DesktopService()),
+      );
+      unawaited(vault.load());
+      // helmy run, in a terminal: the secrets for its folder.
+      if (Platform.isMacOS && root != null) unawaited(HelmyRunServer(vault).start(support));
+      return vault;
+    },
+  ),
+  ChangeNotifierProvider(create: (_) => VaultRequests()),
   Provider(create: (_) => CliLocator(chosen: () => loaded.settings.settings.programs)),
   Provider(create: (context) => WatchService(context.read())),
   // Taps on iOS simulators through Helmy's resident helper: milliseconds.
@@ -261,6 +284,43 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         return s == null || loaded.settings.settings.browserIn(s.repo ?? s.cwd);
       };
       tools.apps = ChatAppTools(context.read<ChatAppsLocal>());
+      tools.vault = VaultTools(
+        context.read<Vault>(),
+        context.read<VaultRequests>(),
+        projectOf: (id) {
+          final s = sessions.byId(id);
+          return s == null ? null : s.repo ?? s.cwd;
+        },
+        cwdOf: (id) => sessions.byId(id)?.cwd,
+        check: (id, command) async {
+          final s = sessions.byId(id);
+          if (s == null) return (stop: 'No chat to run it in.', ask: null);
+          final p = PermissionPrompt(
+            requestId: 'vault',
+            toolName: 'Bash',
+            input: {'command': command},
+            suggestions: const [],
+          );
+          if (Approvals.offLimits(p) case final why?) return (stop: why, ask: null);
+          if (Approvals.mustAsk(p, s.cwd) case final q?) return (stop: null, ask: q);
+          if (Approvals.atOnce(p, s.cwd) != null) return (stop: null, ask: null);
+          final asked = [
+            for (final m
+                in context.read<ConversationRepository>().of(id).items.whereType<UserMessage>())
+              if (m.text.trim().isNotEmpty && !(m.from ?? '').startsWith('app:')) m.text.trim(),
+          ];
+          final j = await Approvals(
+            context.read(),
+            context.read(),
+            (e) => loaded.settings.settings.uses(e),
+          ).judge(p, asked: asked, folder: s.cwd);
+          return switch (j.verdict) {
+            Verdict.allow => (stop: null, ask: null),
+            Verdict.block => (stop: j.why, ask: null),
+            Verdict.ask => (stop: null, ask: j.why),
+          };
+        },
+      );
       return tools.chats = ChatTools(
         sessions: context.read(),
         chats: context.read(),
@@ -389,3 +449,18 @@ AgentEngine _account(BuildContext context, ConnectionAccount a) => a.kind == 'ac
         tools: context.read(),
       )
     : CodexEngine(context.read(), id: a.id, name: a.name, home: a.folder, tools: context.read());
+
+/// The vault's values in the login Keychain, through Helmy's own Mac code.
+class _DesktopKeychain implements VaultKeychain {
+  _DesktopKeychain(this._desktop);
+  final DesktopService _desktop;
+
+  @override
+  Future<bool> set(String account, String value) => _desktop.vaultSet(account, value);
+
+  @override
+  Future<String?> get(String account) => _desktop.vaultGet(account);
+
+  @override
+  Future<bool> delete(String account) => _desktop.vaultDelete(account);
+}

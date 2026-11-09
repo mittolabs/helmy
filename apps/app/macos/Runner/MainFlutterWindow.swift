@@ -3,6 +3,7 @@ import Cocoa
 import CoreAudio
 import CoreImage
 import ScreenCaptureKit
+import Security
 import FlutterMacOS
 import desktop_multi_window
 import ServiceManagement
@@ -701,6 +702,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
       case "webPage":
         // The page in the Preview panel: the largest web view in the window.
         result(Notifier.webPage(args["do"] as? String ?? "", args))
+      case "vaultSet":
+        // A secret kept in the login Keychain, never on disk in the clear.
+        result(Vault.set(args["account"] as? String ?? "", args["value"] as? String ?? ""))
+      case "vaultGet":
+        result(Vault.get(args["account"] as? String ?? ""))
+      case "vaultDelete":
+        result(Vault.delete(args["account"] as? String ?? ""))
       case "keysTo":
         // The keyboard to Helmy's own view (which passes keys on to the page
         // it means them for) or back to the web view that had it.
@@ -1713,4 +1721,51 @@ final class NoDragView: NSView {
   override func rightMouseDown(with event: NSEvent) { flutter?.rightMouseDown(with: event) }
   override func rightMouseUp(with event: NSEvent) { flutter?.rightMouseUp(with: event) }
   override func scrollWheel(with event: NSEvent) { flutter?.scrollWheel(with: event) }
+}
+
+
+/// Helmy's vault: secrets in the login Keychain, under one service, by
+/// account ("<scope>|<NAME>"). Only Helmy reads them back.
+enum Vault {
+  static let service = "Helmy Vault"
+
+  static func set(_ account: String, _ value: String) -> Bool {
+    guard !account.isEmpty, let data = value.data(using: .utf8) else { return false }
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+    ]
+    let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+    if status == errSecSuccess { return true }
+    guard status == errSecItemNotFound else { return false }
+    var add = query
+    add[kSecValueData as String] = data
+    add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+    return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+  }
+
+  static func get(_ account: String) -> String? {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+    var out: CFTypeRef?
+    guard SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess,
+          let data = out as? Data else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
+
+  static func delete(_ account: String) -> Bool {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+    ]
+    let status = SecItemDelete(query as CFDictionary)
+    return status == errSecSuccess || status == errSecItemNotFound
+  }
 }

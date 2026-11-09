@@ -64,6 +64,8 @@ import '../view_models/settings_index.dart';
 import '../view_models/settings_view_model.dart';
 import '../../../utils/platform.dart';
 import '../../../data/services/error_reports.dart';
+import '../../../data/services/helmy_run.dart';
+import '../../../data/services/vault.dart';
 
 part 'pages/add_account.dart';
 part 'pages/add_connection.dart';
@@ -77,6 +79,7 @@ part 'pages/general.dart';
 part 'pages/keyboard.dart';
 part 'pages/memory.dart';
 part 'pages/phone.dart';
+part 'pages/vault.dart';
 part 'pages/preview.dart';
 part 'pages/projects.dart';
 part 'pages/tools.dart';
@@ -179,6 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .data => _Data(vm: vm),
                             .keyboard => _Keyboard(vm: vm),
                             .phone => _Phone(vm: vm),
+                            .vault => _VaultPage(vm: vm),
                           },
                         );
                         // ↑ and ↓ move through the results, the page following;
@@ -360,6 +364,7 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     hue: 140.0,
     group: 'Your work',
   ),
+  .vault: (label: 'Vault', icon: AshlarIconsRoundedDuotone.lock, hue: 0.0, group: 'Your work'),
   .data: (
     label: 'Data and storage',
     icon: AshlarIconsRoundedDuotone.database,

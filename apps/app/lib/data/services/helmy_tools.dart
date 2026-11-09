@@ -6,6 +6,7 @@ import 'dart:math';
 import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
 import 'chat_app_tools.dart';
+import 'vault_tools.dart';
 import 'chat_tools.dart';
 import 'devices.dart';
 import 'mac/mac_tools.dart';
@@ -31,6 +32,9 @@ class HelmyTools {
   /// Chat apps (games and things to use in the chat): set once
   /// conversations are ready.
   ChatAppTools? apps;
+
+  /// The vault: secrets an agent uses by name and never sees.
+  VaultTools? vault;
 
   /// What Helmy does on this Mac (keeping it awake, locking it, its sound):
   /// on a Mac only.
@@ -70,6 +74,7 @@ class HelmyTools {
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
     for (final t in ChatTools.names) 'mcp__helmy__$t',
     for (final t in ChatAppTools.names) 'mcp__helmy__$t',
+    for (final t in VaultTools.names) 'mcp__helmy__$t',
     for (final t in MacTools.free) 'mcp__helmy__$t',
     for (final t in MacTools.use) 'mcp__helmy__$t',
   ];
@@ -168,6 +173,7 @@ class HelmyTools {
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
               if (chats != null) ...ChatTools.list,
               if (apps != null) ...ChatAppTools.list,
+              if (vault != null) ...VaultTools.list,
               if (mac != null) ...MacTools.list,
               if (mac?.control != null) ...MacTools.useList,
             ],
@@ -202,6 +208,9 @@ class HelmyTools {
     }
     if (ChatAppTools.names.contains(name) && apps != null) {
       return apps!.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    }
+    if (VaultTools.names.contains(name) && vault != null) {
+      return vault!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (MacTools.names.contains(name) && mac != null) {
       return mac!.call(name, (params['arguments'] as Map?) ?? const {}, session);

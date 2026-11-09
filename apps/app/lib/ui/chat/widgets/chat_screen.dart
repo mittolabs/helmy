@@ -35,6 +35,9 @@ import 'package:flutter/services.dart';
 
 import '../../core/ashlar/attachment.dart';
 import '../../core/ashlar/button.dart';
+import '../../core/ashlar/dialog.dart';
+import '../../core/ashlar/spinner.dart';
+import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/markdown.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/toast.dart';
@@ -69,12 +72,15 @@ import 'webhook_dialog.dart';
 import '../../core/window_layout.dart';
 import '../../../utils/platform.dart';
 import 'file_popup.dart';
+import '../../../data/services/vault.dart';
+import '../../../data/services/vault_tools.dart';
 
 part 'screen/composer_area.dart';
 part 'screen/empty.dart';
 part 'screen/find.dart';
 part 'screen/header.dart';
 part 'screen/side_panels.dart';
+part 'screen/vault_card.dart';
 
 class ChatScreen extends StatefulWidget {
   const new({super.key, required this.viewModel, this.bar});
@@ -371,6 +377,51 @@ class _ChatScreenState extends State<ChatScreen> {
       unawaited(vm.sideChat(ask: ask.isEmpty ? null : ask));
       return;
     }
+    // A secret pasted in: offered to the vault, its name sent in its place.
+    final secrets = SecretSpotter.find(text);
+    if (secrets.isNotEmpty && _hasVault) {
+      unawaited(_offerVault(text, secrets));
+      return;
+    }
+    _deliver(text);
+  }
+
+  bool get _hasVault {
+    try {
+      context.read<Vault>();
+      return true;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
+  Future<void> _offerVault(String text, List<SpottedSecret> secrets) async {
+    final session = vm.session;
+    if (session == null) return;
+    final kept = await showAshlarDialog<String>(
+      context: context,
+      builder: (_) => _KeepSecrets(
+        text: text,
+        secrets: secrets,
+        project: session.repo ?? session.cwd,
+        vault: context.read<Vault>(),
+      ),
+    );
+    // Cancelled: the words stay in the box, unsent.
+    if (kept == null || !mounted) return;
+    _deliver(kept);
+  }
+
+  /// What the vault asks in this chat; nothing where there is no vault.
+  static List<VaultRequest> _vaultAsks(BuildContext context, String session) {
+    try {
+      return context.watch<VaultRequests>().of(session);
+    } on ProviderNotFoundException {
+      return const [];
+    }
+  }
+
+  void _deliver(String text) {
     _text.clear();
     _back = null;
     setState(() => _suggestions = const []);
@@ -696,6 +747,24 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     if (vm.queue.isNotEmpty) inColumn(_Queue(vm: vm)),
+                    // Secrets still in the project's .env files: offered to the vault.
+                    if (widget.bar == null)
+                      inColumn(
+                        _EnvOffer(
+                          key: ValueKey(session.repo ?? session.cwd),
+                          project: session.repo ?? session.cwd,
+                        ),
+                      ),
+                    // What the vault asks of the person: a secret, or a go-ahead.
+                    if (widget.bar == null)
+                      for (final r in _vaultAsks(context, vm.sessionId))
+                        inColumn(
+                          _VaultCard(
+                            key: ObjectKey(r),
+                            request: r,
+                            project: session.repo ?? session.cwd,
+                          ),
+                        ),
                     // A draft put aside, offered back while the box is empty.
                     if (widget.bar == null)
                       ValueListenableBuilder(

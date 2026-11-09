@@ -62,6 +62,42 @@ class DesktopService {
     }
   }
 
+  /// Keeps [value] in the login Keychain under [account] (Helmy's vault).
+  Future<bool> vaultSet(String account, String value) async {
+    if (Desktop.current != .mac) return false;
+    try {
+      return await _channel.invokeMethod<bool>('vaultSet', {'account': account, 'value': value}) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// The secret kept under [account]; null when there is none.
+  Future<String?> vaultGet(String account) async {
+    if (Desktop.current != .mac) return null;
+    try {
+      return await _channel.invokeMethod<String>('vaultGet', {'account': account});
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  Future<bool> vaultDelete(String account) async {
+    if (Desktop.current != .mac) return false;
+    try {
+      return await _channel.invokeMethod<bool>('vaultDelete', {'account': account}) ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   /// Gives the keyboard to Helmy's own view ([toPage] false) or back to the
   /// web view it was taken from; false where it could not.
   Future<bool> keysTo({required bool toPage}) async {

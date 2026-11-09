@@ -47,6 +47,7 @@ enum SettingsSection {
   data,
   keyboard,
   phone,
+  vault,
   archive,
   about,
 }

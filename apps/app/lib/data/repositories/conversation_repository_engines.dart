@@ -687,6 +687,19 @@ class ConversationRepositoryEngines extends ConversationRepository {
           ? null
           : c.items.whereType<ToolCall>().where((t) => t.id == p.toolUseId).lastOrNull;
       final folder = session.cwd;
+      // Secrets are the vault's: never read, and never asked about, so no
+      // number of tries turns this into a question.
+      if (Approvals.offLimits(p) case final why?) {
+        try {
+          run.answer(p, .deny, why: why);
+          p
+            ..decision = .blockedByHelmy
+            ..why = 'It would have read secrets, which stay in the vault.';
+        } on Object {
+          p.decision = .cancelled;
+        }
+        continue;
+      }
       // What no wording should get past the person, first: prompt
       // injection's aims (secrets, downloaded code, persistence, an agent's
       // own permissions).

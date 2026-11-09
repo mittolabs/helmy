@@ -75,6 +75,43 @@ class Approvals {
     return null;
   }
 
+  /// Files that hold secrets: never read by an agent, whatever it is for.
+  /// Their values belong in the vault, used by name (`vault_run`).
+  static final _secretFile = RegExp(
+    r'''(^|[\s/"'=])(\.env(\.[\w.-]+)?|\.envrc|[\w.-]*\.(pem|key|p12|pfx|keystore|jks)|'''
+    r'''credentials(\.json)?|secrets?\.(json|ya?ml|toml|env)|\.secrets?|service-account[\w.-]*\.json|'''
+    r'''\.npmrc|\.pypirc|\.netrc)($|[\s"';|&)<>])''',
+    caseSensitive: false,
+  );
+
+  /// What an agent may never do, and why, for it to find another way: read
+  /// a file of secrets, or fetch the vault's values itself (`helmy run`).
+  static String? offLimits(PermissionPrompt p) {
+    final command = PermissionRule.plainCommand('${p.input['command'] ?? ''}');
+    final paths = [
+      for (final key in const ['file_path', 'notebook_path', 'path', 'pattern'])
+        if (p.input[key] case final String s when s.isNotEmpty) s,
+    ];
+    if (RegExp(r'(^|[\s;&|(])helmy\s+run\b').hasMatch(command) ||
+        command.contains('run.sock') ||
+        RegExp(r'com\.mittolabs\.helmy/vault').hasMatch(command)) {
+      return "`helmy run` is the person's: run what needs secrets with vault_run, which keeps "
+          'them from you.';
+    }
+    final text = [command, ...paths].join('\n');
+    // An example file holds no secrets: reading it is fine.
+    final cleaned = text.replaceAll(
+      RegExp(r'\.env\.(example|sample|template|dist)\b', caseSensitive: false),
+      '',
+    );
+    if (_secretFile.hasMatch(' $cleaned ')) {
+      return "Secrets stay in Helmy's vault, out of your sight: don't read files that hold them. "
+          'List what there is with vault_list, run what needs them with vault_run, and ask the '
+          'person for a missing one with vault_ask.';
+    }
+    return null;
+  }
+
   /// What always comes to the person, whatever a judge makes of it: the
   /// moves prompt injection is after, which no wording should talk Helmy
   /// into. The question to ask, or null.
