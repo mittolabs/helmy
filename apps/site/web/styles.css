@@ -123,7 +123,7 @@ p { margin: 0; }
 }
 
 /* A Mac window, and a phone, round screenshots. */
-.mac { margin: 0; position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line-strong);
+.mac { margin: 0; position: relative; border-radius: 2.2% / 3.4%; overflow: hidden; border: 1px solid var(--line-strong);
   background: #111; box-shadow: 0 40px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.6), 0 0 80px var(--accent-glow); }
 .mac img { width: 100%; height: auto; }
 .phone { margin: 0 auto; width: min(300px, 80%); border-radius: 44px; overflow: hidden; border: 10px solid #111;
