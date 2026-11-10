@@ -122,6 +122,9 @@ void main() {
         storage: storage,
         sessions: sessions,
       );
+      // Stopped before the folder goes (teardowns run last first): a
+      // transcript it is still writing would find the folder gone.
+      addTearDown(repo.dispose);
       final made = (await sessions.create(cwd: '/w/copy') as Ok).value as Session;
       await sessions.save(made.copyWith(repo: '/w/site', branch: 'helmy/footer-1a2b'));
       final prs = _Prs([
@@ -176,6 +179,11 @@ void main() {
       // A guide for the person to review by, in a chat of its own.
       final g = await vm.guide(vm.all!.firstWhere((p) => p.number == 3));
       expect(sessions.byId(g!)!.title, 'Guide to #3: Middle');
+      // Both chats were sent a message, still going when the test ends:
+      // settled, or it would write into a folder being deleted.
+      for (var i = 0; i < 200 && (repo.of(id).busy || repo.of(g).busy); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
     },
   );
 }
