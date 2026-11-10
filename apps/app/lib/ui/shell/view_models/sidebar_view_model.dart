@@ -106,10 +106,8 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   /// A new session in [cwd], at that project's permissions.
-  Future<Result<Session>> createIn(String cwd) async => _sessions.create(
-    cwd: cwd,
-    level: await _projects?.levelFor(cwd) ?? .ask,
-  );
+  Future<Result<Session>> createIn(String cwd) async =>
+      _sessions.create(cwd: cwd, level: await _projects?.levelFor(cwd) ?? .ask);
   late final Command1<void, String> delete;
 
   final Map<String, SessionActivity> _activity = {};

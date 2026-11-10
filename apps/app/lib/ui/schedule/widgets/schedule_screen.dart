@@ -547,7 +547,8 @@ class _TaskEditorState extends State<_TaskEditor> {
                 'That time has passed.'
               else
                 'Runs next ${monthDay(next)} at ${clock(next)}.',
-              if (_level == .ask) 'Anything that can\'t be undone waits for you, with a notification.',
+              if (_level == .ask)
+                'Anything that can\'t be undone waits for you, with a notification.',
             ].join(' '),
             style: t.text.xs.copyWith(color: t.colors.mutedForeground),
           ),
