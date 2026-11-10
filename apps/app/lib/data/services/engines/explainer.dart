@@ -1,6 +1,7 @@
 import '../../../domain/identity.dart';
 import 'engine_registry.dart';
 import 'engine_router.dart';
+import '../../../domain/models/work.dart';
 
 /// Explains a shell command in plain words, asking the connection with the
 /// most room first, then the rest, and the model on this computer last.
@@ -28,6 +29,7 @@ class CommandExplainer {
         : _router.choose(
             candidates: [for (final e in online) e.info],
             current: null,
+            kind: WorkKind.quick,
             needs: const {},
           );
     final order = [

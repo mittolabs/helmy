@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../repositories/lesson_repository.dart';
 import 'engines/engine_registry.dart';
 import 'engines/engine_router.dart';
+import '../../domain/models/work.dart';
 
 /// A lesson the learner found, before it is kept.
 typedef Found = ({String text, bool everywhere, String kind});
@@ -55,7 +56,11 @@ class Learner {
     ];
     final first = online.isEmpty
         ? null
-        : _router.choose(candidates: [for (final e in online) e.info], current: null);
+        : _router.choose(
+            candidates: [for (final e in online) e.info],
+            current: null,
+            kind: WorkKind.quick,
+          );
     for (final e in [
       ...online.where((e) => e.info.id == first),
       ...online.where((e) => e.info.id != first),

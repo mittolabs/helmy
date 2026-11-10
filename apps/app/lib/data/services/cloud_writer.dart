@@ -2,6 +2,7 @@ import '../../domain/identity.dart';
 import 'engines/engine_registry.dart';
 import 'engines/engine_router.dart';
 import 'local_writer.dart';
+import '../../domain/models/work.dart';
 
 /// Short writing on a cloud connection, for Helmy's own upkeep where this
 /// Mac has no model (decision `0014` allows the cheapest): each connection
@@ -26,6 +27,7 @@ class CloudWriter {
     final first = _router.choose(
       candidates: [for (final e in online) e.info],
       current: null,
+      kind: WorkKind.quick,
       needs: const {},
     );
     for (final e in [

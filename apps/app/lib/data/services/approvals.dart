@@ -4,6 +4,7 @@ import '../../domain/models/chat_item.dart';
 import '../../domain/models/permission_rule.dart';
 import 'engines/engine_registry.dart';
 import 'engines/engine_router.dart';
+import '../../domain/models/work.dart';
 
 /// What Helmy decided about an action a connection wanted to take.
 enum Verdict {
@@ -269,7 +270,11 @@ class Approvals {
     ];
     final first = online.isEmpty
         ? null
-        : _router.choose(candidates: [for (final e in online) e.info], current: null);
+        : _router.choose(
+            candidates: [for (final e in online) e.info],
+            current: null,
+            kind: WorkKind.quick,
+          );
     for (final e in [
       ...online.where((e) => e.info.id == first),
       ...online.where((e) => e.info.id != first),
