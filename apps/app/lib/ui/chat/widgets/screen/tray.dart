@@ -1,11 +1,14 @@
 part of '../chat_screen.dart';
 
 /// The strip under the message box: the chat's project (choose one, or none),
-/// its files, and the skills and tools Helmy brings.
+/// its files, and Helmy's skills to pick from.
 class _Tray extends StatelessWidget {
-  const _Tray({required this.vm, required this.session});
+  const _Tray({required this.vm, required this.session, required this.onSkills});
   final ChatViewModel vm;
   final Session session;
+
+  /// Opens the skills list in the message box, as typing / does.
+  final VoidCallback onSkills;
 
   @override
   Widget build(BuildContext context) {
@@ -40,9 +43,9 @@ class _Tray extends StatelessWidget {
             ),
             _TrayButton(
               icon: AshlarIconsRoundedStroke.puzzle,
-              label: 'Skills and tools',
+              label: 'Skills',
               words: words,
-              onPressed: () => openSettings(GoRouter.of(context), .tools),
+              onPressed: onSkills,
             ),
           ],
         );

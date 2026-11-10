@@ -35,6 +35,7 @@ import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/project_repository.dart';
 import 'settings_index.dart';
 import '../../core/file_actions.dart';
+import '../../../domain/models/tool_server.dart';
 
 enum SettingsSection {
   general,
@@ -487,6 +488,48 @@ class SettingsViewModel extends ChangeNotifier {
     toolsLoaded = true;
     notifyListeners();
   }
+
+  /// The accounts and services the connections reach, as one list: each
+  /// once, by its own name (not the connection's way of naming it), at its
+  /// best status. Helmy's own server and those added to Helmy are not here.
+  List<({String name, String status})> get accounts {
+    const rank = {'connected': 0, 'pending': 1, 'needs-auth': 2, 'failed': 3};
+    final added = {for (final t in settings.toolServers) t.name};
+    final best = <String, String>{};
+    for (final t in tools.values) {
+      for (final s in t.servers) {
+        final name = s.name.replaceFirst(RegExp(r'^claude\.ai\s+'), '');
+        if (name == 'helmy' || added.contains(s.name)) continue;
+        final now = best[name];
+        if (now == null || (rank[s.status] ?? 9) < (rank[now] ?? 9)) best[name] = s.status;
+      }
+    }
+    final names = best.keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return [for (final n in names) (name: n, status: best[n]!)];
+  }
+
+  /// Skills and commands the connections bring, as one list, each once:
+  /// [own] (Helmy's own skills' names) left out.
+  List<SlashCommand> skillsFound(Set<String> own) {
+    final seen = <String>{...own};
+    final all = [
+      for (final t in tools.values)
+        for (final c in t.commands)
+          if (!c.name.startsWith('helmy:') && seen.add(c.name)) c,
+    ];
+    return all..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  /// Adds a tool server to Helmy, or replaces the one of its name.
+  Future<void> addToolServer(ToolServer server) => update(
+    settings.copyWith(
+      toolServers: [...settings.toolServers.where((t) => t.name != server.name), server],
+    ),
+  );
+
+  Future<void> removeToolServer(String name) => update(
+    settings.copyWith(toolServers: [...settings.toolServers.where((t) => t.name != name)]),
+  );
 
   // Preview: what draws its pages, and which Chromium browser.
 

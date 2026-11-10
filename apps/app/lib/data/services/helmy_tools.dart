@@ -13,6 +13,8 @@ import 'mac/mac_tools.dart';
 import '../../utils/image_size.dart';
 import '../../domain/device_outline.dart';
 import 'watch_service.dart';
+import '../../domain/models/tool_server.dart';
+import 'skill_store.dart';
 
 export '../../utils/image_size.dart';
 
@@ -32,6 +34,12 @@ class HelmyTools {
   /// Chat apps (games and things to use in the chat): set once
   /// conversations are ready.
   ChatAppTools? apps;
+
+  /// Helmy's own skills, given to every connection.
+  SkillStore? skills;
+
+  /// Tool servers added to Helmy, given to every connection with its own.
+  List<ToolServer> Function() servers = () => const [];
 
   /// The vault: secrets an agent uses by name and never sees.
   VaultTools? vault;

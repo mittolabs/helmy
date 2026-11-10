@@ -32,6 +32,8 @@ import '../services/learner.dart';
 import 'lesson_repository.dart';
 
 /// A message on its way: which engine has it, where its output starts, and
+import '../services/skill_store.dart';
+
 /// which engines already failed it.
 class _Turn {
   new(this.text, this.start, {this.attachments = const [], Set<Capability> needs = const {}})
@@ -186,6 +188,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
   final bool Function(String engineId) _enabled;
 
   final EngineRegistry _engines;
+
+  /// Helmy's own skills: in every /command list, and any connection can
+  /// run one (SkillStore). Set once they are loaded.
+  SkillStore? skills;
   final EngineRouter _router;
   final UsageMeter _meter;
   final StorageService _storage;
@@ -210,6 +216,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
   Future<void> load(String sessionId) async {
     final c = of(sessionId);
     if (c.loaded) return;
+
     c.loaded = true;
     final raw = await _storage.read('transcripts/$sessionId.json');
     c.items.insertAll(
@@ -402,7 +409,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
       }
       // A /command goes to an engine that has it, when one does.
       final command = RegExp(r'^/([\w:.-]+)').firstMatch(turn.text)?.group(1);
-      if (command != null) {
+      // Helmy's own skills, every connection has.
+      if (command != null && !(skills?.names.contains(command) ?? false)) {
         final owners = <EngineInfo>[];
         for (final e in candidates) {
           final engine = _engines.byId(e.id)!;
@@ -467,7 +475,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
       final from = thread.seen.clamp(0, turn.start - 1);
       final missed = c.items.sublist(from, turn.start - 1);
       run.send(
-        '${handoff(missed, summary: session.summary)}${turn.text}',
+        '${handoff(missed, summary: session.summary)}'
+        '${SkillStore.asked(turn.text, skills?.names ?? const {})}',
         attachments: turn.attachments,
       );
       return;
@@ -875,7 +884,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
   @override
   Future<List<SlashCommand>> commands(Session session) async {
     final seen = <String>{};
-    final all = <SlashCommand>[];
+    final all = <SlashCommand>[
+      for (final k in skills?.skills ?? const <Skill>[])
+        if (seen.add(k.name)) SlashCommand(name: k.name, description: k.description),
+    ];
     for (final e in _engines.engines) {
       if (!_enabled(e.info.id)) continue;
       for (final c in await e.commands(session.cwd)) {

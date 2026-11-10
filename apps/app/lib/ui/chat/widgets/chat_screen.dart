@@ -75,7 +75,6 @@ import 'file_popup.dart';
 import '../../../data/services/vault.dart';
 import '../../../data/services/vault_tools.dart';
 import '../../../data/services/notify_service.dart' show dictation, spoken;
-import '../../../routing/settings_route.dart';
 
 part 'screen/composer_area.dart';
 part 'screen/empty.dart';
@@ -250,6 +249,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Puts [s] in place of the word being typed.
+  /// The skills list, in the message box: a / before what is there, and the
+  /// list it brings up.
+  void _pickSkill() {
+    final text = _text.text;
+    final rest = text.startsWith('/') ? text.replaceFirst(RegExp(r'^/[\w:.-]*\s*'), '') : text;
+    _text.value = TextEditingValue(
+      text: '/$rest',
+      selection: const TextSelection.collapsed(offset: 1),
+    );
+    _composer.requestFocus();
+  }
+
   void _take(_Suggestion s) {
     final text = _text.text;
     final caret = _text.selection.baseOffset < 0 ? text.length : _text.selection.baseOffset;
@@ -901,7 +912,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                             ],
                             // The project, files and tools, under the box; talk instead of typing.
-                            tray: widget.bar == null ? _Tray(vm: vm, session: session) : null,
+                            tray: widget.bar == null
+                                ? _Tray(vm: vm, session: session, onSkills: _pickSkill)
+                                : null,
                             onVoice: widget.bar == null && Platform.isMacOS
                                 ? () => unawaited(
                                     showAshlarDialog<void>(

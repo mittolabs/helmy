@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'engine.dart';
 import 'permission_rule.dart';
 import 'project_action.dart';
+import 'tool_server.dart';
 import 'work.dart';
 
 /// Where a new session starts: in no project (a folder of its own, until
@@ -399,6 +400,9 @@ class const AppSettings({
   /// Accounts added beside the usual Claude Code and Codex ones.
   final List<ConnectionAccount> accounts = const [],
 
+  /// Tool servers added to Helmy, given to every connection.
+  final List<ToolServer> toolServers = const [],
+
   /// Phones paired by their own keys, and the one whose code is showing.
   final List<PairedPhone> phones = const [],
 
@@ -543,6 +547,7 @@ class const AppSettings({
     Set<String>? pausedEngines,
     bool? tourDue,
     List<ConnectionAccount>? accounts,
+    List<ToolServer>? toolServers,
     List<PairedPhone>? phones,
     String? interfaceFont,
     String? codeFont,
@@ -627,6 +632,7 @@ class const AppSettings({
     pausedEngines: pausedEngines ?? this.pausedEngines,
     tourDue: tourDue ?? this.tourDue,
     accounts: accounts ?? this.accounts,
+    toolServers: toolServers ?? this.toolServers,
     phones: phones ?? this.phones,
     interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
     codeFont: codeFont == '' ? null : codeFont ?? this.codeFont,
@@ -713,6 +719,7 @@ class const AppSettings({
     'pausedEngines': pausedEngines.toList(),
     'tourDue': tourDue,
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
+    if (toolServers.isNotEmpty) 'toolServers': [for (final t in toolServers) t.toJson()],
     if (phones.isNotEmpty) 'phones': [for (final p in phones) p.toJson()],
     'bestAt': bestAt,
     'interfaceFont': interfaceFont,
@@ -853,6 +860,9 @@ class const AppSettings({
     accounts: [
       for (final a in (json['accounts'] as List?) ?? const [])
         if (a is Map) ConnectionAccount.fromJson(a.cast<String, Object?>()),
+    ],
+    toolServers: [
+      for (final t in (json['toolServers'] as List?) ?? const []) ?ToolServer.fromJson(t),
     ],
     switching: Switching.values.asNameMap()[json['switching']] ?? .balanced,
     notify: json['notify'] as bool? ?? true,

@@ -166,7 +166,13 @@ const List<SettingEntry> settingsIndex = [
   ),
   (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
   // Skills and tools.
-  (title: 'MCP servers', section: .tools, keywords: 'skills tools mcp plugins integrations'),
+  (title: 'Helmy\'s skills', section: .tools, keywords: 'skills commands slash skill.md new add'),
+  (
+    title: 'Accounts',
+    section: .tools,
+    keywords: 'gmail calendar slack notion drive integrations connectors sign in',
+  ),
+  (title: 'Add a tool server', section: .tools, keywords: 'mcp server tools plugins integrations'),
   // Memory.
   (title: 'Memory', section: .memory, keywords: 'remember notes facts forget'),
   // Data and storage.

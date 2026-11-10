@@ -35,6 +35,12 @@ class ClaudeProcess {
     /// allow without asking.
     String? toolsUrl,
     List<String> allowedTools = const [],
+
+    /// Tool servers added to Helmy, beside its own, as --mcp-config has them.
+    Map<String, Object?> servers = const {},
+
+    /// Helmy's skills, as a plugin folder (SkillStore.pluginDir).
+    String? pluginDir,
   }) async {
     final process = await Process.start(
       binary,
@@ -51,11 +57,13 @@ class ClaudeProcess {
         if (resume != null) ...['--resume', resume],
         if (model != null) ...['--model', model],
         if (appendSystemPrompt != null) ...['--append-system-prompt', appendSystemPrompt],
-        if (toolsUrl != null) ...[
+        if (pluginDir != null) ...['--plugin-dir', pluginDir],
+        if (toolsUrl != null || servers.isNotEmpty) ...[
           '--mcp-config',
           jsonEncode({
             'mcpServers': {
-              'helmy': {'type': 'http', 'url': toolsUrl},
+              ...servers,
+              if (toolsUrl != null) 'helmy': {'type': 'http', 'url': toolsUrl},
             },
           }),
           if (allowedTools.isNotEmpty) ...['--allowedTools', allowedTools.join(',')],

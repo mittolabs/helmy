@@ -78,6 +78,7 @@ import '../domain/models/chat_item.dart';
 import '../data/services/helmy_run.dart';
 import '../data/services/vault.dart';
 import '../data/services/vault_tools.dart';
+import '../data/services/skill_store.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -99,6 +100,7 @@ Future<Loaded> load() async {
   await chats.load();
   // Sessions started without a project each get a folder here.
   scratchRoot = '${(await getApplicationSupportDirectory()).path}/scratch';
+  skillsRoot = '${(await getApplicationSupportDirectory()).path}/skills';
   return (storage: storage, sessions: sessions, settings: settings, meter: meter, chats: chats);
 }
 
@@ -184,15 +186,23 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         MacControl(ChannelMacNative())
           ..show = (s) => context.read<BrowserHost>().showDevice(s, mac: true),
   ),
-  // Helmy's own tools (watching a video), served to every connection.
+  // Helmy's own skills, one folder given to every connection.
+  ChangeNotifierProvider(
+    create: (_) => SkillStore(skillsRoot ?? '${Directory.systemTemp.path}/helmy-skills')..load(),
+  ),
+  // Helmy's own tools (watching a video), served to every connection, with
+  // its skills and the tool servers added to it.
   Provider(
     lazy: false,
-    create: (context) => HelmyTools(
-      context.read(),
-      context.read<DeviceService>(),
-      BrowserTools(context.read<BrowserHost>()),
-      context.read<BrowserHost>().showDevice,
-    ),
+    create: (context) =>
+        HelmyTools(
+            context.read(),
+            context.read<DeviceService>(),
+            BrowserTools(context.read<BrowserHost>()),
+            context.read<BrowserHost>().showDevice,
+          )
+          ..skills = context.read<SkillStore>()
+          ..servers = () => loaded.settings.settings.toolServers,
     dispose: (_, tools) => unawaited(tools.close()),
   ),
   // Threads' own copies, made as Settings says.
@@ -258,7 +268,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         lessons: context.read<LessonRepository>(),
         ownCopies: (repo) => loaded.settings.settings.ownCopiesIn(repo),
         decider: Decider(model: () => loaded.settings.settings.ollamaModel),
-      );
+      )..skills = context.read<SkillStore>();
       // Known from launch, and again whenever connections are turned on or off.
       unawaited(repo.checkReach());
       loaded.settings.addListener(() => unawaited(repo.checkReach()));

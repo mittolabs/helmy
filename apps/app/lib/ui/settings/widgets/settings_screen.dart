@@ -67,6 +67,9 @@ import '../../../data/services/error_reports.dart';
 import '../../../data/services/helmy_run.dart';
 import '../../../data/repositories/lesson_repository.dart';
 import '../../../data/services/vault.dart';
+import '../../../data/services/skill_store.dart';
+import '../../../domain/models/tool_server.dart';
+import '../../../domain/helmy_voice.dart';
 
 part 'pages/add_account.dart';
 part 'pages/add_connection.dart';

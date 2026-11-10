@@ -17,6 +17,7 @@ import 'codex_rpc.dart';
 import '../../../../utils/platform.dart';
 import '../../helmy_tools.dart';
 import '../ollama/ollama_doctor.dart';
+import '../../../../domain/models/tool_server.dart';
 
 /// Codex, driven through `codex app-server`: one thread per session, approvals
 /// answered from the app.
@@ -176,6 +177,7 @@ class CodexEngine implements AgentEngine {
   Future<List<SlashCommand>> _fetchSkills(String cwd) async {
     final binary = await _locator.find('codex');
     if (binary == null) return const [];
+    await _linkSkills();
     try {
       final rpc = await CodexRpc.start(
         binary: binary,
@@ -340,10 +342,19 @@ class CodexEngine implements AgentEngine {
     return null;
   }
 
+  /// Helmy's skills, linked into this account's skills folder, where Codex
+  /// finds them (SkillStore).
+  Future<void> _linkSkills() async {
+    final store = tools?.skills;
+    if (store == null) return;
+    await store.linkInto(home ?? Platform.environment['CODEX_HOME'] ?? '$homeDir/.codex');
+  }
+
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
     final binary = await _locator.find('codex');
     if (binary == null) throw StateError((await unavailableReason())!);
+    await _linkSkills();
     final rpc = await CodexRpc.start(
       binary: binary,
       environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
@@ -357,6 +368,7 @@ class CodexEngine implements AgentEngine {
       // The local engine: Codex's own provider for Ollama, and its model.
       local == null ? const {} : {'modelProvider': 'ollama', 'model': local},
       await tools?.urlFor(launch.sessionId),
+      {for (final s in tools?.servers() ?? const <ToolServer>[]) s.name: s.forCodex},
     );
     run._ready = run._open(launch);
     return run;
@@ -364,7 +376,7 @@ class CodexEngine implements AgentEngine {
 }
 
 class _CodexRun implements EngineRun {
-  new(this._rpc, this._reducer, this._skills, this._provider, this._toolsUrl) {
+  new(this._rpc, this._reducer, this._skills, this._provider, this._toolsUrl, this._servers) {
     _rpc.incoming.listen(_onMessage, onDone: _changes.close);
   }
 
@@ -377,6 +389,9 @@ class _CodexRun implements EngineRun {
 
   /// Helmy's own tools' address, when the app serves them.
   final String? _toolsUrl;
+
+  /// Tool servers added to Helmy, as mcp_servers has them.
+  final Map<String, Object?> _servers;
   final _changes = StreamController<bool>.broadcast();
   late Future<String?> _ready;
   String? _threadId;
@@ -409,18 +424,20 @@ class _CodexRun implements EngineRun {
       final tools = _toolsUrl;
       final settings = {
         // Helmy's own tools, as an MCP server it runs.
-        if (tools != null)
+        if (tools != null || _servers.isNotEmpty)
           'config': {
             'mcp_servers': {
-              'helmy': {
-                'url': tools,
-                // The tools Helmy lets run without asking (it asks for using the
-                // Mac itself): Codex would otherwise ask, and nothing answers it.
-                'tools': {
-                  for (final t in HelmyTools.claudeTools)
-                    t.replaceFirst('mcp__helmy__', ''): {'approval_mode': 'approve'},
+              ..._servers,
+              if (tools != null)
+                'helmy': {
+                  'url': tools,
+                  // The tools Helmy lets run without asking (it asks for using the
+                  // Mac itself): Codex would otherwise ask, and nothing answers it.
+                  'tools': {
+                    for (final t in HelmyTools.claudeTools)
+                      t.replaceFirst('mcp__helmy__', ''): {'approval_mode': 'approve'},
+                  },
                 },
-              },
             },
           },
         'cwd': launch.cwd,

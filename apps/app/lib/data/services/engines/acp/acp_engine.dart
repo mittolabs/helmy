@@ -13,6 +13,7 @@ import '../agent_engine.dart';
 import '../attachments.dart';
 import 'acp_reducer.dart';
 import 'acp_rpc.dart';
+import '../../../../domain/models/tool_server.dart';
 
 /// What checking an agent found: whether it opens a session, why not, and
 /// the ways it can be signed in to.
@@ -94,10 +95,20 @@ class AcpEngine implements AgentEngine {
     return _locator.find(command);
   }
 
-  Future<Map<String, String>> _environment(PermissionLevel level) async => {
-    ...await _locator.environment(),
-    ...?profile.environment?.call(level),
-  };
+  Future<Map<String, String>> _environment(PermissionLevel level) async {
+    final env = {...await _locator.environment(), ...?profile.environment?.call(level)};
+    // OpenCode reads Helmy's skills from its `skills` setting (SkillStore).
+    final skills = tools?.skills?.root;
+    final config = env['OPENCODE_CONFIG_CONTENT'];
+    if (skills != null && config != null) {
+      final j = (jsonDecode(config) as Map).cast<String, Object?>();
+      env['OPENCODE_CONFIG_CONTENT'] = jsonEncode({
+        ...j,
+        'skills': [...((j['skills'] as List?) ?? const []), skills],
+      });
+    }
+    return env;
+  }
 
   @override
   Future<String?> unavailableReason() async =>
@@ -277,7 +288,11 @@ class AcpEngine implements AgentEngine {
       cwd: launch.cwd,
     );
     final run = _AcpRun(rpc, AcpReducer(items), info.name, profile);
-    run._ready = run._open(launch, await tools?.urlFor(launch.sessionId));
+    run._ready = run._open(
+      launch,
+      await tools?.urlFor(launch.sessionId),
+      tools?.servers() ?? const [],
+    );
     return run;
   }
 }
@@ -319,7 +334,7 @@ class _AcpRun implements EngineRun {
 
   /// Starts or picks up the session. Null when that failed; why is in
   /// [exitDetail] and said in the chat.
-  Future<String?> _open(EngineLaunch launch, String? toolsUrl) async {
+  Future<String?> _open(EngineLaunch launch, String? toolsUrl, List<ToolServer> added) async {
     try {
       final init = await _rpc.request('initialize', {
         'protocolVersion': 1,
@@ -334,6 +349,8 @@ class _AcpRun implements EngineRun {
       final servers = [
         if (toolsUrl != null && http)
           {'type': 'http', 'name': 'helmy', 'url': toolsUrl, 'headers': <Object>[]},
+        // Tool servers added to Helmy, those this agent can reach.
+        for (final s in added) ?s.forAcp(http: http),
       ];
       final resumable = (caps['sessionCapabilities'] as Map?)?['resume'] != null;
       final Map<String, Object?> session;

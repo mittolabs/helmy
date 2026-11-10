@@ -39,6 +39,9 @@ String ago(DateTime then, {DateTime? now}) {
 /// Helmy's own); set once at startup.
 String? scratchRoot;
 
+/// Where Helmy's own skills live (SkillStore): set at start.
+String? skillsRoot;
+
 /// Whether [path] is a folder of a session started without a project.
 bool isScratch(String path) => scratchRoot != null && path.startsWith('$scratchRoot/');
 

@@ -13,6 +13,7 @@ import 'claude_process.dart';
 import 'claude_reducer.dart';
 import '../../../../utils/platform.dart';
 import '../../helmy_tools.dart';
+import '../../../../domain/models/tool_server.dart';
 
 /// Claude Code, driven as `claude -p` over stream-json with approvals routed
 /// to us: the protocol the Agent SDK uses.
@@ -269,6 +270,8 @@ class ClaudeEngine implements AgentEngine {
       appendSystemPrompt: identityWith(launch.brief, lessons: launch.lessons),
       toolsUrl: await tools?.urlFor(launch.sessionId),
       allowedTools: HelmyTools.claudeTools,
+      servers: {for (final s in tools?.servers() ?? const <ToolServer>[]) s.name: s.forClaude},
+      pluginDir: tools?.skills?.pluginDir,
     );
     return _ClaudeRun(process, ClaudeReducer(items), launch.resumeId);
   }
