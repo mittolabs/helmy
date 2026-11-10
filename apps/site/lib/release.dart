@@ -15,7 +15,7 @@ class Release {
   final List<Build> builds;
 
   /// The systems in the order a reader looks for them.
-  static const systems = ['macOS', 'Windows', 'Linux'];
+  static const systems = ['macOS', 'Windows', 'Linux', 'Android'];
 
   static Release? load() {
     final f = File('.release.json');
@@ -41,16 +41,19 @@ class Release {
     }
   }
 
-  /// What build.yml names each system's file.
+  /// What build.yml names each file: `Helmy-<tag>-<this>`.
+  static const _files = <String, ({String system, String name, String kind})>{
+    '-macos-universal.zip': (system: 'macOS', name: 'Apple silicon and Intel', kind: '.zip · macOS 12 or later'),
+    '-windows-x64.zip': (system: 'Windows', name: 'Windows (x64)', kind: '.zip'),
+    '-windows-arm64.zip': (system: 'Windows', name: 'Windows on Arm', kind: '.zip'),
+    '-linux-x64.tar.gz': (system: 'Linux', name: 'Linux (x64)', kind: '.tar.gz'),
+    '-linux-arm64.tar.gz': (system: 'Linux', name: 'Linux (arm64)', kind: '.tar.gz'),
+    '-android.apk': (system: 'Android', name: 'Phone app, pairs with Helmy', kind: '.apk'),
+  };
+
   static Build? _build(String file, String url, int bytes) {
-    if (file.endsWith('-macos.zip')) {
-      return (system: 'macOS', name: 'macOS 12 or later', kind: '.zip', url: url, bytes: bytes);
-    }
-    if (file.endsWith('-windows.zip')) {
-      return (system: 'Windows', name: 'Windows (x64)', kind: '.zip', url: url, bytes: bytes);
-    }
-    if (file.endsWith('-linux.tar.gz')) {
-      return (system: 'Linux', name: 'Linux (x64)', kind: '.tar.gz', url: url, bytes: bytes);
+    for (final MapEntry(key: end, value: f) in _files.entries) {
+      if (file.endsWith(end)) return (system: f.system, name: f.name, kind: f.kind, url: url, bytes: bytes);
     }
     return null;
   }

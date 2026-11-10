@@ -29,11 +29,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Releases are signed with Helmy's own key when CI is given it (the
+    // HELMY_ANDROID_* secrets, see build.yml), so each release installs over
+    // the last. Without it, the debug key: fine to try, not to update.
+    val releaseKey = System.getenv("HELMY_ANDROID_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKey != null) {
+            create("release") {
+                storeFile = releaseKey
+                storePassword = System.getenv("HELMY_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("HELMY_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("HELMY_ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (releaseKey != null) "release" else "debug")
         }
     }
 }
