@@ -184,9 +184,18 @@ class _MessageScrollerState extends State<MessageScroller> {
       (i) => i.anchor,
       orElse: () => const MessageScrollerItem(id: _none, child: SizedBox()),
     );
-    if (anchor.id != _none &&
-        widget.items.isNotEmpty &&
-        widget.items.indexOf(anchor) >= widget.items.length - added.length) {
+    // New, and after every turn there was: the latest, even with a row that
+    // was already there (working) after it.
+    final at = widget.items.indexOf(anchor);
+    final newest = widget.items.indexed.every(
+      (e) => e.$1 <= at || !e.$2.anchor || !before.contains(e.$2.id),
+    );
+    // The newest turn landing above the row the list grew from (a "working"
+    // row that came before the message it answers) is not older history: it
+    // grows from there instead, so it is laid out in view.
+    final from = widget.items.indexWhere((i) => i.id == _first);
+    if (anchor.id != _none && newest && at < from) _first = anchor.id;
+    if (anchor.id != _none && widget.items.isNotEmpty && newest) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _anchor(anchor.id));
     }
   }
@@ -282,15 +291,36 @@ class _MessageScrollerState extends State<MessageScroller> {
     _anchorAt = target;
     _following = true;
     _fitRoom();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = _position;
-      if (!mounted || p == null || _anchorAt == null) return;
-      p.animateTo(
-        _anchorAt!.clamp(p.minScrollExtent, p.maxScrollExtent),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-      );
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _settle());
+  }
+
+  /// Moving to [_anchorAt] right now.
+  var _settling = false;
+
+  /// Moves to where the new turn sits. The room below it can still be growing
+  /// when it starts, cutting the move short; it goes on once the room is there.
+  void _settle() {
+    final p = _position;
+    final at = _anchorAt;
+    if (!mounted || p == null || at == null || _settling || _readerScrolling) return;
+    if ((p.pixels - at).abs() <= 1) return;
+    _settling = true;
+    p
+        .animateTo(
+          at.clamp(p.minScrollExtent, p.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() {
+          _settling = false;
+          final now = _position;
+          if (mounted &&
+              now != null &&
+              _anchorAt != null &&
+              now.maxScrollExtent >= _anchorAt! - 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _settle());
+          }
+        });
   }
 
   /// The room below a new turn: enough that it can sit near the top, shrinking as the
@@ -310,6 +340,11 @@ class _MessageScrollerState extends State<MessageScroller> {
   bool _onMetrics(ScrollMetricsNotification n) {
     if (n.depth != 0) return false;
     _fitRoom();
+    // The room for a new turn grew after the move to it ran out: finish it.
+    final p = _position, at = _anchorAt;
+    if (p != null && at != null && !_settling && p.maxScrollExtent >= at - 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _settle());
+    }
     // Still at the end while an answer grows: stay there.
     if (_placed && widget.followEnd && _following && _anchorAt == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
