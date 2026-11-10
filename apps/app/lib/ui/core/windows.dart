@@ -31,14 +31,21 @@ class HelmyWindows extends ChangeNotifier {
   /// Turns Flutter's windowing on, once the binding is up: the stable channel
   /// refuses its build flag, so its switch is set here, and the windowing
   /// owner made again with it on. Recheck after every Flutter update.
+  /// Where tabs can have windows of their own: macOS, where it was tried.
+  /// On Linux the experimental windowing fails before the first frame (a
+  /// GLX error, found 2026-11-10), and Windows is untried: one ordinary
+  /// window there, and no "Move to a new window".
+  static bool get supported => Platform.isMacOS;
+
   static void enable() {
+    if (!supported) return;
     features.isWindowingEnabled = true;
     WidgetsBinding.instance.windowingOwner = createDefaultWindowingOwner();
   }
 
   /// The main window, titled "Helmy": the runner finds it by that title and
   /// gives it Helmy's look (HelmyWindow in MainFlutterWindow.swift).
-  final main = RegularWindowController(
+  late final main = RegularWindowController(
     size: const Size(1200, 800),
     title: 'Helmy',
     delegate: _MainWindow(),
@@ -94,6 +101,7 @@ class HelmyWindows extends ChangeNotifier {
   /// Moves [tab] of [vm]'s panel into a window of its own, beside the main
   /// one, titled with the tab and its chat.
   void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false}) {
+    if (!supported) return;
     if (tab.windowed) return show(tab);
     final key = _keyOf(vm);
     if (key != null) holdChat(key, () => vm);
@@ -123,6 +131,7 @@ class HelmyWindows extends ChangeNotifier {
   /// its own a few seconds later, as a person would; with [back], put back
   /// in the panel a few seconds after that.
   Future<void> moveOutForLook(SidePanel kind, {bool stay = false, bool back = false}) async {
+    if (!supported) return;
     // Frames go on while Helmy is out of sight behind other windows, as
     // they would were it looked at.
     Timer.periodic(

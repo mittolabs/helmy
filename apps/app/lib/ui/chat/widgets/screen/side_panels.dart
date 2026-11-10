@@ -359,7 +359,7 @@ class _Panel extends StatelessWidget {
                     vm.floatDevice,
                   ),
                 // Out into a window of its own, to put anywhere, any screen.
-                if (active != null && !active.windowed)
+                if (HelmyWindows.supported && active != null && !active.windowed)
                   tool(
                     'Move to a new window',
                     AshlarIconsRoundedStroke.appWindowMac,
@@ -470,7 +470,9 @@ class _DraggableTab extends StatelessWidget {
       ),
       childWhenDragging: Opacity(opacity: .4, child: child),
       onDragEnd: (d) {
-        if (d.wasAccepted || tab.windowed || _onStrip(d.offset)) return;
+        if (!HelmyWindows.supported || d.wasAccepted || tab.windowed || _onStrip(d.offset)) {
+          return;
+        }
         context.read<HelmyWindows>().moveOut(vm, tab, atPointer: true);
       },
       child: child,

@@ -80,18 +80,20 @@ Future<void> main() async {
     final then = look.length > 1 ? look[1] : '';
     unawaited(windows.moveOutForLook(kind, stay: then == 'panel', back: then == 'back'));
   }
-  runWidget(
-    MultiProvider(
-      providers: [
-        ...providers(loaded),
-        ChangeNotifierProvider.value(value: windows),
-      ],
-      child: ListenableBuilder(
-        listenable: windows,
-        builder: (context, _) => windows.build(HelmyApp(initialLocation: first)),
-      ),
-    ),
+  final app = MultiProvider(
+    providers: [
+      ...providers(loaded),
+      ChangeNotifierProvider.value(value: windows),
+    ],
+    child: HelmyWindows.supported
+        ? ListenableBuilder(
+            listenable: windows,
+            builder: (context, _) => windows.build(HelmyApp(initialLocation: first)),
+          )
+        : HelmyApp(initialLocation: first),
   );
+  // Windows of Flutter's own where they work; the one ordinary window elsewhere.
+  HelmyWindows.supported ? runWidget(app) : runApp(app);
 }
 
 class HelmyApp extends StatefulWidget {
