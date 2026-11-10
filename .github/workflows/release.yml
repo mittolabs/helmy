@@ -23,6 +23,11 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@v4
         with:
+          # A token of its own, so the release pull request runs CI like any
+          # other (one opened with the built-in token starts no workflows).
+          # RELEASE_PLEASE_TOKEN: fine-grained, this repository only, contents
+          # and pull requests read and write. Without it, the built-in token.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
