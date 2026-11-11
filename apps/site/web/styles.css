@@ -67,6 +67,11 @@ p { margin: 0; }
 .accent { color: var(--accent); }
 .eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
 
+/* Powered by Mittolabs, above the hero heading, as the other Mittolabs sites have it. */
+.powered { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 14px; color: var(--muted); }
+.powered img { width: 22px; height: auto; }
+.powered b { font-weight: 600; color: var(--ink); }
+
 /* A fine grain over everything, so black reads as a surface, not a hole. */
 .grain {
   position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0.05;
