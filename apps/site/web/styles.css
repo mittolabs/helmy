@@ -168,9 +168,14 @@ p { margin: 0; }
 .feature { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 72px 0; }
 .feature.flip .feature-copy { order: 2; }
 .feature-copy { display: flex; flex-direction: column; gap: 18px; }
-.points { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-.points li { position: relative; padding-left: 26px; color: var(--ink); }
-.points li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 12px; height: 2px; background: var(--accent); border-radius: 2px; }
+/* A feature's points: a check in a soft accent badge, the line beside it. */
+.points { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.points li { position: relative; padding-left: 36px; color: var(--ink); line-height: 1.5; }
+.points li::before { content: ""; position: absolute; left: 0; top: calc(0.75em - 11px); width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(242,163,107,0.14); box-shadow: inset 0 0 0 1px rgba(242,163,107,0.28); }
+.points li::after { content: ""; position: absolute; left: 6px; top: calc(0.75em - 5px); width: 10px; height: 10px; background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 5.2l2.2 2.2L8.5 2.6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 5.2l2.2 2.2L8.5 2.6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
 @media (max-width: 860px) {
   .feature { grid-template-columns: 1fr; }
   .feature.flip .feature-copy { order: 0; }
