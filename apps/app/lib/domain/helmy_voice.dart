@@ -50,8 +50,13 @@ String toolLabel(String name) {
     final parts = name.split('__');
     if (parts.length >= 3) return '${service(parts[1])}: ${words(parts.sublist(2).join(' '))}';
   }
-  final dot = RegExp(r'^([A-Za-z0-9_ -]+)\.([A-Za-z0-9_-]+)$').firstMatch(name);
-  if (dot != null) return '${service(dot[1]!)}: ${words(dot[2]!)}';
+  final parts = name.split('.');
+  if (parts.length >= 2 && parts.every((p) => RegExp(r'^[A-Za-z0-9_ -]+$').hasMatch(p))) {
+    // A connection's apps server ("codex_apps.sites.create_site"): the app is the service.
+    final apps = RegExp(r'^(codex|claude)?[_ ]?apps$', caseSensitive: false).hasMatch(parts.first);
+    final rest = apps && parts.length >= 3 ? parts.sublist(1) : parts;
+    return '${service(rest.first)}: ${words(rest.sublist(1).join(' '))}';
+  }
   return name;
 }
 
