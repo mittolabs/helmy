@@ -291,12 +291,12 @@ enum PermissionDecision {
   blockedByHelmy,
 }
 
-/// Claude wants to use a tool and the CLI asked us. Also carries
-/// AskUserQuestion, which arrives the same way.
 /// A connection's tool that acts on one of the person's accounts (Codex's
 /// apps), as a [PermissionPrompt]'s tool name.
 const accountAction = 'AccountAction';
 
+/// Claude wants to use a tool and the CLI asked us. Also carries
+/// AskUserQuestion, which arrives the same way.
 class PermissionPrompt extends ChatItem {
   new({
     required this.requestId,
@@ -352,7 +352,11 @@ class PermissionPrompt extends ChatItem {
           suggestions: const [],
           toolUseId: json['toolUseId'] as String?,
         )
-        ..decision = PermissionDecision.values.byName(json['decision']! as String)
+        // A decision this build does not know (a newer Mac's, on a phone) was
+        // settled there: shown as over, never as waiting.
+        ..decision =
+            PermissionDecision.values.asNameMap()['${json['decision']}'] ??
+            PermissionDecision.cancelled
         ..why = json['why'] as String?;
 }
 

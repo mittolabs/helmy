@@ -176,8 +176,7 @@ class RemoteLink extends ChangeNotifier {
         final from = (m['from'] as num?)?.toInt() ?? 0;
         if (from <= c.items.length) c.items.removeRange(from, c.items.length);
         c.items.addAll([
-          for (final j in (m['items'] as List? ?? const []).whereType<Map>())
-            ChatItem.fromJson(j.cast()),
+          for (final j in (m['items'] as List? ?? const []).whereType<Map>()) _item(j.cast()),
         ]);
         c.busy = m['busy'] == true;
         c.heldUntil = DateTime.tryParse('${m['heldUntil'] ?? ''}');
@@ -227,6 +226,17 @@ class RemoteLink extends ChangeNotifier {
   );
 
   /// Follows [id]'s conversation as it goes.
+  /// One item of a conversation the Mac sent. One this build cannot read (the
+  /// Mac is newer) stands as a note in its place, so the rest still shows:
+  /// an unreadable item once left the whole chat loading for ever.
+  static ChatItem _item(Map<String, Object?> json) {
+    try {
+      return ChatItem.fromJson(json);
+    } on Object {
+      return Notice('A step this phone can’t show yet. Update Helmy on this phone to see it.');
+    }
+  }
+
   Future<void> open(String id) async {
     _open.add(id);
     await _send({'type': 'open', 'id': id});
