@@ -5,14 +5,16 @@ import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/ui/onboarding/view_models/onboarding_view_model.dart';
 import 'package:helmy/ui/onboarding/widgets/onboarding_screen.dart';
+
 import '../testing/fake_repositories.dart';
 
 class _PreviewModel extends OnboardingViewModel {
-  _PreviewModel() : super(
-    setup: ConnectionsSetup(CliLocator(), DesktopService()),
-    settings: FakeSettingsRepository(),
-    engines: EngineRegistry([]),
-  );
+  _PreviewModel()
+    : super(
+        setup: ConnectionsSetup(CliLocator(), DesktopService()),
+        settings: FakeSettingsRepository(),
+        engines: EngineRegistry([]),
+      );
 
   @override
   Future<void> check() async {
