@@ -1,0 +1,82 @@
+name: Report a bug
+description: Something in Helmy isn't working the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Before you paste anything, remove API keys, passwords, tokens and anything personal from it, such as names in folder paths.
+
+  - type: input
+    id: version
+    attributes:
+      label: Helmy version
+      description: In Helmy, open **Settings**, then **About**.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Phone app (iPhone)
+        - Phone app (Android)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in Helmy
+      options:
+        - Installing or opening Helmy
+        - Setup and connections
+        - Chats and threads
+        - Approvals
+        - The vault
+        - Design canvas
+        - Panels beside the chat (browser, terminal, files, changes, devices)
+        - Phone and pairing
+        - Settings
+        - helmy.ke or the docs
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you saw. A screenshot helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. Start a new chat in a folder.
+        2. Ask Helmy to ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: In **Settings**, open **Storage**, then **Show the logs**. Paste the lines from around the time it happened.
+      render: text

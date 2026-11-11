@@ -43,6 +43,10 @@ make test    # unit tests
 How the repository is laid out, and the rule everything in it follows, is in
 [CLAUDE.md](CLAUDE.md).
 
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. Read the [contributing guide](CONTRIBUTING.md). To report a security problem privately, see [SECURITY.md](SECURITY.md).
+
 ## License
 
 BSD 3-Clause. See [LICENSE](LICENSE).

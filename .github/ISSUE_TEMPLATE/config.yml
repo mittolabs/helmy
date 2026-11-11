@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/mittolabs/helmy/security/advisories/new
+    about: Privately, so it isn't public before it's fixed. Please don't open an issue for it.
+  - name: Read the docs
+    url: https://helmy.ke/docs/
+    about: How to install Helmy, connect it, and use each part of it.
