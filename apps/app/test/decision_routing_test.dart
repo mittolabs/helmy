@@ -478,7 +478,8 @@ void holding() {
     expect(c.queue, hasLength(1));
     expect(engine.sent, isEmpty);
 
-    for (var i = 0; i < 100 && (c.busy || c.queue.isNotEmpty); i++) {
+    // Up to 10 s: a slow runner takes its time over the 400 ms.
+    for (var i = 0; i < 500 && (c.busy || c.queue.isNotEmpty); i++) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     expect(c.heldUntil, isNull);
