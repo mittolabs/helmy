@@ -135,4 +135,23 @@ void main() {
     expect(p.isQuestion, isTrue);
     expect(p.questions.single['id'], 'drink');
   });
+
+  test("a search that finds nothing has not failed", () {
+    final items = <ChatItem>[];
+    Map<String, Object?> done(String id, String command, int exit) => note("item/completed", {
+      "item": {
+        "type": "commandExecution",
+        "id": id,
+        "command": command,
+        "status": "failed",
+        "aggregatedOutput": "",
+        "exitCode": exit,
+      },
+    });
+    CodexReducer(items)
+      ..apply(done("a", "/bin/zsh -lc \"rg --files -g 'AGENTS.md' .\"", 1))
+      ..apply(done("b", "/bin/zsh -lc 'npm run build'", 1));
+    expect((items[0] as ToolCall).isError, isFalse);
+    expect((items[1] as ToolCall).isError, isTrue);
+  });
 }

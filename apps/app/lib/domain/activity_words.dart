@@ -85,6 +85,42 @@ ActivityWords commandActivity(String command) {
       'checked the installation',
     );
   }
+  // Recording work comes before the look at it that often precedes it in the
+  // same command: "git diff && git add && git commit" committed something.
+  if (has(r'\bgit push\b')) {
+    return words(
+      'Push the changes',
+      'Pushing the changes',
+      'Pushed the changes',
+      'pushed the changes',
+    );
+  }
+  if (has(r'\bgit commit\b')) {
+    return words(
+      'Commit the changes',
+      'Committing the changes',
+      'Committed the changes',
+      'committed the changes',
+    );
+  }
+  if (has(r'\b(trash)\s')) {
+    return words(
+      'Move files to the Trash',
+      'Moving files to the Trash',
+      'Moved files to the Trash',
+      'moved files to the trash',
+    );
+  }
+  if (has(r'\brm\s')) {
+    return words('Remove files', 'Removing files', 'Removed files', 'removed files');
+  }
+  // Looking for particular files by name: "rg --files -g AGENTS.md", "find -name",
+  // "[ -f AGENTS.md ]".
+  if (has(r'\brg\s+--files\b') ||
+      has(r'\bfind\s[^;&|\n]*-i?name\b') ||
+      RegExp(r'(?:\[|\btest)\s+-[fe]\s').hasMatch(executableText.toString())) {
+    return words('Look for files', 'Looking for files', 'Looked for files', 'looked for files');
+  }
   if (has(r'\b(rg|grep|find)\s')) {
     return words(
       'Search the files',
@@ -232,6 +268,15 @@ List<String> namedFiles(String command) => {
       m[2]!.split('/').last,
 }.where((n) => n.isNotEmpty && !n.startsWith('.')).take(5).toList();
 
+/// Files a plain shell command names without quotes (rm a/b/notes.md), by
+/// name, each once.
+List<String> _bareFiles(String command) => {
+  for (final m in RegExp(
+    r'(?:^|\s)/?(?:[\w~.@+-]+/)*([\w@+-][\w.@+-]*?\.([A-Za-z0-9]{2,5}))(?=[\s;&|)]|$)',
+  ).allMatches(command))
+    if (_fileExtensions.contains(m[2]!.toLowerCase())) m[1]!,
+}.take(5).toList();
+
 const _fileExtensions = {
   'txt',
   'md',
@@ -341,6 +386,21 @@ String specificCommandLabel(String command, {required bool done, String? result}
   if (filesGroups[words.group] case (final doing, final did, final tail)) {
     final named = namedFiles(command);
     if (named.isNotEmpty && named.length <= 2) return '${done ? did : doing} ${join(named)}$tail';
+    // A plain command (rm, mv) names its files unquoted.
+    final bare = scriptActivity(command) == null ? _bareFiles(command) : const <String>[];
+    if (bare.isNotEmpty && bare.length <= 2) return '${done ? did : doing} ${join(bare)}$tail';
+  }
+  if (words.group == 'looked for files') {
+    // The names looked for, not patterns ("*menu*").
+    final names = {
+      for (final m in RegExp(r'''(?:-g|-i?name)\s+(['"]?)([^'"\s]+)\1''').allMatches(command))
+        if (!m[2]!.contains('*') && !m[2]!.startsWith('!')) m[2]!.split('/').last,
+      ...namedFiles(command),
+      ..._bareFiles(command),
+    }.toList();
+    if (names.isNotEmpty && names.length <= 3) {
+      return '${done ? 'Looked for' : 'Looking for'} ${join(names)}';
+    }
   }
   if (words.group == 'ran tests' && subjects.isNotEmpty) {
     final passed = done && (result ?? '').contains('All tests passed');

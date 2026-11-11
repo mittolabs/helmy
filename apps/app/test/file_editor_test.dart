@@ -84,9 +84,13 @@ void main() {
       tester.widget<EditableText>(find.byType(EditableText).last).controller.text,
       contains('edited'),
     );
+    // Until the save lands, however slow the machine: not a fixed wait.
     await tester.runAsync(() async {
       await tester.tap(find.text('Save'));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      for (var i = 0; i < 100 && vm.active!.hasUnsavedEdits; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+      }
     });
     await tester.pumpAndSettle();
     expect(vm.active!.hasUnsavedEdits, isFalse);
