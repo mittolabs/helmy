@@ -101,10 +101,10 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| Mac: Settings, Phone, the switch on, the code showing | In this tutorial, you'll pair your phone with Helmy. On your Mac, open Settings, then Phone, and switch on Reach Helmy from your phone. |
+| Mac: Settings, Phone, the switch on, the code showing | In this tutorial, you'll pair your phone with Helmy. On your computer, open Settings, then Phone, and switch on Reach Helmy from your phone. |
 | Phone: Helmy, Scan the code; the phone paired | Open Helmy on your phone, and scan the code. That's the whole setup. |
 | Phone: the chat list, live | Your chats are here now, live. Anything that needs you is at the top. |
 | Phone: opening the waiting chat, pressing Go ahead | Open it to answer, send a message, or stop a task, from wherever you are. |
-| Mac: the same chat carrying on | The work stays on your Mac. Your phone shows it, and tells it what to do. |
-| Phone: Your Mac | Need the Mac itself? You can see its screen, and use it, from your phone. |
+| Mac: the same chat carrying on | The work stays on your computer. Your phone shows it, and tells it what to do. |
+| Phone: Your Mac | On a Mac, you can even see its screen, and use it, from your phone. |
 | Settings, Phone, paired phones | Every paired phone is listed in Settings, where you can remove it. That's everything you need to get started with Helmy. |
