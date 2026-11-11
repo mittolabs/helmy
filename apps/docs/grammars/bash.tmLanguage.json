@@ -1,0 +1,13 @@
+{
+  "name": "Shell",
+  "scopeName": "source.shell",
+  "patterns": [
+    { "match": "#.*$", "name": "comment.line.number-sign.shell" },
+    { "match": "\"(?:[^\"\\\\]|\\\\.)*\"|'[^']*'", "name": "string.quoted.shell" },
+    { "match": "\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?", "name": "variable.other.shell" },
+    { "match": "^\\s*[A-Za-z_][A-Za-z0-9_]*(?==)", "name": "variable.other.assignment.shell" },
+    { "match": "(?<=^|[|;&]\\s*)[A-Za-z][\\w.-]*", "name": "entity.name.function.shell" },
+    { "match": "(?<=\\s)--?[A-Za-z][\\w-]*", "name": "constant.other.option.shell" },
+    { "match": "[|&;=]", "name": "keyword.operator.shell" }
+  ]
+}

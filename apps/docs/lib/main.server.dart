@@ -8,7 +8,10 @@ library;
 import 'package:jaspr/dom.dart' show Color;
 import 'package:jaspr/server.dart';
 
+import 'dart:io';
+
 import 'package:jaspr_content/components/callout.dart';
+import 'package:jaspr_content/components/code_block.dart';
 import 'package:jaspr_content/components/header.dart';
 import 'package:jaspr_content/components/image.dart';
 import 'package:jaspr_content/components/sidebar.dart';
@@ -45,6 +48,15 @@ void main() {
       components: [
         // The <Info> block and other callouts.
         Callout(),
+        // Colored code. Dart's grammar comes built in; JSON and shell are VS Code's
+        // (grammars/, MIT), read when the docs are built.
+        CodeBlock(
+          defaultLanguage: 'json',
+          grammars: {
+            for (final name in ['json', 'bash'])
+              name: File('grammars/$name.tmLanguage.json').readAsStringSync(),
+          },
+        ),
         // Adds zooming and caption support to images.
         Image(zoom: true),
       ],
@@ -88,6 +100,9 @@ void main() {
         background: ThemeColor(ThemeColors.stone.$50, dark: Color('#000000')),
         colors: [
           ContentColors.quoteBorders.apply(ThemeColors.orange.$400),
+          // Code sits on a dark panel in both themes: its colors are a dark theme's.
+          ContentColors.preBg.apply(ThemeColor(Color('#16130f'), dark: Color('#141210'))),
+          ContentColors.preCode.apply(ThemeColor(Color('#e7e2dc'), dark: Color('#e7e2dc'))),
         ],
       ),
     ),
