@@ -57,6 +57,7 @@ import 'changes_panel.dart';
 import 'media.dart';
 import 'design_panel.dart';
 import 'files_panel.dart';
+import 'file_editor.dart';
 import 'window_picker.dart';
 import '../../../data/services/window_snapshots.dart';
 import 'side_chat_panel.dart';
@@ -248,7 +249,6 @@ class _ChatScreenState extends State<ChatScreen> {
     vm.send.execute(prompt);
   }
 
-  /// Puts [s] in place of the word being typed.
   /// The skills list, in the message box: a / before what is there, and the
   /// list it brings up.
   void _pickSkill() {
@@ -261,6 +261,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _composer.requestFocus();
   }
 
+  /// Puts [s] in place of the word being typed.
   void _take(_Suggestion s) {
     final text = _text.text;
     final caret = _text.selection.baseOffset < 0 ? text.length : _text.selection.baseOffset;
@@ -861,7 +862,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ? 'Describe the change to this image'
                                 : widget.bar != null
                                 ? 'Ask on the side'
-                                : 'Type / for commands, @ for files',
+                                : 'Ask Helmy anything…',
                             listening: _dictating,
                             status: _dictating
                                 ? 'Listening. Pause when you are done, or press stop.'

@@ -216,6 +216,9 @@ String panelTabLabel(ChatViewModel vm, PanelTab tab) => switch (tab.kind) {
     final u? when u.scheme == 'file' => u.pathSegments.lastOrNull ?? 'Page',
     _ => 'New page',
   },
+  .files when tab.codeDraft != null => '• Code draft',
+  .files when tab.filePath != null =>
+    '${tab.hasUnsavedEdits ? '• ' : ''}${tab.filePath!.split('/').last}',
   .changes =>
     vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
   .device => vm.device?.device?.name ?? 'Device',
@@ -246,7 +249,10 @@ Widget panelTabBody(ChatViewModel vm, PanelTab tab, {required bool active}) => K
       onRunAgain: tab.action == null ? null : () => vm.run(tab.action!),
     ),
     .device => DevicePanel(key: vm.deviceKey, vm: vm),
-    .files => FilesPanel(vm: vm, active: active),
+    .files =>
+      tab.filePath != null || tab.codeDraft != null
+          ? FileEditor(vm: vm, tab: tab)
+          : FilesPanel(vm: vm, tab: tab, active: active),
     .side => SideChatPanel(vm: vm, tab: tab),
     .design => DesignPanel(vm: vm),
   },

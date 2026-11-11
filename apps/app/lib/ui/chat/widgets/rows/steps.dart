@@ -631,6 +631,25 @@ class _StepCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
+      if ((call.input['file_path'] ?? call.input['notebook_path'] ?? call.input['path'])
+          case final String path when path.isNotEmpty)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.filePen,
+          label: 'Open file in editor',
+          onPressed: () => vm.editFile(path),
+        ),
+      if (call.input['command'] case final String command when command.isNotEmpty)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.squareTerminal,
+          label: 'Edit command in side panel',
+          onPressed: () => vm.editCode(command, 'bash'),
+        ),
+      if (call.result case final String result when result.isNotEmpty)
+        _IconAction(
+          icon: AshlarIconsRoundedStroke.fileCode,
+          label: 'Open output in editor',
+          onPressed: () => vm.editCode(stepResult(result), null),
+        ),
       if (call.input.isNotEmpty)
         _IconAction(
           icon: AshlarIconsRoundedStroke.copy,

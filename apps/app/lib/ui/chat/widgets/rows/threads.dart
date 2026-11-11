@@ -21,7 +21,12 @@ List<ChatRow> threadRows(ChatViewModel vm) {
       ),
       if (vm.unfolded.contains(t.id))
         for (final (i, item) in vm.itemsOf(t.id).indexed)
-          if (_pastRow(item) case final row?) (id: 'tp${t.id}-$i', anchor: false, child: row),
+          if (_pastRow(item, vm) case final row?)
+            (
+              id: 'tp${t.id}-$i',
+              anchor: false,
+              child: MarkdownCodeAction(open: vm.editCode, child: row),
+            ),
       (id: 'tg${t.id}', anchor: false, child: _ThreadGist(vm: vm, thread: t)),
     ],
     (id: 'ts${s.id}', anchor: false, child: _ThreadSeparator(title: s.title, when: s.createdAt)),
@@ -29,13 +34,14 @@ List<ChatRow> threadRows(ChatViewModel vm) {
 }
 
 /// One part of an earlier thread, to read: what was said and answered.
-Widget? _pastRow(ChatItem item) => switch (item) {
+Widget? _pastRow(ChatItem item, ChatViewModel vm) => switch (item) {
   UserMessage(:final text) when text.trim().isNotEmpty => Message(
     align: .end,
     child: Bubble(variant: .muted, child: Text(text)),
   ),
   AssistantText(:final text) when withoutFolderLines(text).trim().isNotEmpty => Builder(
-    builder: (context) => Markdown(withoutFolderLines(text)),
+    builder: (context) =>
+        Markdown(withoutFolderLines(text), onLink: (url) => openAnswerLink(context, url, vm)),
   ),
   _ => null,
 };

@@ -17,6 +17,25 @@ String drawn(WidgetTester tester) =>
     tester.widgetList<RichText>(find.byType(RichText)).map((r) => r.text.toPlainText()).join('\n');
 
 void main() {
+  testWidgets('fenced code offers its exact text and language to the editor', (tester) async {
+    String? code;
+    String? language;
+    await tester.pumpWidget(
+      app(
+        MarkdownCodeAction(
+          open: (text, lang) {
+            code = text;
+            language = lang;
+          },
+          child: const Markdown('```dart\nprint("hello");\n```'),
+        ),
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel('Edit code in side panel'));
+    expect(code, 'print("hello");');
+    expect(language, 'dart');
+  });
+
   group('parseMarkdown', () {
     test('reads the blocks people and models write', () {
       final blocks = parseMarkdown("""

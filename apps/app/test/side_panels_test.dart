@@ -95,6 +95,40 @@ void main() {
     expect(vm.tabs, isEmpty);
     expect(vm.panelOpen, isFalse);
 
+    // Code opens in a reusable tab; unsaved work must be saved or discarded.
+    await vm.editFile('source.dart');
+    final code = vm.active!;
+    expect(code.filePath, '${root.path}/source.dart');
+    await vm.editFile('source.dart');
+    expect(vm.active, same(code));
+    expect(vm.tabs, hasLength(1));
+    code.hasUnsavedEdits = true;
+    vm.closeTab(code);
+    expect(vm.tabs, contains(code));
+    code.hasUnsavedEdits = false;
+    vm.closeTab(code);
+    expect(vm.tabs, isEmpty);
+
+    // Local code links, including line anchors, stay inside the app.
+    await vm.open('file://${root.path}/linked.dart#L12');
+    expect(vm.active!.filePath, '${root.path}/linked.dart');
+    vm.closeTab(vm.active!);
+    await vm.open('linked.dart:12');
+    expect(vm.active!.filePath, '${root.path}/linked.dart');
+    vm.closeTab(vm.active!);
+    vm.editCode('print("draft");', 'dart');
+    final draft = vm.active!;
+    expect(draft.codeDraft, 'print("draft");');
+    expect(draft.filePath, isNull);
+    vm.closeTab(draft);
+    expect(vm.tabs, contains(draft));
+    vm.show(SidePanel.files);
+    expect(vm.active!.codeDraft, isNull, reason: 'Files still opens its browser');
+    for (final tab in [...vm.tabs]) {
+      tab.hasUnsavedEdits = false;
+      vm.closeTab(tab);
+    }
+
     // Dragged widths are kept within reason.
     vm.resize(2000);
     expect(vm.panelWidth, 900);

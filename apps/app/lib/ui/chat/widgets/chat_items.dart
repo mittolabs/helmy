@@ -245,7 +245,14 @@ List<ChatRow> buildRows(ChatViewModel vm) {
       ));
     }
   }
-  return out;
+  return [
+    for (final row in out)
+      (
+        id: row.id,
+        anchor: row.anchor,
+        child: MarkdownCodeAction(open: vm.editCode, child: row.child),
+      ),
+  ];
 }
 
 /// The answer under the mouse, by the message it answers.

@@ -40,6 +40,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('attached code offers the built-in editor without opening another app', (
+    tester,
+  ) async {
+    final source = File('${root.path}/sample.dart')..writeAsStringSync('void main() {}');
+    await show(tester, source.path);
+    await tester.tap(find.bySemanticsLabel('Edit in Helmy'));
+    await tester.pumpAndSettle();
+    expect(actions.edited, [source.path]);
+    expect(actions.previewed, isEmpty);
+  });
+
   testWidgets('markdown is read as a document, and a picture from the web is not loaded', (
     tester,
   ) async {
@@ -88,7 +99,12 @@ void main() {
   });
 }
 
-class _Actions implements MediaActions {
+class _Actions implements MediaActions, CodeFileActions {
+  final edited = <String>[];
+  @override
+  Future<void> editFile(String path) async => edited.add(path);
+  @override
+  void editCode(String code, String? language) {}
   final previewed = <String>[];
 
   @override

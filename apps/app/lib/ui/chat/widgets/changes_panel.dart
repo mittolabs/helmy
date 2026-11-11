@@ -40,6 +40,7 @@ class _ChangesPanelState extends State<ChangesPanel> {
   bool _loading = true;
   bool _wasBusy = false;
   int? _scope;
+  int _filesRevision = 0;
 
   ChatViewModel get vm => widget.vm;
 
@@ -59,7 +60,8 @@ class _ChangesPanelState extends State<ChangesPanel> {
 
   /// Reads again when a turn ends, since that is when files will have changed.
   void _onVm() {
-    if (_wasBusy && !vm.busy || _scope != vm.changesScope) {
+    if (_wasBusy && !vm.busy || _scope != vm.changesScope || _filesRevision != vm.filesRevision) {
+      _filesRevision = vm.filesRevision;
       _scope = vm.changesScope;
       _load();
     }
@@ -163,7 +165,12 @@ class _ChangesPanelState extends State<ChangesPanel> {
                         crossAxisAlignment: .stretch,
                         children: [
                           if (git)
-                            for (final ch in _changes!) _FileRow(change: ch, vm: vm)
+                            for (final ch in _changes!)
+                              _FileRow(
+                                key: ValueKey('${vm.filesRevision}:${ch.path}'),
+                                change: ch,
+                                vm: vm,
+                              )
                           else
                             for (final r in reported)
                               _FileRow(
@@ -217,7 +224,7 @@ String _short(String text) {
 
 /// A changed file: its name, how much changed, and its diff when opened.
 class _FileRow extends StatefulWidget {
-  const new({required this.change, required this.vm, this.diff});
+  const new({super.key, required this.change, required this.vm, this.diff});
   final FileChange change;
   final ChatViewModel vm;
 
@@ -295,6 +302,17 @@ class _FileRowState extends State<_FileRow> {
                   overflow: .ellipsis,
                 ),
               ),
+              if (ch.kind != 'removed')
+                Tooltip(
+                  message: 'Edit in Helmy',
+                  child: Button(
+                    variant: .ghost,
+                    size: .iconXs,
+                    semanticLabel: 'Edit ${ch.path} in Helmy',
+                    onPressed: () => widget.vm.editFile(ch.path, fromChanges: true),
+                    child: const AshlarIcon(AshlarIconsRoundedStroke.fileCode, size: 14),
+                  ),
+                ),
               // Opened in the usual editor, at the file: where code's editor
               // belongs, rather than in the header.
               if (widget.vm.editor case final e? when state.hovered || open)

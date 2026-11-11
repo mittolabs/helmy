@@ -29,3 +29,9 @@ abstract interface class MediaActions implements FileActions {
   /// [count] small frames along the video at [path], for its bar.
   Future<List<Frame>> frames(String path, {int count, int width});
 }
+
+/// File previews can offer the app's built-in editor when available.
+abstract interface class CodeFileActions {
+  Future<void> editFile(String path);
+  void editCode(String code, String? language);
+}

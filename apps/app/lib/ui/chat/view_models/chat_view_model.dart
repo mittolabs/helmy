@@ -23,6 +23,7 @@ import '../../../data/services/snapshots.dart';
 import '../../../utils/diffs.dart';
 import '../../../utils/format.dart';
 import '../../../utils/project_files.dart';
+import '../../../utils/file_tree.dart' show languageOf;
 import '../../../utils/result.dart';
 import '../../../utils/transcript_markdown.dart';
 import '../../../utils/platform.dart';
@@ -80,6 +81,11 @@ class PanelTab {
   final String id;
   final SidePanel kind;
 
+  String? filePath;
+  String? codeDraft;
+  String? codeLanguage;
+  bool hasUnsavedEdits = false;
+
   /// A browser tab's address.
   String? url;
 
@@ -106,7 +112,7 @@ class PanelTab {
   bool windowed = false;
 }
 
-class ChatViewModel extends ChangeNotifier implements MediaActions {
+class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActions {
   final _activitySummaries = <String, Future<ActivitySummary?>>{};
   final _activityAttempts = <String, DateTime>{};
   final _activityPending = <String>{};
@@ -639,7 +645,20 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   final Fixes? _fixes;
 
   @override
-  Future<void> open(String where) async => _desktop?.open(where);
+  Future<void> open(String where) async {
+    final clean = where.replaceFirst(RegExp(r'(?::\d+(?::\d+)?|#L\d+(?:-L?\d+)?)$'), '');
+    final uri = Uri.tryParse(clean);
+    final local = uri?.scheme == 'file'
+        ? uri!.toFilePath()
+        : (uri?.scheme.isEmpty == true ? uri!.path : clean);
+    final path = local.replaceFirst(RegExp(r'(?::\d+(?::\d+)?|#L\d+(?:-L?\d+)?)$'), '');
+    final isLocal = uri == null || uri.scheme.isEmpty || uri.scheme == 'file';
+    if (isLocal && (languageOf(path.split('/').last) != null || path.endsWith('.txt'))) {
+      await editFile(path);
+      return;
+    }
+    await _desktop?.open(where);
+  }
 
   @override
   Future<void> reveal(String path) async => _desktop?.reveal(path);
@@ -758,8 +777,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// A tab of [kind] shown: the open one, or a new one.
   PanelTab show(SidePanel kind) {
     final tab =
-        (active?.kind == kind ? active : null) ??
-        tabs.where((t) => t.kind == kind).firstOrNull ??
+        (active?.kind == kind && active?.filePath == null && active?.codeDraft == null
+            ? active
+            : null) ??
+        tabs
+            .where((t) => t.kind == kind && t.filePath == null && t.codeDraft == null)
+            .firstOrNull ??
         add(kind, focus: false);
     focus(tab);
     return tab;
@@ -774,8 +797,59 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
     return tab;
   }
 
+  /// A manual file save refreshes the folder and its change previews.
+  int filesRevision = 0;
+  void fileSaved() {
+    filesRevision++;
+    _files = null;
+    notifyListeners();
+    unawaited(countChanges());
+  }
+
+  /// Code quoted in the chat opens as a draft, never as an inferred file edit.
+  @override
+  void editCode(String code, String? language) {
+    final tab = add(.files, focus: false)
+      ..codeDraft = code
+      ..codeLanguage = language
+      ..hasUnsavedEdits = true;
+    focus(tab);
+  }
+
+  /// Opens code inside Helmy, reusing its tab when already open.
+  @override
+  Future<void> editFile(String path, {bool fromChanges = false}) async {
+    var root = session?.cwd ?? homeDir;
+    if (fromChanges && !path.startsWith('/')) {
+      try {
+        final result = await Process.run('git', [
+          'rev-parse',
+          '--show-toplevel',
+        ], workingDirectory: root);
+        if (result.exitCode == 0) {
+          final repoRoot = '${result.stdout}'.trim();
+          if (await File('$repoRoot/$path').exists()) root = repoRoot;
+        }
+      } on Object {
+        // Outside git, reported paths are relative to the session folder.
+      }
+    }
+    final full = File(path.startsWith('/') ? path : '$root/$path').absolute.path;
+    final existing = tabs.where((t) => t.filePath == full).firstOrNull;
+    if (existing != null) {
+      focus(existing);
+      return;
+    }
+    final tab = add(.files, focus: false)..filePath = full;
+    focus(tab);
+  }
+
   /// Closes [tab]; the one beside it shows, and with none left the panel hides.
   void closeTab(PanelTab tab) {
+    if (tab.hasUnsavedEdits) {
+      focus(tab);
+      return;
+    }
     // A side chat nothing was asked in goes with its tab.
     final side = tab.sideId;
     if (side != null && sideUnused(side)) {

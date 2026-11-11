@@ -359,7 +359,15 @@ class _FilePopup extends StatelessWidget {
                           anchors: state.contextMenuAnchors,
                           items: state.contextMenuButtonItems,
                         ),
-                        child: body,
+                        child: actions is CodeFileActions
+                            ? MarkdownCodeAction(
+                                open: (code, language) {
+                                  Navigator.pop(context);
+                                  (actions as CodeFileActions).editCode(code, language);
+                                },
+                                child: body,
+                              )
+                            : body,
                       ),
                     ),
                     Container(
@@ -387,6 +395,12 @@ class _FilePopup extends StatelessWidget {
                               AshlarIconsRoundedStroke.copy,
                               () => actions.copyImage(path),
                             ),
+                          if (actions case final CodeFileActions code
+                              when _language != null || text != null)
+                            action('Edit in Helmy', AshlarIconsRoundedStroke.filePen, () {
+                              Navigator.pop(context);
+                              code.editFile(path);
+                            }),
                           if (editors case final e?
                               when e.usual != null && (_language != null || text != null))
                             _EditorButton(path: path, choice: e),

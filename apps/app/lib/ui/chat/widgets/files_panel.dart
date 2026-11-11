@@ -16,21 +16,25 @@ import '../../core/ashlar/selection.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
+import '../../core/ashlar/toast.dart';
 import '../../core/code_highlight.dart';
 import '../../core/markdown_preview.dart';
+import '../../core/ashlar/markdown.dart' show MarkdownCodeAction;
 import '../view_models/chat_view_model.dart';
 import 'chat_items.dart';
 import 'project_menu.dart';
 import 'step_input.dart';
+import 'file_editor.dart';
 
 /// The session's folder: its files as a tree (what git tracks and does not
 /// ignore), what this session changed marked in it, and a file read beside
 /// it, colored as code, Markdown as it reads, pictures as pictures. Wide,
 /// the tree and the file side by side; narrow, one then the other.
 class FilesPanel extends StatefulWidget {
-  const FilesPanel({super.key, required this.vm, this.active = true});
+  const FilesPanel({super.key, required this.vm, this.active = true, this.tab});
   final ChatViewModel vm;
   final bool active;
+  final PanelTab? tab;
 
   @override
   State<FilesPanel> createState() => _FilesPanelState();
@@ -59,7 +63,10 @@ class _FilesPanelState extends State<FilesPanel> {
   String? _selected;
   _Content? _content;
   bool _asCode = false;
+  bool _editing = false;
+  PanelTab? _editorTab;
   bool _wasBusy = false;
+  int _filesRevision = 0;
 
   String get _cwd => widget.vm.session?.cwd ?? homeDir;
 
@@ -81,7 +88,10 @@ class _FilesPanelState extends State<FilesPanel> {
   /// A turn ended: what it changed shows.
   void _onVm() {
     final busy = widget.vm.busy;
-    if (_wasBusy && !busy) unawaited(_load());
+    if (_wasBusy && !busy || _filesRevision != widget.vm.filesRevision) {
+      _filesRevision = widget.vm.filesRevision;
+      unawaited(_load());
+    }
     _wasBusy = busy;
   }
 
@@ -118,7 +128,7 @@ class _FilesPanelState extends State<FilesPanel> {
     } on Object {
       content = _Unreadable("This file couldn't be read.");
     }
-    if (!mounted) return;
+    if (!mounted || _selected != path) return;
     setState(() => _content = content);
   }
 
@@ -149,13 +159,22 @@ class _FilesPanelState extends State<FilesPanel> {
   }
 
   void _choose(String path) {
+    if (_selected == path || !_canLeave()) return;
     setState(() {
       _selected = path;
       _content = null;
       _asCode = false;
+      _editing = languageOf(path) != 'markdown';
+      _editorTab = PanelTab(SidePanel.files)..filePath = '$_cwd/$path';
       _open.addAll(foldersOf(path));
     });
     unawaited(_read(path));
+  }
+
+  bool _canLeave() {
+    if (_editorTab?.hasUnsavedEdits != true) return true;
+    showToast(context, title: 'Save or discard edits before opening another file.');
+    return false;
   }
 
   @override
@@ -328,7 +347,9 @@ class _FilesPanelState extends State<FilesPanel> {
                 tool(
                   'Back to the files',
                   const AshlarIcon(AshlarIconsRoundedStroke.arrowLeft, size: 14),
-                  () => setState(() => _selected = null),
+                  () {
+                    if (_canLeave()) setState(() => _selected = null);
+                  },
                 ),
               const SizedBox(width: 4),
               Expanded(
@@ -339,6 +360,17 @@ class _FilesPanelState extends State<FilesPanel> {
                   style: t.text.xs.copyWith(color: c.mutedForeground),
                 ),
               ),
+              if (content is _Text)
+                tool(
+                  _editing ? 'View file' : 'Edit file',
+                  AshlarIcon(
+                    _editing ? AshlarIconsRoundedStroke.fileText : AshlarIconsRoundedStroke.filePen,
+                    size: 14,
+                  ),
+                  () {
+                    if (_canLeave()) setState(() => _editing = !_editing);
+                  },
+                ),
               if (markdown && content is _Text)
                 tool(
                   _asCode ? 'Show as it reads' : 'Show its source',
@@ -371,6 +403,15 @@ class _FilesPanelState extends State<FilesPanel> {
         Expanded(
           child: switch (content) {
             null => const Center(child: Spinner()),
+            _Text() when _editing => FileEditor(
+              key: ValueKey(full),
+              vm: vm,
+              tab: _editorTab!,
+              showPath: false,
+              onDirtyChanged: (dirty) {
+                widget.tab?.hasUnsavedEdits = dirty;
+              },
+            ),
             _Picture() => Padding(
               padding: const .all(16),
               child: Image.file(File(full), fit: .contain),
@@ -392,7 +433,10 @@ class _FilesPanelState extends State<FilesPanel> {
             ),
             _Text(:final text) when markdown && !_asCode => ScrollArea(
               padding: const .fromLTRB(20, 16, 20, 24),
-              child: _selectable(context, MarkdownPreview(text)),
+              child: _selectable(
+                context,
+                MarkdownCodeAction(open: vm.editCode, child: MarkdownPreview(text)),
+              ),
             ),
             _Text(:final text) => _Code(text: text, language: languageOf(path)),
           },

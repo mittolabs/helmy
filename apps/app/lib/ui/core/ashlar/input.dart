@@ -50,6 +50,11 @@ class Input extends StatefulWidget {
     this.minLines,
     this.keyboardType,
     this.textInputAction,
+    this.style,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
+    this.smartDashesType,
+    this.smartQuotesType,
     this.autofillHints,
     this.inputFormatters,
     this.onChanged,
@@ -112,6 +117,13 @@ class Input extends StatefulWidget {
 
   /// What the platform may fill in here from saved details: an email, a password.
   final Iterable<String>? autofillHints;
+
+  /// Optional typography and typing behavior for specialized fields such as code.
+  final TextStyle? style;
+  final bool autocorrect;
+  final bool enableSuggestions;
+  final SmartDashesType? smartDashesType;
+  final SmartQuotesType? smartQuotesType;
 
   /// Rules for what can be typed, such as digits only.
   final List<TextInputFormatter>? inputFormatters;
@@ -191,7 +203,7 @@ class _InputState extends State<Input> implements TextSelectionGestureDetectorBu
     final c = t.colors;
     final focused = _focus.hasFocus;
     final large = widget.size == InputSize.xl;
-    final style = (large ? t.text.base : t.text.sm).copyWith(color: c.foreground);
+    final style = widget.style ?? (large ? t.text.base : t.text.sm).copyWith(color: c.foreground);
     final multiline = widget.maxLines > 1;
     final editable = EditableText(
       key: editableTextKey,
@@ -216,6 +228,10 @@ class _InputState extends State<Input> implements TextSelectionGestureDetectorBu
       keyboardType:
           widget.keyboardType ?? (multiline ? TextInputType.multiline : TextInputType.text),
       textInputAction: widget.textInputAction,
+      autocorrect: widget.autocorrect,
+      enableSuggestions: widget.enableSuggestions,
+      smartDashesType: widget.smartDashesType,
+      smartQuotesType: widget.smartQuotesType,
       autofillHints: widget.autofillHints,
       inputFormatters: widget.inputFormatters,
       onChanged: widget.onChanged,

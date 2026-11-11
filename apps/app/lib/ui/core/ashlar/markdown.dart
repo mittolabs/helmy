@@ -826,6 +826,26 @@ class _CodeBlockState extends State<_CodeBlock> {
                     style: t.text.xs.copyWith(color: c.mutedForeground),
                   ),
                 ),
+                if (MarkdownCodeAction.of(context) case final open?)
+                  Pressable(
+                    semanticLabel: 'Edit code in side panel',
+                    onPressed: () => open(widget.code, widget.language),
+                    builder: (context, state) => Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: state.hovered ? c.accent : null,
+                        borderRadius: BorderRadius.circular(t.radiusSm),
+                        border: Border.all(
+                          color: state.focused ? c.ring : c.ring.withValues(alpha: 0),
+                        ),
+                      ),
+                      child: AshlarIcon(
+                        AshlarIconsRoundedStroke.filePen,
+                        size: 14,
+                        color: c.mutedForeground,
+                      ),
+                    ),
+                  ),
                 Pressable(
                   onPressed: _copy,
                   semanticLabel: _copied ? 'Copied' : 'Copy the code',
@@ -992,4 +1012,14 @@ class MarkdownCodeWrap extends InheritedWidget {
 
   @override
   bool updateShouldNotify(MarkdownCodeWrap old) => old.wrap != wrap;
+}
+
+/// An optional action for fenced code, supplied by the screen that hosts it.
+class MarkdownCodeAction extends InheritedWidget {
+  const MarkdownCodeAction({super.key, required this.open, required super.child});
+  final void Function(String code, String? language) open;
+  static void Function(String, String?)? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MarkdownCodeAction>()?.open;
+  @override
+  bool updateShouldNotify(MarkdownCodeAction old) => old.open != open;
 }
