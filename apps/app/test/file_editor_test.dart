@@ -155,8 +155,9 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      // Until the save lands, not a fixed wait: a slow CI runner missed 100 ms.
-      for (var i = 0; i < 50 && !(await file.readAsString()).contains('world'); i++) {
+      // Until the save has finished, not a fixed wait: a slow CI runner missed
+      // 100 ms, and the file can hold the text before the save is done.
+      for (var i = 0; i < 50 && vm.active!.hasUnsavedEdits; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
     });

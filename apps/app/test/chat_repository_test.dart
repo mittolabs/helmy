@@ -30,6 +30,9 @@ void main() {
   });
   tearDown(() async {
     chats.dispose();
+    // Saves still on their way land first: deleting under one failed on a CI
+    // runner with "Directory not empty".
+    await storage.flush();
     await root.delete(recursive: true);
   });
 

@@ -297,7 +297,7 @@ class _FileEditorState extends State<FileEditor> {
               border: Border(top: BorderSide(color: t.colors.border)),
             ),
             child: Text(
-              '${_doc.dirty ? 'Unsaved edits — save or discard to close' : (_doc.loaded ? 'Saved' : 'Loading…')} · Ln $line, Col $column · ${widget.tab.codeLanguage ?? languageOf(_doc.path) ?? 'Plain text'}',
+              '${_doc.dirty ? 'Unsaved edits: save or discard to close' : (_doc.loaded ? 'Saved' : 'Loading…')} · Ln $line, Col $column · ${widget.tab.codeLanguage ?? languageOf(_doc.path) ?? 'Plain text'}',
               style: t.text.xs.copyWith(color: t.colors.mutedForeground),
             ),
           ),

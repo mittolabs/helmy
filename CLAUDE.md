@@ -89,3 +89,9 @@ Only create a folder the product actually has.
 Conventional Commits, per `docs/engineering/commits.md`; the hook in
 `.githooks/` refuses a malformed subject. No co-author or "generated with"
 lines.
+
+`main` is protected (a ruleset, since 2026-11-11): no pushing to it, no force
+push, no deleting it. Every change goes through a pull request, and merges once
+the app check (`test`) passes. Work on a branch, `gh pr create`, and merge
+when it is green. Rewriting history (as when the repository went public) means
+lifting the ruleset for that moment, on purpose.
