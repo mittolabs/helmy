@@ -901,7 +901,10 @@ class _FindThemeState extends State<_FindTheme> {
               ),
             if (_error case final e?) Text(e, style: muted.copyWith(color: t.colors.destructive)),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
+              // As tall as half the window allows: a fixed box was cramped on a big screen.
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.sizeOf(context).height * .5).clamp(240.0, 480.0),
+              ),
               child: ScrollArea(
                 child: Column(
                   crossAxisAlignment: .stretch,
@@ -1055,7 +1058,10 @@ class _EditThemeState extends State<_EditTheme> {
               ],
             ),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 340),
+              // As tall as half the window allows: a fixed box was cramped on a big screen.
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.sizeOf(context).height * .5).clamp(240.0, 480.0),
+              ),
               child: ScrollArea(
                 child: Column(
                   spacing: 6,

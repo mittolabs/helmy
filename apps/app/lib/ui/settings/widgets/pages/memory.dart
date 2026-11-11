@@ -1,53 +1,13 @@
 part of '../settings_screen.dart';
 
-/// What Helmy has learned, and its connections' memory files: two views on
-/// tabs, each filling the page and scrolling once. Stacked, the lessons sat in a
-/// short box of their own that cut a line in half, above a second scroll.
-class _Memory extends StatefulWidget {
+/// Each connection's memory files: its instructions and notes, read and changed
+/// here. What Helmy itself learned is a page of its own (_Learned).
+class _Memory extends StatelessWidget {
   const new({required this.vm});
   final SettingsViewModel vm;
 
   @override
-  State<_Memory> createState() => _MemoryState();
-}
-
-class _MemoryState extends State<_Memory> {
-  SettingsViewModel get vm => widget.vm;
-  int _tab = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final LessonRepository lessons;
-    try {
-      lessons = context.watch<LessonRepository>();
-    } on ProviderNotFoundException {
-      return _files(context);
-    }
-    if (lessons.all.isEmpty) return _files(context);
-    return Column(
-      crossAxisAlignment: .stretch,
-      children: [
-        Padding(
-          padding: const .fromLTRB(8, 0, 32, 12),
-          // The row chooses; the view below fills the height, which Tabs' own
-          // panel, sized to its content, could not give a scrolling list.
-          child: Tabs(
-            variant: .line,
-            index: _tab,
-            onChanged: (i) => setState(() => _tab = i),
-            tabs: [
-              TabItem(
-                label: Text('Learned (${lessons.all.length})'),
-                content: const SizedBox.shrink(),
-              ),
-              const TabItem(label: Text('Files'), content: SizedBox.shrink()),
-            ],
-          ),
-        ),
-        Expanded(child: _tab == 0 ? _Lessons(lessons: lessons) : _files(context)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => _files(context);
 
   Widget _files(BuildContext context) {
     final t = AshlarTheme.of(context);
@@ -348,48 +308,49 @@ class _MemoryEditorState extends State<_MemoryEditor> {
 
 /// What Helmy has learned working with the person: each lesson, where it
 /// holds, and a way to drop it.
-class _Lessons extends StatelessWidget {
-  const new({required this.lessons});
-  final LessonRepository lessons;
+class _Learned extends StatelessWidget {
+  const _Learned();
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    return ScrollArea(
-      child: Padding(
-        padding: const .fromLTRB(8, 0, 32, 24),
-        child: Column(
-          crossAxisAlignment: .stretch,
-          children: [
-            Padding(
-              padding: const .only(bottom: 8),
-              child: Text(
-                'What Helmy has learned working with you. Forget anything that no longer holds.',
-                style: t.text.sm.copyWith(color: c.mutedForeground),
-              ),
-            ),
-            for (final l in lessons.all.reversed)
-              _Row(
-                title: l.text,
-                description: [
-                  l.scope == everywhere ? 'Everywhere' : 'In ${tildePath(l.scope)}',
-                  switch (l.kind) {
-                    'correction' => 'from a correction',
-                    'worked' => 'from what worked',
-                    _ => 'from a habit',
-                  },
-                ].join(', '),
-                control: Button(
-                  variant: .ghost,
-                  size: .sm,
-                  onPressed: () => unawaited(lessons.remove(l.id)),
-                  child: Text('Forget', style: TextStyle(color: c.foreground)),
-                ),
-              ),
-          ],
+    final LessonRepository lessons;
+    try {
+      lessons = context.watch<LessonRepository>();
+    } on ProviderNotFoundException {
+      return const SizedBox.shrink();
+    }
+    return _Page(
+      children: [
+        const _Heading('What Helmy has learned', first: true),
+        Text(
+          lessons.all.isEmpty
+              ? 'Nothing yet. When you correct Helmy, or a way of working pays off, it keeps the '
+                    'lesson here for next time.'
+              : 'Lessons from working with you, used in every chat where they hold. Forget '
+                    'anything that no longer holds.',
+          style: t.text.sm.copyWith(color: c.mutedForeground, height: 1.5),
         ),
-      ),
+        for (final l in lessons.all.reversed)
+          _Row(
+            title: l.text,
+            description: [
+              l.scope == everywhere ? 'Everywhere' : 'In ${tildePath(l.scope)}',
+              switch (l.kind) {
+                'correction' => 'from a correction',
+                'worked' => 'from what worked',
+                _ => 'from a habit',
+              },
+            ].join(', '),
+            control: Button(
+              variant: .ghost,
+              size: .sm,
+              onPressed: () => unawaited(lessons.remove(l.id)),
+              child: Text('Forget', style: TextStyle(color: c.foreground)),
+            ),
+          ),
+      ],
     );
   }
 }

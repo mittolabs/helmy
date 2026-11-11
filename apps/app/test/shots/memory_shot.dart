@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../testing/fake_repositories.dart';
 
-/// Settings, Memory, with more lessons than fit: for `ashlar shot`.
+/// Settings, What Helmy learned, with more lessons than fit: for `ashlar shot`.
 class MemoryShot extends StatelessWidget {
   const MemoryShot({super.key});
 
@@ -54,7 +54,7 @@ class MemoryShot extends StatelessWidget {
       engines: engines,
       meter: UsageMeter(),
       memory: MemoryRepositoryEngines(engines),
-    )..section = .memory;
+    )..section = .learned;
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<SettingsRepository>.value(value: settings),

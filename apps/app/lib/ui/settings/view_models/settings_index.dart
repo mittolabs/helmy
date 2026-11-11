@@ -148,15 +148,17 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'browser profile sign in cookies accounts work personal',
   ),
   (title: 'Chromium browser', section: .preview, keywords: 'chrome edge brave arc browser'),
-  // Connections and usage.
+  // Connections.
   (
     title: 'Connections',
     section: .agents,
-    keywords: 'claude code codex ollama accounts sign in update version usage limits',
+    keywords: 'claude code codex ollama accounts sign in update version',
   ),
+  // Usage.
+  (title: 'How much is left', section: .usage, keywords: 'usage limits quota room left reset'),
   (
     title: 'Move to a connection with more room',
-    section: .agents,
+    section: .usage,
     keywords: 'routing switching limits usage headroom',
   ),
   (
@@ -165,23 +167,38 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'advanced code writing research pictures quick questions which connection strengths',
   ),
   (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
-  // Skills and tools.
-  (title: 'Helmy\'s skills', section: .tools, keywords: 'skills commands slash skill.md new add'),
+  // Skills.
+  (title: 'Helmy\'s skills', section: .skills, keywords: 'skills commands slash skill.md new add'),
+  // Tools.
   (
     title: 'Accounts',
     section: .tools,
     keywords: 'gmail calendar slack notion drive integrations connectors sign in',
   ),
   (title: 'Add a tool server', section: .tools, keywords: 'mcp server tools plugins integrations'),
-  // Memory.
-  (title: 'Memory', section: .memory, keywords: 'remember notes facts forget'),
-  // Data and storage.
-  (title: 'Where things are', section: .data, keywords: 'storage disk space folders cache clear'),
+  // What Helmy learned, and memory files.
+  (
+    title: 'What Helmy has learned',
+    section: .learned,
+    keywords: 'lessons learned corrections habits forget',
+  ),
+  (
+    title: 'Memory files',
+    section: .memory,
+    keywords: 'remember notes instructions claude.md agents.md',
+  ),
+  // Storage.
+  (
+    title: 'Where things are',
+    section: .storage,
+    keywords: 'storage disk space folders cache clear',
+  ),
   (
     title: 'What Helmy is running',
-    section: .data,
+    section: .storage,
     keywords: 'processes diagnostics cpu memory stop kill logs',
   ),
+  // Data.
   (title: 'Your conversations', section: .data, keywords: 'export markdown backup history'),
   (title: 'Bring in conversations', section: .data, keywords: 'import history claude codex'),
   // Keyboard.

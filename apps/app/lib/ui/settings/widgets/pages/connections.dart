@@ -11,24 +11,6 @@ class _Agents extends StatelessWidget {
       children: [
         const _Heading('Connections', first: true),
         _Connections(vm: vm),
-        const _Heading('Routing'),
-        _Row(
-          title: 'Move to a connection with more room',
-          description:
-              'Each message goes to a connection that can do what it asks, then to the one with '
-              'the most of its usage limit left. A thread stays on its connection unless another '
-              'has clearly more room, since each switch hands the conversation across.',
-          control: SizedBox(
-            width: 150,
-            child: Select<Switching>(
-              size: .sm,
-              value: s.switching,
-              semanticLabel: 'How readily to switch',
-              options: [for (final w in Switching.values) SelectOption(w, w.label)],
-              onChanged: (w) => vm.update(s.copyWith(switching: w)),
-            ),
-          ),
-        ),
         const _Heading('Advanced'),
         ..._bestAt(vm),
         const _Heading('Local model'),
@@ -306,8 +288,6 @@ class _AgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
-    final now = DateTime.now();
-    final usage = row.usage;
     // Ready rests on a sign-in: whose, said with it.
     final signedIn = vm.who[row.info.id];
     final status = statusOf(row, checked) == 'Ready' && signedIn != null
@@ -380,30 +360,6 @@ class _AgentCard extends StatelessWidget {
           if (ConnectionsSetup.kindOf(row.info.id) case final kind?) ...[
             _Version(vm: vm, kind: kind),
             _Program(vm: vm, kind: kind),
-          ],
-          if (row.info.localOnly)
-            Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
-          else if (row.info.assignedOnly)
-            Text(
-              'It reports no usage limits, so Helmy cannot tell how much room it has.',
-              style: muted,
-            )
-          else if (usage == null)
-            Text('No usage reported yet. It reports with its first answer.', style: muted)
-          else ...[
-            for (final w
-                in usage.windows.isEmpty
-                    ? [UsageWindow(name: 'Limit', used: usage.used, resetsAt: usage.resetsAt)]
-                    : usage.windows)
-              _Window(window: w, now: now, until: _until),
-            if (usage.reportedAt != null)
-              Text(
-                'As of ${ago(usage.reportedAt!, now: now)} ago'.replaceAll(
-                  'As of now ago',
-                  'As of just now',
-                ),
-                style: muted,
-              ),
           ],
           if (can.isNotEmpty) Text('Also can: ${can.join(', ')}', style: muted),
           if (!row.info.localOnly)
@@ -703,6 +659,96 @@ class _Program extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// How much room each connection has left, and how readily Helmy moves a
+/// conversation to one with more.
+class _UsagePage extends StatelessWidget {
+  const new({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = vm.settings;
+    return _Page(
+      children: [
+        const _Heading('How much is left', first: true),
+        if (vm.used.isEmpty)
+          Text(
+            'No connections yet. Add one in Connections, and how much of its limit is left shows here.',
+            style: AshlarTheme.of(context).text.sm
+                .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
+          ),
+        for (final row in vm.used)
+          _Block(
+            title: ConnectionsSetup.shownName(row.info.id, row.info.name, s.connectionNames),
+            child: _UsageOf(row: row),
+          ),
+        const _Heading('Routing'),
+        _Row(
+          title: 'Move to a connection with more room',
+          description:
+              'Each message goes to a connection that can do what it asks, then to the one with '
+              'the most of its usage limit left. A thread stays on its connection unless another '
+              'has clearly more room, since each switch hands the conversation across.',
+          control: SizedBox(
+            width: 150,
+            child: Select<Switching>(
+              size: .sm,
+              value: s.switching,
+              semanticLabel: 'How readily to switch',
+              options: [for (final w in Switching.values) SelectOption(w, w.label)],
+              onChanged: (w) => vm.update(s.copyWith(switching: w)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One connection's usage: each window's bar, or why there is none.
+class _UsageOf extends StatelessWidget {
+  const new({required this.row});
+  final AgentRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
+    final now = DateTime.now();
+    final usage = row.usage;
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        if (row.info.localOnly)
+          Text('No usage limit: it runs on ${Desktop.current.thisComputer}.', style: muted)
+        else if (row.info.assignedOnly)
+          Text(
+            'It reports no usage limits, so Helmy cannot tell how much room it has.',
+            style: muted,
+          )
+        else if (usage == null)
+          Text('No usage reported yet. It reports with its first answer.', style: muted)
+        else ...[
+          for (final w
+              in usage.windows.isEmpty
+                  ? [UsageWindow(name: 'Limit', used: usage.used, resetsAt: usage.resetsAt)]
+                  : usage.windows)
+            _Window(window: w, now: now, until: _AgentCard._until),
+          if (usage.reportedAt != null)
+            Text(
+              'As of ${ago(usage.reportedAt!, now: now)} ago'.replaceAll(
+                'As of now ago',
+                'As of just now',
+              ),
+              style: muted,
+            ),
+        ],
+      ],
     );
   }
 }

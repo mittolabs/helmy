@@ -4,8 +4,12 @@ part of '../settings_screen.dart';
 /// reaches, its own tools and the tool servers added to it. One list each,
 /// whichever connection answers a message; none of it named by connection.
 class _Tools extends StatefulWidget {
-  const new({required this.vm});
+  const new({super.key, required this.vm, required this.skills});
   final SettingsViewModel vm;
+
+  /// Skills, or the tools: the accounts Helmy reaches, its own tools and the
+  /// tool servers added to it.
+  final bool skills;
 
   @override
   State<_Tools> createState() => _ToolsState();
@@ -50,48 +54,13 @@ class _ToolsState extends State<_Tools> {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        const _Heading('Skills', first: true),
-        _Row(
-          title: "Helmy's skills",
-          description:
-              'Instructions for a kind of task, which Helmy follows whenever it fits, or when '
-              'you type / and its name. Every chat has them, however Helmy answers.',
-          control: Row(
-            mainAxisSize: .min,
-            spacing: 4,
-            children: [
-              Button(
-                variant: .ghost,
-                size: .sm,
-                onPressed: () => unawaited(_addFolder(context, store)),
-                child: const Text('Add from a folder'),
-              ),
-              Button(
-                variant: .outline,
-                size: .sm,
-                leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
-                onPressed: () => unawaited(
-                  showAshlarDialog<void>(
-                    context: context,
-                    builder: (_) => _SkillDialog(store: store),
-                  ),
-                ),
-                child: const Text('New skill'),
-              ),
-            ],
-          ),
-        ),
-        if (store.skills.isEmpty)
-          const _Row(
-            title: 'None yet',
-            description:
-                'Write one, or add a folder with a SKILL.md, the format skills are shared in.',
-            control: SizedBox.shrink(),
-          ),
-        for (final s in store.skills)
+        if (widget.skills) ...[
+          const _Heading('Skills', first: true),
           _Row(
-            title: '/${s.name}',
-            description: s.description,
+            title: "Helmy's skills",
+            description:
+                'Instructions for a kind of task, which Helmy follows whenever it fits, or when '
+                'you type / and its name. Every chat has them, however Helmy answers.',
             control: Row(
               mainAxisSize: .min,
               spacing: 4,
@@ -99,119 +68,158 @@ class _ToolsState extends State<_Tools> {
                 Button(
                   variant: .ghost,
                   size: .sm,
-                  onPressed: () => unawaited(context.read<DesktopService>().reveal(s.folder)),
-                  child: const Text('Show'),
+                  onPressed: () => unawaited(_addFolder(context, store)),
+                  child: const Text('Add from a folder'),
                 ),
                 Button(
-                  variant: .ghost,
+                  variant: .outline,
                   size: .sm,
-                  onPressed: () async {
-                    final sure = await confirm(
-                      context,
-                      title: 'Remove /${s.name}?',
-                      body: 'Its folder is deleted, and no chat has it after this.',
-                      action: 'Remove',
-                      destructive: true,
-                    );
-                    if (sure) await store.remove(s.name);
-                  },
-                  child: const Text('Remove'),
+                  leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
+                  onPressed: () => unawaited(
+                    showAshlarDialog<void>(
+                      context: context,
+                      builder: (_) => _SkillDialog(store: store),
+                    ),
+                  ),
+                  child: const Text('New skill'),
                 ),
               ],
             ),
           ),
-        if (vm.toolsLoaded && found.isNotEmpty) ...[
-          _Heading('Also there (${found.length})'),
-          Padding(
-            padding: const .symmetric(vertical: 8),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final c in found)
-                  Tooltip(
-                    message: c.description.isEmpty ? c.name : withoutNames(c.description),
-                    child: Container(
-                      padding: const .symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: t.colors.border),
-                        borderRadius: .circular(t.radiusMd),
-                      ),
-                      child: Text(
-                        '/${c.name}',
-                        style: t.text.xs.copyWith(
-                          fontFamily: 'monospace',
-                          fontFamilyFallback: monoFonts,
+          if (store.skills.isEmpty)
+            const _Row(
+              title: 'None yet',
+              description:
+                  'Write one, or add a folder with a SKILL.md, the format skills are shared in.',
+              control: SizedBox.shrink(),
+            ),
+          for (final s in store.skills)
+            _Row(
+              title: '/${s.name}',
+              description: s.description,
+              control: Row(
+                mainAxisSize: .min,
+                spacing: 4,
+                children: [
+                  Button(
+                    variant: .ghost,
+                    size: .sm,
+                    onPressed: () => unawaited(context.read<DesktopService>().reveal(s.folder)),
+                    child: const Text('Show'),
+                  ),
+                  Button(
+                    variant: .ghost,
+                    size: .sm,
+                    onPressed: () async {
+                      final sure = await confirm(
+                        context,
+                        title: 'Remove /${s.name}?',
+                        body: 'Its folder is deleted, and no chat has it after this.',
+                        action: 'Remove',
+                        destructive: true,
+                      );
+                      if (sure) await store.remove(s.name);
+                    },
+                    child: const Text('Remove'),
+                  ),
+                ],
+              ),
+            ),
+          if (vm.toolsLoaded && found.isNotEmpty) ...[
+            _Heading('Also there (${found.length})'),
+            Padding(
+              padding: const .symmetric(vertical: 8),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final c in found)
+                    Tooltip(
+                      message: c.description.isEmpty ? c.name : withoutNames(c.description),
+                      child: Container(
+                        padding: const .symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: t.colors.border),
+                          borderRadius: .circular(t.radiusMd),
+                        ),
+                        child: Text(
+                          '/${c.name}',
+                          style: t.text.xs.copyWith(
+                            fontFamily: 'monospace',
+                            fontFamilyFallback: monoFonts,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+            ),
+          ],
+        ],
+        if (!widget.skills) ...[
+          const _Heading('Accounts', first: true),
+          if (!vm.toolsLoaded)
+            const Padding(padding: .all(8), child: Spinner(size: 14))
+          else if (accounts.isEmpty)
+            const _Row(
+              title: 'None yet',
+              description: 'Gmail, Calendar, Slack and others show here once they are connected.',
+              control: SizedBox.shrink(),
+            )
+          else
+            for (final a in accounts)
+              _Row(
+                title: a.name,
+                control: Text(switch (a.status) {
+                  'connected' => 'Connected',
+                  'needs-auth' => 'Needs sign-in',
+                  'pending' => 'Connecting',
+                  'failed' => 'Not working',
+                  final other => other,
+                }, style: muted),
+              ),
+          const _Heading("Helmy's tools"),
+          for (final (name, what) in _ownTools)
+            _Row(title: name, description: what, control: const SizedBox.shrink()),
+          for (final s in vm.settings.toolServers)
+            _Row(
+              title: s.name,
+              description: s.url ?? [s.command!, ...s.args].join(' '),
+              control: Button(
+                variant: .ghost,
+                size: .sm,
+                onPressed: () async {
+                  final sure = await confirm(
+                    context,
+                    title: 'Remove ${s.name}?',
+                    body: 'New chats stop getting its tools.',
+                    action: 'Remove',
+                    destructive: true,
+                  );
+                  if (sure) await vm.removeToolServer(s.name);
+                },
+                child: const Text('Remove'),
+              ),
+            ),
+          _Row(
+            title: 'Add a tool server',
+            description:
+                'An MCP server, by its address or the command that starts it. Helmy gives its '
+                'tools to every chat.',
+            control: Button(
+              variant: .outline,
+              size: .sm,
+              leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
+              onPressed: () => unawaited(
+                showAshlarDialog<void>(
+                  context: context,
+                  builder: (_) => _ServerDialog(vm: vm),
+                ),
+              ),
+              child: const Text('Add'),
             ),
           ),
         ],
-        const _Heading('Accounts'),
-        if (!vm.toolsLoaded)
-          const Padding(padding: .all(8), child: Spinner(size: 14))
-        else if (accounts.isEmpty)
-          const _Row(
-            title: 'None yet',
-            description: 'Gmail, Calendar, Slack and others show here once they are connected.',
-            control: SizedBox.shrink(),
-          )
-        else
-          for (final a in accounts)
-            _Row(
-              title: a.name,
-              control: Text(switch (a.status) {
-                'connected' => 'Connected',
-                'needs-auth' => 'Needs sign-in',
-                'pending' => 'Connecting',
-                'failed' => 'Not working',
-                final other => other,
-              }, style: muted),
-            ),
-        const _Heading("Helmy's tools"),
-        for (final (name, what) in _ownTools)
-          _Row(title: name, description: what, control: const SizedBox.shrink()),
-        for (final s in vm.settings.toolServers)
-          _Row(
-            title: s.name,
-            description: s.url ?? [s.command!, ...s.args].join(' '),
-            control: Button(
-              variant: .ghost,
-              size: .sm,
-              onPressed: () async {
-                final sure = await confirm(
-                  context,
-                  title: 'Remove ${s.name}?',
-                  body: 'New chats stop getting its tools.',
-                  action: 'Remove',
-                  destructive: true,
-                );
-                if (sure) await vm.removeToolServer(s.name);
-              },
-              child: const Text('Remove'),
-            ),
-          ),
-        _Row(
-          title: 'Add a tool server',
-          description:
-              'An MCP server, by its address or the command that starts it. Helmy gives its '
-              'tools to every chat.',
-          control: Button(
-            variant: .outline,
-            size: .sm,
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.plus, size: 14),
-            onPressed: () => unawaited(
-              showAshlarDialog<void>(
-                context: context,
-                builder: (_) => _ServerDialog(vm: vm),
-              ),
-            ),
-            child: const Text('Add'),
-          ),
-        ),
       ],
     );
   }

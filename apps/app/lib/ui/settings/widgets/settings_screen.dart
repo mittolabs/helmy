@@ -46,7 +46,6 @@ import '../../core/ashlar/kbd.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/select.dart';
-import '../../core/ashlar/tabs.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/toast.dart';
 import '../../import/history_import_view_model.dart';
@@ -182,9 +181,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .agents => _Agents(vm: vm),
                             .archive => const _Archive(),
                             .about => const _About(),
-                            .tools => _Tools(vm: vm),
+                            .usage => _UsagePage(vm: vm),
+                            .skills => _Tools(key: const ValueKey('skills'), vm: vm, skills: true),
+                            .tools => _Tools(key: const ValueKey('tools'), vm: vm, skills: false),
+                            .learned => const _Learned(),
                             .memory => _Memory(vm: vm),
-                            .data => _Data(vm: vm),
+                            .data => _Data(key: const ValueKey('data'), vm: vm, storage: false),
+                            .storage => _Data(
+                              key: const ValueKey('storage'),
+                              vm: vm,
+                              storage: true,
+                            ),
                             .keyboard => _Keyboard(vm: vm),
                             .phone => _Phone(vm: vm),
                             .vault => _VaultPage(vm: vm),
@@ -345,18 +352,31 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
   ),
   .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedDuotone.keyboard, hue: 250.0, group: null),
   .agents: (
-    label: 'Connections and usage',
+    label: 'Connections',
     icon: AshlarIconsRoundedDuotone.bot,
     hue: 280.0,
     group: 'Assistant',
   ),
-  .tools: (
-    label: 'Skills and tools',
-    icon: AshlarIconsRoundedDuotone.wrench,
-    hue: 25.0,
+  .usage: (
+    label: 'Usage',
+    icon: AshlarIconsRoundedDuotone.chartBar,
+    hue: 220.0,
     group: 'Assistant',
   ),
-  .memory: (label: 'Memory', icon: AshlarIconsRoundedDuotone.brain, hue: 100.0, group: 'Assistant'),
+  .skills: (label: 'Skills', icon: AshlarIconsRoundedDuotone.puzzle, hue: 50.0, group: 'Assistant'),
+  .tools: (label: 'Tools', icon: AshlarIconsRoundedDuotone.wrench, hue: 25.0, group: 'Assistant'),
+  .learned: (
+    label: 'What Helmy learned',
+    icon: AshlarIconsRoundedDuotone.bulb,
+    hue: 75.0,
+    group: 'Assistant',
+  ),
+  .memory: (
+    label: 'Memory files',
+    icon: AshlarIconsRoundedDuotone.brain,
+    hue: 100.0,
+    group: 'Assistant',
+  ),
   .projects: (
     label: 'Projects',
     icon: AshlarIconsRoundedDuotone.gitBranch,
@@ -370,10 +390,11 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     group: 'Your work',
   ),
   .vault: (label: 'Vault', icon: AshlarIconsRoundedDuotone.lock, hue: 0.0, group: 'Your work'),
-  .data: (
-    label: 'Data and storage',
-    icon: AshlarIconsRoundedDuotone.database,
-    hue: 45.0,
+  .data: (label: 'Data', icon: AshlarIconsRoundedDuotone.database, hue: 45.0, group: 'Your work'),
+  .storage: (
+    label: 'Storage',
+    icon: AshlarIconsRoundedDuotone.hardDrive,
+    hue: 200.0,
     group: 'Your work',
   ),
   .archive: (

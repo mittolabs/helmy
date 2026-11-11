@@ -197,7 +197,10 @@ class _AddAgentState extends State<_AddAgent> {
                     if (q.isEmpty || '${l.name} ${l.description}'.toLowerCase().contains(q)) l,
                 ];
                 return ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 300),
+                  // As tall as half the window allows: a fixed box was cramped on a big screen.
+                  constraints: BoxConstraints(
+                    maxHeight: (MediaQuery.sizeOf(context).height * .5).clamp(240.0, 480.0),
+                  ),
                   child: ScrollArea(
                     child: Column(
                       crossAxisAlignment: .stretch,

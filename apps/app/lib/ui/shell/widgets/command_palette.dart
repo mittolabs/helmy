@@ -105,7 +105,7 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
           description: 'How much of each limit is left',
           keywords: const ['limits', 'agents', 'accounts'],
           leading: const AshlarIcon(AshlarIconsRoundedStroke.gauge, size: 16),
-          onSelected: () => openSettings(router, SettingsSection.agents),
+          onSelected: () => openSettings(router, SettingsSection.usage),
         ),
       ]),
       CommandGroup(heading: 'Threads', [
