@@ -1,35 +1,38 @@
 ---
-title: Your phone
-description: Learn how to pair your phone with Helmy, and keep up with your chats when you're away.
+title: Your Phone
+description: Pair your phone with Helmy to follow, approve and stop work from anywhere.
 ---
 
-The phone app shows the chats on your computer, live. The work stays on your computer: your phone follows it, and tells it what to do.
+The Helmy phone app shows the chats on your computer, live. The work stays on your computer; your phone follows it and sends it instructions, so a waiting approval never holds up your work while you're away.
 
-## Pair your phone
+Why it matters:
 
-1. On your computer, open **Settings**, then **Phone**, and turn on **Reach Helmy from your phone**.
-2. Open Helmy on your phone, and choose **Scan the code**.
+- **Approve from anywhere.** Chats waiting on you come first.
+- **Stay in the loop.** Send a message, answer a question, or stop a task.
+- **Private by design.** Everything between your phone and computer is sealed with a key only your pairing code carries.
+
+## Pairing Your Phone
+
+1. On your computer, go to **Settings > Phone** and turn on **Reach Helmy from your phone**.
+2. Open Helmy on your phone and tap **Scan the code**.
 3. Scan the code your computer shows.
 
-That's the whole setup. Each phone pairs with a code of its own.
+Each phone pairs with its own code. Your phone reaches your computer on the same Wi-Fi, or from anywhere over Tailscale.
 
 <Info>
-Everything between your phone and your computer is sealed with a key only that code carries. Nothing readable crosses the network, and a phone without the key is turned away. Treat the code like a password.
+Nothing readable crosses the network, and a phone without the key is turned away. Treat the pairing code like a password.
 </Info>
 
-Your phone reaches your computer on the same Wi-Fi, or from anywhere over Tailscale.
+## Following Your Chats
 
-## Follow your chats
+- **Answer:** open a chat to approve a step, answer a question, or send a message.
+- **Stop:** stop a task from wherever you are.
+- **Hold a design:** in a chat with a design, tap **See the design** and step through its screens.
 
-- **See what needs you:** chats waiting for an approval or an answer are at the top.
-- **Answer and send:** open a chat to approve a step, answer a question, or send a message.
-- **Stop a task:** stop work from wherever you are.
-- **Hold a design:** in a chat with a design, choose **See the design**, and tap through its screens.
+## Using Your Mac From Your Phone
 
-## Use your Mac from your phone
+On macOS, turn on **See and use this Mac from your phone** to see the Mac's screen and use it from your phone. A bar on the Mac shows when a phone is watching, with a button to stop it.
 
-With **See and use this Mac from your phone** turned on, you can see your Mac's screen and use it from your phone. A bar at the top of the Mac says when a phone is watching, with a button to stop it. This is on macOS only.
+## Removing a Phone
 
-## Remove a phone
-
-Paired phones are listed in **Settings**, under **Phone**, with when each was paired and last seen. Choose **Unpair** to remove one.
+Go to **Settings > Phone**. Each paired phone shows when it was paired and last seen. Click **Unpair** to remove one.

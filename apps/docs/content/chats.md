@@ -1,35 +1,32 @@
 ---
-title: Chats and threads
-description: Learn how Helmy keeps your chats, and how to work through them like an inbox.
+title: Chats and Threads
+description: Use Chats to keep each piece of work in one place, and work through them like an inbox.
 ---
 
-## Chats and threads
+Each row in the sidebar is a chat. Helmy names it for you, with a title, a topic icon and a line on where it stands, so you can see the state of your work at a glance.
 
-Every row on the left is a chat. Helmy names each one for you: a title, an icon for its topic, and a line on where it stands. Rest the pointer on a row for a moment to preview it.
+## How Threads Work
 
-A chat holds one or more threads. When you come back to a chat after six quiet hours, your next message starts a new thread, with a short brief of what came before. Earlier threads fold into their summary under a separator, so a long chat stays easy to read.
+A chat holds one or more threads. When you return to a chat after six quiet hours, your next message starts a new thread, which begins with a short brief of what came before. Earlier threads fold into their summaries, so long chats stay readable.
 
-## Work through your chats
+## Working Through Chats
 
-The list is grouped so you can see what needs you:
+The sidebar groups chats by what they need from you:
 
-| Group | What's in it |
+| Group | Contains |
 |---|---|
 | **Drafts** | Messages you started and put aside |
-| **Needs you** | Chats waiting for your approval or an answer |
+| **Needs you** | Chats waiting for an approval or an answer |
 | **Working** | Chats Helmy is working on now |
 | **Everything else** | The rest, newest first |
 
-- **Put a draft aside:** press ⌘S on a Mac, and the message waits in **Drafts**.
-- **Mark a chat done:** Helmy marks it for you when a pull request it saw open is merged, or after three days untouched. You can also mark it yourself.
-- **Act on several at once:** select more than one chat to mark or move them together.
-- **Combine two chats:** drag one chat onto another.
+- **Put a draft aside** with ⌘S on a Mac. It waits in **Drafts**.
+- **Mark a chat done** yourself, or let Helmy do it when a pull request it saw open is merged, or after three days untouched.
+- **Combine chats** by dragging one onto another.
+- **Preview a chat** by resting the pointer on its row.
 
-## Find a chat
+## Finding a Chat
 
-Use the search at the top of the list. It looks through titles and the conversations themselves.
+Use the search at the top of the sidebar. It matches titles and the conversations themselves.
 
-## Next steps
-
-- Learn [what opens beside the chat](/beside-the-chat).
-- Learn [how to follow your chats on your phone](/phone).
+Learn more about [the panels beside a chat](/beside-the-chat).
