@@ -8,8 +8,8 @@ import 'app.dart';
 import 'main.server.options.dart';
 
 const _description =
-    'Helmy is an assistant on your Mac that gets things done in your folders and accounts, '
-    'through the Claude Code, Codex and OpenCode you already have.';
+    'Stop hopping between Claude, ChatGPT and the rest. Helmy picks the right one for each '
+    'message, moves on when one runs out, and keeps the whole conversation with you.';
 
 void main() {
   Jaspr.initializeApp(options: defaultServerOptions);

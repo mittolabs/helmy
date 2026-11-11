@@ -5,7 +5,8 @@
 <h2 align="center">Dream it. Do it.</h2>
 
 <p align="center">
-  Tell Helmy what you want done, and it does the work in your folders and accounts.
+  Stop hopping between Claude, ChatGPT and the rest. Helmy picks the right one for each message,<br />
+  moves on when one runs out, and keeps the whole conversation with you.
 </p>
 
 <p align="center">

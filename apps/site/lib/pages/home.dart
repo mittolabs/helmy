@@ -21,9 +21,9 @@ class Home extends StatelessComponent {
         eyebrow: 'Helmy chooses',
         title: 'You say what. Helmy figures out how.',
         lead:
-            'Each message goes to whichever tool can handle it and has the most room left. '
-            'Quick questions can go to free models. If another account has a lot more room, '
-            'the chat moves there, history and all.',
+            'For each message, Helmy weighs what it needs against how much room each of your '
+            'accounts has left. Quick questions can go to free models, and heavy work goes where '
+            'there is room.',
         points: [
           'No model picker. No effort dial.',
           'Two Claude accounts? Helmy takes turns.',

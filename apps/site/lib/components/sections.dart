@@ -13,7 +13,7 @@ class Hero extends StatelessComponent {
     div(classes: 'glow-field', attributes: {'aria-hidden': 'true'}, []),
     div(classes: 'wrap hero-grid', [
       div(classes: 'copy', [
-        p(classes: 'eyebrow reveal', [Component.text('Your AI assistant that gets things done')]),
+        p(classes: 'eyebrow reveal', [Component.text('One assistant, every AI you pay for')]),
         h1(classes: 'reveal', [
           Component.text('Dream it.'),
           br(),
@@ -21,8 +21,9 @@ class Hero extends StatelessComponent {
         ]),
         p(classes: 'lead reveal', [
           Component.text(
-            'Tell Helmy what you want done, and it does the work in your folders and accounts. '
-            'It runs on Claude Code, Codex or OpenCode, so you use what you already have.',
+            'Stop hopping between Claude, ChatGPT and the rest. Tell Helmy what you want done. '
+            'It picks the right one for each message, moves on when one runs out, and keeps the '
+            'whole conversation with you.',
           ),
         ]),
         div(classes: 'cta reveal', [
@@ -95,7 +96,7 @@ class WorksWith extends StatelessComponent {
 
   @override
   Component build(BuildContext context) => section(classes: 'works wrap', [
-    p(classes: 'eyebrow reveal', [Component.text('Bring your own subscription')]),
+    p(classes: 'eyebrow reveal', [Component.text('Works with what you already pay for')]),
     div(classes: 'works-row reveal', [
       for (final (logo, name) in _tools)
         div(classes: 'works-chip', [
@@ -105,8 +106,8 @@ class WorksWith extends StatelessComponent {
     ]),
     p(classes: 'muted reveal center', [
       Component.text(
-        "Helmy doesn't resell anything. Sign in with the accounts you already have. When one "
-        'runs low, Helmy switches to another, and the conversation comes along.',
+        "Helmy doesn't resell anything. Sign in with the accounts you already have, and Helmy "
+        'uses them all, one conversation across every one of them.',
       ),
     ]),
   ]);
