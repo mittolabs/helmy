@@ -26,6 +26,12 @@ void main() {
       'Inspected the folder',
       'Read file contents',
       'Wrote a file',
+      // Codex looking for AGENTS.md, committing and removing, from a tutorial take.
+      'Looked for AGENTS.md and notes.md',
+      'Reviewed the changes',
+      'Looked for AGENTS.md',
+      'Committed the changes',
+      'Removed menu-draft-spring.md and menu-draft-summer.md',
     ]);
   });
 
@@ -54,5 +60,16 @@ void main() {
       ], done: true),
       isNull,
     );
+  });
+
+  test("a command Codex wraps in its shell is read as the shell reads it", () {
+    expect(
+      PermissionRule.plainCommand(
+        "/bin/zsh -lc \"for p in a; do if [ -f \\\"\"'\$p\" ]; then cat \"\$p\"; fi; done'",
+      ),
+      'for p in a; do if [ -f "\$p" ]; then cat "\$p"; fi; done',
+    );
+    expect(PermissionRule.plainCommand("/bin/zsh -lc 'git status'"), "git status");
+    expect(PermissionRule.plainCommand("git status"), "git status");
   });
 }
