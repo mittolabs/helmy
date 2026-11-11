@@ -20,7 +20,7 @@ Why it matters:
 When a task needs a key, Helmy asks for it in a private field in the chat:
 
 1. Paste the key into the field.
-2. Click **Save**.
+2. Click **Keep it**.
 
 You can also add keys in **Settings > Vault**.
 

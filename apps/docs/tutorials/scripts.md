@@ -75,7 +75,7 @@ fresh Helmy, with only Helmy's window captured.
 |---|---|
 | A chat in a sample project that needs a Stripe test key | This tutorial shows you how to give Helmy an API key without it ever entering the chat. |
 | Helmy asking: the private field in the chat | When a task needs a key, Helmy asks for it in a private field. The key goes to your Mac's Keychain, not into the conversation. |
-| Pasting, saving | Paste the key, and click Save. |
+| Pasting, keeping it | Paste the key, and click Keep it. |
 | Helmy running the command; the output shows [STRIPE_SECRET_KEY] | Helmy now runs what needs the key, and only ever sees its name. If the key appears in the output, Helmy blanks it out. |
 | A key pasted into the message box by mistake; Helmy catching it | If you paste a key into a message by mistake, Helmy catches it before it's sent, and offers to keep it in the Vault. |
 | Terminal: helmy run npm run dev | To use the same keys in your own terminal, run your command with helmy run. |

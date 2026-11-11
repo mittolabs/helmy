@@ -27,7 +27,7 @@ void main(List<String> args) {
           .decode(bytes)
           .replaceAllMapped(
             // An attribute that starts at the root, but not one that starts with "//".
-            RegExp(r'''\b(href|src)="/(?!/)'''),
+            RegExp(r'''\b(href|src|poster)="/(?!/)'''),
             (m) => '${m[1]}="/docs/',
           ),
     );
