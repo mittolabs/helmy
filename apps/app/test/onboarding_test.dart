@@ -76,8 +76,10 @@ void main() {
     expect(installs, 1, reason: 'once');
   });
 
-  test('Claude Code or Codex ready: the free connection is only offered', () async {
-    final setup = _Pretend()..states['claude'] = SetupState.ready;
+  test('subscriptions ready: free is installed and subscriptions need a choice', () async {
+    final setup = _Pretend()
+      ..states['claude'] = SetupState.ready
+      ..states['codex'] = SetupState.ready;
     var installs = 0;
     final vm = OnboardingViewModel(
       setup: setup,
@@ -95,8 +97,16 @@ void main() {
     );
     await vm.check();
     await pumpEventQueue();
-    expect(installs, 0);
-    expect(vm.offersFree, isTrue);
+    expect(installs, 1);
+    expect(vm.freeAdded, isTrue);
+    expect(vm.used(freeAgentId), isTrue);
+    expect(vm.used('claude'), isFalse);
+    expect(vm.used('codex'), isFalse);
+    await vm.setUsed('claude', true);
+    await vm.check();
+    expect(vm.used('claude'), isTrue, reason: 'checking preserves an explicit choice');
+    expect(vm.used('codex'), isFalse);
+    expect(installs, 1);
   });
 
   testWidgets('three steps after the splash: connections, chats, folders, then Helmy', (
@@ -224,7 +234,8 @@ void main() {
     final claude = vm.checks!.firstWhere((c) => c.id == 'claude');
     expect(vm.found, contains('claude'), reason: 'ready when first looked: found');
     expect(vm.who['claude'], 'sam@example.com');
-    expect(vm.used('claude'), isTrue, reason: 'found, so on to begin with');
+    expect(vm.used('claude'), isFalse, reason: 'found subscriptions need a choice');
+    await vm.setUsed('claude', true);
 
     await vm.setName('claude', 'Personal');
     expect(vm.shownName(claude), 'Claude Code (Personal)');

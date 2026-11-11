@@ -96,9 +96,9 @@ const _guide = {
     image: 'assets/helmy/onboarding-connect.png',
     title: 'Connect your AI tools',
     say:
-        'I get things done through the AI tools you already use. I found some on this Mac and '
-        "switched them on: switch off any you don't want me to use. Press Install or Sign in "
-        'on others, then Continue.',
+        'I start with a free connection, with no account needed. You can also choose '
+        'to use your subscriptions: switch on a connection found on this Mac, or press '
+        'Install or Sign in to add one, then Continue.',
   ),
   OnboardingStep.chats: (
     image: 'assets/helmy/onboarding-chats.png',
@@ -662,8 +662,7 @@ class _ConnectionRow extends StatelessWidget {
           if (busy)
             const Spinner(size: 16)
           else if (c.state == .ready)
-            // Found ready, so on to begin with: Helmy's pick, and the person's
-            // to undo here.
+            // A found connection is used only when the person switches it on.
             Row(
               mainAxisSize: .min,
               spacing: 8,

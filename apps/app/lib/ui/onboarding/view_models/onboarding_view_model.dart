@@ -104,8 +104,7 @@ class OnboardingViewModel extends ChangeNotifier {
   bool freeBusy = false;
   String? freeTrouble;
 
-  /// Installs and adds the free connection. Done by itself when nothing
-  /// else could answer, so the first message gets an answer.
+  /// Installs and enables the free connection by default on the first run.
   Future<void> addFree() async {
     final install = _installFree;
     if (install == null || freeBusy || freeAdded) return;
@@ -115,7 +114,12 @@ class OnboardingViewModel extends ChangeNotifier {
     try {
       final a = await install();
       final s = _settings.settings;
-      await _settings.save(s.copyWith(accounts: [...s.accounts, a]));
+      await _settings.save(
+        s.copyWith(
+          accounts: [...s.accounts, a],
+          disabledEngines: {...s.disabledEngines}..remove(freeAgentId),
+        ),
+      );
       _engines.add(a);
     } on Object {
       freeTrouble =
@@ -131,21 +135,33 @@ class OnboardingViewModel extends ChangeNotifier {
   /// so it is plain what Helmy would use.
   final who = <String, String>{};
 
-  /// Ready when Helmy first looked: found on this Mac, and said so, as Helmy
-  /// switched them on without being asked.
+  /// Ready when Helmy first looked: found on this Mac, but left for the
+  /// person to enable.
   Set<String>? found;
 
   Future<void> check() async {
     checks = await _setup.check();
-    found ??= {
-      for (final c in checks ?? const <ConnectionCheck>[])
-        if (c.state == .ready) c.id,
-    };
+    if (found == null) {
+      found = {
+        for (final c in checks ?? const <ConnectionCheck>[])
+          if (c.state == .ready) c.id,
+      };
+      final s = _settings.settings;
+      await _settings.save(
+        s.copyWith(
+          disabledEngines: {
+            ...s.disabledEngines,
+            for (final c in checks ?? const <ConnectionCheck>[]) c.id,
+            for (final e in _engines.engines)
+              if (e.info.id != freeAgentId) e.info.id,
+            for (final a in s.accounts)
+              if (a.id != freeAgentId) a.id,
+          }..remove(freeAgentId),
+        ),
+      );
+    }
     notifyListeners();
-    // Nothing online to answer (Claude Code and Codex not ready): the free
-    // connection, so Helmy answers from the first message.
-    final online = checks?.any((c) => c.state == .ready && c.id != 'ollama') ?? false;
-    if (!online) unawaited(addFree());
+    unawaited(addFree());
     for (final c in checks ?? const <ConnectionCheck>[]) {
       if (c.state != .ready || c.id == 'ollama') continue;
       final name = await _setup.signedInAs(c.id, null);
@@ -162,8 +178,7 @@ class OnboardingViewModel extends ChangeNotifier {
         e.info.id,
   ];
 
-  /// Whether Helmy uses connection [id]: found ready, it is, until switched
-  /// off here (or removed in Settings).
+  /// Whether Helmy uses connection [id], as chosen here or in Settings.
   bool used(String id) {
     final off = _settings.settings.disabledEngines;
     final group = _group(id);
@@ -204,6 +219,7 @@ class OnboardingViewModel extends ChangeNotifier {
           : "Sign-in didn't finish. Try again when ready.";
     }
     checks = await _setup.check();
+    if (ok) await setUsed(c.id, true);
     busy = null;
     notifyListeners();
   }
@@ -347,8 +363,7 @@ class OnboardingViewModel extends ChangeNotifier {
   int get readyCount => checks?.where((c) => c.state == .ready).length ?? 0;
 
   /// Saves what was chosen, and that the first run is over, and shows what
-  /// was set up. Connections that are not ready are left on: Helmy uses
-  /// each once it is.
+  /// was set up. Other connections stay off until explicitly enabled.
   Future<void> finish() async {
     finished = true;
     notifyListeners();
