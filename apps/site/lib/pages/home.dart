@@ -64,8 +64,8 @@ class Home extends StatelessComponent {
           "Need the Mac itself? Its screen is a tap away.",
         ],
         media: Phone(
-          src: '/shots/phone-design.jpg',
-          alt: 'A design\'s welcome screen open on an iPhone',
+          src: '/shots/phone-chats.jpg',
+          alt: 'Helmy on an iPhone, paired with a Mac: its chats, live, with one waiting for approval',
         ),
       ),
       const Approvals(),
