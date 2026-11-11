@@ -3,7 +3,7 @@ title: Connections
 description: Learn which AI tools Helmy works through, how it chooses between them, and how to add your own.
 ---
 
-A connection is an AI tool Helmy does its work through. You add a connection once. After that, you only talk to Helmy: in a chat, it's always Helmy that answers. Connections only appear in **Settings**, under **Connections and usage**.
+A connection is an AI tool Helmy does its work through. You add a connection once. After that, you only talk to Helmy: in a chat, it's always Helmy that answers. Connections only appear in **Settings**, under **Connections**, and how much each has left under **Usage**.
 
 | Connection | Account | What it brings |
 |---|---|---|
@@ -14,7 +14,7 @@ A connection is an AI tool Helmy does its work through. You add a connection onc
 
 ## Add a connection
 
-1. Open **Settings**, then **Connections and usage**.
+1. Open **Settings**, then **Connections**.
 2. Choose **Add a connection**. Helmy lists what it found on your computer, and what it can install.
 3. Choose one, and sign in if it asks.
 
