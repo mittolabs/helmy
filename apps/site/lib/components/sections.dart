@@ -45,21 +45,29 @@ class Hero extends StatelessComponent {
     ]),
     div(classes: 'wrap shot-wrap reveal', [
       const MacWindow(
-        src: '/shots/canvas.jpg',
-        alt: 'Helmy on a Mac: a chat beside its Design tab, phone screens and a landing page laid out on a canvas',
+        src: '/shots/chat.jpg',
+        alt:
+            "Helmy on a Mac: asked where November's money went, it totals a spending file by "
+            'category and suggests what to cut',
+        lazy: false,
       ),
     ]),
   ]);
 }
 
-/// A Mac window round a screenshot, with its three lights.
+/// A Mac window round a screenshot, with its three lights. The screenshots are
+/// real captures of Helmy's window, chats and all (made 2026-11-11 from real
+/// runs in a sample folder).
 class MacWindow extends StatelessComponent {
-  const MacWindow({super.key, required this.src, required this.alt});
+  const MacWindow({super.key, required this.src, required this.alt, this.lazy = true});
   final String src, alt;
+
+  /// Off for the first screen, which should not wait for a scroll.
+  final bool lazy;
 
   @override
   Component build(BuildContext context) => figure(classes: 'mac', [
-    img(src: src, alt: alt, loading: MediaLoading.lazy),
+    img(src: src, alt: alt, loading: lazy ? MediaLoading.lazy : null),
   ]);
 }
 
@@ -181,12 +189,14 @@ class Approvals extends StatelessComponent {
           "Mac or can't be taken back comes to you as one plain question.",
         ),
       ]),
-      div(classes: 'ask-card reveal', [
-        p(classes: 'ask-q', [Component.text('Push the README fix to the main branch?')]),
-        div(classes: 'ask-buttons', [
-          span(classes: 'btn btn-light btn-sm', [Component.text('Go ahead')]),
-          span(classes: 'btn btn-ghost btn-sm', [Component.text("Don't")]),
-        ]),
+      figure(classes: 'ask-shot reveal', [
+        img(
+          src: '/shots/approval.jpg',
+          alt:
+              'Helmy asking: organize the downloads folder and move the three older duplicate '
+              'or superseded files to Trash? Go ahead, or Don\'t.',
+          loading: MediaLoading.lazy,
+        ),
       ]),
       p(classes: 'muted small reveal', [
         Component.text(

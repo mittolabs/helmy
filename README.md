@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mittolabs/helmy/releases/latest"><img src="assets/hero.png" alt="Helmy: dream it, do it" width="100%" /></a>
+  <a href="https://github.com/mittolabs/helmy/releases/latest"><img src="assets/hero.png" alt="Helmy on a Mac: asked where November's money went, it totals a spending file by category and suggests what to cut" width="100%" /></a>
 </p>
 
 ## Get started

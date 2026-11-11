@@ -107,19 +107,20 @@ p { margin: 0; }
 /* The opening. */
 /* Under the bar, not below it: its glow runs up behind the bar's fade, so
    there is no edge where one ends and the other begins. */
-.hero { position: relative; margin-top: -64px; padding: calc(clamp(56px, 9vw, 120px) + 64px) 0 40px; overflow: hidden; }
+.hero { position: relative; margin-top: -64px; padding: calc(clamp(40px, 5vw, 72px) + 64px) 0 40px; overflow: hidden; }
+.hero h1 { font-size: clamp(44px, 5.4vw, 76px); }
 .glow-field { position: absolute; inset: 0 -10% auto; height: 860px; pointer-events: none;
   background: radial-gradient(600px 380px at 72% 30%, var(--accent-glow), transparent 70%),
               radial-gradient(500px 300px at 20% 10%, rgba(120,140,255,0.08), transparent 70%); }
 .hero-grid { position: relative; display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 40px; align-items: center; }
-.hero .copy { display: flex; flex-direction: column; gap: 22px; }
+.hero .copy { display: flex; flex-direction: column; gap: 18px; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; }
 .cta.center { justify-content: center; }
 .note { font-size: 14px; color: var(--faint); }
 .hero-art { position: relative; justify-self: center; }
-.mascot { width: clamp(220px, 26vw, 320px); height: auto; filter: drop-shadow(0 24px 48px rgba(242,163,107,0.25)); animation: float 6s ease-in-out infinite; }
+.mascot { width: clamp(160px, 17vw, 230px); height: auto; filter: drop-shadow(0 24px 48px rgba(242,163,107,0.25)); animation: float 6s ease-in-out infinite; }
 @keyframes float { 50% { transform: translateY(-12px) rotate(-1.5deg); } }
-.shot-wrap { margin-top: clamp(48px, 7vw, 88px); }
+.shot-wrap { margin-top: clamp(32px, 4vw, 48px); }
 @media (max-width: 860px) {
   .hero-grid { grid-template-columns: 1fr; }
   .hero-art { order: -1; }
@@ -143,7 +144,7 @@ p { margin: 0; }
 .works p { max-width: 640px; }
 
 /* A feature: words and a picture, side by side. */
-.feature { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 40px 0; }
+.feature { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 72px 0; }
 .feature.flip .feature-copy { order: 2; }
 .feature-copy { display: flex; flex-direction: column; gap: 18px; }
 .points { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
@@ -160,18 +161,15 @@ p { margin: 0; }
 .pose img { position: relative; width: clamp(220px, 26vw, 320px); height: auto; }
 
 /* The marks between sections (from Funnier's kit). */
-.divider { display: grid; place-items: center; color: rgba(255,255,255,0.22); padding: 24px 0; }
-.divider svg { width: var(--w); height: auto; }
 
 /* Approvals. */
-.approvals { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 56px 0; }
+.approvals { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 72px 0; }
 .stat { padding: 32px; border-radius: var(--radius); background: var(--card); display: grid; gap: 12px; }
 .stat-number { font-family: var(--display); font-weight: 800; font-size: clamp(72px, 10vw, 128px); line-height: 0.9; letter-spacing: -0.05em; color: var(--accent); }
 .approvals-copy { display: flex; flex-direction: column; gap: 18px; }
-.ask-card { padding: 18px 20px; border-radius: 14px; background: #141414; display: grid; gap: 14px; max-width: 460px; }
-.ask-q { font-weight: 600; }
-.ask-buttons { display: flex; gap: 8px; }
-.ask-buttons .btn { cursor: default; }
+/* A real approval, cropped from Helmy's window. */
+.ask-shot { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line-strong); max-width: 560px; }
+.ask-shot img { display: block; width: 100%; height: auto; }
 @media (max-width: 860px) { .approvals { grid-template-columns: 1fr; } }
 
 /* Getting it. */
@@ -192,7 +190,7 @@ p { margin: 0; }
 .footer-links a:hover { color: var(--ink); }
 
 /* Open source. */
-.open { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 40px 0; }
+.open { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(32px, 6vw, 88px); align-items: center; padding: 72px 0; }
 .open-copy { display: flex; flex-direction: column; gap: 18px; }
 @media (max-width: 860px) { .open { grid-template-columns: 1fr; } }
 

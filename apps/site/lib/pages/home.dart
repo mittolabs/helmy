@@ -3,7 +3,6 @@ import 'package:jaspr/jaspr.dart';
 
 import '../app.dart';
 import '../components/chrome.dart';
-import '../components/divider.dart';
 import '../components/page_title.dart';
 import '../components/sections.dart';
 
@@ -17,7 +16,6 @@ class Home extends StatelessComponent {
     main_([
       const Hero(),
       const WorksWith(),
-      const Divider(DividerShape.coil),
       const Feature(
         id: 'how',
         eyebrow: 'Helmy chooses',
@@ -36,7 +34,6 @@ class Home extends StatelessComponent {
           alt: 'Helmy holding a plug',
         ),
       ),
-      const Divider(DividerShape.wander),
       const Feature(
         flip: true,
         eyebrow: 'Design',
@@ -50,11 +47,10 @@ class Home extends StatelessComponent {
           'Leave a comment on any element and send it with your message.',
         ],
         media: MacWindow(
-          src: '/shots/comment.jpg',
-          alt: 'A comment on a design screen\'s heading, waiting in the message box',
+          src: '/shots/design.jpg',
+          alt: 'A chat asking for a bakery\'s landing page, and the page Helmy made, open beside it',
         ),
       ),
-      const Divider(DividerShape.loop),
       const Feature(
         eyebrow: 'In your hand',
         title: 'Take it with you.',
@@ -72,9 +68,7 @@ class Home extends StatelessComponent {
           alt: 'A design\'s welcome screen open on an iPhone',
         ),
       ),
-      const Divider(DividerShape.wave),
       const Approvals(),
-      const Divider(DividerShape.coil),
       const Feature(
         flip: true,
         eyebrow: 'The vault',
@@ -93,9 +87,7 @@ class Home extends StatelessComponent {
           alt: 'Helmy holding a shield',
         ),
       ),
-      const Divider(DividerShape.loop),
       const OpenSource(),
-      const Divider(DividerShape.wander),
       const Get(),
     ]),
     const Footer(),
