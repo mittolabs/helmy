@@ -13,7 +13,12 @@ class Hero extends StatelessComponent {
     div(classes: 'glow-field', attributes: {'aria-hidden': 'true'}, []),
     div(classes: 'wrap hero-grid', [
       div(classes: 'copy', [
-        p(classes: 'eyebrow reveal', [Component.text('One assistant, every AI you pay for')]),
+        // As the other Mittolabs sites have it: the mark, in white on the dark page.
+        p(classes: 'powered reveal', [
+          img(src: '/mittolabs-white.png', alt: '', width: 22, height: 20),
+          Component.text('Powered by '),
+          b([Component.text('Mittolabs')]),
+        ]),
         h1(classes: 'reveal', [
           Component.text('Dream it.'),
           br(),
