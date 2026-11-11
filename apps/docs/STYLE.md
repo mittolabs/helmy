@@ -27,6 +27,20 @@ exact, and centered on what the reader is trying to get done.
 7. **Navigation as a path:** **Settings > Connections**.
 8. **Learn more:** a link to the page that goes deeper, inline, at the end of a section.
 
+## Spoken Scripts
+
+Tutorial narration follows the same grammar as the pages, read aloud:
+
+- **Open with what the viewer will do:** "This tutorial shows you how to …".
+- **Helmy is the subject, in the present tense,** and each line says what something is,
+  then what it lets you do.
+- **Actions are imperatives with exact names:** "Go to Settings, then Phone", "Click Go
+  ahead". Say "then" for the > of a path.
+- **Whole sentences.** No fragments, rhetorical questions, jokes or "let's".
+- **Close by naming the next tutorial:** "Next, learn how …".
+- **Warmth is in the delivery,** set by the voice, not added to the words. At most one cue
+  (such as `[warmly]`) per script.
+
 ## Leave out
 
 - What the interface already makes obvious.
