@@ -4,8 +4,9 @@ Six short tutorials for Helmy's docs, one per page, recorded in the real app and
 Mitto (ElevenLabs). Written in the docs' voice (`../STYLE.md`, Spoken Scripts): Sentry's grammar, with the
 warmth carried by Mitto's delivery, not by the words.
 
-A `[warmly]` at the start of each script is an ElevenLabs delivery cue, not spoken. It
-changes how the line is said, never what it says.
+Voiced with `eleven_v4`, the newer Mitto clone (`fKtBZdKg49gqg92XX3Dh`), stability 0.6,
+similarity 0.95, style 0.15, and no delivery cues: chosen by ear on 2026-11-11 as the one
+that sounds like Mitto. Cues pulled the voice away from it.
 
 Recorded in the sample folder `~/Studio` (fictional names, US places, dollars), on a
 fresh Helmy, with only Helmy's window captured.
@@ -18,7 +19,7 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| helmy.ke, the download page | [warmly] This tutorial shows you how to install Helmy and send your first message. It takes about two minutes. |
+| helmy.ke, the download page | This tutorial shows you how to install Helmy and send your first message. It takes about two minutes. |
 | The macOS card, downloading | Go to helmy dot k e, slash download, and download the build for your computer. |
 | Finder: unzip, drag Helmy to Applications | Unzip it, and drag Helmy into Applications. |
 | macOS blocks it; System Settings > Privacy & Security > Open Anyway | This build isn't signed yet, so macOS blocks it the first time. Go to System Settings, then Privacy and Security, and click Open Anyway. You only need to do this once. |
@@ -38,13 +39,13 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| A new chat; Finder beside it: a messy Downloads folder | [warmly] This tutorial shows you how to give Helmy a real task: tidying a folder. |
+| A new chat; Finder beside it: a messy Downloads folder | This tutorial shows you how to give Helmy a real task: tidying a folder. |
 | Typing the request | Describe the outcome and what matters to you. Here, Helmy sorts the folder and keeps the newest copy of any duplicate. |
 | Helmy's first line; the steps appearing | Helmy says what it's about to do, then does it. |
 | A step line, opened | Each line under the reply groups a set of steps. Click one to see exactly what ran. |
 | The approval card | Moving files within the folder can be undone, so Helmy goes ahead. Removing files can't, so Helmy stops and asks. |
 | Clicking Go ahead | Click Go ahead, or Don't. |
-| The summary: what moved, what went to the Trash, the log | When Helmy finishes, it summarizes what moved, what went to the Trash, and anything still open, and keeps a log of every change. |
+| The summary: what moved, what was set aside, the log | When Helmy finishes, it summarizes what moved and what it set aside, and keeps a log of every change. |
 | Finder: the tidy folders | The folder is now sorted. |
 | The chat's row, its one-line status | Each chat keeps a one-line status in the sidebar, so you can pick up where you left off. Next, learn what Helmy asks you about. |
 
@@ -56,7 +57,7 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| A chat mid-task, steps passing with no prompts | [warmly] Most AI tools ask permission for nearly every step. Helmy decides routine steps itself, so you're only asked about the ones that matter. |
+| A chat mid-task, steps passing with no prompts | Most AI tools ask permission for nearly every step. Helmy decides routine steps itself, so you're only asked about the ones that matter. |
 | Steps reading files, checking status | Reading files, searching and fetching pages go ahead without asking. |
 | Steps editing files in the chat's folder | Changes in the chat's folder go ahead too. Helmy keeps a snapshot, so you can undo them. |
 | A step opened, its reason shown | Everything else is checked against what you asked for. Click any step to see what Helmy decided, and why. |
@@ -72,7 +73,7 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| A chat in a sample project that needs a Stripe test key | [warmly] This tutorial shows you how to give Helmy an API key without it ever entering the chat. |
+| A chat in a sample project that needs a Stripe test key | This tutorial shows you how to give Helmy an API key without it ever entering the chat. |
 | Helmy asking: the private field in the chat | When a task needs a key, Helmy asks for it in a private field. The key goes to your Mac's Keychain, not into the conversation. |
 | Pasting, saving | Paste the key, and click Save. |
 | Helmy running the command; the output shows [STRIPE_SECRET_KEY] | Helmy now runs what needs the key, and only ever sees its name. If the key appears in the output, Helmy blanks it out. |
@@ -88,7 +89,7 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| A new chat; typing a request for a bakery's landing page | [warmly] This tutorial shows you how to get a landing page by asking for one, here for a small bakery. |
+| A new chat; typing a request for a bakery's landing page | This tutorial shows you how to get a landing page by asking for one, here for a small bakery. |
 | The Design tab opening, the page drawing in | Helmy lays the page out on the Design canvas, beside the chat. These are real pages, not pictures. |
 | Zooming and moving around | Scroll to move around the canvas, and pinch to zoom. |
 | Double-clicking the heading, retyping it | Double-click any text to change it. Your edits are saved into the page, so Helmy sees them. |
@@ -104,7 +105,7 @@ fresh Helmy, with only Helmy's window captured.
 
 | On screen | Mitto |
 |---|---|
-| Settings > Phone, the switch on, the code showing | [warmly] This tutorial shows you how to pair your phone with Helmy. On your computer, go to Settings, then Phone, and turn on Reach Helmy from your phone. |
+| Settings > Phone, the switch on, the code showing | This tutorial shows you how to pair your phone with Helmy. On your computer, go to Settings, then Phone, and turn on Reach Helmy from your phone. |
 | Phone: Scan the code; paired | Open Helmy on your phone, tap Scan the code, and scan the code your computer shows. |
 | Phone: the chat list, live | Your chats now appear on your phone, live, with anything waiting on you at the top. |
 | Phone: opening the waiting chat, tapping Go ahead | Open a chat to approve a step, send a message, or stop a task, from wherever you are. |
