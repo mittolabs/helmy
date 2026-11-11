@@ -5,9 +5,10 @@ name: app
 # on a developer's machine, not here.
 on:
   workflow_dispatch:
+  # Every pull request, whatever it touches: main requires this check to pass
+  # before merging, and a check that never runs would hold a pull request for ever.
   pull_request:
     branches: [main]
-    paths: ["apps/app/**", ".github/workflows/app.yml"]
   push:
     branches: [main]
     paths: ["apps/app/**", ".github/workflows/app.yml"]
