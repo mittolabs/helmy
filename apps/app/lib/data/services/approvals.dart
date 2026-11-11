@@ -152,7 +152,11 @@ class Approvals {
     // An agent's own settings and permissions, Helmy's included.
     if (RegExp(r'/\.claude/|/\.codex/|com\.mittolabs\.helmy/settings|/\.config/opencode/')
         .hasMatch(text)) {
-      return "Change an assistant's own settings or permissions?";
+      // Installed guides live beside settings. Reading one does not change
+      // permissions; the sensitive reads above still require approval.
+      final readsFile = const {'Read', 'Grep', 'Glob', 'LS'}.contains(p.toolName);
+      if (readsFile || (command.isNotEmpty && onlyReads(command))) return null;
+      return 'Change files in Helmy’s or another assistant’s configuration folder?';
     }
     return null;
   }

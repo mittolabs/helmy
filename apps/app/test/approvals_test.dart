@@ -91,6 +91,34 @@ void main() {
     expect(Approvals.mustAsk(_p('Bash', {'command': 'npm test'}), folder), isNull);
   });
 
+  test('installed guides can be read without a settings-change approval', () {
+    const guide = '/Users/sam/.codex/plugins/cache/sites/skills/sites/SKILL.md';
+    for (final p in [
+      _p('Bash', {'command': 'cat $guide'}),
+      _p('Shell', {'command': "/bin/zsh -lc 'cat $guide'"}),
+      _p('Read', {'file_path': guide}),
+    ]) {
+      expect(Approvals.offLimits(p), isNull);
+      expect(Approvals.mustAsk(p, folder), isNull);
+      expect(Approvals.atOnce(p, folder)?.verdict, Verdict.allow);
+    }
+    for (final p in [
+      _p('Write', {'file_path': guide}),
+      _p('Bash', {'command': 'echo changed > $guide'}),
+      _p('Bash', {'command': 'cat $guide && rm $guide'}),
+    ]) {
+      expect(Approvals.mustAsk(p, folder), isNotNull);
+    }
+    expect(
+      Approvals.mustAsk(_p('Bash', {'command': 'cat /Users/sam/.codex/.ssh/id_rsa'}), folder),
+      'Read or use your passwords, keys or tokens?',
+    );
+    expect(
+      Approvals.offLimits(_p('Read', {'file_path': '/Users/sam/.codex/secrets.json'})),
+      isNotNull,
+    );
+  });
+
   test("a judge's answer is read, and anything else is not taken as one", () {
     expect(Approvals.parse('{"verdict": "ask", "why": "Send this email to Sam?"}'), (
       verdict: Verdict.ask,
