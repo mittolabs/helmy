@@ -33,14 +33,14 @@ class Hero extends StatelessComponent {
           Component.text('Free and open source. Pairs with your phone in one scan.'),
         ]),
       ]),
+      // Helmy waving: three frames made from the hello pose by the same image pipeline as
+      // the poses, played by styles.css (.wave). The resting frame alone stands still.
       div(classes: 'hero-art reveal', [
-        img(
-          classes: 'mascot',
-          src: '/helmy/hello.png',
-          alt: 'Helmy, a small astronaut, waving',
-          width: 320,
-          height: 320,
-        ),
+        div(classes: 'mascot wave', [
+          img(src: '/helmy/hello-in.webp', alt: 'Helmy, a small astronaut, waving', width: 320, height: 320),
+          img(classes: 'wave-out', src: '/helmy/hello-out.webp', alt: '', width: 320, height: 320),
+          img(classes: 'wave-blink', src: '/helmy/hello-blink.webp', alt: '', width: 320, height: 320),
+        ]),
       ]),
     ]),
     div(classes: 'wrap shot-wrap reveal', [

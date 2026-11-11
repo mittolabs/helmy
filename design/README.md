@@ -30,3 +30,16 @@ Where the app shows them, as stills for now:
 
 These are stills for judging the look. The animated Helmy is built from them
 in Rive: one file, a state machine the app drives with a few inputs.
+
+## The site's waving Helmy (2026-11-11)
+
+`poses/hello-wave/` holds three frames edited from `poses/11-hello.png` by the same
+pipeline as the poses (Codex image generation, with the prompt beside them): the hand
+tilted out, the hand tilted in, and a blink. The site plays them over each other with
+short crossfades (`apps/site/web/styles.css`, `.wave`): two waves, then a blink through a
+soft oval over the eyes only, so nothing else moves. Each frame was cut from its white
+background by a flood fill from the edges, with the white taken back out of the edge
+pixels, cropped to one shared square and saved as WebP (`apps/site/web/helmy/hello-*.webp`).
+
+A hand-drawn vector Helmy was tried first and dropped: off-model (Mittolabs
+`docs/notes/helmy.md`).

@@ -1,0 +1,13 @@
+The attached image is 00-hello.png: Helmy, our own original mascot (a small cream vinyl astronaut robot with a glowing face), waving. We are animating this exact image. Use your image generation tool to make three edits of it, each one edited from the attached image, and save each as a PNG in ./ with exactly these names:
+
+1. 01-wave-out.png: identical to the attached image, except the raised waving hand and forearm tilt about 20 degrees outward, away from the helmet, pivoting at the elbow, as at one end of a wave.
+2. 02-wave-in.png: identical to the attached image, except the raised waving hand and forearm tilt about 15 degrees inward, toward the helmet, pivoting at the elbow, as at the other end of a wave. The hand must not touch or overlap the helmet or the ear piece.
+3. 03-blink.png: identical to the attached image, except both eyes are closed, drawn as soft curved lids in the same dark brown, as in a natural blink. Mouth, brows and everything else unchanged.
+
+Rules for all three, because these are frames of one animation and any other difference will flicker:
+- Same canvas size as the attached image (1254 by 1254), same framing, same scale, same position of the character to the pixel.
+- Same pure white background, no shadow on the ground, nothing added.
+- Same character, same lighting, same colors, same render style and same level of detail. Do not redraw, restyle, smooth, sharpen, recolor or move anything except the part named.
+- No text, no watermark.
+
+When all three are saved, reply with the three file names and nothing else.

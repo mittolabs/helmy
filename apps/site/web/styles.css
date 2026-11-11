@@ -119,6 +119,27 @@ p { margin: 0; }
 .note { font-size: 14px; color: var(--faint); }
 .hero-art { position: relative; justify-self: center; }
 .mascot { width: clamp(160px, 17vw, 230px); height: auto; filter: drop-shadow(0 24px 48px rgba(242,163,107,0.25)); animation: float 6s ease-in-out infinite; }
+/* The wave: three frames stacked. The waving frame fades in over the resting one, which then
+   drops out while it holds (so the arm never shows twice), and comes back just before it fades
+   away; twice, every 4.5 seconds. The blink frame shows only its eyes, through a soft oval, so
+   nothing else moves when Helmy blinks. */
+.wave { position: relative; aspect-ratio: 1; }
+.wave img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wave img:first-child { animation: wave-rest 4.5s linear infinite; }
+.wave .wave-out { opacity: 0; animation: wave-out 4.5s linear infinite; }
+.wave .wave-blink { opacity: 0; animation: wave-blink 4.5s linear infinite;
+  -webkit-mask-image: radial-gradient(ellipse 26% 11% at 47% 32%, #000 80%, transparent 100%);
+  mask-image: radial-gradient(ellipse 26% 11% at 47% 32%, #000 80%, transparent 100%); }
+@keyframes wave-out { 0%, 4% { opacity: 0; } 7%, 12% { opacity: 1; } 15%, 20% { opacity: 0; } 23%, 28% { opacity: 1; } 31%, 100% { opacity: 0; } }
+@keyframes wave-blink { 0%, 64% { opacity: 0; } 65.5%, 68.5% { opacity: 1; } 70%, 100% { opacity: 0; } }
+@keyframes wave-rest {
+  0%, 7% { opacity: 1; } 7.01%, 11.99% { opacity: 0; } 12%, 23% { opacity: 1; } 23.01%, 27.99% { opacity: 0; }
+  28%, 100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot, .wave img:first-child { animation: none; }
+  .wave .wave-out, .wave .wave-blink { animation: none; opacity: 0; }
+}
 @keyframes float { 50% { transform: translateY(-12px) rotate(-1.5deg); } }
 .shot-wrap { margin-top: clamp(32px, 4vw, 48px); }
 @media (max-width: 860px) {
