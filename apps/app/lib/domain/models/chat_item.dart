@@ -166,6 +166,12 @@ class ToolCall extends ChatItem {
   /// Its command in plain words, once asked for.
   String? explanation;
 
+  /// What this action actually did, described after it finished.
+  String? activityLabel;
+  int? activityResultHash;
+  String? activitySummary;
+  List<String> activityIds = const [];
+
   bool get done => result != null;
 
   /// The one line that says what the call does, for the collapsed card.
@@ -196,6 +202,10 @@ class ToolCall extends ChatItem {
     if (children.isNotEmpty) 'children': [for (final c in children) c.toJson()],
     if (background != null) 'background': background!.toJson(),
     'explanation': ?explanation,
+    'activityLabel': ?activityLabel,
+    'activityResultHash': ?activityResultHash,
+    'activitySummary': ?activitySummary,
+    if (activityIds.isNotEmpty) 'activityIds': activityIds,
   };
 
   static ToolCall fromJson(Map<String, Object?> json) =>
@@ -211,7 +221,11 @@ class ToolCall extends ChatItem {
             ToolCall.fromJson(c.cast()),
         ])
         ..background = BackgroundTask.fromJson(json['background'])
-        ..explanation = json['explanation'] as String?;
+        ..explanation = json['explanation'] as String?
+        ..activityLabel = json['activityLabel'] as String?
+        ..activityResultHash = json['activityResultHash'] as int?
+        ..activitySummary = json['activitySummary'] as String?
+        ..activityIds = ((json['activityIds'] as List?) ?? const []).whereType<String>().toList();
 }
 
 /// Work an agent left running while the conversation goes on: a command, or a

@@ -129,7 +129,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     // Groups of steps open too.
-    for (final g in find.textContaining('Used a tool').evaluate().toList()) {
+    for (final g in find.bySemanticsLabel(RegExp('Show steps\$')).evaluate().toList()) {
       await tester.tap(find.byWidget(g.widget));
       await tester.pumpAndSettle();
     }

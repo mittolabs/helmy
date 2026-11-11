@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../domain/models/chat_item.dart';
+import '../../domain/activity_words.dart';
 import '../../domain/models/engine.dart';
 import '../../domain/models/session.dart';
 import '../../utils/result.dart';
@@ -35,6 +36,11 @@ class Conversation {
 /// in a background process per session and engine; the caller never learns
 /// which. Notifies on every change.
 abstract class ConversationRepository extends ChangeNotifier {
+  Future<ActivitySummary?> describeActivities(
+    String sessionId,
+    List<ToolCall> calls, {
+    String context = '',
+  }) async => null;
   Conversation of(String sessionId);
 
   Future<void> load(String sessionId);

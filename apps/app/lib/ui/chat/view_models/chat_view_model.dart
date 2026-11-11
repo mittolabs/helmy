@@ -34,6 +34,7 @@ import '../../../data/services/window_snapshots.dart';
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/services/turn_log.dart';
 import '../../../domain/filing.dart';
+import '../../../domain/activity_words.dart';
 import '../../../data/services/project_actions.dart';
 import '../../../domain/models/project_action.dart';
 import '../../../data/services/watch_service.dart';
@@ -106,6 +107,51 @@ class PanelTab {
 }
 
 class ChatViewModel extends ChangeNotifier implements MediaActions {
+  final _activitySummaries = <String, Future<ActivitySummary?>>{};
+  final _activityAttempts = <String, DateTime>{};
+  final _activityPending = <String>{};
+
+  Future<ActivitySummary?> describeActivities(List<ToolCall> calls) {
+    if (busy || calls.isEmpty || calls.any((c) => !c.done)) return Future.value(null);
+    final ids = [for (final c in calls) c.id];
+    final last = calls.last;
+    if (last.activitySummary != null &&
+        listEquals(last.activityIds, ids) &&
+        calls.every((c) => c.activityResultHash == c.result.hashCode)) {
+      return Future.value(
+        ActivitySummary(last.activitySummary!, {
+          for (final c in calls) c.id: c.activityLabel ?? '',
+        }),
+      );
+    }
+    final key = [for (final c in calls) '${c.id}:${c.result.hashCode}'].join('|');
+    final previous = _activityAttempts[key];
+    if (!_activityPending.contains(key) &&
+        previous != null &&
+        DateTime.now().difference(previous) > const Duration(minutes: 1)) {
+      _activitySummaries.remove(key);
+    }
+    return _activitySummaries.putIfAbsent(key, () {
+      _activityAttempts[key] = DateTime.now();
+      _activityPending.add(key);
+      final at = items.indexOf(calls.first);
+      final before = at < 0 ? const <ChatItem>[] : items.take(at).toList();
+      String short(String text) => text.length > 1200 ? text.substring(0, 1200) : text;
+      final request = before.whereType<UserMessage>().lastOrNull?.text ?? '';
+      final purpose = before.whereType<AssistantText>().lastOrNull?.text ?? '';
+      return _conversations
+          .describeActivities(
+            sessionId,
+            calls,
+            context: 'Request: ${short(request)}\nWork described: ${short(purpose)}',
+          )
+          .whenComplete(() {
+            _activityPending.remove(key);
+            _activityAttempts[key] = DateTime.now();
+          });
+    });
+  }
+
   new({
     required this.sessionId,
     required this._sessions,
@@ -1135,6 +1181,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
   /// else the last one, else a new one.
   @override
   void preview(String url) {
+    if (isInternalConnectionUrl(url)) return;
     final tab =
         (active?.kind == .preview ? active : null) ??
         tabs.where((t) => t.kind == .preview).lastOrNull ??
@@ -1725,7 +1772,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions {
 /// colors taken out); null when there is none.
 String? localServerInText(String text) {
   final plain = text.replaceAll(RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'), '');
-  final found = _local.allMatches(plain).lastOrNull?[0];
+  final found = _local
+      .allMatches(plain)
+      .map((m) => m[0]!)
+      .where((url) => !isInternalConnectionUrl(url))
+      .lastOrNull;
   return found?.replaceFirst('0.0.0.0', 'localhost');
 }
 
@@ -1736,13 +1787,9 @@ final _local = RegExp(
 /// The newest address on this computer that a step's output gave, such as
 /// a dev server's "Local: http://localhost:5173/"; null when there is none.
 String? localServerIn(List<ChatItem> items) {
-  final local = RegExp(
-    r'''https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:/[^\s'"`<>)\]]*)?''',
-  );
   for (final call in items.reversed.whereType<ToolCall>()) {
-    final out = call.result ?? '';
-    final found = local.allMatches(out).lastOrNull?[0];
-    if (found != null) return found.replaceFirst('0.0.0.0', 'localhost');
+    final found = localServerInText(call.result ?? '');
+    if (found != null) return found;
   }
   return null;
 }

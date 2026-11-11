@@ -23,7 +23,8 @@ class _HelperSteps extends StatelessWidget {
             Text(
               [
                 stepTitle(s, done: s.done),
-                if (s.summary.isNotEmpty) s.summary,
+                if (s.summary.isNotEmpty && s.input['command'] == null && s.activityLabel == null)
+                  s.summary,
                 if (s.isError) 'failed',
               ].join('  ·  '),
               maxLines: 1,
@@ -46,40 +47,18 @@ class _Diff extends StatelessWidget {
   Widget build(BuildContext context) => DiffView(diff: diff, maxRows: 60);
 }
 
-/// "Ran 2 commands, read 3 files and edited a file": what a run of steps did.
+/// A concrete account of the work, with factual per-action labels as a fallback.
 String stepsSummary(List<ToolCall> calls) {
-  final counts = <String, int>{};
-  for (final c in calls) {
-    final kind = switch (c.name) {
-      'Bash' || 'Shell' => 'command',
-      'Read' => 'read',
-      'Write' || 'Edit' || 'NotebookEdit' => 'edit',
-      'Glob' || 'Grep' || 'WebSearch' => 'search',
-      'WebFetch' => 'page',
-      'Task' || 'Agent' => 'helper',
-      'ImageGeneration' => 'image',
-      _ => 'tool',
-    };
-    counts[kind] = (counts[kind] ?? 0) + 1;
+  if (calls.isEmpty) return 'Work';
+  if (calls.last.activitySummary != null &&
+      listEquals(calls.last.activityIds, [for (final c in calls) c.id])) {
+    return calls.last.activitySummary!;
   }
-  String n(int k, String one, String many) => k == 1 ? one : '$k $many';
-  final parts = [
-    for (final MapEntry(:key, :value) in counts.entries)
-      switch (key) {
-        'command' => 'ran ${n(value, 'a command', 'commands')}',
-        'read' => 'read ${n(value, 'a file', 'files')}',
-        'edit' => 'edited ${n(value, 'a file', 'files')}',
-        'search' => 'searched ${n(value, 'once', 'times')}',
-        'page' => 'read ${n(value, 'a page', 'pages')}',
-        'helper' => 'asked ${n(value, 'a helper', 'helpers')}',
-        'image' => 'made ${n(value, 'an image', 'images')}',
-        _ => 'used ${n(value, 'a tool', 'tools')}',
-      },
-  ];
-  final text = parts.length == 1
-      ? parts.single
-      : '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
-  return text[0].toUpperCase() + text.substring(1);
+  final labels = {for (final c in calls) stepTitle(c, done: c.done)}.toList();
+  String lower(String s) => s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
+  if (labels.length == 1) return labels.single;
+  if (labels.length == 2) return '${labels.first} and ${lower(labels[1])}';
+  return '${labels.first}, ${labels.skip(1).take(labels.length - 2).map(lower).join(', ')} and ${lower(labels.last)}';
 }
 
 /// Several steps in a row as one quiet line that opens to each of them.
@@ -89,7 +68,12 @@ class _StepGroup extends StatelessWidget {
   final ChatViewModel vm;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => FutureBuilder<ActivitySummary?>(
+    future: vm.describeActivities([for (final s in steps) s.$2]),
+    builder: (context, _) => _body(context),
+  );
+
+  Widget _body(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final calls = [for (final s in steps) s.$2];
@@ -131,10 +115,10 @@ class _StepGroup extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const .only(left: 22, top: 2),
+        padding: const EdgeInsetsDirectional.only(start: 22, top: 2),
         child: Column(
           crossAxisAlignment: .stretch,
-          children: [for (final (_, call, p) in steps) _Step(call, p, vm)],
+          children: [for (final (_, call, p) in steps) _Step(call, p, vm, describe: false)],
         ),
       ),
     );
@@ -144,6 +128,15 @@ class _StepGroup extends StatelessWidget {
 /// What a step did, in words, whichever engine took it: "Ran a command",
 /// "Edited notes.md". [done] picks the tense.
 String stepTitle(ToolCall call, {required bool done}) {
+  if (done && (call.activityLabel ?? '').isNotEmpty) return call.activityLabel!;
+  final description = call.input['description'];
+  if (call.input['command'] is String &&
+      description is String &&
+      description.trim().isNotEmpty &&
+      description.length <= 140 &&
+      !description.contains('\n')) {
+    return description.trim();
+  }
   String file() {
     final path = '${call.input['file_path'] ?? call.input['notebook_path'] ?? ''}';
     final first = path.split(', ').first;
@@ -153,7 +146,11 @@ String stepTitle(ToolCall call, {required bool done}) {
   String pick(String did, String doing) => done ? did : doing;
   if (call.input['by'] == 'you') return pick('You ran a command', 'Running your command');
   return switch (call.name) {
-    'Bash' || 'Shell' => pick('Ran a command', 'Running a command'),
+    'Bash' || 'Shell' => specificCommandLabel(
+      PermissionRule.plainCommand('${call.input['command'] ?? ''}'),
+      done: done,
+      result: call.result,
+    ),
     'Read' => pick('Read ${file()}', 'Reading ${file()}'),
     'Write' => pick('Wrote ${file()}', 'Writing ${file()}'),
     'Edit' || 'NotebookEdit' => pick('Edited ${file()}', 'Editing ${file()}'),
@@ -171,13 +168,21 @@ String stepTitle(ToolCall call, {required bool done}) {
 /// One step the agent took, as a quiet line that opens to what went in and
 /// what came out. An approval it waits on shows open, with its answers.
 class _Step extends StatelessWidget {
-  const new(this.call, this.prompt, this.vm);
+  const new(this.call, this.prompt, this.vm, {this.describe = true});
   final ToolCall call;
   final PermissionPrompt? prompt;
   final ChatViewModel vm;
+  final bool describe;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => !describe
+      ? _body(context)
+      : FutureBuilder<ActivitySummary?>(
+          future: vm.describeActivities([call]),
+          builder: (context, _) => _body(context),
+        );
+
+  Widget _body(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final p = prompt;
@@ -186,12 +191,12 @@ class _Step extends StatelessWidget {
     final failed = call.isError || denied;
     final running = !call.done && !asking && !denied && vm.busy;
     final muted = t.text.sm.copyWith(color: c.mutedForeground);
-    final detail = call.summary;
-    final title = asking
-        ? 'Wants to ${stepTitle(call, done: false).replaceFirst(RegExp(r'^\w+ing'), _verb(call))}'
-        : stepTitle(call, done: !running);
+    final shell = call.input['command'] is String;
+    final activity = commandActivity(PermissionRule.plainCommand('${call.input['command'] ?? ''}'));
+    final detail = shell || call.activityLabel != null ? '' : call.summary;
+    final title = asking ? 'Technical details' : stepTitle(call, done: !running);
     final step = Collapsible(
-      initiallyOpen: asking || context.read<SettingsRepository>().settings.stepsOpen,
+      initiallyOpen: !asking && context.read<SettingsRepository>().settings.stepsOpen,
       builder: (context, open, toggle) => Pressable(
         onPressed: toggle,
         semanticLabel: '$title. ${open ? 'Hide' : 'Show'} details',
@@ -217,7 +222,11 @@ class _Step extends StatelessWidget {
                       ),
               ),
               Text(
-                failed ? '$title, failed' : title,
+                denied
+                    ? '$title, stopped'
+                    : failed
+                    ? '$title, failed'
+                    : title,
                 style: muted.copyWith(
                   color: state.hovered || asking ? c.foreground : c.mutedForeground,
                   fontWeight: asking ? .w500 : null,
@@ -253,11 +262,12 @@ class _Step extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const .only(left: 22, top: 4, bottom: 6),
+        padding: const EdgeInsetsDirectional.only(start: 22, top: 4, bottom: 6),
         child: Column(
           crossAxisAlignment: .stretch,
           spacing: 8,
           children: [
+            if (asking && (p.why ?? '').isNotEmpty) Text(p.why!, style: t.text.sm),
             if (call.children.isNotEmpty) _HelperSteps(call.children),
             if (diffsOf(call).isNotEmpty)
               for (final d in diffsOf(call)) _Diff(d)
@@ -301,7 +311,11 @@ class _Step extends StatelessWidget {
           // Only what cannot be undone, or leaves this Mac, comes here: Helmy's
           // question about the outcome, then the step itself.
           Text(
-            (p.why ?? '').isNotEmpty ? p.why! : 'Let this go ahead?',
+            shell && activity.group == 'prepared a restart'
+                ? '${activity.action}?'
+                : (p.why ?? '').isNotEmpty
+                ? p.why!
+                : 'Let this go ahead?',
             style: t.text.sm.copyWith(fontWeight: .w500),
           ),
           step,
@@ -309,7 +323,13 @@ class _Step extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              Button(size: .sm, onPressed: () => vm.allow(p), child: const Text('Go ahead')),
+              Button(
+                size: .sm,
+                onPressed: () => vm.allow(p),
+                child: Text(
+                  shell && activity.group == 'prepared a restart' ? 'Prepare restart' : 'Go ahead',
+                ),
+              ),
               Button(
                 size: .sm,
                 variant: .ghost,
@@ -332,19 +352,6 @@ class _Step extends StatelessWidget {
           result: call.result,
           command: PermissionRule.plainCommand('${call.input['command'] ?? ''}'),
         );
-
-  /// "Wants to run a command", "wants to edit notes.md".
-  static String _verb(ToolCall call) => switch (call.name) {
-    'Bash' || 'Shell' => 'run',
-    'Read' => 'read',
-    'Write' => 'write',
-    'Edit' || 'NotebookEdit' => 'edit',
-    'Glob' || 'Grep' || 'WebSearch' => 'search',
-    'WebFetch' => 'read',
-    'Task' || 'Agent' => 'ask',
-    'ImageGeneration' => 'make',
-    _ => 'use',
-  };
 }
 
 /// Text from a tool, in the mono face. Long output is cut rather than given a

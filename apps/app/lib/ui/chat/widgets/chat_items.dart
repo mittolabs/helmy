@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import '../../../domain/helmy_voice.dart';
+import '../../../domain/activity_words.dart';
 import '../../../domain/folder_move.dart';
 
 import 'dart:io';
@@ -11,6 +12,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapSlop, kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 

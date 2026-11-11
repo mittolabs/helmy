@@ -75,10 +75,10 @@ void main() {
 
   test('a run of steps is summed up in words', () {
     ToolCall c(String name) => ToolCall(id: name, name: name, input: const {});
-    expect(stepsSummary([c('Bash'), c('Bash'), c('Read')]), 'Ran 2 commands and read a file');
+    expect(stepsSummary([c('Bash'), c('Bash'), c('Read')]), 'Running a script and reading a file');
     expect(
       stepsSummary([c('Shell'), c('Edit'), c('Write'), c('WebSearch')]),
-      'Ran a command, edited 2 files and searched once',
+      'Running a script, editing a file, writing a file and searching the web',
     );
   });
 

@@ -10,6 +10,8 @@ import '../services/engines/decider.dart';
 import '../../domain/folder_move.dart';
 import '../../domain/routing.dart';
 import '../services/engines/explainer.dart';
+import '../services/engines/activity_summarizer.dart';
+import '../../domain/activity_words.dart';
 import '../services/shell_service.dart';
 import '../../domain/problem.dart';
 import '../../utils/format.dart';
@@ -30,10 +32,9 @@ import '../../utils/platform.dart';
 import '../services/approvals.dart';
 import '../services/learner.dart';
 import 'lesson_repository.dart';
-
-/// A message on its way: which engine has it, where its output starts, and
 import '../services/skill_store.dart';
 
+/// A message on its way: which engine has it, where its output starts, and
 /// which engines already failed it.
 class _Turn {
   new(this.text, this.start, {this.attachments = const [], Set<Capability> needs = const {}})
@@ -172,6 +173,28 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// Explains a step's command in plain words.
   late final _explainer = CommandExplainer(_engines, _router, _enabled);
+  late final _activity = ActivitySummarizer(_engines, _router, _meter, _enabled);
+
+  @override
+  Future<ActivitySummary?> describeActivities(
+    String sessionId,
+    List<ToolCall> calls, {
+    String context = '',
+  }) async {
+    final summary = await _activity.describe(calls, context: context);
+    if (summary == null || _disposed) return null;
+    final items = of(sessionId).items;
+    if (!calls.every(items.contains)) return null;
+    for (final call in calls) {
+      call.activityLabel = summary.steps[call.id];
+      call.activityResultHash = call.result.hashCode;
+    }
+    calls.last
+      ..activitySummary = summary.title
+      ..activityIds = [for (final call in calls) call.id];
+    await _persist(sessionId);
+    return summary;
+  }
 
   /// Gives a session its own working copy of a repository, where the
   /// project asks for that ([_ownCopies]).
@@ -216,7 +239,6 @@ class ConversationRepositoryEngines extends ConversationRepository {
   Future<void> load(String sessionId) async {
     final c = of(sessionId);
     if (c.loaded) return;
-
     c.loaded = true;
     final raw = await _storage.read('transcripts/$sessionId.json');
     c.items.insertAll(
