@@ -1,0 +1,27 @@
+# helmy.ke and the Caddy that serves it, from one image. On the server it has no ports of
+# its own: it joins the `ashlar` network, where the edge (ashlar-site/infra/edge) reaches
+# it as helmy-site and holds 80 and 443. On this machine (make local) it is published on
+# localhost. See README.md here.
+
+name: helmy-site
+
+services:
+  site:
+    image: ghcr.io/mittolabs/helmy-site:${HELMY_SITE_RELEASE:-local}
+    restart: unless-stopped
+    ports:
+      - "${HELMY_SITE_BIND:-127.0.0.1}:${HELMY_SITE_PORT:-8745}:80"
+    networks:
+      default:
+      ashlar:
+        aliases: [helmy-site]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+networks:
+  # The server's shared network, where the edge reaches every site it serves.
+  ashlar:
+    external: true

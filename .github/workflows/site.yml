@@ -1,0 +1,118 @@
+name: site
+
+# helmy.ke: the site and the docs in one image, built on every push to main that touches
+# them and after each release's builds are attached, so the download page lists them.
+# Deployed when DEPLOY_HOST is set (infra/README.md). Running it by hand with a release
+# deploys that commit's image again without building: the rollback.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "A commit SHA whose image to deploy again (leave empty to build this ref)"
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - apps/site/**
+      - apps/docs/**
+      - CHANGELOG.md
+      - infra/**
+      - Makefile
+      - .github/workflows/site.yml
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ !inputs.release && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      # After a release build, the site is built from main as it is now.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The pages are built once, on the runner's own platform, and copied into a Caddy
+      # image for each platform the server or a laptop might be. No cache: the download
+      # page reads the latest release while it builds, and a cached layer would keep an
+      # old one.
+      - name: Build and push the release image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          no-cache: true
+          build-args: RELEASE=${{ steps.sha.outputs.sha }}
+          tags: |
+            ghcr.io/mittolabs/helmy-site:${{ steps.sha.outputs.sha }}
+            ghcr.io/mittolabs/helmy-site:latest
+
+  deploy:
+    needs: release
+    if: ${{ always() && vars.DEPLOY_HOST != '' && (needs.release.result == 'success' || inputs.release) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      RELEASE: ${{ inputs.release || needs.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pipx install ansible-core
+
+      - name: Trust the server and hold the deploy key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        working-directory: infra/ansible
+        env:
+          HELMY_HOST: ${{ vars.DEPLOY_HOST }}
+          HELMY_RELEASE: ${{ env.RELEASE }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ansible-playbook -u deploy deploy.yml </dev/null
+
+      - name: Check the site serves this release
+        run: |
+          for i in $(seq 1 12); do
+            served=$(curl -fsS https://helmy.ke/release.txt || true)
+            [ "$served" = "$RELEASE" ] && { echo "helmy.ke serves $served"; exit 0; }
+            sleep 5
+          done
+          echo "helmy.ke serves '${served}', not $RELEASE"
+          exit 1

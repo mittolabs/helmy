@@ -1,0 +1,10 @@
+# Where the site runs: the server the *.ashlar.ke sites share, as a guest (Mittolabs
+# docs/notes/helmy-on-the-ashlar-server.md). The host comes from the command line or, in
+# CI, from the DEPLOY_HOST variable.
+all:
+  hosts:
+    site:
+      ansible_host: "{{ lookup('env', 'HELMY_HOST') | default('unset', true) }}"
+      ansible_port: "{{ lookup('env', 'HELMY_SSH_PORT') | default('22', true) }}"
+  vars:
+    app_dir: /srv/helmy-site

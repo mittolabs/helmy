@@ -1,0 +1,95 @@
+# Starts a release: the image CI built for one commit, ghcr.io/mittolabs/helmy-site:<sha>.
+# Nothing is built on the server. Run by CI after every push to main, or by hand through
+# make deploy, which is also how a release is rolled back (make deploy RELEASE=<older sha>).
+#
+# GHCR_TOKEN reads the private image. It is used for the pull and logged out straight
+# after, so no registry credential stays on the server.
+
+- name: Deploy the helmy.ke site
+  hosts: site
+  vars:
+    release: "{{ lookup('env', 'HELMY_RELEASE') }}"
+    registry_user: "{{ lookup('env', 'GHCR_USER') | default('mittolabs', true) }}"
+    registry_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
+
+  tasks:
+    - name: Refuse to run without a release and a registry token
+      ansible.builtin.assert:
+        that:
+          - release | length > 0
+          - registry_token | length > 0
+        fail_msg: Run this through make deploy or CI, which name the release and pass GHCR_TOKEN.
+
+    # /srv belongs to root: the folder is made as root and given to the deploy account.
+    - name: Make the site's folder
+      become: true
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: "0755"
+
+    - name: Put the compose file in place
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../compose.yml"
+        dest: "{{ app_dir }}/compose.yml"
+        mode: "0644"
+
+    # Shared with the edge and the other sites: whichever deploy runs first makes it.
+    - name: Make the shared network
+      ansible.builtin.shell: docker network inspect ashlar >/dev/null 2>&1 || docker network create ashlar
+      changed_when: false
+
+    # Published on the server's loopback only, for a check from the server itself: the
+    # world reaches it through the edge.
+    - name: Name the release and the port
+      ansible.builtin.copy:
+        dest: "{{ app_dir }}/.env"
+        content: |
+          HELMY_SITE_RELEASE={{ release }}
+          HELMY_SITE_BIND=127.0.0.1
+          HELMY_SITE_PORT=8745
+        mode: "0644"
+
+    - name: Sign in to the registry
+      ansible.builtin.command:
+        cmd: docker login ghcr.io -u {{ registry_user }} --password-stdin
+        stdin: "{{ registry_token }}"
+      no_log: true
+      changed_when: false
+
+    - name: Pull the release
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ app_dir }}"
+      changed_when: true
+      register: pulled
+      ignore_errors: true
+
+    - name: Sign out of the registry
+      ansible.builtin.command:
+        cmd: docker logout ghcr.io
+      changed_when: false
+
+    - name: Stop if the pull failed
+      ansible.builtin.fail:
+        msg: "{{ pulled.stderr }}"
+      when: pulled is failed
+
+    - name: Start it, and wait until it is healthy
+      ansible.builtin.command:
+        cmd: docker compose up -d --wait --remove-orphans
+        chdir: "{{ app_dir }}"
+      changed_when: true
+
+    - name: Drop images no container uses
+      ansible.builtin.command:
+        cmd: docker image prune -af --filter until=168h
+      changed_when: false
+
+    - name: Record what is running
+      ansible.builtin.copy:
+        dest: "{{ app_dir }}/RELEASE"
+        content: "{{ release }}\n"
+        mode: "0644"

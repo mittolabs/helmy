@@ -3,8 +3,9 @@ APP := apps/app
 SITE := apps/site
 DOCS := apps/docs
 JASPR ?= $(HOME)/.pub-cache/bin/jaspr
+DART ?= fvm dart
 
-.PHONY: help setup app run test live analyze format sim-input site site-dev docs docs-dev
+.PHONY: help setup app run test live analyze format sim-input site site-dev docs docs-dev web local local-down deploy
 
 help:
 	@echo "make setup     the commit hook and dependencies"
@@ -19,6 +20,9 @@ help:
 	@echo "make site      release build of the site"
 	@echo "make docs-dev  the docs with hot reload on :8485"
 	@echo "make docs      release build of the docs"
+	@echo "make web       helmy.ke in one folder: the site, and the docs under /docs/"
+	@echo "make local     the release image served in Docker at http://localhost:8745"
+	@echo "make deploy HOST=a [RELEASE=sha]   start a release CI built on the server"
 
 setup:
 	git config core.hooksPath .githooks
@@ -50,7 +54,7 @@ site-dev:
 	cd $(SITE) && $(JASPR) serve
 
 site:
-	gh api repos/mittolabs/helmy/releases/latest > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
+	curl -fsS https://api.github.com/repos/mittolabs/helmy/releases/latest > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
 	cd $(SITE) && $(JASPR) build
 
 docs-dev:
@@ -58,3 +62,30 @@ docs-dev:
 
 docs:
 	cd $(DOCS) && $(JASPR) build
+
+web: site docs
+	cd $(SITE) && $(DART) run tool/web.dart build/jaspr ../docs/build/jaspr build/web
+
+# ── helmy.ke ──────────────────────────────────────────────────────────────────
+# The release is one image, infra/Dockerfile: the site and docs inside the Caddy that
+# serves them. CI builds it on every push to main that touches them
+# (.github/workflows/site.yml). See infra/README.md.
+
+local:
+	docker build -f infra/Dockerfile -t ghcr.io/mittolabs/helmy-site:local .
+	docker network inspect ashlar >/dev/null 2>&1 || docker network create ashlar
+	docker compose -f infra/compose.yml up -d --wait --force-recreate
+
+local-down:
+	docker compose -f infra/compose.yml down
+
+SSH_USER ?= deploy
+SSH_PORT ?= 22
+RELEASE ?= $(shell git rev-parse HEAD)
+ANSIBLE := cd infra/ansible && HELMY_HOST=$(HOST) HELMY_SSH_PORT=$(SSH_PORT) HELMY_RELEASE=$(RELEASE) \
+	GHCR_USER=$$(gh api user -q .login) GHCR_TOKEN=$$(gh auth token) \
+	ansible-playbook -u $(SSH_USER) </dev/null
+
+deploy:
+	@test -n "$(HOST)" || { echo "Usage: make deploy HOST=<address> [RELEASE=<sha>]"; exit 1; }
+	$(ANSIBLE) deploy.yml

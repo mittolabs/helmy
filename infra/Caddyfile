@@ -1,0 +1,30 @@
+# Serves helmy.ke as plain http on :80, inside the server's network: the edge Caddy in
+# front of every site on the server holds the certificates (ashlar-site/infra/edge). On
+# this machine the same file serves http://localhost:8745.
+
+:80 {
+	root * /srv/site
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Cache-Control no-cache
+		-Server
+	}
+
+	redir /docs /docs/ 308
+
+	# Jaspr's build copies package sources into packages/; tool/web.dart leaves them out,
+	# and this makes sure they are never served.
+	handle /packages/* {
+		error 404
+	}
+	handle /docs/packages/* {
+		error 404
+	}
+	handle {
+		try_files {path} {path}/index.html
+		file_server
+	}
+}
