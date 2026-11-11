@@ -1,35 +1,39 @@
 ---
 title: Connections
-description: Learn which AI tools Helmy works through, how it chooses between them, and how to add your own.
+description: Use Connections to give Helmy the AI tools it works through, and let it choose between them for you.
 ---
 
-A connection is an AI tool Helmy does its work through. You add a connection once. After that, you only talk to Helmy: in a chat, it's always Helmy that answers. Connections only appear in **Settings**, under **Connections**, and how much each has left under **Usage**.
+A connection is an AI tool Helmy works through. You add each one once; from then on you only talk to Helmy, which picks a connection for every message, so you get the most out of every subscription you pay for.
 
-| Connection | Account | What it brings |
+Connections appear only in **Settings > Connections**. In a chat, Helmy always answers as itself.
+
+| Connection | Needs | Brings |
 |---|---|---|
-| OpenCode | None needed | Free models, set up for you on first run |
-| Claude Code | A Claude subscription | Works in your folders and your connected accounts |
-| Codex | A ChatGPT subscription | Works in your folders, and makes and edits pictures |
-| Ollama | None needed | A model on your own computer, for when you're offline |
+| OpenCode | No account | Free models, set up on first run |
+| Claude Code | A Claude subscription | Work in your folders and connected accounts |
+| Codex | A ChatGPT subscription | Work in your folders, and making and editing pictures |
+| Ollama | No account | A model on your own computer, for working offline |
 
-## Add a connection
+## Adding a Connection
 
-1. Open **Settings**, then **Connections**.
-2. Choose **Add a connection**. Helmy lists what it found on your computer, and what it can install.
-3. Choose one, and sign in if it asks.
+1. Go to **Settings > Connections**.
+2. Click **Add a connection**. Helmy lists what it found on your computer, and what it can install.
+3. Choose one, and sign in if asked.
 
-You can add a second Claude or ChatGPT account. Each has its own usage limits, and Helmy takes turns between them.
+You can add a second Claude or ChatGPT account. Each has its own limits, and Helmy takes turns between them.
 
-## How Helmy chooses
+## How Helmy Chooses
 
 For each message, Helmy:
 
-1. keeps the connections that can do what you asked (pictures, for example, need one that makes images);
-2. picks the one with the most of its usage limit left;
-3. answers quick questions with a free or local model where it can.
+1. Keeps the connections that can do what you asked. A picture needs one that makes images, for example.
+2. Picks the one with the most of its limit left.
+3. Sends quick questions to a free or local model where it can.
 
-A conversation stays on its connection unless another has clearly more room, since each switch hands the conversation across. When a connection runs out, Helmy moves the conversation to another, history and all, and you don't need to do anything.
+A conversation stays on its connection unless another has clearly more room. When a connection runs out, Helmy moves the conversation to another, with its history.
 
-## Turn one off
+To see how much each connection has left, go to **Settings > Usage**.
 
-Open a connection in **Settings** and use its switch. When it's off, Helmy sends it nothing, but its sign-in and its place in the list stay. **Remove from Helmy** takes it out of the list instead.
+## Turning a Connection Off
+
+Open the connection in **Settings > Connections** and use its switch. Helmy stops sending it messages, and its sign-in stays. To take it out of the list, click **Remove from Helmy**.

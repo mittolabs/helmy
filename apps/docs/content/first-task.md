@@ -1,39 +1,36 @@
 ---
-title: Your first task
-description: Learn how to give Helmy a task in a folder, and follow what it does.
+title: Your First Task
+description: Give Helmy a real task in a folder, and follow the work as it happens.
 ---
 
-In this guide, you'll ask Helmy to tidy a folder. Any folder with a mix of files works, such as your Downloads.
+This walkthrough has Helmy tidy a folder: sorting files, finding duplicates, and asking before it removes anything. Any folder with a mix of files works, such as your Downloads.
 
-## Ask
+## Asking for the Task
 
-1. Start a new chat with **New chat**.
+1. Click **New chat**.
 2. Choose the folder in the tray under the message box.
-3. Say what you want, and what matters to you:
+3. Describe the outcome, and what matters to you:
 
    *Sort out this folder. Put things in folders that make sense. If there are duplicates or two versions of the same file, keep the newest and tell me what you removed.*
 
-You don't need to say how. Helmy works out the steps.
+You don't need to say how. Helmy plans the steps itself.
 
-## Follow along
+## Following the Work
 
-Helmy first says what it's going to do, then does it. Each line under its reply, such as *Inspected the downloads and compared duplicate files*, is a group of steps. Open one to see exactly what ran, and why.
+Helmy says what it's about to do, then does it. Each line under the reply, such as *Inspected the folder and compared duplicate files*, groups a set of steps. Click it to see each command and its result.
 
-Moving files within the chat's folder can be undone, so Helmy just does it. Removing files can't, so Helmy stops and asks:
+Moving files inside the chat's folder can be undone, so Helmy goes ahead. Removing files can't, so Helmy stops and asks:
 
-> *Organize the folder and move the three older copies to the Trash?*
+*Organize the folder and move the three older copies to the Trash?*
 
-Choose **Go ahead** or **Don't**. If you say **Don't**, Helmy finds another way or asks what you'd like instead. Learn more in [Approvals](/approvals).
+Click **Go ahead** or **Don't**. If you click **Don't**, Helmy looks for another way, or asks what you'd prefer.
 
-## Check the result
+## Checking the Result
 
-When it's done, you get a short summary: what moved, what went to the Trash, and anything still open. Each chat keeps a one-line note of where it stands in the list on the left, so you can come back to it later.
+When Helmy finishes, it summarizes what moved, what went to the Trash, and anything still open. The chat's row in the sidebar keeps a one-line status, so you can pick up where you left off.
 
-## Undo a change
+## Undoing Changes
 
-In a folder that's a git repository, every message you send marks a point Helmy can go back to. Open the message, and choose to undo the file changes from there.
+In a folder that's a git repository, every message marks a point Helmy can return to. Open the message and choose to undo the file changes from there.
 
-## Next steps
-
-- Learn [what Helmy asks you about](/approvals), and what it just does.
-- Learn [how chats work](/chats): threads, drafts, and marking a chat done.
+Learn more about [what Helmy asks you about](/approvals).
