@@ -1,4 +1,6 @@
+import '../../../../domain/activity_words.dart';
 import '../../../../domain/models/chat_item.dart';
+import '../../../../domain/models/permission_rule.dart';
 import '../../../../domain/models/engine.dart';
 
 /// Folds `codex app-server` notifications and requests into [ChatItem]s. Pure,
@@ -203,6 +205,13 @@ class CodexReducer {
         if (call == null) items.add(call = _toolCall(item));
         final status = item['status'];
         call.isError = status == 'failed' || status == 'declined' || item['error'] != null;
+        // A search that finds nothing exits 1: an answer, not a failure.
+        if (call.isError &&
+            status == 'failed' &&
+            item['exitCode'] == 1 &&
+            _search(item['command'])) {
+          call.isError = false;
+        }
         call.result = switch (item['type']) {
           'commandExecution' =>
             (item['aggregatedOutput'] as String?) ??
@@ -333,4 +342,12 @@ class CodexReducer {
         );
     }
   }
+}
+
+/// Whether [command] looks through files (rg, grep, find), whose exit 1 means
+/// it found nothing.
+bool _search(Object? command) {
+  if (command is! String) return false;
+  final group = commandActivity(PermissionRule.plainCommand(command)).group;
+  return group == 'searched the files' || group == 'looked for files';
 }
