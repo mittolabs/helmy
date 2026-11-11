@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.3.0](https://github.com/mittolabs/helmy/compare/v0.2.0...v0.3.0) (2026-11-11)
+
+
+### Features
+
+* **designs:** review the rendered result before calling it done ([cec9b37](https://github.com/mittolabs/helmy/commit/cec9b3732206732b3817e3e47902cd457adc2c61))
+* **docs:** colored code on a dark panel ([bdeea14](https://github.com/mittolabs/helmy/commit/bdeea14e5b8a7b0b176f91c87fc59ee3101c0270))
+* **files:** edit files and quoted code inside Helmy ([a1a6c0e](https://github.com/mittolabs/helmy/commit/a1a6c0e976cb0171c45c3d5567d627ccf8302753))
+* **onboarding:** start on the free connection, subscriptions by choice ([7b9e163](https://github.com/mittolabs/helmy/commit/7b9e163e7e583c147929cabedc73e4fe0da12496))
+* **settings:** one subject per page ([6ca4104](https://github.com/mittolabs/helmy/commit/6ca41049a0e7bdebf896e7501b600f4994711269))
+* **site:** a changelog grouped by the part of helmy it touches ([cf1dcef](https://github.com/mittolabs/helmy/commit/cf1dcefc29c3e2aa08e7f8ea31aad72e275ea081))
+* **site:** helmy waves and blinks ([d3b744b](https://github.com/mittolabs/helmy/commit/d3b744b4dd24c495433e8efb90bb44f5618fc75f))
+* **site:** lead with ending the hop between ai providers ([7e69cfe](https://github.com/mittolabs/helmy/commit/7e69cfe15311e8541a0be3228f280afcc0ea425f))
+* **site:** powered by mittolabs above the heading ([#5](https://github.com/mittolabs/helmy/issues/5)) ([b3258dd](https://github.com/mittolabs/helmy/commit/b3258dd2f3c302423b0d83c363f1b59f3e36846a))
+* **site:** show helmy at work, from real chats ([feaf8c7](https://github.com/mittolabs/helmy/commit/feaf8c7fe5acb59f6539255d0d94da34628ec435))
+* **site:** the phone section shows helmy's real chats ([d036f2d](https://github.com/mittolabs/helmy/commit/d036f2d9074474d49128185d7dcdb485177bace7))
+* **skills:** helmy's own skills and tools, given to every connection ([a71dc47](https://github.com/mittolabs/helmy/commit/a71dc4705a9e0ab39cb99fefdc5a570803e1011a))
+* **steps:** say what a run of steps did, in words ([e3deb8e](https://github.com/mittolabs/helmy/commit/e3deb8e9041efa5d6e7b0a4bf7e80a2adab2a0a6))
+
+
+### Bug Fixes
+
+* **approvals:** ask before a connection's app acts on an account ([6da1531](https://github.com/mittolabs/helmy/commit/6da1531fe81c0f6f55941787ab1d8b7433e40c26))
+* **approvals:** read a guide in a config folder without asking ([b347ca0](https://github.com/mittolabs/helmy/commit/b347ca044d16cdeb270a70ad6106e8e7a5e0cc78))
+* **designs:** keep designs on the canvas, publish only when asked ([864f40b](https://github.com/mittolabs/helmy/commit/864f40b1521308246d8f58477f66a56cf1877f85))
+* **phone:** a chat opens even when the mac is newer ([20c58a7](https://github.com/mittolabs/helmy/commit/20c58a759914ed659bd4ed64c86b8c158d7fa686))
+* **routing:** skip a connection its own usage report says is spent ([2319116](https://github.com/mittolabs/helmy/commit/2319116654fd94005be4abba718a01d49044ad34))
+* **settings:** memory scrolls once, lessons and files on tabs ([f169e74](https://github.com/mittolabs/helmy/commit/f169e74b7110383e6ae222e13b2dd91b73a1c13d))
+* **site:** say what is true now the code is public ([3be5a25](https://github.com/mittolabs/helmy/commit/3be5a25461ceeffcff65ef79984484fc43cc2c06))
+* **site:** smooth helmy's cut-out edges ([a1225b8](https://github.com/mittolabs/helmy/commit/a1225b81d07aaa5e476f37254ee2eace597c8821))
+* **steps:** a commit, a removal and a look for files say so ([#7](https://github.com/mittolabs/helmy/issues/7)) ([d3f992a](https://github.com/mittolabs/helmy/commit/d3f992adc85474a9991efc86f58d3f135f52cd55))
+* **steps:** a connection's app reads as the app, not the connection ([e406493](https://github.com/mittolabs/helmy/commit/e406493ff62cf00f7d51f3d641803b9860af8366))
+* **steps:** every step says what it did, while the work runs ([#4](https://github.com/mittolabs/helmy/issues/4)) ([48f6f66](https://github.com/mittolabs/helmy/commit/48f6f66cca2b3fed0b5a30e4745ce1a2a24d428e))
+
 ## [0.2.0](https://github.com/mittolabs/helmy/compare/v0.1.0...v0.2.0) (2026-11-10)
 
 
