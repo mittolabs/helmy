@@ -61,9 +61,21 @@ class UsageMeter extends ChangeNotifier {
   }
 
   bool isDown(String engineId, {DateTime? now}) {
+    final at = now ?? DateTime.now();
     final until = _downUntil[engineId];
-    return until != null && (now ?? DateTime.now()).isBefore(until);
+    if (until != null && at.isBefore(until)) return true;
+    final usage = _usage[engineId];
+    return usage != null &&
+        usage.used >= 1 &&
+        usage.resetsAt != null &&
+        at.isBefore(usage.resetsAt!);
   }
 
-  DateTime? downUntil(String engineId) => isDown(engineId) ? _downUntil[engineId] : null;
+  DateTime? downUntil(String engineId) {
+    if (!isDown(engineId)) return null;
+    final marked = _downUntil[engineId];
+    final reported = _usage[engineId]?.resetsAt;
+    if (marked == null || (reported != null && reported.isAfter(marked))) return reported;
+    return marked;
+  }
 }

@@ -84,6 +84,12 @@ class Problem {
   final DateTime? until;
 }
 
+/// Whether a connection reports exhausted usage, including conversational errors.
+bool isUsageLimit(String text) => RegExp(
+  r"usage limit|rate.?limit|quota|\b429\b|too many requests|limit reached|hit your .*limit|hit (?:the |a )?.*limit",
+  caseSensitive: false,
+).hasMatch(text);
+
 /// [raw] (a connection's own error) diagnosed: the cause, said plainly, and
 /// its fix. Every problem gets one; one Helmy cannot explain still says what
 /// happened, offers to try again, and keeps the details.
@@ -97,8 +103,7 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
   if (RegExp(r'ollama is not running|11434|connection refused.*11434|11434.*refused').hasMatch(e)) {
     return p('The model on this computer is not running.', .startLocal);
   }
-  if (RegExp(r'usage limit|rate.?limit|quota|\b429\b|too many requests|limit reached')
-      .hasMatch(e)) {
+  if (isUsageLimit(text)) {
     // Claude says when, as "...|<seconds since 1970>".
     final stamp = int.tryParse(RegExp(r'\|(\d{9,})').firstMatch(text)?[1] ?? '');
     final until = stamp == null ? null : DateTime.fromMillisecondsSinceEpoch(stamp * 1000);

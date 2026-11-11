@@ -27,6 +27,7 @@ class _Engine implements AgentEngine {
   final EngineInfo info;
   final String reply;
   bool asksForTools = false;
+  String? failure;
   final sent = <String>[];
 
   /// The folder each run started in.
@@ -71,7 +72,11 @@ class _Run implements EngineRun {
   void send(String text, {List<String> attachments = const []}) {
     engine.sent.add(text);
     scheduleMicrotask(() {
-      if (engine.asksForTools) {
+      if (engine.failure case final error?) {
+        items
+          ..add(AssistantText('limit', error))
+          ..add(TurnSummary(ok: false, error: error));
+      } else if (engine.asksForTools) {
         items.add(TurnSummary(ok: false, error: needsToolsError));
       } else {
         items
@@ -169,6 +174,25 @@ void main() {
     ),
     'agent answer',
   );
+
+  test('a limit printed as an answer falls back without asking the person', () async {
+    final first = _Engine(
+      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+      '',
+    )..failure = "You've hit your 5-hour limit · resets 10:40pm (Africa/Nairobi)";
+    final next = _Engine(
+      const EngineInfo(id: 'next', name: 'Next', capabilities: {Capability.tools}),
+      'Done',
+    );
+    final (repo, session) = await make([first, next], _Decider());
+    addTearDown(repo.dispose);
+    await repo.send(session, 'change the code');
+    await pumpEventQueue();
+    expect(first.sent, hasLength(1));
+    expect(next.sent, hasLength(1));
+    expect(repo.of(session.id).items.whereType<AssistantText>().single.text, 'Done');
+    expect(repo.of(session.id).busy, isFalse);
+  });
 
   test('offline, a message sure to need no tools gets a plain answer', () async {
     final d = _Decider()..next = (direct: true, services: <Capability>{});

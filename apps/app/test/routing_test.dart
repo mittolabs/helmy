@@ -119,6 +119,14 @@ void main() {
     });
   });
 
+  test('reported exhaustion is skipped until its reset without a failed turn', () {
+    final now = DateTime(2026, 11, 9, 12);
+    final reset = now.add(const Duration(hours: 1));
+    final meter = UsageMeter()..report('a', Usage(used: 1, resetsAt: reset), now: now);
+    expect(meter.isDown('a', now: now), isTrue);
+    expect(meter.isDown('a', now: reset), isFalse);
+  });
+
   test('a failed engine stays out until its limit resets', () {
     final meter = UsageMeter();
     final now = DateTime(2026, 11, 3, 12);

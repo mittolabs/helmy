@@ -586,8 +586,11 @@ class ConversationRepositoryEngines extends ConversationRepository {
   bool _failedClean(Conversation c, _Turn turn) {
     final output = c.items.skip(turn.start);
     final summary = output.whereType<TurnSummary>().lastOrNull;
+    final limit = summary != null && !summary.ok && isUsageLimit(summary.error ?? '');
     final didSomething = output.any(
-      (i) => i is ToolCall || (i is AssistantText && i.text.trim().isNotEmpty),
+      (i) =>
+          i is ToolCall ||
+          (i is AssistantText && i.text.trim().isNotEmpty && !(limit && isUsageLimit(i.text))),
     );
     return (summary == null || !summary.ok) && !didSomething;
   }
