@@ -1,8 +1,19 @@
 part of '../settings_screen.dart';
 
-class _Memory extends StatelessWidget {
+/// What Helmy has learned, and its connections' memory files: two views on
+/// tabs, each filling the page and scrolling once. Stacked, the lessons sat in a
+/// short box of their own that cut a line in half, above a second scroll.
+class _Memory extends StatefulWidget {
   const new({required this.vm});
   final SettingsViewModel vm;
+
+  @override
+  State<_Memory> createState() => _MemoryState();
+}
+
+class _MemoryState extends State<_Memory> {
+  SettingsViewModel get vm => widget.vm;
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -16,8 +27,24 @@ class _Memory extends StatelessWidget {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        _Lessons(lessons: lessons),
-        Expanded(child: _files(context)),
+        Padding(
+          padding: const .fromLTRB(8, 0, 32, 12),
+          // The row chooses; the view below fills the height, which Tabs' own
+          // panel, sized to its content, could not give a scrolling list.
+          child: Tabs(
+            variant: .line,
+            index: _tab,
+            onChanged: (i) => setState(() => _tab = i),
+            tabs: [
+              TabItem(
+                label: Text('Learned (${lessons.all.length})'),
+                content: const SizedBox.shrink(),
+              ),
+              const TabItem(label: Text('Files'), content: SizedBox.shrink()),
+            ],
+          ),
+        ),
+        Expanded(child: _tab == 0 ? _Lessons(lessons: lessons) : _files(context)),
       ],
     );
   }
@@ -329,14 +356,19 @@ class _Lessons extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 320),
-      child: SingleChildScrollView(
-        padding: const .fromLTRB(8, 0, 32, 16),
+    return ScrollArea(
+      child: Padding(
+        padding: const .fromLTRB(8, 0, 32, 24),
         child: Column(
           crossAxisAlignment: .stretch,
           children: [
-            const _Heading('What Helmy has learned', first: true),
+            Padding(
+              padding: const .only(bottom: 8),
+              child: Text(
+                'What Helmy has learned working with you. Forget anything that no longer holds.',
+                style: t.text.sm.copyWith(color: c.mutedForeground),
+              ),
+            ),
             for (final l in lessons.all.reversed)
               _Row(
                 title: l.text,

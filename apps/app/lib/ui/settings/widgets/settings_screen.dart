@@ -46,6 +46,7 @@ import '../../core/ashlar/kbd.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/select.dart';
+import '../../core/ashlar/tabs.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/toast.dart';
 import '../../import/history_import_view_model.dart';
