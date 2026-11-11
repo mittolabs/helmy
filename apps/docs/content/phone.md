@@ -1,16 +1,35 @@
 ---
 title: Your phone
-description: Your chats, and your Mac, in your pocket.
+description: Learn how to pair your phone with Helmy, and keep up with your chats when you're away.
 ---
 
-Turn on **Settings, Phone, Reach Helmy from your phone**, then scan the code it shows with Helmy on your phone.
+The phone app shows the chats on your computer, live. The work stays on your computer: your phone follows it, and tells it what to do.
 
-What goes between them is sealed with a key only that code carries; nothing readable crosses the network, and a phone without it is turned away. Each phone pairs with a code of its own. The phone reaches the Mac on the same Wi-Fi, or anywhere over Tailscale.
+## Pair your phone
 
-## What you can do
+1. On your computer, open **Settings**, then **Phone**, and turn on **Reach Helmy from your phone**.
+2. Open Helmy on your phone, and choose **Scan the code**.
+3. Scan the code your computer shows.
 
-- Follow your chats live: send, approve and stop.
-- Open a chat's design and hold it in your hand: one screen at a time, links between screens followed, redrawn as the Mac changes it.
-- With **See and use this Mac from your phone** on, watch the Mac's screen and use it.
+That's the whole setup. Each phone pairs with a code of its own.
 
-Paired phones are listed in Settings, Phone, each with when it was paired and last seen, and can be removed one at a time.
+<Info>
+Everything between your phone and your computer is sealed with a key only that code carries. Nothing readable crosses the network, and a phone without the key is turned away. Treat the code like a password.
+</Info>
+
+Your phone reaches your computer on the same Wi-Fi, or from anywhere over Tailscale.
+
+## Follow your chats
+
+- **See what needs you:** chats waiting for an approval or an answer are at the top.
+- **Answer and send:** open a chat to approve a step, answer a question, or send a message.
+- **Stop a task:** stop work from wherever you are.
+- **Hold a design:** in a chat with a design, choose **See the design**, and tap through its screens.
+
+## Use your Mac from your phone
+
+With **See and use this Mac from your phone** turned on, you can see your Mac's screen and use it from your phone. A bar at the top of the Mac says when a phone is watching, with a button to stop it. This is on macOS only.
+
+## Remove a phone
+
+Paired phones are listed in **Settings**, under **Phone**, with when each was paired and last seen. Choose **Unpair** to remove one.

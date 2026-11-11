@@ -1,42 +1,60 @@
 ---
 title: The vault
-description: Secrets the agent uses by name and never sees.
+description: Learn how to give Helmy API keys and passwords without them ever entering the chat.
 ---
 
-API keys, passwords and tokens live in Helmy's vault: in your Mac's login Keychain, or in your HashiCorp Vault. Agents get their **names**, never their values.
+The vault keeps your API keys, passwords and tokens where the AI can use them by name, but never see them.
 
-## How agents use them
+<Info>
+The vault is on macOS for now, where it keeps your secrets in your login Keychain or your HashiCorp Vault.
+</Info>
 
-- `vault_list` gives the names a chat can use: its project's, and the shared ones.
-- `vault_run` runs a command with the secrets as environment variables. Whatever it prints comes back with every value replaced by `[NAME]`.
-- `vault_ask` asks you for a missing secret through a private field in the chat. It never goes into the conversation.
+## Add a key
 
-Agents can't read `.env` files, key files or credential files at all; Helmy's approvals block it. Example files such as `.env.example` stay readable.
+You don't need to set anything up first. When a task needs a key, Helmy asks for it in a private field in the chat.
 
-## .env files
+1. Paste the key into the field.
+2. Choose **Save**.
 
-When a project has secrets in its `.env` files, Helmy offers once to move them into the vault. Each line then names its secret instead of holding it:
+The key goes to your Keychain, not into the conversation. You can also add keys yourself in **Settings**, under **Vault**.
+
+## How Helmy uses keys
+
+When Helmy runs something that needs a key, the key is passed to it directly. If the key shows up in the output, Helmy blanks it out as `[NAME]`, so the AI only ever sees its name.
+
+The AI can't read `.env` files, key files or credential files at all. Example files, such as `.env.example`, stay readable.
+
+## Move keys out of .env files
+
+When a project keeps keys in its `.env` files, Helmy offers once to move them into the vault. Each line then names its key instead of holding it:
 
 ```bash
 STRIPE_SECRET_KEY=vault:STRIPE_SECRET_KEY
 ```
 
-Frameworks that load `.env` leave a variable that is already set alone, so anything run through Helmy, or `helmy run`, gets the real value.
+Anything Helmy runs gets the real value.
 
-## Pasted by mistake
+## Pasted a key by mistake?
 
-A key pasted into a message (Stripe, OpenAI, Anthropic, GitHub, AWS, Slack and others, or a private key) is caught before it is sent. Helmy offers to keep it and sends `vault:NAME` in its place.
+If you paste a key into a message, Helmy catches it before it's sent, and offers to keep it in the vault instead. It recognizes keys from Stripe, OpenAI, Anthropic, GitHub, AWS, Slack and others, and private keys.
 
-## In your terminal
+## Use your keys in a terminal
 
-Settings, Vault sets up `helmy run`. In a project's folder:
+Turn on `helmy run` in **Settings**, under **Vault**. Then, in a project's folder:
 
 ```bash
 helmy run npm run dev
 ```
 
-runs the command with that project's secrets and the shared ones. Helmy has to be open.
+This runs the command with the project's keys, and the shared ones. Helmy needs to be open.
 
-## HashiCorp Vault
+## Use HashiCorp Vault
 
-Connect it in Settings, Vault with its address, a token and, for Enterprise or HCP, a namespace. Then add a secret **From HashiCorp Vault** with its path and field. Helmy fetches the value only when something runs, and never keeps a copy.
+1. Open **Settings**, then **Vault**, and connect it with its address and a token. For Enterprise or HCP, add a namespace.
+2. Add a key **From HashiCorp Vault**, with its path and field.
+
+Helmy fetches the value only when something runs, and never keeps a copy.
+
+## Next steps
+
+- Learn [what Helmy asks you about](/approvals).

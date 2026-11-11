@@ -1,32 +1,40 @@
 ---
 title: Approvals
-description: Helmy decides what agents may do, and asks you only what can't be undone.
+description: Learn what Helmy does on its own, what it asks you first, and why.
 ---
 
-People approve nearly every permission prompt they see, and stop reading them: Anthropic measured 93% approved in Claude Code. So Helmy doesn't show them. It decides.
+Most AI tools ask permission for almost every step, and people end up approving nearly all of it without reading: in one study, 93% of permission prompts were approved. Helmy decides most of these itself, and only asks you about what matters.
 
-## What happens to an action
+## What Helmy just does
 
-1. **What only looks** (reading files, searching, fetching a page) goes ahead.
-2. **Changes inside the chat's own folder** go ahead: Helmy snapshots the folder, so they can be undone.
-3. **Commands that only read** (`ls`, `cat`, `git status`, `grep` and the like) go ahead.
-4. **Everything else is judged** by a model that sees what you asked for and the action, and nothing else. It allows what serves your request, blocks what is unsafe or wasn't asked for, and asks you about what can't be undone.
+1. **Looking:** reading files, searching, and fetching a page.
+2. **Changing files in the chat's folder.** Helmy keeps a snapshot, so these can be undone.
+3. **Commands that only read,** such as listing a folder or checking a repository's status.
 
-A block goes back to the agent with the reason, so it can find a safer way. After three blocks in a row, or twenty in a chat, you're asked instead.
+## What Helmy checks
+
+Everything else is checked against what you asked for. Helmy allows what serves your request, stops what's unsafe or wasn't asked for, and asks you about what can't be undone. When Helmy stops a step, the AI is told why, so it can find a safer way. If it gets stopped three times in a row, Helmy asks you instead.
+
+To see what Helmy decided, open a step in the chat. Each step it decided on its own shows its reason.
 
 ## What always comes to you
 
-Whatever the judge thinks, these are put to you as a plain question:
+Whatever the check thinks, these are always put to you as a plain question:
 
-- downloading a script and running it,
-- `sudo`,
-- reading passwords, keys or tokens (SSH, cloud credentials, the Keychain),
-- anything that starts by itself at login, crontab, or shell startup files,
-- changing an assistant's own settings, Helmy's included,
-- and anything that leaves your Mac or can't be undone: sending, pushing, deploying, deleting outside the folder.
+- downloading a script and running it;
+- running something as an administrator;
+- reading passwords, keys or tokens;
+- setting up something that starts by itself, or changing how your shell starts;
+- changing an assistant's own settings, Helmy's included, or running a script an assistant installed;
+- acting on one of your connected accounts, such as creating a site;
+- anything that leaves your computer or can't be undone: sending, pushing, deploying, or deleting outside the chat's folder.
 
-You answer **Go ahead** or **Don't**. Each step Helmy decided on its own says so, with its reason, when you open it.
+Answer **Go ahead** or **Don't**.
 
-## Prompt injection
+<Info>
+Files, web pages and tool output can contain instructions meant to trick an AI. Helmy's check only ever sees your own messages and the action itself, never that content, so hidden instructions can't talk their way past it.
+</Info>
 
-Files, web pages and tool output can carry instructions meant for the agent. The judge never sees them: only your own messages and the action. Text inside an action that claims it is approved is treated as a reason to block it. And the fixed checks above apply whatever anything says.
+## Next steps
+
+- Learn [how Helmy keeps your keys out of the chat](/vault).

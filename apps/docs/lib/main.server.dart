@@ -77,14 +77,17 @@ void main() {
                 links: [
                   SidebarLink(text: 'What Helmy is', href: '/'),
                   SidebarLink(text: 'Getting started', href: '/getting-started'),
+                  SidebarLink(text: 'Your first task', href: '/first-task'),
                 ],
               ),
               SidebarGroup(
                 title: 'Working with Helmy',
                 links: [
+                  SidebarLink(text: 'Chats and threads', href: '/chats'),
                   SidebarLink(text: 'Connections', href: '/connections'),
                   SidebarLink(text: 'Approvals', href: '/approvals'),
                   SidebarLink(text: 'The vault', href: '/vault'),
+                  SidebarLink(text: 'Beside the chat', href: '/beside-the-chat'),
                   SidebarLink(text: 'Design', href: '/design'),
                   SidebarLink(text: 'Your phone', href: '/phone'),
                 ],

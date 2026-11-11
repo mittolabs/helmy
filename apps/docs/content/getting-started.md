@@ -1,24 +1,57 @@
 ---
 title: Getting started
-description: The first run, step by step.
+description: Learn how to install Helmy, set it up, and send your first message.
 ---
 
-Helmy runs on macOS 12 or later.
+## Before you start
+
+You need a computer running one of these:
+
+| System | Build |
+|---|---|
+| macOS 12 or later | Apple silicon and Intel |
+| Windows 10 or 11 | x64, or Arm |
+| Linux | x64, or arm64 |
+
+You don't need an AI account. Helmy starts with a free connection, and you can add your own subscriptions later.
+
+## Install
+
+1. Open [helmy.ke/download](https://helmy.ke/download) and download the build for your system.
+2. Unzip it.
+   - **macOS:** drag **Helmy** into **Applications**.
+   - **Windows:** keep the folder anywhere, and open **helmy.exe** inside it.
+   - **Linux:** extract the archive, and run **helmy** in its **bundle** folder.
+3. Open Helmy.
 
 <Info>
-Helmy is in early use and has no public download yet. The first public build will be signed and notarized, so it opens like any other app.
+The macOS build isn't signed yet, so macOS blocks it the first time you open it. Open **System Settings**, then **Privacy & Security**, and choose **Open Anyway**. You only do this once.
 </Info>
 
-## The first run
+## Set up
 
 When Helmy opens for the first time, it walks you through three steps.
 
-1. **Connections.** Helmy looks for Claude Code, Codex and Ollama on your Mac. The ones it finds are switched on and labeled *Found on this Mac*, and you can edit or switch off each. Anything missing can be installed and signed in from here, with no terminal. If neither Claude Code nor Codex is ready, Helmy installs OpenCode, whose free models answer with no account.
-2. **Chats.** Conversations you already had in those tools can be brought in, project by project.
-3. **Folders.** Where new chats start: in no project (each chat gets a folder of its own), where you last worked, or always in one folder.
+1. **Connections.** These are the AI tools Helmy works through. Helmy sets up a free connection, so you can start right away. If you already pay for Claude or ChatGPT, Helmy finds Claude Code and Codex on your computer. They stay off until you switch them on, so Helmy never uses a subscription you didn't choose. Anything missing can be installed and signed in from here, with no terminal.
+2. **Chats.** You can bring in conversations you already had in those tools, project by project.
+3. **Folders.** Choose where new chats start: in a folder of their own, where you last worked, or always in one folder.
 
-Then a short tour points out the message box, the project, attaching files, the panel and Scheduled. You can replay it from **Help, Show the Tour**.
+A short tour then points out the message box, the project, attaching files and the panel beside the chat. You can replay it any time from **Help**, then **Show the Tour**.
 
-## Your first message
+## Send your first message
 
-Type what you want done, the way you would ask a person. `/` brings up commands, `@` brings in a file. The tray under the message box holds the chat's project, its files, and the skills and tools Helmy has. The round button beside the box sends; when the box is empty it becomes a voice button, for talking with Helmy out loud.
+1. Type what you want done, the way you'd ask a person. For example: *What's in my Downloads folder?*
+2. Press **Enter** to send.
+
+Helmy picks a connection, does the work, and answers. You'll see what it did as short lines under its reply. Open one to see the steps.
+
+A few things in the message box:
+
+- Type `@` to bring in a file from the chat's folder.
+- The tray under the box shows the chat's folder, its files, and Helmy's skills.
+- On a Mac, the round button beside the box becomes a microphone when the box is empty, so you can talk to Helmy instead.
+
+## Next steps
+
+- [Give Helmy a real task](/first-task).
+- Learn [how Helmy chooses a connection](/connections), and how to add your own.

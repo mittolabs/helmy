@@ -1,23 +1,46 @@
 ---
 title: Design
-description: Screens on a canvas, made while you talk.
+description: Learn how to ask Helmy for screens and pages, and change them on the canvas.
 ---
 
-Ask Helmy for an app's screens, a mockup, a landing page or a poster, and it lays them out on a canvas in the **Design** tab beside the chat.
+Ask Helmy for an app's screens, a landing page, a mockup or a poster, and it lays them out on a canvas in the **Design** tab beside the chat. They're real pages, not pictures, and nothing is published unless you ask.
 
-## On the canvas
+## Ask for a design
 
-- **Move around:** scroll with two fingers, pinch or press ⌘ plus and minus to zoom, and press the percentage to fit everything.
-- **Select and edit (V):** click an element to select it, drag it to move it, and drag its handles to resize it. Double-click text to retype it; Enter keeps it, Esc lets it go. The arrow keys nudge (Shift for 10 pixels), Delete removes, and Undo is in the toolbar.
-- **Comment (C):** click an element and say what should change. The comment joins your next message, naming the screen and the element.
-- **Devices:** draws each screen in its device: a phone, a tablet or a browser window.
-- **Responsive pages:** hover one to see it at a phone's, a tablet's or a desktop's width.
+Say what you want, and give Helmy what it needs to know:
 
-Your edits are saved into the design's files, so the agent sees them.
+*Make a landing page for Rise Bakery. Everything I know is in notes.md. Keep it warm and simple, with a way to pre-order weekend loaves.*
 
-## The files
+The canvas opens beside the chat, and redraws as Helmy works.
 
-A design is a `design` folder in the chat's folder: `canvas.json`, which places each screen, and one HTML page per screen. Agents write them with their own file tools.
+## Move around
+
+- **Scroll** with two fingers to move.
+- **Zoom** with a pinch, or ⌘ plus and minus.
+- **Fit everything** by pressing the zoom percentage.
+
+## Edit on the canvas
+
+1. Press **V** to select. Click an element, drag it to move it, or drag its handles to resize it.
+2. Double-click text to change it. **Enter** keeps the change, **Esc** drops it.
+3. Use the arrow keys to nudge, with **Shift** for 10 pixels. **Delete** removes. **Undo** is in the toolbar.
+
+Your edits are saved into the design's files, so Helmy sees them.
+
+## Ask for a change
+
+1. Press **C** to comment.
+2. Click the element you mean, and say what should change.
+
+Your comment joins your next message, naming the screen and the element, so Helmy knows exactly what you're pointing at.
+
+## Check every size
+
+Each screen is drawn in its device: a phone, a tablet or a browser window. Hover a responsive page to see it at a phone's, a tablet's or a desktop's width.
+
+## Where the files are
+
+A design is a `design` folder in the chat's folder: one HTML file per screen, and `canvas.json`, which places each one.
 
 ```json
 {
@@ -25,11 +48,10 @@ A design is a `design` folder in the chat's folder: `canvas.json`, which places 
   "boards": {
     "welcome.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "Welcome" }
   },
-  "order": ["welcome.html"],
-  "notes": { "onboarding": { "x": 0, "y": -200, "text": "Onboarding", "kind": "title" } }
+  "order": ["welcome.html"]
 }
 ```
 
-## On your phone
+## Next steps
 
-A chat with a design shows **See the design** on your paired phone. See [Your phone](/phone).
+- Learn [how to hold a design on your phone](/phone).
