@@ -155,7 +155,10 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      // Until the save lands, not a fixed wait: a slow CI runner missed 100 ms.
+      for (var i = 0; i < 50 && !(await file.readAsString()).contains('world'); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
     });
     await tester.pumpAndSettle();
     expect(vm.active!.hasUnsavedEdits, isFalse);
