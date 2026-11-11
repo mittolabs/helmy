@@ -7,6 +7,7 @@ typedef Build = ({String system, String name, String kind, String url, int bytes
 /// The latest stable release, as GitHub has it: `make site` fetches it into
 /// `.release.json` before building. Null when there is none yet, or it
 /// could not be fetched; the site then says so rather than offering a link.
+/// [builds] is empty while a release's files are still being made.
 class Release {
   Release._(this.tag, this.url, this.published, this.builds);
 
@@ -29,7 +30,6 @@ class Release {
         for (final a in (j['assets'] as List? ?? const []).whereType<Map>())
           ?_build('${a['name']}', '${a['browser_download_url']}', (a['size'] as num?)?.toInt() ?? 0),
       ];
-      if (builds.isEmpty) return null;
       return Release._(
         j['tag_name'] as String,
         '${j['html_url']}',

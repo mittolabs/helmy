@@ -209,10 +209,11 @@ class OpenSource extends StatelessComponent {
       p(classes: 'eyebrow reveal', [Component.text('Open source')]),
       h2(classes: 'reveal', [Component.text('Yours to read, change and run.')]),
       p(classes: 'lead reveal', [
+        Component.text('Helmy is BSD licensed, and '),
+        a(href: 'https://github.com/mittolabs/helmy', [Component.text('its code is on GitHub')]),
         Component.text(
-          'Helmy is BSD licensed, and the code goes public with the first release. There is '
-          "nothing to pay for. It runs on subscriptions you already have. Don't like "
-          'something? Change it, or ship your own build.',
+          ". There is nothing to pay for. It runs on subscriptions you already have. Don't "
+          'like something? Change it, or ship your own build.',
         ),
       ]),
       ul(classes: 'points reveal', [
@@ -227,13 +228,13 @@ class OpenSource extends StatelessComponent {
   ]);
 }
 
-/// The way to get it, honestly: not out yet.
+/// The way to get it, honestly: the download, or that the builds are on their way.
 class Get extends StatelessComponent {
   const Get({super.key});
 
   @override
   Component build(BuildContext context) {
-    final out = Release.load() != null;
+    final out = Release.load()?.builds.isNotEmpty ?? false;
     return section(id: 'get', classes: 'get wrap', [
       img(
         classes: 'get-mascot reveal',
@@ -249,9 +250,9 @@ class Get extends StatelessComponent {
           out
               ? 'Free and open source. On first run it connects to Claude Code, Codex, OpenCode '
                     "or Ollama. Have none? It installs OpenCode for you."
-              : 'Helmy is in early use now. The first public build will be signed, so it opens '
-                    "like any other app, and the source ships with it. On first run it connects to "
-                    "Claude Code, Codex, OpenCode or Ollama. Have none? It installs OpenCode for you.",
+              : "Helmy's builds for macOS, Windows and Linux are on their way. On first run it "
+                    'connects to Claude Code, Codex, OpenCode or Ollama. Have none? It installs '
+                    'OpenCode for you.',
         ),
       ]),
       div(classes: 'cta center reveal', [

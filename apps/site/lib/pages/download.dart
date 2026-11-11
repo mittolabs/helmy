@@ -31,6 +31,12 @@ class Download extends StatelessComponent {
           div(classes: 'cta center reveal', [
             a(classes: 'btn btn-ghost', href: '/changelog', [Component.text('Read the changelog')]),
           ]),
+        ] else if (release.builds.isEmpty) ...[
+          p(classes: 'lead center reveal', [
+            Component.text('${release.tag} is out, and its builds are still being made. '),
+            a(href: release.url, [Component.text('The release on GitHub')]),
+            Component.text(' gets them first.'),
+          ]),
         ] else ...[
           p(classes: 'download-version reveal', [
             a(href: release.url, [Component.text('${release.tag} ↗')]),
