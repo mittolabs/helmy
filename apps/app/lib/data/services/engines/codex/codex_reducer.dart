@@ -220,7 +220,14 @@ class CodexReducer {
       'commandExecution' => ToolCall(
         id: id,
         name: 'Shell',
-        input: {'command': item['command'], 'cwd': item['cwd']},
+        input: {
+          'command': item['command'],
+          'cwd': item['cwd'],
+          // What Codex parsed the command into: a file read, a folder listed,
+          // a search. Words for the step, before any model is asked.
+          if (item['commandActions'] case final List actions when actions.isNotEmpty)
+            'actions': actions,
+        },
       ),
       'fileChange' => ToolCall(
         id: id,

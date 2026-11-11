@@ -137,6 +137,9 @@ String stepTitle(ToolCall call, {required bool done}) {
       !description.contains('\n')) {
     return description.trim();
   }
+  if (call.input['actions'] case final List actions) {
+    if (actionsLabel(actions, done: done) case final label?) return label;
+  }
   String file() {
     final path = '${call.input['file_path'] ?? call.input['notebook_path'] ?? ''}';
     final first = path.split(', ').first;
