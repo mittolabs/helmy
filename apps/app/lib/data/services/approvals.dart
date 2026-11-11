@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../domain/helmy_voice.dart';
 import '../../domain/models/chat_item.dart';
 import '../../domain/models/permission_rule.dart';
 import 'engines/engine_registry.dart';
@@ -19,6 +20,15 @@ enum Verdict {
 }
 
 typedef Judgment = ({Verdict verdict, String why});
+
+/// What to ask before a tool acts on an account: "codex_apps.sites.create_site"
+/// is "Let Sites create site on your account?".
+String accountQuestion(String tool) {
+  final label = toolLabel(tool);
+  final colon = label.indexOf(': ');
+  if (colon < 0) return 'Let this act on your account: ${label.toLowerCase()}?';
+  return 'Let ${label.substring(0, colon)} ${label.substring(colon + 2)} on your account?';
+}
 
 /// Approvals judged by Helmy rather than asked (`docs/notes/helmy-permissions.md`).
 /// People approve nearly every prompt without reading it, so Helmy decides:
@@ -59,6 +69,9 @@ class Approvals {
   /// Null when it needs judging. [call] is the step the prompt is about.
   static Judgment? atOnce(PermissionPrompt p, String folder, {ToolCall? call}) {
     if (_looking.contains(p.toolName)) return (verdict: .allow, why: 'It only looks.');
+    if (p.toolName == accountAction && p.input['readOnly'] == true) {
+      return (verdict: .allow, why: 'It only looks at your account.');
+    }
     if (const {'Edit', 'Write', 'MultiEdit', 'NotebookEdit'}.contains(p.toolName)) {
       final paths = _pathsOf(p, call);
       if (paths.isNotEmpty && paths.every((path) => _inside(path, folder))) {
@@ -117,6 +130,9 @@ class Approvals {
   /// moves prompt injection is after, which no wording should talk Helmy
   /// into. The question to ask, or null.
   static String? mustAsk(PermissionPrompt p, String folder) {
+    if (p.toolName == accountAction && p.input['readOnly'] != true) {
+      return accountQuestion('${p.input['tool'] ?? ''}');
+    }
     final command = PermissionRule.plainCommand('${p.input['command'] ?? ''}');
     final paths = [
       for (final key in const ['file_path', 'notebook_path', 'path'])
@@ -156,6 +172,13 @@ class Approvals {
       // permissions; the sensitive reads above still require approval.
       final readsFile = const {'Read', 'Grep', 'Glob', 'LS'}.contains(p.toolName);
       if (readsFile || (command.isNotEmpty && onlyReads(command))) return null;
+      // Running a script kept there (a plugin's) is not a settings change: it can
+      // act on the person's accounts (a site registered, found 2026-11-11).
+      if (RegExp(
+        r'^\s*(node|deno|bun|python3?|ruby|perl|bash|sh|zsh)\s+\S*/\.(claude|codex|config/opencode)/|^\s*\S*/\.(claude|codex|config/opencode)/\S+\.(m?js|py|sh|rb)\b',
+      ).hasMatch(command)) {
+        return 'Run a script an assistant installed? It can act on your accounts.';
+      }
       return 'Change files in Helmy’s or another assistant’s configuration folder?';
     }
     return null;

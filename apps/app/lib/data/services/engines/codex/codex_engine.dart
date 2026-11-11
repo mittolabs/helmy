@@ -423,9 +423,16 @@ class _CodexRun implements EngineRun {
       _rpc.notify('initialized', {});
       final tools = _toolsUrl;
       final settings = {
-        // Helmy's own tools, as an MCP server it runs.
-        if (tools != null || _servers.isNotEmpty)
-          'config': {
+        'config': {
+          // Codex's apps act on the person's accounts (a site created on their
+          // OpenAI account, found 2026-11-11). Codex then asks before each of
+          // their tools, and Helmy decides: reads go ahead, the rest go to the
+          // person (Approvals.accountQuestion). Left unset, they ran unasked.
+          'apps': {
+            '_default': {'default_tools_approval_mode': 'prompt'},
+          },
+          // Helmy's own tools, as an MCP server it runs.
+          if (tools != null || _servers.isNotEmpty)
             'mcp_servers': {
               ..._servers,
               if (tools != null)
@@ -439,7 +446,7 @@ class _CodexRun implements EngineRun {
                   },
                 },
             },
-          },
+        },
         'cwd': launch.cwd,
         'approvalPolicy': approval,
         'sandbox': sandbox,
@@ -473,6 +480,11 @@ class _CodexRun implements EngineRun {
     final method = m['method'] as String? ?? '';
     if (id != null && !_handled.contains(method)) {
       _rpc.replyError(id, 'Not supported by this host');
+    } else if (id != null &&
+        method == 'mcpServer/elicitation/request' &&
+        !CodexReducer.isToolApproval(m)) {
+      // Any other form a tool puts up: nothing in Helmy fills it, so it is turned down.
+      _rpc.reply(id, {'action': 'decline', 'content': null, '_meta': null});
     }
     status
       ..thinking = _reducer.thinking
@@ -486,6 +498,7 @@ class _CodexRun implements EngineRun {
     'item/commandExecution/requestApproval',
     'item/fileChange/requestApproval',
     'item/tool/requestUserInput',
+    'mcpServer/elicitation/request',
   };
 
   @override
@@ -579,14 +592,18 @@ class _CodexRun implements EngineRun {
   Object _rpcId(String requestId) => int.tryParse(requestId) ?? requestId;
 
   @override
-  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) =>
-      _rpc.reply(_rpcId(prompt.requestId), {
-        'decision': switch (answer) {
-          .allow => 'accept',
-          .allowForSession => 'acceptForSession',
-          .deny => 'decline',
-        },
-      });
+  void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) => _rpc.reply(
+    _rpcId(prompt.requestId),
+    prompt.toolName == accountAction
+        ? {'action': answer == .deny ? 'decline' : 'accept', 'content': null, '_meta': null}
+        : {
+            'decision': switch (answer) {
+              .allow => 'accept',
+              .allowForSession => 'acceptForSession',
+              .deny => 'decline',
+            },
+          },
+  );
 
   @override
   void answerQuestion(PermissionPrompt prompt) => _rpc.reply(_rpcId(prompt.requestId), {

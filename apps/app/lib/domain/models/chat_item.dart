@@ -293,6 +293,10 @@ enum PermissionDecision {
 
 /// Claude wants to use a tool and the CLI asked us. Also carries
 /// AskUserQuestion, which arrives the same way.
+/// A connection's tool that acts on one of the person's accounts (Codex's
+/// apps), as a [PermissionPrompt]'s tool name.
+const accountAction = 'AccountAction';
+
 class PermissionPrompt extends ChatItem {
   new({
     required this.requestId,

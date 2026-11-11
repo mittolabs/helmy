@@ -248,8 +248,37 @@ class CodexReducer {
     };
   }
 
+  /// Codex asking whether one of its tools may run (an app's, on the
+  /// person's account), rather than a form for the person to fill.
+  static bool isToolApproval(Map<String, Object?> m) =>
+      m['method'] == 'mcpServer/elicitation/request' &&
+      ((m['params'] as Map?)?['_meta'] as Map?)?['codex_approval_kind'] == 'mcp_tool_call';
+
   void _request(String id, String method, Map<String, Object?> params) {
     switch (method) {
+      case 'mcpServer/elicitation/request'
+          when isToolApproval({'method': method, 'params': params}):
+        final meta = params['_meta'] as Map;
+        final hints = meta['tool_annotations'] as Map? ?? const {};
+        final server = '${params['serverName'] ?? ''}';
+        final tool = '${meta['tool_name'] ?? ''}';
+        items.add(
+          PermissionPrompt(
+            requestId: id,
+            toolName: accountAction,
+            input: {
+              'tool': '$server.$tool',
+              'readOnly': hints['readOnlyHint'] == true,
+              'destructive': hints['destructiveHint'] == true,
+            },
+            suggestions: const [],
+            toolUseId: items
+                .whereType<ToolCall>()
+                .where((t) => t.name == '$server.$tool' && !t.done)
+                .lastOrNull
+                ?.id,
+          ),
+        );
       case 'item/commandExecution/requestApproval':
         items.add(
           PermissionPrompt(
