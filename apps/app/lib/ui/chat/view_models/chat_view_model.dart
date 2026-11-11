@@ -118,7 +118,15 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   final _activityPending = <String>{};
 
   Future<ActivitySummary?> describeActivities(List<ToolCall> calls) {
-    if (busy || calls.isEmpty || calls.any((c) => !c.done)) return Future.value(null);
+    if (calls.isEmpty || calls.any((c) => !c.done)) return Future.value(null);
+    // While Helmy works, a group is described once it is closed: something
+    // other than a step follows it, so no more steps will join. Waiting for the
+    // whole turn left "Ran a script" on screen for as long as the work ran.
+    if (busy) {
+      final at = items.indexOf(calls.last);
+      final next = at < 0 || at + 1 >= items.length ? null : items[at + 1];
+      if (next == null || next is ToolCall || next is PermissionPrompt) return Future.value(null);
+    }
     final ids = [for (final c in calls) c.id];
     final last = calls.last;
     if (last.activitySummary != null &&
