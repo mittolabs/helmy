@@ -3,6 +3,8 @@ title: Getting Started
 description: Install Helmy, set up a connection, and send your first message in a few minutes.
 ---
 
+<Tutorial src="getting-started" title="Getting Started, in about two minutes" />
+
 Helmy runs on macOS, Windows and Linux. You don't need an AI account to start: Helmy sets up a free connection on first run, and you can add your Claude or ChatGPT subscription whenever you like.
 
 | System | Builds |
