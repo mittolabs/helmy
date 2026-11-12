@@ -179,4 +179,128 @@ void main() {
     );
     expect((described.single as ToolCall).input['description'], 'List the project folder');
   });
+
+  test('a question asked as a form shows as a question, and its answers go back in its fields', () {
+    final items = <ChatItem>[];
+    // As OpenCode 2.2 builds it: a field with choices, its "other" field, and a yes or no.
+    AcpReducer(items).apply({
+      'jsonrpc': '2.0',
+      'id': 7,
+      'method': 'elicitation/create',
+      'params': {
+        'mode': 'form',
+        'sessionId': 's',
+        'message': 'Two quick decisions',
+        'requestedSchema': {
+          'type': 'object',
+          'properties': {
+            'platform': {
+              'type': 'string',
+              'title': 'Where should it run?',
+              'oneOf': [
+                {
+                  'const': 'ios',
+                  'title': 'iOS simulator',
+                  'description': 'Watch it in the Device panel',
+                },
+                {'const': 'macos', 'title': 'macOS'},
+              ],
+            },
+            'platform_custom': {'type': 'string', 'title': 'Where should it run? (other)'},
+            'sound': {'type': 'boolean', 'title': 'With sound?'},
+          },
+          'required': ['platform'],
+        },
+      },
+    });
+    final p = items.single as PermissionPrompt;
+    expect(p.isQuestion, isTrue);
+    expect(p.questions.map((q) => q['question']), ['Where should it run?', 'With sound?']);
+    expect((p.questions.first['options']! as List).map((o) => (o as Map)['label']), [
+      'iOS simulator',
+      'macOS',
+    ]);
+    p.answers['Where should it run?'] = 'macOS';
+    p.answers['With sound?'] = 'No';
+    expect(AcpReducer.formAnswers(p), {'platform': 'macos', 'sound': false});
+    p.answers['Where should it run?'] = 'Android emulator';
+    expect(AcpReducer.formAnswers(p)['platform_custom'], 'Android emulator');
+  });
+
+  test('a command the agent moved to its own background is known as background work', () {
+    const said =
+        'Command moved to the background (shell ID: sh_1cf5c453c001bFWi8azl9rzohV).\n'
+        'Output is streaming to: /Users/sam/.local/share/opencode/shell/7dd1/sh_1cf5c453c001bFWi8azl9rzohV.out\n'
+        'You will be notified automatically when the command finishes.';
+    final (id, file) = AcpReducer.backgroundIn(said)!;
+    expect(id, 'sh_1cf5c453c001bFWi8azl9rzohV');
+    expect(file, '/Users/sam/.local/share/opencode/shell/7dd1/sh_1cf5c453c001bFWi8azl9rzohV.out');
+    expect(AcpReducer.backgroundIn('No issues found!'), isNull);
+    final items = <ChatItem>[];
+    AcpReducer(items)
+      ..apply(
+        update({
+          'sessionUpdate': 'tool_call',
+          'toolCallId': 'r1',
+          'kind': 'execute',
+          'status': 'pending',
+          'rawInput': {'command': 'flutter run -d ios'},
+        }),
+      )
+      ..apply(
+        update({
+          'sessionUpdate': 'tool_call_update',
+          'toolCallId': 'r1',
+          'status': 'completed',
+          'content': [
+            {
+              'type': 'content',
+              'content': {'type': 'text', 'text': said},
+            },
+          ],
+        }),
+      );
+    final call = items.single as ToolCall;
+    expect(call.background?.status, BackgroundStatus.running);
+    expect(call.background?.outputFile, endsWith('.out'));
+  });
+
+  test('a question as OpenCode 2.2.7 really asks it: the question, its label above', () {
+    final items = <ChatItem>[];
+    // Recorded 2026-11-12 from OpenCode over ACP.
+    AcpReducer(items).apply({
+      'id': 3,
+      'method': 'elicitation/create',
+      'params': {
+        'mode': 'form',
+        'sessionId': 'ses',
+        'message': 'Questions',
+        'requestedSchema': {
+          'type': 'object',
+          'properties': {
+            'q0': {
+              'type': 'string',
+              'title': 'Button color',
+              'description': 'Which color should the button be?',
+              'oneOf': [
+                {'const': 'Red', 'title': 'Red', 'description': 'Make the button red.'},
+                {'const': 'Blue', 'title': 'Blue', 'description': 'Make the button blue.'},
+              ],
+            },
+            'q0_custom': {
+              'type': 'string',
+              'title': 'Button color (other)',
+              'description': 'Type your own answer',
+            },
+          },
+          'required': <Object>[],
+        },
+      },
+    });
+    final p = items.single as PermissionPrompt;
+    expect(p.questions.single['question'], 'Which color should the button be?');
+    expect(p.questions.single['header'], 'Button color');
+    p.answers['Which color should the button be?'] = 'Blue';
+    expect(AcpReducer.formAnswers(p), {'q0': 'Blue'});
+  });
 }

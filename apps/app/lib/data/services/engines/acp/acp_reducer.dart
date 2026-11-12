@@ -32,6 +32,10 @@ class AcpReducer {
       _permission('${m['id']}', params);
       return;
     }
+    if (m['method'] == 'elicitation/create' && m['id'] != null) {
+      _elicit('${m['id']}', params);
+      return;
+    }
     if (m['method'] != 'session/update') return;
     final u = (params['update'] as Map?)?.cast<String, Object?>() ?? {};
     switch (u['sessionUpdate']) {
@@ -146,6 +150,9 @@ class AcpReducer {
     switch (u['status']) {
       case 'completed':
         call.result = _resultOf(u) ?? '';
+        if (backgroundIn(call.result!) case (final id, final file)) {
+          call.background ??= BackgroundTask(id, outputFile: file);
+        }
       case 'failed':
         call
           ..isError = true
@@ -225,5 +232,120 @@ class AcpReducer {
     if (raw is String) return raw;
     if (raw is Map && raw['output'] is String) return raw['output'] as String;
     return null;
+  }
+
+  /// A question the agent puts as a form (the protocol's elicitation): drawn
+  /// with the same card as Claude Code's and Codex's questions. Each field
+  /// with choices is a question; a yes or no is one with two; the agent's own
+  /// field for "another answer" (key_custom) takes what is typed instead.
+  void _elicit(String id, Map<String, Object?> p) {
+    final schema = (p['requestedSchema'] as Map?)?.cast<String, Object?>() ?? {};
+    final fields = (schema['properties'] as Map?)?.cast<String, Object?>() ?? {};
+    final message = '${p['message'] ?? ''}'.trim();
+    final questions = <Map<String, Object?>>[];
+    for (final MapEntry(:key, :value) in fields.entries) {
+      if (value is! Map ||
+          (key.endsWith('_custom') &&
+              fields.containsKey(key.replaceFirst(RegExp(r'_custom$'), '')))) {
+        continue;
+      }
+      final v = value.cast<String, Object?>();
+      final many = v['type'] == 'array';
+      final inner = (v['items'] as Map?)?.cast<String, Object?>() ?? {};
+      final listed = many ? (inner['anyOf'] ?? inner['oneOf']) : (v['oneOf'] ?? v['anyOf']);
+      var options = [
+        for (final o in (listed as List? ?? const []).whereType<Map>())
+          {
+            'label': '${o['title'] ?? o['const']}',
+            'description': o['description'],
+            'value': o['const'],
+          },
+      ];
+      final plain = many ? inner['enum'] : v['enum'];
+      if (options.isEmpty && plain is List) {
+        options = [
+          for (final e in plain) {'label': '$e', 'value': e},
+        ];
+      }
+      if (options.isEmpty && v['type'] == 'boolean') {
+        options = [
+          {'label': 'Yes', 'value': true},
+          {'label': 'No', 'value': false},
+        ];
+      }
+      // The question itself: its description where it has one (OpenCode puts the
+      // short label in the title, "Button color", and the question there), else
+      // its title, else the form's message; the label above it.
+      final title = '${v['title'] ?? ''}'.trim();
+      final about = '${v['description'] ?? ''}'.trim();
+      final asked = about.isNotEmpty ? about : (title.isNotEmpty ? title : message);
+      questions.add({
+        'id': key,
+        'question': asked,
+        'header': title.isNotEmpty && title != asked ? title : null,
+        'multiSelect': many,
+        'options': options,
+        'number': v['type'] == 'number' || v['type'] == 'integer',
+      });
+    }
+    items.add(
+      PermissionPrompt(
+        requestId: id,
+        toolName: 'AskUserQuestion',
+        input: {'questions': questions, 'elicitation': true, 'message': message},
+        suggestions: const [],
+        toolUseId: p['toolCallId'] as String?,
+      ),
+    );
+  }
+
+  /// [prompt]'s answers in the shape its form asked for.
+  static Map<String, Object?> formAnswers(PermissionPrompt prompt) {
+    final content = <String, Object?>{};
+    for (final q in prompt.questions) {
+      final key = '${q['id']}';
+      final said = prompt.answers[q['question']];
+      if (said == null || said.isEmpty) continue;
+      final options = [for (final o in (q['options'] as List? ?? const []).whereType<Map>()) o];
+      // Picked labels first (they may hold commas), then what is left was typed.
+      var rest = said;
+      final picked = <Object?>[];
+      for (final o in options) {
+        final label = '${o['label']}';
+        if (rest == label || rest.startsWith('$label, ') || rest.contains(', $label')) {
+          picked.add(o['value']);
+          rest = rest
+              .replaceFirst(label, '')
+              .replaceAll(RegExp(r'^(, )+|(, )+$'), '')
+              .replaceAll(', , ', ', ');
+        }
+      }
+      if (q['multiSelect'] == true) {
+        content[key] = picked;
+      } else if (picked.isNotEmpty) {
+        content[key] = picked.first;
+      } else if (options.isEmpty) {
+        content[key] = q['number'] == true ? (num.tryParse(rest.trim()) ?? rest) : rest;
+      }
+      if (rest.trim().isNotEmpty && options.isNotEmpty) content['${key}_custom'] = rest.trim();
+    }
+    return content;
+  }
+
+  /// A command the agent moved to its own background, from what the step
+  /// returned: its id there, and where it writes what it prints. Agents say
+  /// it in their own words; these are the ones known.
+  static (String, String?)? backgroundIn(String result) {
+    // OpenCode 2.2: "Command moved to the background (shell ID: sh_...).
+    // Output is streaming to: /path/sh_....out".
+    final id =
+        RegExp(r'moved to the background \(shell ID: ([^)\s]+)\)').firstMatch(result)?.group(1) ??
+        RegExp(
+          r'running in the background[^\n]*?\bID:? ([\w-]+)',
+          caseSensitive: false,
+        ).firstMatch(result)?.group(1);
+    if (id == null) return null;
+    final file = RegExp(r'(?:streaming|written|writing) to:? (\S+)').firstMatch(result)?.group(1);
+    return (id, file);
   }
 }
