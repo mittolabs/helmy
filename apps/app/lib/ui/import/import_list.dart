@@ -37,7 +37,7 @@ class _ImportListState extends State<ImportList> {
     if (!mounted) return;
     showToast(
       context,
-      title: n == 0 ? 'Nothing was brought in' : '$n conversation${n == 1 ? '' : 's'} brought in',
+      title: n == 0 ? 'Nothing was brought in' : '$n chat${n == 1 ? '' : 's'} brought in',
       description: n == 0
           ? "Those conversations couldn't be read."
           : 'Each is a chat in the sidebar, and goes on where it left off.',
@@ -66,7 +66,7 @@ class _ImportListState extends State<ImportList> {
           child: Text(
             vm.imported != null
                 ? 'Everything here has been brought in.'
-                : 'Nothing to bring in: no conversations from Claude Code or Codex in folders '
+                : 'Nothing to import: no chats from Claude Code or Codex in folders '
                       'on this Mac.',
             style: t.text.sm.copyWith(color: c.mutedForeground),
           ),
@@ -171,7 +171,7 @@ class _ImportListState extends State<ImportList> {
                     child: Text(
                       vm.chosenConversations == 0
                           ? 'Bring in'
-                          : 'Bring in ${vm.chosenConversations} conversation${vm.chosenConversations == 1 ? '' : 's'}',
+                          : 'Import ${vm.chosenConversations} chat${vm.chosenConversations == 1 ? '' : 's'}',
                     ),
                   ),
                 ],

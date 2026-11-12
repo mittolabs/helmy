@@ -11,7 +11,7 @@ class _General extends StatelessWidget {
       children: [
         const _Heading('Notifications', first: true),
         _Row(
-          title: 'When a chat needs you or finishes',
+          title: 'Chat notifications',
           description:
               'A notification when a chat in the background finishes or waits for '
               'your approval, and a count on Helmy\'s icon.',
@@ -23,13 +23,13 @@ class _General extends StatelessWidget {
         ),
         if (s.notify) ...[
           _Row(
-            title: 'How it tells you',
+            title: 'Alert style',
             control: SizedBox(
               width: 230,
               child: Select<AlertStyle>(
                 size: .sm,
                 value: s.alertStyle,
-                semanticLabel: 'How it tells you',
+                semanticLabel: 'Alert style',
                 options: [for (final a in AlertStyle.values) SelectOption(a, a.label)],
                 onChanged: (a) => vm.update(s.copyWith(alertStyle: a)),
               ),
@@ -38,49 +38,49 @@ class _General extends StatelessWidget {
         ],
         const _Heading('Behavior'),
         _Row(
-          title: 'Keep chats working when the window closes',
+          title: 'Keep running in the background',
           description:
               'Closing the window hides it and chats keep working. Click Helmy in '
               '${Desktop.current.appBar} to bring it back; Quit (${Desktop.current.keys('⌘Q')}) ends them. Off, '
               'closing the window quits.',
           control: Switch(
             value: s.keepRunning,
-            semanticLabel: 'Keep chats working when the window closes',
+            semanticLabel: 'Keep running in the background',
             onChanged: (v) => vm.update(s.copyWith(keepRunning: v)),
           ),
         ),
         // The Mac's own Quit is held back natively; elsewhere there is none.
         if (Desktop.current == .mac)
           _Row(
-            title: 'Quit on a second press while chats work',
+            title: 'Confirm before quitting',
             description:
                 'Quitting stops every chat at work. While one is, the first '
                 '${Desktop.current.keys('⌘Q')} only says so; a second quits.',
             control: Switch(
               value: s.quitTwice,
-              semanticLabel: 'Quit on a second press while chats work',
+              semanticLabel: 'Confirm before quitting',
               onChanged: (v) => vm.update(s.copyWith(quitTwice: v)),
             ),
           ),
         _Row(
-          title: 'The assistant uses devices',
+          title: 'Device control',
           description:
               'Simulators, emulators and phones in the Device panel: it opens apps there, taps '
               'through them and reads the screen. Off, it asks you to.',
           control: Switch(
             value: s.agentDevices,
-            semanticLabel: 'The assistant uses devices',
+            semanticLabel: 'Device control',
             onChanged: (v) => vm.update(s.copyWith(agentDevices: v)),
           ),
         ),
         _Row(
-          title: 'Carry on after a restart',
+          title: 'Resume chats after restart',
           description:
               'Chats at work when Helmy closed (quit, an update, a crash) pick up where they '
               'stopped when it opens again.',
           control: Switch(
             value: s.carryOnAfterRestart,
-            semanticLabel: 'Carry on after a restart',
+            semanticLabel: 'Resume chats after restart',
             onChanged: (v) => vm.update(s.copyWith(carryOnAfterRestart: v)),
           ),
         ),
@@ -97,27 +97,27 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Each thread on its own branch',
+          title: 'Worktree for each thread',
           description:
               'In a git repository, each thread works on its own branch in its own copy, '
               'so several can work at once without changing each other\'s files. '
               'Projects can say otherwise.',
           control: Switch(
             value: s.ownCopies,
-            semanticLabel: 'Each thread on its own branch',
+            semanticLabel: 'Worktree for each thread',
             onChanged: (v) => vm.update(s.copyWith(ownCopies: v)),
           ),
         ),
         if (Platform.isMacOS) _SnapshotRow(vm: vm),
         _Row(
-          title: 'Keep default branches current',
+          title: 'Update default branches automatically',
           description:
               "A project's main branch is brought up to date in the background when its "
               'checkout is on it with nothing of its own: no changes, no commits. Never a '
               'merge, never anything of yours touched.',
           control: Switch(
             value: s.keepDefaultCurrent,
-            semanticLabel: 'Keep default branches current',
+            semanticLabel: 'Update default branches automatically',
             onChanged: (v) => vm.update(s.copyWith(keepDefaultCurrent: v)),
           ),
         ),
@@ -135,11 +135,11 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Show steps open',
+          title: 'Expand steps by default',
           description: 'Each step starts open, showing what went in and came out.',
           control: Switch(
             value: s.stepsOpen,
-            semanticLabel: 'Show steps open',
+            semanticLabel: 'Expand steps by default',
             onChanged: (v) => vm.update(s.copyWith(stepsOpen: v)),
           ),
         ),
@@ -165,7 +165,7 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Mark chats done on their own',
+          title: 'Mark inactive chats done',
           description:
               'A chat moves to Done when its pull request merges, or after ${s.settleDays} '
               'day${s.settleDays == 1 ? '' : 's'} untouched. Anything new in it brings it back.',
@@ -189,7 +189,7 @@ class _General extends StatelessWidget {
                 ),
               Switch(
                 value: s.settleOnItsOwn,
-                semanticLabel: 'Mark chats done on their own',
+                semanticLabel: 'Mark inactive chats done',
                 onChanged: (v) => vm.update(s.copyWith(settleOnItsOwn: v)),
               ),
             ],
@@ -218,13 +218,13 @@ class _General extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'A message sent while a chat works',
+          title: 'Messages sent while working',
           description: s.steerByDefault
               ? 'Goes in now and redirects it. ${Desktop.current.keys('⇧⌘Enter')} has one wait its turn.'
               : 'Waits its turn. ${Desktop.current.keys('⇧⌘Enter')} sends one now, redirecting it.',
           control: _Choice<bool>(
             value: s.steerByDefault,
-            label: 'A message sent while a chat works',
+            label: 'Messages sent while working',
             options: const {false: 'Waits', true: 'Redirects'},
             onChanged: (v) => vm.update(s.copyWith(steerByDefault: v)),
           ),
@@ -232,7 +232,7 @@ class _General extends StatelessWidget {
         _NamingNote(vm: vm),
         const _Heading('New chats'),
         _Row(
-          title: 'Start in',
+          title: 'Default folder for new chats',
           description: s.folderMode == .fixed
               ? (s.fixedFolder == null ? 'No folder chosen yet.' : tildePath(s.fixedFolder!))
               : s.folderMode == .last
@@ -259,7 +259,7 @@ class _General extends StatelessWidget {
                 child: Select<FolderMode>(
                   size: .sm,
                   value: s.folderMode,
-                  semanticLabel: 'Where new chats start',
+                  semanticLabel: 'Default folder for new chats',
                   options: const [
                     SelectOption(FolderMode.none, 'No project'),
                     SelectOption(FolderMode.last, 'Last folder'),
@@ -349,9 +349,9 @@ class _SnapshotRowState extends State<_SnapshotRow> {
     showToast(
       context,
       title: shot != null
-          ? 'Snapshot of ${shot.window.app} taken'
+          ? 'Screenshot of ${shot.window.app} taken'
           : w == null
-          ? 'No other window to snapshot'
+          ? 'No other window to capture'
           : "macOS didn't let Helmy see that window",
       description: shot != null
           ? (shot.text != null
@@ -394,21 +394,21 @@ class _SnapshotRowState extends State<_SnapshotRow> {
       crossAxisAlignment: .stretch,
       children: [
         _Row(
-          title: 'Snapshots with both Shift keys',
+          title: 'Screenshots with both Shift keys',
           description:
               'Press both Shift keys in any app: its window goes into the message you are writing, '
               'with the text in it, so Helmy can read the window and not only look at it.',
           control: Switch(
             value: on,
-            semanticLabel: 'Snapshots with both Shift keys',
+            semanticLabel: 'Screenshots with both Shift keys',
             onChanged: _turn,
           ),
         ),
         if (on)
           _Row(
-            title: 'When a snapshot is taken',
+            title: 'When a screenshot is taken',
             description:
-                'A sound and a flash say it went in. Try it takes a snapshot of the '
+                'A sound and a flash say it went in. Try it takes a screenshot of the '
                 'window behind Settings, to check everything is allowed.',
             control: SizedBox(
               width: 250,
@@ -429,7 +429,7 @@ class _SnapshotRowState extends State<_SnapshotRow> {
                     child: Select<String>(
                       size: .sm,
                       value: widget.vm.settings.snapshotSound,
-                      semanticLabel: 'Snapshot sound',
+                      semanticLabel: 'Screenshot sound',
                       options: const [
                         SelectOption('Pop', 'Pop'),
                         SelectOption('Tink', 'Tink'),
@@ -446,7 +446,7 @@ class _SnapshotRowState extends State<_SnapshotRow> {
                     message: 'Flash',
                     child: Switch(
                       value: widget.vm.settings.snapshotFlash,
-                      semanticLabel: 'Snapshot flash',
+                      semanticLabel: 'Screenshot flash',
                       onChanged: (v) =>
                           widget.vm.update(widget.vm.settings.copyWith(snapshotFlash: v)),
                     ),
@@ -500,7 +500,7 @@ class _NamingNoteState extends State<_NamingNote> {
 
   @override
   Widget build(BuildContext context) => _Block(
-    title: 'How chats are named',
+    title: 'Chat titles',
     child: Column(
       crossAxisAlignment: .stretch,
       spacing: 6,
@@ -572,11 +572,11 @@ class _SnapKeyState extends State<_SnapKey> {
             if (!on && _recording) setState(() => _recording = false);
           },
           child: Tooltip(
-            message: 'Another shortcut for a snapshot, beside both Shift keys',
+            message: 'Another screenshot shortcut, besides both Shift keys',
             child: Button(
               variant: .outline,
               size: .sm,
-              semanticLabel: 'Snapshot shortcut',
+              semanticLabel: 'Screenshot shortcut',
               onPressed: () {
                 setState(() => _recording = true);
                 _focus.requestFocus();

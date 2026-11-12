@@ -67,7 +67,7 @@ class _Archive extends StatelessWidget {
                           !await confirm(
                             context,
                             title: 'Delete "${list.titleOf(e)}"?',
-                            body: 'Its conversation goes for good.',
+                            body: 'It is deleted for good.',
                             action: 'Delete',
                             destructive: true,
                           )) {

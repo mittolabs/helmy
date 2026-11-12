@@ -83,7 +83,7 @@ void main() {
     expect(s.bestFor(WorkKind.code), isNull);
     expect(s.bestFor(WorkKind.writing), 'claude');
     expect(AppSettings.fromJson(s.toJson()).bestAt, s.bestAt);
-    expect(changedSettings(s), contains('Best at'));
+    expect(changedSettings(s), contains('Strengths'));
     expect(withDefaults(s).bestAt, isEmpty);
   });
 }

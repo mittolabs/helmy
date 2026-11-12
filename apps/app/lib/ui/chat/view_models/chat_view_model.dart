@@ -1918,7 +1918,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
 
   String answerAfter(int index) => answerText(items, index);
 
-  String get markdown => transcriptMarkdown(session?.title ?? 'Conversation', items);
+  String get markdown => transcriptMarkdown(session?.title ?? 'Chat', items);
 
   Future<void> copy(String text) => Clipboard.setData(ClipboardData(text: text));
 

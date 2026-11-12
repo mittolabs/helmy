@@ -425,7 +425,7 @@ class ShellScreen extends StatelessWidget {
           return HelmyDialog(
             title: 'Put earlier threads together?',
             body:
-                'Before chats, each conversation stood alone. These seem to belong with '
+                'Before chats, each thread stood alone. These seem to belong with '
                 'another: together, a chat knows what its threads decided. Nothing moves '
                 'that you untick, and any thread can be moved back later.',
             icon: AshlarIconsRoundedStroke.messagesSquare,
@@ -683,7 +683,7 @@ class ShellScreen extends StatelessWidget {
           title: 'Delete this chat?',
           body: threads > 1
               ? '"$title" and its $threads threads leave Helmy. Files in their folders stay as they are.'
-              : '"$title" and its conversation leave Helmy. Files in the folder stay as they are.',
+              : '"$title" is deleted. Files in the folder stay as they are.',
           action: 'Delete',
           destructive: true,
         );
@@ -1690,7 +1690,7 @@ class _PickedBar extends StatelessWidget {
           final ok = await confirm(
             context,
             title: 'Delete $n ${n == 1 ? 'chat' : 'chats'}?',
-            body: 'Their conversations leave Helmy. Files in their folders stay as they are.',
+            body: 'They are deleted. Files in their folders stay as they are.',
             action: 'Delete',
             destructive: true,
           );

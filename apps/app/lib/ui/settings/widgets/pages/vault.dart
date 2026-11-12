@@ -25,7 +25,7 @@ class _VaultPage extends StatelessWidget {
       children: [
         const _Heading('Vault', first: true),
         _Row(
-          title: 'Secrets the assistant uses, never sees',
+          title: 'Keys and passwords',
           description:
               "API keys, passwords and tokens, kept in your Mac's Keychain. The assistant gets "
               'their names and runs what needs them through Helmy, which blanks every value in '

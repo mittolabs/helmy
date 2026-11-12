@@ -50,10 +50,10 @@ class _PickerState extends State<_Picker> {
     final muted = t.text.xs.copyWith(color: c.mutedForeground);
     final windows = _windows;
     return HelmyDialog(
-      title: 'Snapshot a window',
+      title: 'Screenshot a window',
       body:
           'Its picture goes into your message, with the text in it where macOS gives it. '
-          'With snapshots on in Settings, both Shift keys take the window in front.',
+          'With screenshots on in Settings, both Shift keys take the window in front.',
       icon: AshlarIconsRoundedStroke.appWindow,
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 320),

@@ -18,7 +18,7 @@ class _Memory extends StatelessWidget {
         child: Padding(
           padding: const .symmetric(horizontal: 32),
           child: Text(
-            'No memory yet. What your connections keep between conversations, their instructions '
+            'No memory yet. What your connections keep between chats, their instructions '
             'and notes, shows here once there is some.',
             textAlign: .center,
             style: t.text.sm.copyWith(color: t.colors.mutedForeground),
@@ -240,7 +240,7 @@ class _MemoryEditorState extends State<_MemoryEditor> {
                   padding: const .all(16),
                   child: original.trim().isEmpty
                       ? Text(
-                          'Empty. What you write here is read in every new conversation.',
+                          'Empty. What you write here is read in every new chat.',
                           style: t.text.sm.copyWith(color: t.colors.mutedForeground),
                         )
                       : MarkdownPreview(original),
@@ -276,7 +276,7 @@ class _MemoryEditorState extends State<_MemoryEditor> {
             minLines: 20,
             maxLines: 40,
             resizable: false,
-            placeholder: 'Empty. What you write here is read in every new conversation.',
+            placeholder: 'Empty. What you write here is read in every new chat.',
           ),
         ),
         Row(
@@ -323,31 +323,23 @@ class _Learned extends StatelessWidget {
     }
     return _Page(
       children: [
-        const _Heading('What Helmy has learned', first: true),
+        const _Heading('Memory', first: true),
         Text(
           lessons.all.isEmpty
-              ? 'Nothing yet. When you correct Helmy, or a way of working pays off, it keeps the '
-                    'lesson here for next time.'
-              : 'Lessons from working with you, used in every chat where they hold. Forget '
-                    'anything that no longer holds.',
+              ? 'Nothing yet. When you correct Helmy, or a way of working pays off, it remembers '
+                    'it here for next time.'
+              : 'Things Helmy remembers across your chats. Delete any that no longer apply.',
           style: t.text.sm.copyWith(color: c.mutedForeground, height: 1.5),
         ),
         for (final l in lessons.all.reversed)
           _Row(
             title: l.text,
-            description: [
-              l.scope == everywhere ? 'Everywhere' : 'In ${tildePath(l.scope)}',
-              switch (l.kind) {
-                'correction' => 'from a correction',
-                'worked' => 'from what worked',
-                _ => 'from a habit',
-              },
-            ].join(', '),
+            description: l.scope == everywhere ? 'All projects' : tildePath(l.scope),
             control: Button(
               variant: .ghost,
               size: .sm,
               onPressed: () => unawaited(lessons.remove(l.id)),
-              child: Text('Forget', style: TextStyle(color: c.foreground)),
+              child: Text('Delete', style: TextStyle(color: c.foreground)),
             ),
           ),
       ],

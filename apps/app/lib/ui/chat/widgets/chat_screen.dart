@@ -546,7 +546,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {});
     showToast(
       context,
-      title: 'Put aside',
+      title: 'Draft saved',
       description: '${Desktop.current.keys('⌘S')} in an empty box, in any chat, brings it back.',
     );
   }
@@ -797,7 +797,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     sideMargin(context),
                                     32,
                                   ),
-                                  semanticLabel: 'Conversation',
+                                  semanticLabel: 'Chat',
                                   items: [
                                     for (final r in rows)
                                       MessageScrollerItem(
@@ -914,7 +914,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         size: 16,
                                       ),
                                       onPressed: () => pickWindow(context, vm),
-                                      child: const Text('Snapshot a window...'),
+                                      child: const Text('Screenshot a window...'),
                                     ),
                                 ],
                                 builder: (context, menu) => _tourMark(
