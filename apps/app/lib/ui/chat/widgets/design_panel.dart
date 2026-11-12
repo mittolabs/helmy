@@ -254,6 +254,8 @@ class _DesignPanelState extends State<DesignPanel> {
       });
     }
     if (m['download'] case final String file) unawaited(_saveCopy(file));
+    // A screen opened in a browser tab of the panel, from its preview.
+    if (m['open'] case final String url) widget.vm.preview(url);
     if (m['comment'] case final Map c) _comment(c);
     if (m['tool'] case final String tool when tool != _tool) setState(() => _tool = tool);
     if (m['typing'] case final bool t) {
