@@ -259,3 +259,8 @@ p { margin: 0; }
 .download-card img { border-radius: 8px; flex: none; }
 .download-name { font-weight: 600; }
 .download-meta { color: var(--faint); font-size: 14px; }
+.download-other { margin-top: 14px; color: var(--muted); font-size: 14px; }
+.download-other a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* The terminal installers on the download page. */
+.download-cmd { margin: 8px 0 4px; padding: 14px 18px; width: fit-content; max-width: 100%; overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--card); font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); user-select: all; }

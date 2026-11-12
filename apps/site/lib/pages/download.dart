@@ -46,7 +46,7 @@ class Download extends StatelessComponent {
               section(classes: 'download-system reveal', [
                 h2([Component.text(system)]),
                 div(classes: 'download-grid', [
-                  for (final b in release.builds.where((b) => b.system == system))
+                  for (final b in release.builds.where((b) => b.system == system && b.main))
                     a(classes: 'download-card', href: b.url, [
                       img(src: '/icon.png', alt: '', width: 32, height: 32),
                       div([
@@ -57,7 +57,35 @@ class Download extends StatelessComponent {
                       ]),
                     ]),
                 ]),
+                if (release.builds.where((f) => f.system == system && !f.main).toList() case final rest
+                    when rest.isNotEmpty)
+                  p(classes: 'download-other', [
+                    Component.text(Release.others[system] ?? 'Also: '),
+                    for (final (i, b) in rest.indexed) ...[
+                      if (i > 0) Component.text(i == rest.length - 1 ? ' or ' : ', '),
+                      a(href: b.url, [Component.text(b.name)]),
+                    ],
+                    Component.text('.'),
+                  ]),
               ]),
+          // As T3 Code has it: one line in a terminal, which also skips the browser's
+          // download warnings. The scripts are web/install.sh and web/install.ps1.
+          section(classes: 'download-system reveal', [
+            h2([Component.text('Terminal')]),
+            p(classes: 'download-other', [Component.text('macOS and Linux:')]),
+            pre(classes: 'download-cmd', [
+              code([Component.text('curl -fsSL https://helmy.ke/install.sh | sh')]),
+            ]),
+            p(classes: 'download-other', [Component.text('Windows, in PowerShell:')]),
+            pre(classes: 'download-cmd', [
+              code([Component.text('irm https://helmy.ke/install.ps1 | iex')]),
+            ]),
+          ]),
+          p(classes: 'download-other center reveal', [
+            Component.text('All builds are on the '),
+            a(href: release.url, [Component.text('GitHub release page ↗')]),
+            Component.text('.'),
+          ]),
           p(classes: 'muted small reveal', [
             Component.text('Helmy connects to Claude Code, Codex, OpenCode or Ollama on first run. '),
             a(href: '/docs/getting-started/', [Component.text('Getting started')]),

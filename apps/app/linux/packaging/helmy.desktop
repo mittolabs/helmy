@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Helmy
+GenericName=Assistant
+Comment=Dream it, do it: tell Helmy what you want done
+Exec=helmy %U
+Icon=helmy
+Terminal=false
+Categories=Utility;Development;
+StartupWMClass=com.mittolabs.helmy
