@@ -90,6 +90,26 @@
   .strip .widths button { display: block; width: auto; height: auto; padding: 2px 6px; font-size: 11px; }
   .strip .widths button.on { color: var(--text); background: var(--strip-hover); }
   #empty { position: absolute; inset: 0; display: none; place-items: center; color: var(--muted); text-align: center; padding: 24px; }
+  /* A name or title being renamed, in place. */
+  [data-renaming] { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 3px; cursor: text; }
+  /* A screen previewed on its own, working, in its device: like a prototype. */
+  #present { position: absolute; inset: 0; z-index: 10; display: none; background: #000; }
+  #present.on { display: block; }
+  #present .bar { position: absolute; top: 12px; left: 12px; display: flex; gap: 2px; padding: 4px; border-radius: 10px;
+    background: #1c1c1f; box-shadow: 0 4px 16px rgba(0,0,0,.4); z-index: 2; }
+  #present .bar button { all: unset; width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center;
+    color: #c8c8cc; cursor: pointer; }
+  #present .bar button:hover { background: #2c2c30; color: #fff; }
+  #present .bar svg { width: 16px; height: 16px; }
+  #present .bar .title { padding: 0 10px 0 6px; color: #a0a0a8; font-size: 12px; display: flex; align-items: center; }
+  #present .device { position: absolute; left: 50%; top: 50%; transform-origin: 50% 50%; background: #fff; overflow: hidden; }
+  #present .device iframe { border: 0; width: 100%; height: 100%; display: block; background: #fff; }
+  #present .device.phone { border: 12px solid #0b0b0b; border-radius: 54px;
+    box-shadow: 0 0 0 1.5px #3a3a40, 0 24px 64px rgba(0,0,0,.6); }
+  #present .device.phone::after { content: ''; position: absolute; top: 9px; left: 50%; width: 112px; height: 32px;
+    margin-left: -56px; border-radius: 16px; background: #000; }
+  #present .device.tablet { border: 16px solid #0b0b0b; border-radius: 34px; box-shadow: 0 0 0 1.5px #3a3a40, 0 24px 64px rgba(0,0,0,.6); }
+  #present .device.desktop { border-radius: 10px; box-shadow: 0 0 0 1px #3a3a3e, 0 24px 64px rgba(0,0,0,.6); }
 </style>
 </head>
 <body>
@@ -105,6 +125,12 @@
   const empty = document.getElementById('empty');
   const icons = {
     expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16l13-8z"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+    restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>',
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',
   };
   let canvas = null;          // canvas.json as last read
@@ -206,7 +232,15 @@
     const b = canvas?.boards[file];
     if (!b?.responsive) return false;
     const doc = docOf(file);
+    // Measured in a window of a device's height, not the screen's own: a
+    // page is never shorter than its window, so measured in its own it
+    // could only ever grow, and a page that got shorter kept its old
+    // height as empty space under it.
+    const iframe = boards.get(file)?.querySelector('iframe');
+    const at = { phone: 844, tablet: 1194, desktop: 900 }[deviceOf(b)];
+    if (iframe) iframe.style.height = at + 'px';
     const h = Math.max(200, Math.ceil(doc?.documentElement.scrollHeight ?? 0));
+    if (iframe) iframe.style.height = '';
     if (!doc || h === b.h) return false;
     b.h = h;
     place(file);
@@ -297,7 +331,10 @@
         strip.style.transformOrigin = '0 100%';
         const name = document.createElement('span');
         name.className = 'name';
+        name.title = 'Double-click to rename';
+        name.addEventListener('pointerdown', (e) => { if (renaming?.el === name) e.stopPropagation(); });
         strip.append(name,
+          button('play', 'Preview it on its own, working', () => preview(file)),
           button('expand', 'Fit this screen', () => fit(file)),
           button('download', 'Save a copy', () => tell({ download: file })));
         const widths = document.createElement('span');
@@ -359,6 +396,8 @@
       el.className = 'note' + (n.kind === 'title' ? '' : ' sticky');
       el.textContent = n.text ?? '';
       el._note = n;
+      el.addEventListener('pointerdown', (e) => { if (renaming?.el === el) e.stopPropagation(); });
+
       Object.assign(el.style, { left: n.x + 'px', top: n.y + 'px' });
       if (n.kind === 'title') el.style.fontSize = (n.size ?? 72) + 'px';
       if (n.w) el.style.width = n.w + 'px';
@@ -538,6 +577,111 @@
     pick(null);
   }
 
+  // ---- Renaming: a screen's name, or a title on the canvas ------------------
+
+  let renaming = null; // { el, done(keep) }
+
+  /** Puts [el]'s words up for change; [keep] has the new ones (trimmed). */
+  function rename(el, keep) {
+    if (renaming) renaming.done(true);
+    const before = el.textContent;
+    const index = indexText();
+    el.contentEditable = 'plaintext-only';
+    el.dataset.renaming = '';
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    tell({ typing: true });
+    const keys = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(true); }
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      e.stopPropagation();
+    };
+    const blur = () => done(true);
+    function done(ok) {
+      if (renaming?.el !== el) return;
+      renaming = null;
+      el.removeEventListener('keydown', keys);
+      el.removeEventListener('blur', blur);
+      el.removeAttribute('contenteditable');
+      delete el.dataset.renaming;
+      getSelection().removeAllRanges();
+      tell({ typing: false });
+      const text = el.textContent.trim();
+      if (!ok || !text || text === before.trim()) { el.textContent = before; return; }
+      keep(text);
+      saveIndex(index);
+      stage.focus();
+    }
+    el.addEventListener('keydown', keys);
+    el.addEventListener('blur', blur);
+    renaming = { el, done };
+  }
+
+  // ---- Previewing a screen on its own --------------------------------------
+
+  const present = document.createElement('div');
+  present.id = 'present';
+  document.body.append(present);
+  let presenting = null; // { file, iframe }
+
+  /** [file] on its own, working (links go to the other screens), in its device. */
+  function preview(file) {
+    const b = canvas.boards[file];
+    if (!b) return;
+    const kind = deviceOf(b);
+    // The screen as a device shows it: its width, and a device's height.
+    const h = { phone: 844, tablet: 1194, desktop: 900 }[kind];
+    present.innerHTML = '';
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const device = document.createElement('div');
+    device.className = 'device ' + kind;
+    const iframe = document.createElement('iframe');
+    iframe.src = base + file;
+    iframe.title = b.title ?? file;
+    device.append(iframe);
+    Object.assign(device.style, { width: b.w + 'px', height: h + 'px' });
+    const title = document.createElement('span');
+    title.className = 'title';
+    title.textContent = b.title ?? file;
+    bar.append(
+      button('back', 'Back', () => iframe.contentWindow?.history.back()),
+      button('forward', 'Forward', () => iframe.contentWindow?.history.forward()),
+      button('restart', 'Start again', () => { iframe.src = base + file + '?v=' + Date.now(); }),
+      title,
+      button('open', 'Open in a browser tab', () => tell({ open: new URL(iframe.contentWindow?.location.href ?? base + file, location.href).href })),
+      button('close', 'Close (Esc)', closePreview),
+    );
+    present.append(bar, device);
+    const fitDevice = () => {
+      const border = kind === 'phone' ? 24 : kind === 'tablet' ? 32 : 0;
+      const s = Math.min(1, (innerWidth - 48) / (b.w + border), (innerHeight - 72) / (h + border));
+      device.style.transform = `translate(-50%, -50%) translateY(18px) scale(${s})`;
+    };
+    fitDevice();
+    addEventListener('resize', fitDevice);
+    presenting = { file, iframe, off: () => removeEventListener('resize', fitDevice) };
+    present.classList.add('on');
+    // The page has the keyboard (its fields); Esc still closes it.
+    tell({ typing: true });
+    iframe.addEventListener('load', () => {
+      iframe.contentWindow?.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
+    });
+  }
+
+  function closePreview() {
+    if (!presenting) return;
+    presenting.off();
+    presenting = null;
+    present.classList.remove('on');
+    present.innerHTML = '';
+    tell({ typing: false });
+    stage.focus();
+  }
+
   // ---- Typing into a screen --------------------------------------------
 
   const typeable = (el) => !['INPUT', 'TEXTAREA', 'SELECT', 'IMG', 'SVG', 'VIDEO', 'IFRAME'].includes(el.tagName.toUpperCase()) &&
@@ -697,6 +841,19 @@
   stage.addEventListener('dblclick', (e) => {
     if (tool !== 'select') return;
     drag = null;
+    // A screen's name or a title under the pointer: renamed in place. Looked
+    // up by where, since dragging by a name holds the pointer.
+    const under = document.elementsFromPoint(e.clientX, e.clientY);
+    const name = under.find((el) => el.classList?.contains('name') && el.closest('.strip'));
+    const note = under.find((el) => el.classList?.contains('note'));
+    if (name) {
+      const file = name.closest('.board').dataset.file;
+      return rename(name, (text) => { canvas.boards[file].title = text; draw([]); });
+    }
+    if (note?._note) {
+      const n = note._note;
+      return rename(note, (text) => { n.text = text; draw([]); });
+    }
     const at = screenAt(e.clientX, e.clientY);
     if (!at) return;
     const el = elementAt(at.file, at.x, at.y);
@@ -791,6 +948,12 @@
   }
 
   function onKey(e) {
+    if (presenting) { if (e.key === 'Escape') closePreview(); return; }
+    if (renaming) {
+      if (e.key === 'Enter' && !e.shiftKey) renaming.done(true);
+      if (e.key === 'Escape') renaming.done(false);
+      return;
+    }
     if (commentBox) {
       if (e.key === 'Enter' && !e.shiftKey) sendComment();
       if (e.key === 'Escape') closeComment();
