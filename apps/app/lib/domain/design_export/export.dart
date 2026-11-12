@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'design_model.dart';
 import 'flutter_writer.dart';
+import 'image_size.dart' as image;
 import 'planner.dart';
 import 'reader.dart';
 import 'react_writer.dart';
@@ -69,6 +70,10 @@ Future<List<String>> exportDesign(
           for (final f in faces)
             (family: f.family, weight: f.weight, italic: f.italic, asset: f.asset),
         ],
+        imageSize: (a) {
+          final f = File('$design/$a');
+          return f.existsSync() ? image.imageSize(f.readAsBytesSync()) : null;
+        },
       );
       for (final e in out.files.entries) {
         await put(e.key, utf8.encode(e.value));
