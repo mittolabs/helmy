@@ -22,7 +22,7 @@ for arch in arm64 x86_64; do
   [ "$(lipo -archs "$stage/Helmy.app/Contents/MacOS/Helmy")" = "$arch" ]
   out="Helmy-$tag-macos-$name.dmg"
   # The window people see: Helmy beside Applications, big, on a background with an arrow
-  # between them (background.tiff, drawn for 1x and 2x). create-dmg lays it out through
+  # between them (background.tiff, drawn for 1x and 2x; light, as Finder draws the labels dark). create-dmg lays it out through
   # Finder; where that fails, the same two icons in a plain window.
   if command -v create-dmg >/dev/null && create-dmg --volname Helmy --background "$here/background.tiff" \
       --window-pos 200 120 --window-size 640 400 --icon-size 128 --text-size 13 \
