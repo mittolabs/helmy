@@ -74,6 +74,47 @@ class const EngineInfo({
   final bool assignedOnly = false,
 });
 
+/// One model a connection offers, as it lists them: what to send for it,
+/// its name, and how hard it can be asked to think.
+class const ModelChoice({
+  required final String id,
+  required final String name,
+  final String description = '',
+
+  /// Effort levels, least first; empty when it takes none.
+  final List<String> efforts = const [],
+  final String? defaultEffort,
+
+  /// Offers a faster tier that uses more of the plan.
+  final bool fast = false,
+});
+
+/// A chat held to one connection (Developer mode), in place of Helmy's
+/// choice per message: its model, effort and speed, each null for the
+/// connection's own default.
+class const EnginePin({
+  required final String engineId,
+  final String? model,
+  final String? effort,
+  final bool fast = false,
+}) {
+  Map<String, Object?> toJson() => {
+    'engineId': engineId,
+    'model': ?model,
+    'effort': ?effort,
+    if (fast) 'fast': true,
+  };
+
+  static EnginePin? fromJson(Object? json) => json is Map && json['engineId'] is String
+      ? EnginePin(
+          engineId: json['engineId'] as String,
+          model: json['model'] as String?,
+          effort: json['effort'] as String?,
+          fast: json['fast'] == true,
+        )
+      : null;
+}
+
 /// A command or skill an engine runs when a message starts with /name.
 class const SlashCommand({
   required final String name,

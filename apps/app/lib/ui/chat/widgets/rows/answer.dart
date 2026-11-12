@@ -4,7 +4,10 @@ part of '../chat_items.dart';
 /// while the answer is under the mouse, or one of them has the keyboard, and
 /// kept in the layout while hidden so nothing below moves.
 class _AnswerActions extends StatefulWidget {
-  const new(this.ask, this.latest, this.vm, {this.sentAt, this.endedAt, this.end});
+  const new(this.ask, this.latest, this.vm, {this.sentAt, this.endedAt, this.end, this.by});
+
+  /// The answer's end: which connection and model answered it, and why.
+  final TurnSummary? by;
 
   /// Where the answer ends, to fork the conversation from.
   final int? end;
@@ -82,8 +85,38 @@ class _AnswerActionsState extends State<_AnswerActions> {
             ),
           ),
         ),
+      if (widget.by case TurnSummary(engineId: final id?) && final by) _answeredBy(context, id, by),
     ],
   );
+
+  /// Which connection and model answered, its logo in its maker's color;
+  /// why it was the one, a hover away.
+  Widget _answeredBy(BuildContext context, String id, TurnSummary by) {
+    final t = AshlarTheme.of(context);
+    final name = vm.connectionName(id) ?? 'A connection no longer set up';
+    final model = by.model == null ? null : modelLabel(by.model!);
+    return Padding(
+      padding: const .only(left: 10),
+      child: Tooltip(
+        message: [
+          'Answered by $name${model == null ? '' : ', $model'}',
+          if (by.effort case final e?) 'Effort: $e',
+          if (by.why case final why?) 'Why: $why',
+        ].join('\n'),
+        child: Row(
+          mainAxisSize: .min,
+          spacing: 5,
+          children: [
+            ConnectionLogo(id, size: 13, brand: true),
+            Text(
+              model == null ? name : '$name · $model',
+              style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// "4s", "1m 5s", "1h 2m": how long, as a person says it.

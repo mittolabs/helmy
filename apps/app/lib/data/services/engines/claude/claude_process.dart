@@ -29,6 +29,12 @@ class ClaudeProcess {
     required String permissionMode,
     String? resume,
     String? model,
+
+    /// How hard it thinks (low to max); null for its own default.
+    String? effort,
+
+    /// Settings beside the person's own, as --settings takes them.
+    Map<String, Object?>? settings,
     String? appendSystemPrompt,
 
     /// Helmy's own tools, an MCP server's address, and the tools from it to
@@ -56,6 +62,8 @@ class ClaudeProcess {
         '--allow-dangerously-skip-permissions',
         if (resume != null) ...['--resume', resume],
         if (model != null) ...['--model', model],
+        if (effort != null) ...['--effort', effort],
+        if (settings != null) ...['--settings', jsonEncode(settings)],
         if (appendSystemPrompt != null) ...['--append-system-prompt', appendSystemPrompt],
         if (pluginDir != null) ...['--plugin-dir', pluginDir],
         if (toolsUrl != null || servers.isNotEmpty) ...[

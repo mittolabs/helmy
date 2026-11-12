@@ -62,6 +62,10 @@ class const Session({
   /// showed, its width and whether it was open. Put back on coming back.
   final Map<String, Object?>? panel,
 
+  /// Held to one connection and model (Developer mode), instead of Helmy
+  /// choosing per message; null lets Helmy choose.
+  final EnginePin? pin,
+
   /// Its chat's brief as it stood when the thread began: frozen for it.
   final String? brief,
 
@@ -115,6 +119,10 @@ class const Session({
     bool? watchChecks,
     String? chatId,
     Map<String, Object?>? panel,
+    EnginePin? pin,
+
+    /// Lets Helmy choose again: [pin] cleared.
+    bool unpin = false,
     String? brief,
     String? summary,
 
@@ -147,6 +155,7 @@ class const Session({
     sideOf: sideOf,
     chatId: chatId ?? this.chatId,
     panel: panel ?? this.panel,
+    pin: unpin ? null : pin ?? this.pin,
     brief: brief ?? this.brief,
     summary: summary ?? this.summary,
     draft: draft ?? this.draft,
@@ -176,6 +185,7 @@ class const Session({
     'sideOf': ?sideOf,
     'chatId': ?chatId,
     'panel': ?panel,
+    if (pin != null) 'pin': pin!.toJson(),
     'brief': ?brief,
     'summary': ?summary,
     if (hasDraft) 'draft': draft,
@@ -215,6 +225,7 @@ class const Session({
       sideOf: json['sideOf'] as String?,
       chatId: json['chatId'] as String?,
       panel: (json['panel'] as Map?)?.cast<String, Object?>(),
+      pin: EnginePin.fromJson(json['pin']),
       brief: json['brief'] as String?,
       summary: json['summary'] as String?,
       draft: json['draft'] as String?,

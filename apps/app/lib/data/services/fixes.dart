@@ -37,7 +37,7 @@ class Fixes {
         return true;
       case .installDeviceInput:
         return await _devices?.installIosInput() ?? false;
-      case .retry || .setup || .wait:
+      case .retry || .setup || .wait || .chooseForMe:
         return false;
     }
   }

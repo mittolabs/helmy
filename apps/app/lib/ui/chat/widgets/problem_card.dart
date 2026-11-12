@@ -141,6 +141,9 @@ Future<void> runFix(
       context.go('/settings?section=agents');
     case .wait:
       break;
+    case .chooseForMe:
+      await vm.setPin(null);
+      await vm.retry();
     case .signIn || .startLocal:
       final ok = await vm.applyFix(fix, engineId: engineId);
       if (ok) {

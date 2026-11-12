@@ -53,6 +53,23 @@ class TurnLog {
     'items': [from, to],
   });
 
+  /// A connection failed a message before doing anything, and it went on to
+  /// another (or waited): which, and its own words for why. Kept, since the
+  /// chat takes the failure back and shows only where the message went.
+  Future<void> failed({
+    required String? chat,
+    required String thread,
+    required String connection,
+    required String error,
+    required bool limit,
+  }) => _write('failed', {
+    'chat': chat,
+    'thread': thread,
+    'connection': connection,
+    'limit': limit,
+    'error': error.length > 2000 ? error.substring(0, 2000) : error,
+  });
+
   /// A new thread filed: where, how sure, the runner-up.
   Future<void> filing({
     required String thread,

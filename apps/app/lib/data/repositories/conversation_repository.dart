@@ -95,6 +95,14 @@ abstract class ConversationRepository extends ChangeNotifier {
   /// Every engine's slash commands for [session], each once, by name.
   Future<List<SlashCommand>> commands(Session session);
 
+  /// The connections a chat can be held to (Developer mode), each with the
+  /// models it offers; one that offers no choice is still listed.
+  Future<List<({String id, String name, List<ModelChoice> models})>> connectionModels() async =>
+      const [];
+
+  /// A connection's name, as Settings shows it; null when it is not set up.
+  String? connectionName(String engineId) => null;
+
   /// Takes back a message that was waiting its turn.
   void unqueue(String sessionId, int index);
 

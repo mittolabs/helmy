@@ -185,6 +185,7 @@ class AcpEngine implements AgentEngine {
       final session = await rpc
           .request('session/new', {'cwd': dir.path, 'mcpServers': <Object>[]})
           .timeout(const Duration(minutes: 1));
+      _offered(session['configOptions']);
       if (profile.models.isNotEmpty) {
         final offered = {
           for (final o in (session['configOptions'] as List? ?? const []).whereType<Map>())
@@ -301,6 +302,42 @@ class AcpEngine implements AgentEngine {
     }
   }
 
+  /// The models it offered the last time a session opened; empty until one has.
+  List<ModelChoice> _models = const [];
+
+  /// Notes the models and effort levels a session offers ([configOptions]).
+  void _offered(Object? configOptions) {
+    final options = (configOptions as List? ?? const []).whereType<Map>().toList();
+    List<Map> valuesOf(bool Function(Object?) id) => [
+      for (final o in options)
+        if (id(o['id']))
+          for (final v in (o['options'] as List? ?? const []).whereType<Map>()) v,
+    ];
+    final efforts = [for (final v in valuesOf(effortOptions.contains)) '${v['value']}'];
+    _models = [
+      for (final v in valuesOf((id) => id == 'model'))
+        // Where Helmy uses it with chosen models only, only those.
+        if (profile.models.isEmpty || profile.models.contains('${v['value']}'))
+          ModelChoice(
+            id: '${v['value']}',
+            name: '${v['name'] ?? v['value']}',
+            description: '${v['description'] ?? ''}',
+            efforts: efforts,
+          ),
+    ];
+  }
+
+  /// The ids agents give the option for how hard they think.
+  static const effortOptions = {'effort', 'reasoning_effort', 'thought_level', 'reasoning'};
+
+  /// The models it offers, as a session lists them: from the last one opened,
+  /// or one opened in a scratch folder to see.
+  @override
+  Future<List<ModelChoice>> models() async {
+    if (_models.isEmpty) await check();
+    return _models;
+  }
+
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
     final program = await _program();
@@ -311,7 +348,7 @@ class AcpEngine implements AgentEngine {
       environment: await _environment(launch.level),
       cwd: launch.cwd,
     );
-    final run = _AcpRun(rpc, AcpReducer(items), info.name, profile);
+    final run = _AcpRun(rpc, AcpReducer(items), info.name, profile, _offered);
     run._ready = run._open(
       launch,
       await tools?.urlFor(launch.sessionId),
@@ -322,12 +359,13 @@ class AcpEngine implements AgentEngine {
 }
 
 class _AcpRun implements EngineRun {
-  new(this._rpc, this._reducer, this._name, this._profile) {
+  new(this._rpc, this._reducer, this._name, this._profile, this._offered) {
     _rpc.incoming.listen(_onMessage, onDone: _changes.close);
   }
 
   final AcpRpc _rpc;
   final AcpReducer _reducer;
+  final void Function(Object? configOptions) _offered;
   final String _name;
   final AcpProfile _profile;
   final _changes = StreamController<bool>.broadcast();
@@ -401,7 +439,7 @@ class _AcpRun implements EngineRun {
         _sessionId = session['sessionId'] as String?;
         _identity = identityWith(launch.brief, lessons: launch.lessons);
       }
-      await _choose(session, launch.level);
+      await _choose(session, launch);
       status.resumeId = _sessionId;
       _changes.add(false);
       return _sessionId;
@@ -416,8 +454,11 @@ class _AcpRun implements EngineRun {
     }
   }
 
-  /// Sets the model the profile names, and a read-only mode for read-only.
-  Future<void> _choose(Map<String, Object?> session, PermissionLevel level) async {
+  /// Sets the model chosen for the chat (Developer mode) or else the one the
+  /// profile names, the effort chosen, and a read-only mode for read-only.
+  Future<void> _choose(Map<String, Object?> session, EngineLaunch launch) async {
+    final level = launch.level;
+    _offered(session['configOptions']);
     final options = [
       for (final o in (session['configOptions'] as List? ?? const []).whereType<Map>())
         o.cast<String, Object?>(),
@@ -428,7 +469,13 @@ class _AcpRun implements EngineRun {
         if (o['id'] == id)
           for (final v in (o['options'] as List? ?? const []).whereType<Map>()) '${v['value']}',
     };
-    if (_profile.models.isNotEmpty) {
+    final chosen = launch.model;
+    if (chosen != null &&
+        valuesOf('model').contains(chosen) &&
+        (_profile.models.isEmpty || _profile.models.contains(chosen))) {
+      await _setOption('model', chosen);
+      status.model = chosen;
+    } else if (_profile.models.isNotEmpty) {
       final offered = valuesOf('model');
       final model = _profile.models.where(offered.contains).firstOrNull;
       if (model == null) {
@@ -438,6 +485,19 @@ class _AcpRun implements EngineRun {
         );
       }
       await _setOption('model', model);
+      status.model = model;
+    } else {
+      status.model = [
+        for (final o in options)
+          if (o['id'] == 'model') o['currentValue'] as String?,
+      ].nonNulls.firstOrNull;
+    }
+    if (launch.effort case final effort?) {
+      for (final o in options) {
+        if (AcpEngine.effortOptions.contains(o['id']) && valuesOf('${o['id']}').contains(effort)) {
+          await _setOption('${o['id']}', effort);
+        }
+      }
     }
     if (level == .readOnly && valuesOf('mode').contains('plan')) await _setOption('mode', 'plan');
   }
