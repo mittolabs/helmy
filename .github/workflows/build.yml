@@ -133,7 +133,9 @@ jobs:
           archs=$(lipo -archs "$app/Contents/MacOS/Helmy")
           echo "architectures: $archs"
           [[ $archs == *arm64* && $archs == *x86_64* ]]
-          # One .dmg for Apple silicon, one for Intel, as people download them.
+          # One .dmg for Apple silicon, one for Intel, as people download them, laid out
+          # by create-dmg.
+          brew install create-dmg >/dev/null || echo "::warning::create-dmg did not install"
           macos/packaging/package.sh "$TAG"
       # An installer (.exe), made by Inno Setup; installed first where the runner lacks it.
       - name: Package (Windows)
