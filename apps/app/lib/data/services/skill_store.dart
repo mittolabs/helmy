@@ -99,16 +99,89 @@ class SkillStore extends ChangeNotifier {
   /// Copies in a skill from [folder] (one with a SKILL.md). Null, and
   /// nothing copied, when it has none.
   Future<Skill?> addFolder(String folder) async {
-    final md = File('$folder/SKILL.md');
-    if (!md.existsSync()) return null;
-    final s = read(await md.readAsString(), folder);
-    if (s == null) return null;
-    final id = slug(s.name);
-    final to = Directory('$root/$id');
-    if (to.existsSync()) await to.delete(recursive: true);
-    await _copy(Directory(folder), to);
+    final found = await skillsIn(folder);
+    if (found.length != 1 || found.single.folder != folder) return null;
+    final to = await _copyIn(found.single);
     await load();
-    return _skills.where((k) => k.folder == to.path).firstOrNull;
+    return _skills.where((k) => k.folder == to).firstOrNull;
+  }
+
+  /// Every skill in [folder]: the folder itself when it is one, else each
+  /// folder in it that is (`skills/`), or in its `skills` (`.agents/`).
+  Future<List<Skill>> skillsIn(String folder) async {
+    Future<Skill?> one(String dir) async {
+      final md = File('$dir/SKILL.md');
+      return md.existsSync() ? read(await md.readAsString(), dir) : null;
+    }
+
+    if (await one(folder) case final s?) return [s];
+    final out = <Skill>[];
+    for (final under in [folder, '$folder/skills']) {
+      final dir = Directory(under);
+      if (!dir.existsSync() || _isOurs(under)) continue;
+      final children = await dir.list().where((e) => e is Directory || e is Link).toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      for (final e in children) {
+        if (_isOurs(e.path)) continue;
+        if (await one(e.path) case final s?) out.add(s);
+      }
+      if (out.isNotEmpty) break;
+    }
+    return out;
+  }
+
+  /// Copies in each of [skills]; one of a name already here is replaced.
+  /// How many came in.
+  Future<int> addAll(List<Skill> skills) async {
+    var n = 0;
+    for (final s in skills) {
+      try {
+        await _copyIn(s);
+        n++;
+      } on FileSystemException {
+        // One that cannot be read is left; the rest still come in.
+      }
+    }
+    await load();
+    return n;
+  }
+
+  Future<String> _copyIn(Skill s) async {
+    final to = Directory('$root/${slug(s.name)}');
+    if (to.existsSync()) await to.delete(recursive: true);
+    await _copy(Directory(s.folder), to);
+    return to.path;
+  }
+
+  /// Whether [path] is Helmy's own skills (Codex's link to them, say).
+  bool _isOurs(String path) {
+    try {
+      final real = Directory(path).resolveSymbolicLinksSync();
+      return real == Directory(root).resolveSymbolicLinksSync() || real.startsWith('$root/');
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  /// Where skills are kept on a computer for every project: the shared
+  /// `.agents` folder, and each connection's own.
+  static List<String> systemFolders(String home) => [
+    '$home/.agents/skills',
+    '$home/.claude/skills',
+    '$home/.codex/skills',
+    '$home/.config/opencode/skills',
+    '$home/.cursor/skills',
+  ];
+
+  /// Skills on this computer, in [systemFolders], that Helmy does not have
+  /// yet (by name): each once, the first folder's where two share a name.
+  Future<List<Skill>> onThisComputer(String home) async {
+    final seen = {for (final s in _skills) s.name};
+    return [
+      for (final f in systemFolders(home))
+        for (final s in await skillsIn(f))
+          if (seen.add(s.name)) s,
+    ];
   }
 
   Future<void> remove(String name) async {
