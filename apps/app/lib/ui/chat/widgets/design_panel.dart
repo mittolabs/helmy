@@ -292,18 +292,31 @@ class _DesignPanelState extends State<DesignPanel> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _build(context, roomy: box.maxWidth >= 520));
+
+  /// [roomy]: wide enough for the toolbar's larger buttons.
+  Widget _build(BuildContext context, {required bool roomy}) {
+    final button = roomy ? ButtonSize.iconSm : ButtonSize.iconXs;
+    final double glyph = roomy ? 16 : 14;
     final t = AshlarTheme.of(context);
     final c = t.colors;
     Widget tool(IconData icon, String label, VoidCallback onPressed) => Tooltip(
       message: label,
       child: Button(
         variant: .ghost,
-        size: .iconXs,
+        size: button,
         semanticLabel: label,
         onPressed: onPressed,
-        child: AshlarIcon(icon, size: 14),
+        child: AshlarIcon(icon, size: glyph),
       ),
+    );
+    // Between the groups: the tools, undo, then zoom and the files.
+    final divider = Container(
+      width: 1,
+      height: 18,
+      margin: const .symmetric(horizontal: 6),
+      color: c.border,
     );
     return Column(
       crossAxisAlignment: .stretch,
@@ -330,7 +343,7 @@ class _DesignPanelState extends State<DesignPanel> {
                       variant: .ghost,
                       size: .sm,
                       onPressed: _screens.isEmpty ? null : menu.open,
-                      trailing: const AshlarIcon(AshlarIconsRoundedStroke.chevronDown, size: 14),
+                      trailing: AshlarIcon(AshlarIconsRoundedStroke.chevronDown, size: 14),
                       child: Text(
                         [
                           if (_title.isNotEmpty) _title,
@@ -347,53 +360,49 @@ class _DesignPanelState extends State<DesignPanel> {
                 message: 'Select and edit (V)',
                 child: Button(
                   variant: _tool == 'select' ? .secondary : .ghost,
-                  size: .iconXs,
+                  size: button,
                   semanticLabel: 'Select and edit',
                   onPressed: () => _useTool('select'),
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.mousePointer2, size: 14),
+                  child: AshlarIcon(AshlarIconsRoundedStroke.mousePointer2, size: glyph),
                 ),
               ),
               Tooltip(
                 message: 'Move around (H, or hold Space)',
                 child: Button(
                   variant: _tool == 'hand' ? .secondary : .ghost,
-                  size: .iconXs,
+                  size: button,
                   semanticLabel: 'Move around',
                   onPressed: () => _useTool('hand'),
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.hand, size: 14),
+                  child: AshlarIcon(AshlarIconsRoundedStroke.hand, size: glyph),
                 ),
               ),
               Tooltip(
                 message: 'Comment, for the agent (C)',
                 child: Button(
                   variant: _tool == 'comment' ? .secondary : .ghost,
-                  size: .iconXs,
+                  size: button,
                   semanticLabel: 'Comment',
                   onPressed: () => _useTool('comment'),
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 14),
+                  child: AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: glyph),
                 ),
               ),
               Tooltip(
                 message: _frames ? 'Hide the devices' : 'Show each screen in its device',
                 child: Button(
                   variant: _frames ? .secondary : .ghost,
-                  size: .iconXs,
+                  size: button,
                   semanticLabel: 'Devices',
                   onPressed: () => _useFrames(!_frames),
-                  child: const AshlarIcon(AshlarIconsRoundedStroke.devices, size: 14),
+                  child: AshlarIcon(AshlarIconsRoundedStroke.devices, size: glyph),
                 ),
               ),
+              divider,
               tool(
                 AshlarIconsRoundedStroke.undo2,
                 'Undo (⌘Z)',
                 () => unawaited(_run('HelmyCanvas.undo()')),
               ),
-              Container(
-                width: 1,
-                height: 16,
-                margin: const .symmetric(horizontal: 4),
-                color: c.border,
-              ),
+              divider,
               tool(
                 AshlarIconsRoundedStroke.zoomOut,
                 'Zoom out',
