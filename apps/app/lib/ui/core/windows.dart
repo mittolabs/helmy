@@ -12,6 +12,7 @@ import 'package:flutter/src/widgets/_window.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/desktop_service.dart';
@@ -22,6 +23,7 @@ import 'ashlar/button.dart';
 import 'ashlar/theme.dart';
 import 'ashlar/tooltip.dart';
 import 'helmy_look.dart';
+import 'window_web_view.dart';
 
 /// Helmy's windows, all drawn by one engine with Flutter's windowing: the
 /// main one, and any panel tab moved into a window of its own. One engine,
@@ -65,8 +67,50 @@ class HelmyWindows extends ChangeNotifier {
           controller: w.controller,
           child: _TabWindowApp(window: w),
         ),
+      for (final w in presents)
+        RegularWindow(
+          key: ObjectKey(w),
+          controller: w.controller,
+          child: _PresentWindowApp(window: w),
+        ),
     ],
   );
+
+  /// Design screens presented in windows of their own, oldest first.
+  final List<PresentWindow> presents = [];
+
+  /// Presents a design's screen in a window of its own: [url] is the canvas
+  /// in its present mode, showing that screen and nothing else (Present, as
+  /// Figma's opens a tab of its own). No browser bar: the screen is all there is.
+  ///
+  /// [device] (phone, tablet, desktop) keeps each its own place and size,
+  /// as the Mac puts it back; [size] is held to the display.
+  void present(Uri url, {required String title, required Size size, required String device}) {
+    if (!supported) return;
+    final display = WidgetsBinding.instance.platformDispatcher.displays.firstOrNull;
+    if (display != null) {
+      final room = display.size / display.devicePixelRatio;
+      size = Size(
+        size.width.clamp(360, room.width * 0.92),
+        size.height.clamp(480, room.height * 0.9),
+      );
+    }
+    final w = PresentWindow._(url: url, title: title);
+    w.controller = RegularWindowController(
+      size: size,
+      title: title,
+      delegate: _PresentClosed(this, w),
+    );
+    presents.add(w);
+    // Once made: a Mac window like any (full screen, Split View, tiling).
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => Future<void>.delayed(
+        const Duration(milliseconds: 60),
+        () => DesktopService.tabWindowReady(title, atPointer: false, kind: 'present-$device'),
+      ),
+    );
+    notifyListeners();
+  }
 
   // A chat's view model, held while its page or a tab's window shows it: a
   // tab in a window outlives the page it came from, and the page, opened
@@ -100,16 +144,14 @@ class HelmyWindows extends ChangeNotifier {
 
   /// Moves [tab] of [vm]'s panel into a window of its own, beside the main
   /// one, titled with the tab and its chat.
-  /// [size]: the window's, when the tab has one of its own (a screen
-  /// previewed in its device's size).
-  void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false, Size? size}) {
+  void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false}) {
     if (!supported) return;
     if (tab.windowed) return show(tab);
     final key = _keyOf(vm);
     if (key != null) holdChat(key, () => vm);
     final w = TabWindow._(vm: vm, tab: tab, chatKey: key);
     w.controller = RegularWindowController(
-      size: size ?? const Size(760, 620),
+      size: const Size(760, 620),
       title: w.title,
       delegate: _TabWindowClosed(this, w),
     );
@@ -171,6 +213,11 @@ class HelmyWindows extends ChangeNotifier {
     w.controller.destroy();
   }
 
+  /// A presenting window closed: gone from the windows.
+  void _dropPresent(PresentWindow w) {
+    if (presents.remove(w)) notifyListeners();
+  }
+
   /// [w] gone (put back, or its window closed): the tab is the panel's again.
   void _drop(TabWindow w) {
     if (!tabs.remove(w)) return;
@@ -187,6 +234,9 @@ class HelmyWindows extends ChangeNotifier {
   @override
   void dispose() {
     for (final w in [...tabs]) {
+      w.controller.destroy();
+    }
+    for (final w in [...presents]) {
       w.controller.destroy();
     }
     main.dispose();
@@ -223,6 +273,66 @@ class _MainWindow with RegularWindowControllerDelegate {
     } else {
       controller.destroy();
     }
+  }
+}
+
+/// A design's screen presented in a window of its own.
+class PresentWindow {
+  PresentWindow._({required this.url, required this.title});
+  final Uri url;
+
+  /// "Helmy site · Home": the design, then the screen.
+  final String title;
+  late final RegularWindowController controller;
+}
+
+/// A presenting window closed: it is gone.
+class _PresentClosed with RegularWindowControllerDelegate {
+  _PresentClosed(this.windows, this.window);
+  final HelmyWindows windows;
+  final PresentWindow window;
+
+  @override
+  void onWindowDestroyed() {
+    super.onWindowDestroyed();
+    windows._dropPresent(window);
+  }
+}
+
+/// A presenting window: the screen, and nothing of Helmy around it.
+class _PresentWindowApp extends StatefulWidget {
+  const _PresentWindowApp({required this.window});
+  final PresentWindow window;
+
+  @override
+  State<_PresentWindowApp> createState() => _PresentWindowAppState();
+}
+
+class _PresentWindowAppState extends State<_PresentWindowApp> {
+  final _page = WebViewController();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_page.setJavaScriptMode(JavaScriptMode.unrestricted));
+    unawaited(_page.setBackgroundColor(const Color(0xFF000000)));
+    unawaited(_page.loadRequest(widget.window.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final look = helmyLook(context.watch<SettingsRepository>().settings);
+    return AshlarApp(
+      title: widget.window.title,
+      theme: look.light,
+      darkTheme: look.dark,
+      themeMode: look.mode,
+      builder: look.builder,
+      home: ColoredBox(
+        color: const Color(0xFF000000),
+        child: WindowWebView(controller: _page),
+      ),
+    );
   }
 }
 

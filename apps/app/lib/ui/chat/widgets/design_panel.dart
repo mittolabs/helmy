@@ -183,7 +183,13 @@ class _DesignPanelState extends State<DesignPanel> {
     final found = await DesignServer.shared.canvasFor(folder);
     // Where Helmy opens windows of its own, a screen previews in one.
     final canvas = HelmyWindows.supported
-        ? found.replace(queryParameters: {...found.queryParameters, 'windows': '1'})
+        ? found.replace(
+            queryParameters: {
+              ...found.queryParameters,
+              'windows': '1',
+              if (_presents) 'play': 'present',
+            },
+          )
         : found;
     // Where this chat last looked at its canvas, put back.
     final v = widget.vm.designView;
@@ -245,7 +251,10 @@ class _DesignPanelState extends State<DesignPanel> {
     }
     if (m is! Map || !mounted) return;
     if (m['zoom'] case final num z) setState(() => _zoom = z.toDouble());
-    if (m['view'] case final Map v) widget.vm.setDesignView(v.cast<String, Object?>());
+    // Where the canvas was looked at; what ▶ plays is kept beside it.
+    if (m['view'] case final Map v) {
+      widget.vm.setDesignView({...?widget.vm.designView, ...v.cast<String, Object?>()});
+    }
     if (m['loaded'] case final Map l) {
       unawaited(_check());
       setState(() {
@@ -258,13 +267,11 @@ class _DesignPanelState extends State<DesignPanel> {
     }
     if (m['download'] case final String file) {
       // Its menu under the screen's button: the HTML file, or exported as code.
-      final at = m['at'] is List ? (m['at'] as List).whereType<num>().toList() : const <num>[];
-      _screenMenuFile = file;
-      _screenMenu.open(
-        position: at.length == 2 ? Offset(at[0].toDouble(), at[1].toDouble()) : Offset.zero,
-      );
+      _openScreenMenu(file, _ScreenMenu.save, m['at']);
     }
-    if (m['previewWindow'] case final Map p) _previewWindow(p);
+    // Beside ▶: Preview or Present.
+    if (m['playMenu'] case final String file) _openScreenMenu(file, _ScreenMenu.play, m['at']);
+    if (m['present'] case final Map p) unawaited(_present(p));
     // A screen opened in a browser tab of the panel, from its preview.
     if (m['open'] case final String url) widget.vm.preview(url);
     if (m['comment'] case final Map c) _comment(c);
@@ -357,19 +364,60 @@ class _DesignPanelState extends State<DesignPanel> {
     }
   }
 
-  /// The menu a screen's save button opens, and the screen it is for.
+  /// The menu a screen's buttons open (save, or what ▶ plays), which, and
+  /// the screen it is for.
   final _screenMenu = MenuController();
+  var _screenMenuKind = _ScreenMenu.save;
   String? _screenMenuFile;
 
-  /// A screen on its own and working, in a window of its own the size of
-  /// its device (and the page's bar above it).
-  void _previewWindow(Map p) {
-    final url = p['url'];
-    if (url is! String) return;
-    final width = (p['width'] as num?)?.toDouble() ?? 1440;
-    final height = (p['height'] as num?)?.toDouble() ?? 900;
-    final tab = widget.vm.add(.preview, url: url, focus: false);
-    context.read<HelmyWindows>().moveOut(widget.vm, tab, size: Size(width, height + 44));
+  void _openScreenMenu(String file, _ScreenMenu kind, Object? at) {
+    final xy = at is List ? at.whereType<num>().toList() : const <num>[];
+    setState(() {
+      _screenMenuFile = file;
+      _screenMenuKind = kind;
+    });
+    _screenMenu.open(
+      position: xy.length == 2 ? Offset(xy[0].toDouble(), xy[1].toDouble()) : Offset.zero,
+    );
+  }
+
+  /// What ▶ plays, as this chat last chose: Preview (over the canvas) or
+  /// Present (a window of its own).
+  bool get _presents => widget.vm.designView?['play'] == 'present';
+
+  /// ▶ plays [present] from now on, and plays it now on [file].
+  void _choosePlay(String file, {required bool present}) {
+    widget.vm.setDesignView({...?widget.vm.designView, 'play': present ? 'present' : 'preview'});
+    unawaited(
+      _run('HelmyCanvas.play(${jsonEncode(present ? 'present' : 'preview')}, ${jsonEncode(file)})'),
+    );
+  }
+
+  /// Present: the screen, working, in a window of its own, the size of its
+  /// device: a phone or tablet in its frame with room around it, a desktop
+  /// screen as the window itself, its page reflowing as it is resized.
+  Future<void> _present(Map p) async {
+    final folder = _folder;
+    final file = p['file'];
+    if (folder == null || file is! String) return;
+    final device = p['device'] is String ? p['device'] as String : 'desktop';
+    final w = (p['w'] as num?)?.toDouble() ?? 1440;
+    final h = (p['h'] as num?)?.toDouble() ?? 900;
+    // The frame's border, the room around it and the bar above: as the page draws them.
+    final size = switch (device) {
+      'phone' => Size(w + 24 + 48, h + 24 + 80),
+      'tablet' => Size(w + 32 + 48, h + 32 + 80),
+      _ => Size(w, h + 44),
+    };
+    final canvas = await DesignServer.shared.canvasFor(folder);
+    if (!mounted) return;
+    final screen = '${p['title'] ?? file}';
+    context.read<HelmyWindows>().present(
+      canvas.replace(queryParameters: {...canvas.queryParameters, 'present': file}),
+      title: _title.isEmpty ? screen : '$_title · $screen',
+      size: size,
+      device: device,
+    );
   }
 
   Future<void> _saveCopy(String file) async {
@@ -605,27 +653,44 @@ class _DesignPanelState extends State<DesignPanel> {
                 overlayBuilder: (context, info) => PopoverPanel(
                   info: info,
                   child: MenuList(
-                    children: [
-                      MenuItem(
-                        onPressed: () {
-                          _screenMenu.close();
-                          if (_screenMenuFile case final f?) unawaited(_saveCopy(f));
-                        },
-                        child: const Text('Save the HTML file'),
-                      ),
-                      const MenuSeparator(),
-                      const MenuLabel(child: Text('Export this screen as')),
-                      for (final target in ExportTarget.values)
-                        MenuItem(
-                          onPressed: () {
-                            _screenMenu.close();
-                            if (_screenMenuFile case final f?) {
-                              unawaited(_export(target, screen: f));
-                            }
-                          },
-                          child: Text('${target.label}: ${target.description}'),
-                        ),
-                    ],
+                    children: _screenMenuKind == _ScreenMenu.play
+                        ? [
+                            for (final (present, name, what) in [
+                              (false, 'Preview', 'Over the canvas'),
+                              (true, 'Present', 'In a window of its own'),
+                            ])
+                              MenuItem(
+                                onPressed: () {
+                                  _screenMenu.close();
+                                  if (_screenMenuFile case final f?) {
+                                    _choosePlay(f, present: present);
+                                  }
+                                },
+                                shortcut: Text(present == _presents ? '✓' : ''),
+                                child: Text('$name: $what'),
+                              ),
+                          ]
+                        : [
+                            MenuItem(
+                              onPressed: () {
+                                _screenMenu.close();
+                                if (_screenMenuFile case final f?) unawaited(_saveCopy(f));
+                              },
+                              child: const Text('Save the HTML file'),
+                            ),
+                            const MenuSeparator(),
+                            const MenuLabel(child: Text('Export this screen as')),
+                            for (final target in ExportTarget.values)
+                              MenuItem(
+                                onPressed: () {
+                                  _screenMenu.close();
+                                  if (_screenMenuFile case final f?) {
+                                    unawaited(_export(target, screen: f));
+                                  }
+                                },
+                                child: Text('${target.label}: ${target.description}'),
+                              ),
+                          ],
                   ),
                 ),
                 child: Focus(
@@ -647,3 +712,6 @@ class _DesignPanelState extends State<DesignPanel> {
     );
   }
 }
+
+/// Which menu a screen's buttons opened: saving it, or what ▶ plays.
+enum _ScreenMenu { save, play }
