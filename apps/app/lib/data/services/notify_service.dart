@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -71,7 +72,13 @@ class NotifyService {
   /// Sessions whose notification was clicked.
   Stream<String> get opened => _opened.stream;
 
+  /// The ID Windows knows Helmy by, set on its Start menu shortcut by the
+  /// installer: notifications shown under it read as Helmy's.
+  static const windowsAppId = 'Mittolabs.Helmy';
+
   /// With [thumbsUp], Helmy giving a thumbs up rides along: work done well.
+  /// The system's own notification on each: macOS's, Windows' toasts,
+  /// and the desktop's on Linux (through notify-send).
   Future<void> notify({
     required String sessionId,
     required String title,
@@ -79,14 +86,70 @@ class NotifyService {
     bool thumbsUp = false,
     bool banner = true,
     bool sound = true,
-  }) => _call('notify', {
-    'sessionId': sessionId,
-    'title': title,
-    'body': body,
-    'thumbsUp': thumbsUp,
-    'banner': banner,
-    'sound': sound,
-  });
+  }) async {
+    if (Platform.isLinux) return _linux(sessionId, title, body);
+    if (Platform.isWindows) return _windows(title, body, sound: sound);
+    await _call('notify', {
+      'sessionId': sessionId,
+      'title': title,
+      'body': body,
+      'thumbsUp': thumbsUp,
+      'banner': banner,
+      'sound': sound,
+    });
+  }
+
+  /// notify-send, with an Open action: chosen, it opens the chat. Older
+  /// notify-send without actions shows it plainly.
+  Future<void> _linux(String sessionId, String title, String body) async {
+    try {
+      final p = await Process.start('notify-send', [
+        '--app-name=Helmy',
+        '--action=open=Open',
+        '--wait',
+        title,
+        body,
+      ]);
+      unawaited(
+        p.stdout.transform(const SystemEncoding().decoder).join().then((out) {
+          if (out.trim() == 'open') _opened.add(sessionId);
+        }),
+      );
+      if (await p.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => 0) != 0) {
+        await Process.run('notify-send', ['--app-name=Helmy', title, body]);
+      }
+    } on Object {
+      // No notification service on this desktop: nothing to show it with.
+    }
+  }
+
+  /// A toast through Windows' own notifications, under Helmy's app ID.
+  Future<void> _windows(String title, String body, {required bool sound}) async {
+    String xml(String s) => s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+    final toast =
+        '<toast><visual><binding template="ToastGeneric"><text>${xml(title)}</text>'
+        '<text>${xml(body)}</text></binding></visual>${sound ? '' : '<audio silent="true"/>'}</toast>';
+    final script =
+        r'[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;'
+        r'[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null;'
+        r'$x = New-Object Windows.Data.Xml.Dom.XmlDocument; $x.LoadXml($env:HELMY_TOAST);'
+        '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("$windowsAppId")'
+        r'.Show([Windows.UI.Notifications.ToastNotification]::new($x))';
+    try {
+      await Process.run(
+        'powershell',
+        ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script],
+        environment: {'HELMY_TOAST': toast},
+      );
+    } on Object {
+      // No PowerShell: nothing to show it with.
+    }
+  }
 
   /// Whether the first ⌘Q only warns: on while chats work, if so set.
   Future<void> quitGuard(bool on) => _call('quitGuard', {'on': on});
