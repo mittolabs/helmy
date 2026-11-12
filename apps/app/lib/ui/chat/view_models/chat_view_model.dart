@@ -1996,7 +1996,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   void dispose() {
     _disposed = true;
     _draftTimer?.cancel();
-    _attention?.viewing = null;
+    _attention?.left(sessionId);
     browser?.opener(sessionId, null);
     browser?.deviceOpener(sessionId, null);
     device?.dispose();

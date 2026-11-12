@@ -69,354 +69,342 @@ class ShellScreen extends StatelessWidget {
         onSeen: () => viewModel.updateSettings(viewModel.settings.copyWith(tourDue: false)),
         child: child!,
       ),
-      child: _InAppNotes(
-        viewModel: viewModel,
-        child: Listener(
-          // A mouse's own back and forward buttons, as in a browser.
-          onPointerDown: (e) {
-            if (e.buttons & kBackMouseButton != 0) NavHistory.current?.back();
-            if (e.buttons & kForwardMouseButton != 0) NavHistory.current?.forward();
-          },
-          child: CallbackShortcuts(
-            // Keys reach here from wherever focus is in the window.
-            bindings: {
-              bindingOf(.search, viewModel.settings.keys).activator: () =>
-                  showPalette(context, viewModel),
-              bindingOf(.newChat, viewModel.settings.keys).activator: () =>
-                  newSession(context, viewModel),
-              bindingOf(.settings, viewModel.settings.keys).activator: () =>
-                  openSettings(GoRouter.of(context)),
-              // ⌘1 to ⌘9: the sessions in the order the list shows them.
-              for (final (i, key) in const [
-                LogicalKeyboardKey.digit1,
-                LogicalKeyboardKey.digit2,
-                LogicalKeyboardKey.digit3,
-                LogicalKeyboardKey.digit4,
-                LogicalKeyboardKey.digit5,
-                LogicalKeyboardKey.digit6,
-                LogicalKeyboardKey.digit7,
-                LogicalKeyboardKey.digit8,
-                LogicalKeyboardKey.digit9,
-              ].indexed)
-                Desktop.current.shortcut(key): () {
-                  final list = viewModel.inOrder;
-                  if (i < list.length) context.go('/s/${list[i].id}');
-                },
-              // Back and forward through where you have been.
-              bindingOf(.back, viewModel.settings.keys).activator: () => NavHistory.current?.back(),
-              bindingOf(.forward, viewModel.settings.keys).activator: () =>
-                  NavHistory.current?.forward(),
-              // ⌘+ and ⌘- make everything larger or smaller, a step of Text size
-              // at a time; ⌘0 puts it back.
-              for (final (key, shift) in const [
-                (LogicalKeyboardKey.equal, false),
-                (LogicalKeyboardKey.equal, true),
-                (LogicalKeyboardKey.add, true),
-                (LogicalKeyboardKey.numpadAdd, false),
-              ])
-                Desktop.current.shortcut(key, shift: shift): () => _zoom(viewModel, 1),
-              for (final key in const [LogicalKeyboardKey.minus, LogicalKeyboardKey.numpadSubtract])
-                Desktop.current.shortcut(key): () => _zoom(viewModel, -1),
-              Desktop.current.shortcut(LogicalKeyboardKey.digit0): () => _zoom(viewModel, 0),
-              // Undo the last archive, snooze or settle (a text field's own undo
-              // comes first).
-              Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undo,
-              // Esc lets picked chats go.
-              const SingleActivator(LogicalKeyboardKey.escape): () {
-                if (viewModel.picking) viewModel.clearPicks();
+      child: Listener(
+        // A mouse's own back and forward buttons, as in a browser.
+        onPointerDown: (e) {
+          if (e.buttons & kBackMouseButton != 0) NavHistory.current?.back();
+          if (e.buttons & kForwardMouseButton != 0) NavHistory.current?.forward();
+        },
+        child: CallbackShortcuts(
+          // Keys reach here from wherever focus is in the window.
+          bindings: {
+            bindingOf(.search, viewModel.settings.keys).activator: () =>
+                showPalette(context, viewModel),
+            bindingOf(.newChat, viewModel.settings.keys).activator: () =>
+                newSession(context, viewModel),
+            bindingOf(.settings, viewModel.settings.keys).activator: () =>
+                openSettings(GoRouter.of(context)),
+            // ⌘1 to ⌘9: the sessions in the order the list shows them.
+            for (final (i, key) in const [
+              LogicalKeyboardKey.digit1,
+              LogicalKeyboardKey.digit2,
+              LogicalKeyboardKey.digit3,
+              LogicalKeyboardKey.digit4,
+              LogicalKeyboardKey.digit5,
+              LogicalKeyboardKey.digit6,
+              LogicalKeyboardKey.digit7,
+              LogicalKeyboardKey.digit8,
+              LogicalKeyboardKey.digit9,
+            ].indexed)
+              Desktop.current.shortcut(key): () {
+                final list = viewModel.inOrder;
+                if (i < list.length) context.go('/s/${list[i].id}');
               },
-              // A Mac's menu quits with ⌘Q; elsewhere Ctrl+Q is the app's to give.
-              if (!Desktop.current.commandIsMeta)
-                Desktop.current.shortcut(LogicalKeyboardKey.keyQ): () =>
-                    ServicesBinding.instance.exitApplication(AppExitType.required),
+            // Back and forward through where you have been.
+            bindingOf(.back, viewModel.settings.keys).activator: () => NavHistory.current?.back(),
+            bindingOf(.forward, viewModel.settings.keys).activator: () =>
+                NavHistory.current?.forward(),
+            // ⌘+ and ⌘- make everything larger or smaller, a step of Text size
+            // at a time; ⌘0 puts it back.
+            for (final (key, shift) in const [
+              (LogicalKeyboardKey.equal, false),
+              (LogicalKeyboardKey.equal, true),
+              (LogicalKeyboardKey.add, true),
+              (LogicalKeyboardKey.numpadAdd, false),
+            ])
+              Desktop.current.shortcut(key, shift: shift): () => _zoom(viewModel, 1),
+            for (final key in const [LogicalKeyboardKey.minus, LogicalKeyboardKey.numpadSubtract])
+              Desktop.current.shortcut(key): () => _zoom(viewModel, -1),
+            Desktop.current.shortcut(LogicalKeyboardKey.digit0): () => _zoom(viewModel, 0),
+            // Undo the last archive, snooze or settle (a text field's own undo
+            // comes first).
+            Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undo,
+            // Esc lets picked chats go.
+            const SingleActivator(LogicalKeyboardKey.escape): () {
+              if (viewModel.picking) viewModel.clearPicks();
             },
-            child: ListenableBuilder(
-              listenable: viewModel,
-              builder: (context, _) => _SidebarWidth(
-                saved: viewModel.settings.sidebarWidth,
-                beside:
-                    viewModel.settings.sidebarOpen &&
-                    MediaQuery.sizeOf(context).width >= narrowWindow,
-                onSave: (w) =>
-                    viewModel.updateSettings(viewModel.settings.copyWith(sidebarWidth: w)),
-                builder: (width) => SidebarLayout(
-                  rail: false,
-                  toggleKeys: [bindingOf(.sidebar, viewModel.settings.keys).activator],
-                  // Hides off the side; its button or its keys (⌘B unless changed) bring it back.
-                  collapse: .offcanvas,
-                  narrow: narrowWindow,
-                  open: viewModel.settings.sidebarOpen,
-                  onOpenChanged: (open) =>
-                      viewModel.updateSettings(viewModel.settings.copyWith(sidebarOpen: open)),
-                  width: width,
-                  header: TitleBar(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8, end: 2),
-                      child: Column(
-                        crossAxisAlignment: .stretch,
-                        children: [
-                          // On the window buttons' line, after them: going back
-                          // and forward, and hiding the sidebar.
-                          SizedBox(
-                            // The sidebar's header starts 8 below the window's top:
-                            // a row as tall as its buttons, moved onto the line.
-                            height: 32,
-                            child: Transform.translate(
-                              offset: const Offset(0, titleLine - 8 - 16),
-                              child: Row(
-                                children: [
-                                  const Spacer(),
-                                  const _BackForward(),
-                                  Tooltip(
-                                    message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
-                                    child: const SidebarTrigger(size: .iconSm),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Image.asset(
-                                t.brightness == .dark
-                                    ? 'assets/helmy/head-dark.png'
-                                    : 'assets/helmy/head-light.png',
-                                width: 22,
-                                height: 22,
-                                semanticLabel: 'Helmy',
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Helmy',
-                                  style: t.text.base.copyWith(fontWeight: .w600),
-                                ),
-                              ),
-                              Tooltip(
-                                message: 'Search (${Desktop.current.keys('⌘K')})',
-                                child: Button(
-                                  variant: .ghost,
-                                  size: .iconSm,
-                                  semanticLabel: 'Search',
-                                  onPressed: () => showPalette(context, viewModel),
-                                  child: const AshlarIcon(
-                                    AshlarIconsRoundedStroke.search,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  footer: Padding(
-                    padding: const .fromLTRB(0, 4, 0, 8),
+            // A Mac's menu quits with ⌘Q; elsewhere Ctrl+Q is the app's to give.
+            if (!Desktop.current.commandIsMeta)
+              Desktop.current.shortcut(LogicalKeyboardKey.keyQ): () =>
+                  ServicesBinding.instance.exitApplication(AppExitType.required),
+          },
+          child: ListenableBuilder(
+            listenable: viewModel,
+            builder: (context, _) => _SidebarWidth(
+              saved: viewModel.settings.sidebarWidth,
+              beside:
+                  viewModel.settings.sidebarOpen &&
+                  MediaQuery.sizeOf(context).width >= narrowWindow,
+              onSave: (w) => viewModel.updateSettings(viewModel.settings.copyWith(sidebarWidth: w)),
+              builder: (width) => SidebarLayout(
+                rail: false,
+                toggleKeys: [bindingOf(.sidebar, viewModel.settings.keys).activator],
+                // Hides off the side; its button or its keys (⌘B unless changed) bring it back.
+                collapse: .offcanvas,
+                narrow: narrowWindow,
+                open: viewModel.settings.sidebarOpen,
+                onOpenChanged: (open) =>
+                    viewModel.updateSettings(viewModel.settings.copyWith(sidebarOpen: open)),
+                width: width,
+                header: TitleBar(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 8, end: 2),
                     child: Column(
-                      mainAxisSize: .min,
                       crossAxisAlignment: .stretch,
                       children: [
-                        if (viewModel.notificationsBlocked)
-                          _NotificationsBlocked(viewModel: viewModel),
-                        _NavRow(
-                          icon: AshlarIconsRoundedStroke.settings,
-                          label: 'Settings',
-                          shortcut: Desktop.current.keys('⌘,'),
-                          onPressed: () => openSettings(GoRouter.of(context)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  groups: [
-                    // What you do, as labelled rows, the way other chat apps lay it out.
-                    SidebarGroup.custom(
-                      Column(
-                        crossAxisAlignment: .stretch,
-                        spacing: 2,
-                        children: [
-                          _NavRow(
-                            icon: AshlarIconsRoundedStroke.squarePen,
-                            label: 'New chat',
-                            shortcut: Desktop.current.keys('⌘N'),
-                            onPressed: () => newSession(context, viewModel),
-                          ),
-                          TourTarget(
-                            stop: .scheduled,
-                            child: _NavRow(
-                              icon: AshlarIconsRoundedStroke.clock,
-                              label: 'Scheduled',
-                              selected: inSchedule,
-                              onPressed: () => context.go('/scheduled'),
-                            ),
-                          ),
-                          // Only where pull requests mean something (or while open).
-                          if (viewModel.showPullRequests || inPullRequests)
-                            _NavRow(
-                              icon: AshlarIconsRoundedStroke.gitPullRequest,
-                              label: 'Pull requests',
-                              selected: inPullRequests,
-                              onPressed: () => context.go('/pulls'),
-                            ),
-                        ],
-                      ),
-                    ),
-                    SidebarGroup.custom(
-                      Column(
-                        crossAxisAlignment: .stretch,
-                        children: [
-                          // The list's heading, with how it is shown at its end.
-                          Padding(
-                            padding: const .fromLTRB(10, 4, 0, 4),
-                            child: viewModel.picking
-                                ? _PickedBar(viewModel: viewModel)
-                                : Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          switch (viewModel.settings.show) {
-                                            .active => 'Chats',
-                                            .archived => 'Archived',
-                                            .all => 'All chats',
-                                          },
-                                          style: t.text.xs.copyWith(
-                                            color: t.colors.mutedForeground,
-                                            fontWeight: .w500,
-                                          ),
-                                        ),
-                                      ),
-                                      _ListMenu(viewModel: viewModel),
-                                    ],
-                                  ),
-                          ),
-                          viewModel.shown.isEmpty
-                              ? Padding(
-                                  padding: const .symmetric(horizontal: 10, vertical: 4),
-                                  child: Text(
-                                    'Nothing yet.',
-                                    style: t.text.sm.copyWith(color: t.colors.mutedForeground),
-                                  ),
-                                )
-                              : Column(
-                                  spacing: 2,
-                                  crossAxisAlignment: .stretch,
-                                  children: [
-                                    // Earlier threads that seem to belong together: offered once.
-                                    if (viewModel.suggestions case final found
-                                        when found.isNotEmpty)
-                                      _GroupingNotice(
-                                        count: found.length,
-                                        onReview: () => _review(context),
-                                      ),
-                                    for (final g in viewModel.groups) ...[
-                                      if (g.label case final label?)
-                                        Padding(
-                                          padding: const .fromLTRB(10, 10, 10, 2),
-                                          child: Text(
-                                            label,
-                                            style: t.text.xs.copyWith(
-                                              color: t.colors.mutedForeground,
-                                              fontWeight: .w600,
-                                            ),
-                                          ),
-                                        ),
-                                      if (g.folder != null)
-                                        Padding(
-                                          padding: const .fromLTRB(10, 10, 10, 2),
-                                          child: Text(
-                                            [
-                                              if (viewModel.settings.projectAt(g.folder!)
-                                                  case final p when p.icon.isNotEmpty)
-                                                p.icon,
-                                              tildePath(g.folder!),
-                                              if (viewModel.settings.projectAt(g.folder!).pinned)
-                                                '·  pinned',
-                                            ].join(' '),
-                                            maxLines: 1,
-                                            overflow: .ellipsis,
-                                            style: t.text.xs.copyWith(
-                                              color: t.colors.mutedForeground,
-                                            ),
-                                          ),
-                                        ),
-                                      for (final e in viewModel.entriesOf(g.sessions))
-                                        _chatEntry(context, e),
-                                    ],
-                                    // What nothing waits on, out of the way.
-                                    if (viewModel.settled case final done when done.isNotEmpty)
-                                      _SettledSection(
-                                        count: done.length,
-                                        open: viewModel.settledOpen,
-                                        more: viewModel.settledAll ? 0 : done.length - 10,
-                                        onToggle: viewModel.toggleSettled,
-                                        onMore: viewModel.showAllSettled,
-                                        rows: [
-                                          for (final e
-                                              in viewModel.settledAll ? done : done.take(10))
-                                            _chatEntry(context, e, compact: true),
-                                        ],
-                                      ),
-                                  ],
+                        // On the window buttons' line, after them: going back
+                        // and forward, and hiding the sidebar.
+                        SizedBox(
+                          // The sidebar's header starts 8 below the window's top:
+                          // a row as tall as its buttons, moved onto the line.
+                          height: 32,
+                          child: Transform.translate(
+                            offset: const Offset(0, titleLine - 8 - 16),
+                            child: Row(
+                              children: [
+                                const Spacer(),
+                                const _BackForward(),
+                                Tooltip(
+                                  message: 'Hide sidebar (${Desktop.current.keys('⌘B')})',
+                                  child: const SidebarTrigger(size: .iconSm),
                                 ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  // Hidden, its button sits beside the window's own buttons, over the page.
-                  // (The view model's settings, as this screen is given no provider.)
-                  // A video popped out of a conversation plays over the page's corner,
-                  // whatever page is showing.
-                  child:
-                      viewModel.settings.sidebarOpen &&
-                          MediaQuery.sizeOf(context).width >= narrowWindow
-                      ? Stack(children: [child, const CornerPlayer()])
-                      : Stack(
+                              ],
+                            ),
+                          ),
+                        ),
+                        Row(
                           children: [
-                            child,
-                            const CornerPlayer(),
-                            // In line with the window's buttons, just after them,
-                            // as a Mac app's sidebar button sits.
-                            // (At the edge in full screen, where the window's buttons hide.)
-                            ListenableBuilder(
-                              listenable: windowFullScreen,
-                              builder: (context, button) => PositionedDirectional(
-                                start: titleRowStart + titleControlsGap,
-                                // Measured 2 points high at titleLine - 16 over the
-                                // page, against the window's buttons.
-                                top: titleLine - 14,
-                                child: button!,
-                              ),
-                              // Showing the sidebar, then back and forward, as
-                              // they sit in the sidebar when it shows, with room
-                              // between them.
-                              child: Row(
-                                mainAxisSize: .min,
-                                spacing: titleControlsSpacing,
-                                children: [
-                                  Tooltip(
-                                    message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
-                                    child: Builder(
-                                      builder: (context) => Button(
-                                        variant: .ghost,
-                                        size: .iconSm,
-                                        semanticLabel: 'Show sidebar',
-                                        onPressed: () => SidebarLayout.of(context).toggle(),
-                                        // The title's size, so the two read as one line.
-                                        child: const AshlarIcon(
-                                          AshlarIconsRoundedStroke.panelLeft,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (titleArrowsShown(context))
-                                    const _BackForward(spacing: titleControlsSpacing),
-                                ],
+                            Image.asset(
+                              t.brightness == .dark
+                                  ? 'assets/helmy/head-dark.png'
+                                  : 'assets/helmy/head-light.png',
+                              width: 22,
+                              height: 22,
+                              semanticLabel: 'Helmy',
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Helmy', style: t.text.base.copyWith(fontWeight: .w600)),
+                            ),
+                            Tooltip(
+                              message: 'Search (${Desktop.current.keys('⌘K')})',
+                              child: Button(
+                                variant: .ghost,
+                                size: .iconSm,
+                                semanticLabel: 'Search',
+                                onPressed: () => showPalette(context, viewModel),
+                                child: const AshlarIcon(AshlarIconsRoundedStroke.search, size: 16),
                               ),
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                  ),
                 ),
+                footer: Padding(
+                  padding: const .fromLTRB(0, 4, 0, 8),
+                  child: Column(
+                    mainAxisSize: .min,
+                    crossAxisAlignment: .stretch,
+                    children: [
+                      if (viewModel.notificationsBlocked)
+                        _NotificationsBlocked(viewModel: viewModel),
+                      _NavRow(
+                        icon: AshlarIconsRoundedStroke.settings,
+                        label: 'Settings',
+                        shortcut: Desktop.current.keys('⌘,'),
+                        onPressed: () => openSettings(GoRouter.of(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                groups: [
+                  // What you do, as labelled rows, the way other chat apps lay it out.
+                  SidebarGroup.custom(
+                    Column(
+                      crossAxisAlignment: .stretch,
+                      spacing: 2,
+                      children: [
+                        _NavRow(
+                          icon: AshlarIconsRoundedStroke.squarePen,
+                          label: 'New chat',
+                          shortcut: Desktop.current.keys('⌘N'),
+                          onPressed: () => newSession(context, viewModel),
+                        ),
+                        TourTarget(
+                          stop: .scheduled,
+                          child: _NavRow(
+                            icon: AshlarIconsRoundedStroke.clock,
+                            label: 'Scheduled',
+                            selected: inSchedule,
+                            onPressed: () => context.go('/scheduled'),
+                          ),
+                        ),
+                        // Only where pull requests mean something (or while open).
+                        if (viewModel.showPullRequests || inPullRequests)
+                          _NavRow(
+                            icon: AshlarIconsRoundedStroke.gitPullRequest,
+                            label: 'Pull requests',
+                            selected: inPullRequests,
+                            onPressed: () => context.go('/pulls'),
+                          ),
+                      ],
+                    ),
+                  ),
+                  SidebarGroup.custom(
+                    Column(
+                      crossAxisAlignment: .stretch,
+                      children: [
+                        // The list's heading, with how it is shown at its end.
+                        Padding(
+                          padding: const .fromLTRB(10, 4, 0, 4),
+                          child: viewModel.picking
+                              ? _PickedBar(viewModel: viewModel)
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        switch (viewModel.settings.show) {
+                                          .active => 'Chats',
+                                          .archived => 'Archived',
+                                          .all => 'All chats',
+                                        },
+                                        style: t.text.xs.copyWith(
+                                          color: t.colors.mutedForeground,
+                                          fontWeight: .w500,
+                                        ),
+                                      ),
+                                    ),
+                                    _ListMenu(viewModel: viewModel),
+                                  ],
+                                ),
+                        ),
+                        viewModel.shown.isEmpty
+                            ? Padding(
+                                padding: const .symmetric(horizontal: 10, vertical: 4),
+                                child: Text(
+                                  'Nothing yet.',
+                                  style: t.text.sm.copyWith(color: t.colors.mutedForeground),
+                                ),
+                              )
+                            : Column(
+                                spacing: 2,
+                                crossAxisAlignment: .stretch,
+                                children: [
+                                  // Earlier threads that seem to belong together: offered once.
+                                  if (viewModel.suggestions case final found when found.isNotEmpty)
+                                    _GroupingNotice(
+                                      count: found.length,
+                                      onReview: () => _review(context),
+                                    ),
+                                  for (final g in viewModel.groups) ...[
+                                    if (g.label case final label?)
+                                      Padding(
+                                        padding: const .fromLTRB(10, 10, 10, 2),
+                                        child: Text(
+                                          label,
+                                          style: t.text.xs.copyWith(
+                                            color: t.colors.mutedForeground,
+                                            fontWeight: .w600,
+                                          ),
+                                        ),
+                                      ),
+                                    if (g.folder != null)
+                                      Padding(
+                                        padding: const .fromLTRB(10, 10, 10, 2),
+                                        child: Text(
+                                          [
+                                            if (viewModel.settings.projectAt(g.folder!) case final p
+                                                when p.icon.isNotEmpty)
+                                              p.icon,
+                                            tildePath(g.folder!),
+                                            if (viewModel.settings.projectAt(g.folder!).pinned)
+                                              '·  pinned',
+                                          ].join(' '),
+                                          maxLines: 1,
+                                          overflow: .ellipsis,
+                                          style: t.text.xs.copyWith(
+                                            color: t.colors.mutedForeground,
+                                          ),
+                                        ),
+                                      ),
+                                    for (final e in viewModel.entriesOf(g.sessions))
+                                      _chatEntry(context, e),
+                                  ],
+                                  // What nothing waits on, out of the way.
+                                  if (viewModel.settled case final done when done.isNotEmpty)
+                                    _SettledSection(
+                                      count: done.length,
+                                      open: viewModel.settledOpen,
+                                      more: viewModel.settledAll ? 0 : done.length - 10,
+                                      onToggle: viewModel.toggleSettled,
+                                      onMore: viewModel.showAllSettled,
+                                      rows: [
+                                        for (final e in viewModel.settledAll ? done : done.take(10))
+                                          _chatEntry(context, e, compact: true),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+                // Hidden, its button sits beside the window's own buttons, over the page.
+                // (The view model's settings, as this screen is given no provider.)
+                // A video popped out of a conversation plays over the page's corner,
+                // whatever page is showing.
+                child:
+                    viewModel.settings.sidebarOpen &&
+                        MediaQuery.sizeOf(context).width >= narrowWindow
+                    ? Stack(children: [child, const CornerPlayer()])
+                    : Stack(
+                        children: [
+                          child,
+                          const CornerPlayer(),
+                          // In line with the window's buttons, just after them,
+                          // as a Mac app's sidebar button sits.
+                          // (At the edge in full screen, where the window's buttons hide.)
+                          ListenableBuilder(
+                            listenable: windowFullScreen,
+                            builder: (context, button) => PositionedDirectional(
+                              start: titleRowStart + titleControlsGap,
+                              // Measured 2 points high at titleLine - 16 over the
+                              // page, against the window's buttons.
+                              top: titleLine - 14,
+                              child: button!,
+                            ),
+                            // Showing the sidebar, then back and forward, as
+                            // they sit in the sidebar when it shows, with room
+                            // between them.
+                            child: Row(
+                              mainAxisSize: .min,
+                              spacing: titleControlsSpacing,
+                              children: [
+                                Tooltip(
+                                  message: 'Show sidebar (${Desktop.current.keys('⌘B')})',
+                                  child: Builder(
+                                    builder: (context) => Button(
+                                      variant: .ghost,
+                                      size: .iconSm,
+                                      semanticLabel: 'Show sidebar',
+                                      onPressed: () => SidebarLayout.of(context).toggle(),
+                                      // The title's size, so the two read as one line.
+                                      child: const AshlarIcon(
+                                        AshlarIconsRoundedStroke.panelLeft,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (titleArrowsShown(context))
+                                  const _BackForward(spacing: titleControlsSpacing),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -1232,49 +1220,6 @@ class _NotificationsBlocked extends StatelessWidget {
       ),
     );
   }
-}
-
-/// While Helmy is in front, another session finishing or needing you is said
-/// here, as a toast that opens it, rather than as a system notification.
-class _InAppNotes extends StatefulWidget {
-  const _InAppNotes({required this.viewModel, required this.child});
-  final SidebarViewModel viewModel;
-  final Widget child;
-
-  @override
-  State<_InAppNotes> createState() => _InAppNotesState();
-}
-
-class _InAppNotesState extends State<_InAppNotes> {
-  StreamSubscription<({String sessionId, String title, String body})>? _notes;
-
-  @override
-  void initState() {
-    super.initState();
-    _notes = widget.viewModel.inApp.listen((n) {
-      if (!mounted) return;
-      showToast(
-        context,
-        title: n.title,
-        description: n.body,
-        action: Button(
-          size: .sm,
-          variant: .outline,
-          onPressed: () => context.go('/s/${n.sessionId}'),
-          child: const Text('Open'),
-        ),
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_notes?.cancel());
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }
 
 /// The sidebar at the width last dragged to: its edge, while it sits beside

@@ -35,17 +35,6 @@ class _General extends StatelessWidget {
               ),
             ),
           ),
-          _Row(
-            title: 'Notices inside Helmy',
-            description:
-                'While Helmy is in front, a notice in its corner when another chat finishes '
-                'or needs you.',
-            control: Switch(
-              value: s.inAppNotices,
-              semanticLabel: 'Notices inside Helmy',
-              onChanged: (v) => vm.update(s.copyWith(inAppNotices: v)),
-            ),
-          ),
         ],
         const _Heading('Behavior'),
         _Row(

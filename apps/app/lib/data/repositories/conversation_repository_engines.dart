@@ -1208,6 +1208,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   @override
   void interrupt(String sessionId) {
+    of(sessionId).stoppedByYou = of(sessionId).busy;
     if (_release(sessionId)) return;
     _active(sessionId)?.interrupt();
   }
