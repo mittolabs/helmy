@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/mittolabs/helmy/compare/v0.3.0...v0.3.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **steps:** a new folder, a file edited by a script, and a look at the page ([#11](https://github.com/mittolabs/helmy/issues/11)) ([b6750e6](https://github.com/mittolabs/helmy/commit/b6750e6ad527874316a0643952cae58de2b6fc85))
+* **steps:** turned-down steps, the vault's steps and program files say what they did ([#9](https://github.com/mittolabs/helmy/issues/9)) ([9f70d60](https://github.com/mittolabs/helmy/commit/9f70d60740e4a487ee1bd1928f8a4672e2d518bf))
+
 ## [0.3.0](https://github.com/mittolabs/helmy/compare/v0.2.0...v0.3.0) (2026-11-11)
 
 
