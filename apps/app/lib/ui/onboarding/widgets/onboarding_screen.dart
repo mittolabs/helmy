@@ -20,6 +20,8 @@ import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/switch.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/toast.dart';
+import '../../core/connection_logo.dart';
+import '../../../data/services/engines/acp/acp_engine.dart' show subscriptionAgents;
 import '../../import/import_list.dart';
 import '../view_models/onboarding_view_model.dart';
 
@@ -424,8 +426,11 @@ class _Box extends StatelessWidget {
 /// A square of the theme's quiet color with an icon in it, at the start of
 /// a row.
 class _Tile extends StatelessWidget {
-  const new(this.icon);
+  const new(this.icon, {this.logo});
   final IconData icon;
+
+  /// A connection's id, for its own logo in place of [icon] (ConnectionLogo).
+  final String? logo;
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +440,9 @@ class _Tile extends StatelessWidget {
       height: 34,
       alignment: .center,
       decoration: BoxDecoration(color: t.colors.muted, borderRadius: .circular(t.radiusMd + 2)),
-      child: AshlarIcon(icon, size: 17, color: t.colors.foreground),
+      child: logo != null && ConnectionLogo.assetFor(logo!) != null
+          ? ConnectionLogo(logo!, size: 17)
+          : AshlarIcon(icon, size: 17, color: t.colors.foreground),
     );
   }
 }
@@ -489,6 +496,9 @@ class _ConnectionsStep extends StatelessWidget {
             children: [
               for (final c in checks) _ConnectionRow(vm: vm, c: c),
               if (vm.offersFree) _FreeRow(vm: vm),
+              if (vm.offersAgents)
+                for (final MapEntry(key: id, value: name) in subscriptionAgents.entries)
+                  _AgentRow(vm: vm, id: id, name: name),
             ],
           ),
         // More accounts, more room: each has its own limits.
@@ -540,6 +550,72 @@ class _ConnectionsStep extends StatelessWidget {
   }
 }
 
+/// Cursor, Grok or Antigravity: added when the person pays for it and asks,
+/// installed by Helmy and signed in the agent's own way. On once added.
+class _AgentRow extends StatelessWidget {
+  const new({required this.vm, required this.id, required this.name});
+  final OnboardingViewModel vm;
+  final String id, name;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final busy = vm.agentBusy[id];
+    final trouble = vm.agentTrouble[id];
+    final added = vm.agentAdded(id);
+    final on = vm.used('acp.$id');
+    final status =
+        busy ??
+        trouble ??
+        (!added
+            ? 'If you pay for $name, add it: Helmy installs it, you sign in once'
+            : on
+            ? 'Ready'
+            : 'Not used by Helmy. Switch it on to use it.');
+    return Padding(
+      padding: const .symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        spacing: 12,
+        children: [
+          _Tile(AshlarIconsRoundedStroke.aiAgent, logo: 'acp.$id'),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              spacing: 2,
+              children: [
+                Text(name, style: t.text.sm.copyWith(fontWeight: .w600)),
+                Text(
+                  status,
+                  style: t.text.xs.copyWith(
+                    color: trouble != null && busy == null
+                        ? t.colors.destructive
+                        : t.colors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (busy != null)
+            const Spinner(size: 16)
+          else if (added && trouble == null)
+            Switch(
+              value: on,
+              semanticLabel: 'Use $name',
+              onChanged: (v) => vm.setUsed('acp.$id', v),
+            )
+          else
+            Button(
+              variant: .outline,
+              size: .sm,
+              onPressed: () => vm.addAgent(id),
+              child: Text(trouble == null ? 'Add' : 'Check again'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// OpenCode on its free models: no account, so Helmy answers from the
 /// first message. Set up by itself when nothing else could answer.
 class _FreeRow extends StatelessWidget {
@@ -564,7 +640,7 @@ class _FreeRow extends StatelessWidget {
       child: Row(
         spacing: 12,
         children: [
-          const _Tile(AshlarIconsRoundedStroke.sparkles),
+          const _Tile(AshlarIconsRoundedStroke.sparkles, logo: freeAgentId),
           Expanded(
             child: Column(
               crossAxisAlignment: .start,
@@ -641,7 +717,7 @@ class _ConnectionRow extends StatelessWidget {
             'claude' => AshlarIconsRoundedStroke.terminal,
             'codex' => AshlarIconsRoundedStroke.code,
             _ => AshlarIconsRoundedStroke.cpu,
-          }),
+          }, logo: c.id),
           Expanded(
             child: Column(
               crossAxisAlignment: .start,

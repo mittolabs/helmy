@@ -3,24 +3,29 @@ part of '../settings_screen.dart';
 /// Adds an agent that speaks the Agent Client Protocol: one from the ACP
 /// registry, installed by Helmy, or a command of the user's own. It is
 /// checked before the dialog closes, and signed in where it needs it.
-Future<void> addAgent(BuildContext context, SettingsViewModel vm) async {
+///
+/// With [only] (a registry id: Cursor, Grok, Antigravity), that one agent is
+/// installed and checked at once, with no list to choose from.
+Future<void> addAgent(BuildContext context, SettingsViewModel vm, {String? only}) async {
   final added = await showAshlarDialog<String>(
     context: context,
-    builder: (context) => _AddAgent(vm: vm),
+    builder: (context) => _AddAgent(vm: vm, only: only),
   );
   if (added == null || !context.mounted) return;
   showToast(
     context,
     title: '$added added',
-    description:
-        'It answers the kinds of work set for it under Advanced > Best at, and nothing else.',
+    description: only != null && subscriptionAgents.containsKey(only)
+        ? 'Helmy gives it any work, as it does Claude Code and Codex.'
+        : 'It answers the kinds of work set for it under Advanced > Best at, and nothing else.',
     type: .success,
   );
 }
 
 class _AddAgent extends StatefulWidget {
-  const _AddAgent({required this.vm});
+  const _AddAgent({required this.vm, this.only});
   final SettingsViewModel vm;
+  final String? only;
 
   @override
   State<_AddAgent> createState() => _AddAgentState();
@@ -41,6 +46,29 @@ class _AddAgentState extends State<_AddAgent> {
   /// The agent added, while its check found a problem.
   AcpAdded? _added;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // One agent asked for by name: installed at once.
+    if (widget.only case final id?) {
+      unawaited(
+        _listings.then((all) {
+          if (!mounted) return;
+          final l = all?.where((x) => x.id == id).firstOrNull;
+          if (l != null) {
+            unawaited(_run(() => widget.vm.addAgent(l), 'Installing ${l.name}...'));
+          } else {
+            setState(
+              () => _error = all == null
+                  ? "The agent registry didn't answer. Check the internet connection and try again."
+                  : "It isn't offered for this computer.",
+            );
+          }
+        }),
+      );
+    }
+  }
 
   @override
   void dispose() {

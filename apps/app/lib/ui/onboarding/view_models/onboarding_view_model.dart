@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
+import '../../../data/services/engines/acp/acp_engine.dart';
 import '../../../data/services/engines/acp/free_agent.dart';
 import '../../../data/services/engines/engine_registry.dart';
 import '../../../domain/models/settings.dart';
@@ -33,7 +34,12 @@ class OnboardingViewModel extends ChangeNotifier {
     required this._engines,
     this.import,
     this._installFree,
+    this._installAgent,
   });
+
+  /// Installs an agent from the registry by its id (installAgent); null
+  /// where they are not offered (a test).
+  final Future<ConnectionAccount> Function(String registryId)? _installAgent;
 
   /// Installs the free connection (installFreeAgent); null where it is not
   /// offered (a test).
@@ -90,7 +96,71 @@ class OnboardingViewModel extends ChangeNotifier {
   /// One found ready and left on: Helmy has something to work through.
   bool get anyReady =>
       (checks?.any((c) => c.state == .ready && used(c.id)) ?? false) ||
-      (freeAdded && used(freeAgentId));
+      (freeAdded && used(freeAgentId)) ||
+      subscriptionAgents.keys.any(
+        (id) => agentAdded(id) && !agentTrouble.containsKey(id) && used('acp.$id'),
+      );
+
+  // The agents people pay for besides Claude Code and Codex: Cursor, Grok,
+  // Antigravity. Each added only when the person asks, then signed in.
+
+  /// Whether they are offered here.
+  bool get offersAgents => _installAgent != null;
+
+  /// What each is doing while it is made ready, and what stopped it, by id.
+  final agentBusy = <String, String>{};
+  final agentTrouble = <String, String>{};
+
+  /// Whether agent [registryId] is in Helmy.
+  bool agentAdded(String registryId) =>
+      _settings.settings.accounts.any((a) => a.agentId == registryId);
+
+  /// Installs agent [registryId] (once), and signs it in the way it asks for:
+  /// its own sign-in, in the browser or a terminal.
+  Future<void> addAgent(String registryId) async {
+    final install = _installAgent;
+    if (install == null || agentBusy.containsKey(registryId)) return;
+    final name = subscriptionAgents[registryId] ?? registryId;
+    agentBusy[registryId] = 'Installing…';
+    agentTrouble.remove(registryId);
+    notifyListeners();
+    try {
+      if (!agentAdded(registryId)) {
+        final a = await install(registryId);
+        final s = _settings.settings;
+        await _settings.save(
+          s.copyWith(
+            accounts: [...s.accounts, a],
+            disabledEngines: {...s.disabledEngines}..remove(a.id),
+          ),
+        );
+        _engines.add(a);
+      }
+      final e = _engines.byId('acp.$registryId');
+      if (e is AcpEngine) {
+        agentBusy[registryId] = 'Checking…';
+        notifyListeners();
+        var check = await e.check();
+        if (!check.ready && check.signIns.isNotEmpty) {
+          agentBusy[registryId] = 'Finish signing in to $name…';
+          notifyListeners();
+          await e.signIn(check.signIns.first);
+          check = await e.check();
+        }
+        if (!check.ready) {
+          agentTrouble[registryId] =
+              check.problem ?? "$name isn't signed in yet. Finish signing in, then check again.";
+        }
+      }
+    } on Object {
+      agentTrouble[registryId] =
+          "It didn't download: the agent list or its download didn't answer. "
+          'Check the internet connection and try again.';
+    } finally {
+      agentBusy.remove(registryId);
+      notifyListeners();
+    }
+  }
 
   // The free connection: OpenCode on its free models, no account needed.
 

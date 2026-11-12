@@ -15,16 +15,19 @@ Future<void> addConnection(BuildContext context, SettingsViewModel vm) async {
   switch (next) {
     case _Next(kind: final kind?):
       await addAccount(context, vm, kind);
-    case _Next():
-      await addAgent(context, vm);
+    case _Next(:final agent):
+      await addAgent(context, vm, only: agent);
   }
 }
 
 /// What the dialog hands on to, once it is closed: an account of [kind],
 /// or, without one, another agent.
 class _Next {
-  const _Next([this.kind]);
+  const _Next([this.kind, this.agent]);
   final String? kind;
+
+  /// One agent by its registry id, installed at once.
+  final String? agent;
 }
 
 class _AddConnectionDialog extends StatefulWidget {
@@ -142,10 +145,21 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
                   line: 'Its own usage limits; Helmy moves to it as another runs low.',
                   onPressed: vm.working != null ? null : () => Navigator.pop(context, _Next(kind)),
                 ),
+              // The agents people pay for, first party like Claude Code and Codex.
+              for (final MapEntry(key: id, value: name) in subscriptionAgents.entries)
+                if (!widget.vm.settings.accounts.any((a) => a.agentId == id))
+                  _AddChoice(
+                    logo: 'acp.$id',
+                    title: name,
+                    line: 'Your $name subscription. Helmy installs it and you sign in once.',
+                    onPressed: vm.working != null
+                        ? null
+                        : () => Navigator.pop(context, _Next(null, id)),
+                  ),
               _AddChoice(
                 symbol: AshlarIconsRoundedStroke.bot,
                 title: 'Another agent',
-                line: 'Gemini, Cursor, OpenCode and more, from the agent registry.',
+                line: 'Gemini, Goose, Kiro and many more, through the Agent Client Protocol.',
                 onPressed: vm.working != null ? null : () => Navigator.pop(context, const _Next()),
               ),
             ],

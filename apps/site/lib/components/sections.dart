@@ -95,7 +95,10 @@ class WorksWith extends StatelessComponent {
   static const _tools = [
     ('/logos/claude.svg', 'Claude Code'),
     ('/logos/openai.svg', 'Codex'),
-    (null, 'OpenCode'),
+    ('/logos/cursor.svg', 'Cursor'),
+    ('/logos/grok.svg', 'Grok'),
+    ('/logos/antigravity.svg', 'Antigravity'),
+    ('/logos/opencode.svg', 'OpenCode'),
     ('/logos/ollama.svg', 'Ollama'),
   ];
 
@@ -105,7 +108,7 @@ class WorksWith extends StatelessComponent {
     div(classes: 'works-row reveal', [
       for (final (logo, name) in _tools)
         div(classes: 'works-chip', [
-          if (logo != null) img(src: logo, alt: '', width: 20, height: 20) else span(classes: 'works-dot', []),
+          img(src: logo, alt: '', width: 20, height: 20),
           span([Component.text(name)]),
         ]),
     ]),
@@ -264,10 +267,10 @@ class Get extends StatelessComponent {
       p(classes: 'lead reveal center', [
         Component.text(
           out
-              ? 'Free and open source. On first run it connects to Claude Code, Codex, OpenCode '
-                    "or Ollama. Have none? It installs OpenCode for you."
+              ? 'Free and open source. On first run it connects to Claude Code, Codex, Cursor, '
+                    "Grok, Antigravity, OpenCode or Ollama. Have none? It installs OpenCode for you."
               : "Helmy's builds for macOS, Windows and Linux are on their way. On first run it "
-                    'connects to Claude Code, Codex, OpenCode or Ollama. Have none? It installs '
+                    'connects to Claude Code, Codex, Cursor, Grok, Antigravity, OpenCode or Ollama. Have none? It installs '
                     'OpenCode for you.',
         ),
       ]),
