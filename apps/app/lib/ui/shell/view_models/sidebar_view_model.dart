@@ -187,24 +187,22 @@ class SidebarViewModel extends ChangeNotifier {
       for (final x in list)
         if (!wants.contains(x) && !working.contains(x) && !drafts.contains(x)) x,
     ];
-    // What needs you first; what is working last, out of the way until it
-    // finishes or needs you (then it moves up by itself).
+    // What needs you first, then what is working: a chat just started stays
+    // in sight, above however many older or imported chats there are.
     final out = <({String? label, String? folder, List<Session> sessions})>[
       if (drafts.isNotEmpty) (label: 'Drafts', folder: null, sessions: drafts),
       if (wants.isNotEmpty) (label: 'Needs you', folder: null, sessions: wants),
-    ];
-    final last = <({String? label, String? folder, List<Session> sessions})>[
       if (working.isNotEmpty) (label: 'Working', folder: null, sessions: working),
     ];
     if (settings.group == .none) {
-      if (rest.isNotEmpty || (out.isEmpty && last.isEmpty)) {
+      if (rest.isNotEmpty || out.isEmpty) {
         out.add((
-          label: out.isEmpty && last.isEmpty ? null : 'Everything else',
+          label: out.isEmpty ? null : 'Everything else',
           folder: null,
           sessions: rest,
         ));
       }
-      return [...out, ...last];
+      return out;
     }
     // A chat under the folder its latest thread works in.
     final byFolder = <String, List<Session>>{};
@@ -223,7 +221,6 @@ class SidebarViewModel extends ChangeNotifier {
       ...out,
       for (final e in [...pinned, ...folders.where((e) => !pinned.contains(e))])
         (label: null, folder: e.key, sessions: e.value),
-      ...last,
     ];
   }
 
