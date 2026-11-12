@@ -58,6 +58,9 @@ void main() {
         reason: 'not kept unless the Keychain took it',
       );
       expect(vault.namesFor('/p'), isNot(contains('OTHER')));
+      // A caught key is never offered a name already kept, or Keep it would replace it.
+      expect(vault.freeName('/p', 'STRIPE_SECRET_KEY'), 'STRIPE_SECRET_KEY_2');
+      expect(vault.freeName('/p', 'SLACK_TOKEN'), 'SLACK_TOKEN');
     },
   );
 
@@ -96,6 +99,10 @@ void main() {
       'here: sk_live_51Habcdefghijklmnop and ghp_abcdefghijklmnopqrstuvwxyz0123456789 and sk-ant-api03-abcdefghijklmnopqrstuv',
     );
     expect(found.map((s) => s.name), ['STRIPE_SECRET_KEY', 'ANTHROPIC_API_KEY', 'GITHUB_TOKEN']);
+    expect(
+      SecretSpotter.find('rk_test_51QxRiseBakeryPreorderFormKey2026').single.name,
+      'STRIPE_RESTRICTED_KEY',
+    );
     expect(SecretSpotter.find('make the skip button smaller, see task-1234'), isEmpty);
   });
 

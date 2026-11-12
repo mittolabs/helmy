@@ -83,6 +83,16 @@ class Vault extends ChangeNotifier {
     for (final e in _names.entries) e.key: [...e.value],
   };
 
+  /// [name], or the first of NAME_2, NAME_3 and on that [project] does not
+  /// already use: a suggested name never replaces a key kept before.
+  String freeName(String project, String name) {
+    final taken = namesFor(project).toSet();
+    if (!taken.contains(name)) return name;
+    for (var n = 2; ; n++) {
+      if (!taken.contains('${name}_$n')) return '${name}_$n';
+    }
+  }
+
   /// The names a chat in [project] can use: the project's, then the shared
   /// ones it does not have.
   List<String> namesFor(String project) {
@@ -348,10 +358,11 @@ abstract final class SecretSpotter {
       'A private key',
       'PRIVATE_KEY',
     ),
+    (RegExp(r'\bsk_(live|test)_[0-9A-Za-z]{16,}\b'), 'A Stripe secret key', 'STRIPE_SECRET_KEY'),
     (
-      RegExp(r'\b(sk|rk)_(live|test)_[0-9A-Za-z]{16,}\b'),
-      'A Stripe secret key',
-      'STRIPE_SECRET_KEY',
+      RegExp(r'\brk_(live|test)_[0-9A-Za-z]{16,}\b'),
+      'A Stripe restricted key',
+      'STRIPE_RESTRICTED_KEY',
     ),
     (RegExp(r'\bsk-ant-[0-9A-Za-z_-]{20,}'), 'An Anthropic API key', 'ANTHROPIC_API_KEY'),
     (RegExp(r'\bsk-(proj-)?[0-9A-Za-z_-]{20,}'), 'An OpenAI API key', 'OPENAI_API_KEY'),
