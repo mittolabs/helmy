@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
@@ -197,6 +198,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     _conversations.addListener(notifyListeners);
     _conversations.addListener(_onConversation);
     send = Command1(_send);
+    _restorePanel();
+    addListener(_panelChanged);
     ready = _conversations.load(sessionId);
     ready.then((_) => countChanges());
     unawaited(_findRepo());
@@ -911,6 +914,90 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     return actions.isNotEmpty ||
         session?.repo != null ||
         FileSystemEntity.typeSync('$cwd/.git') != FileSystemEntityType.notFound;
+  }
+
+  // The panel as it was left in this chat, kept with the chat: its tabs,
+  // which one showed, its width, and where the design canvas was looked at.
+
+  /// Where the design canvas was panned and zoomed to: x, y and scale.
+  Map<String, Object?>? designView;
+
+  void setDesignView(Map<String, Object?> view) {
+    designView = view;
+    _panelChanged();
+  }
+
+  /// What of the panel can be put back: not a running action's terminal, a
+  /// draft of code, a device or background work, which are of the moment.
+  Map<String, Object?> get _panelNow {
+    bool keeps(PanelTab t) => switch (t.kind) {
+      .preview || .design || .changes || .ship => true,
+      .terminal => t.action == null,
+      .files => t.codeDraft == null,
+      .side => t.sideId != null,
+      .device || .background => false,
+    };
+    final kept = tabs.where(keeps).toList();
+    return {
+      'open': panelOpen && kept.isNotEmpty,
+      'width': panelWidth,
+      'active': active == null ? -1 : kept.indexOf(active!),
+      'tabs': [
+        for (final t in kept)
+          {'kind': t.kind.name, 'url': ?t.url, 'file': ?t.filePath, 'side': ?t.sideId},
+      ],
+      'design': ?designView,
+    };
+  }
+
+  String? _panelSaved;
+
+  /// The panel's saves, one after another: each writes the panel as it is
+  /// by then, and does nothing when that is already kept (a width dragged
+  /// writes a few times, not once a frame).
+  Future<void> _panelWrite = Future.value();
+
+  /// Done once every change to the panel so far is kept.
+  Future<void> get panelSaved => _panelWrite;
+
+  void _panelChanged() {
+    if (_disposed) return;
+    if (jsonEncode(_panelNow) == (_panelSaved ??= jsonEncode(session?.panel ?? _panelNow))) {
+      return;
+    }
+    savePanel();
+  }
+
+  /// Keeps the panel as it is now with the chat.
+  Future<void> savePanel() => _panelWrite = _panelWrite.then((_) async {
+    final s = session;
+    if (s == null) return;
+    final now = _panelNow;
+    final text = jsonEncode(now);
+    if (text == _panelSaved) return;
+    _panelSaved = text;
+    await _sessions.save(s.copyWith(panel: now));
+  });
+
+  void _restorePanel() {
+    final p = session?.panel;
+    if (p == null) return;
+    for (final t in (p['tabs'] as List? ?? const []).whereType<Map>()) {
+      final kind = SidePanel.values.asNameMap()[t['kind']];
+      if (kind == null || (kind == .preview || kind == .design) && !webViewHere) continue;
+      final side = t['side'] as String?;
+      if (side != null && _sessions.byId(side) == null) continue;
+      final tab = PanelTab(kind, url: t['url'] as String?)
+        ..filePath = t['file'] as String?
+        ..sideId = side;
+      tabs.add(tab);
+    }
+    final at = (p['active'] as num?)?.toInt() ?? -1;
+    active = tabs.isEmpty ? null : tabs[at.clamp(0, tabs.length - 1)];
+    panelOpen = p['open'] == true && tabs.isNotEmpty;
+    panelWidth = ((p['width'] as num?)?.toDouble() ?? panelWidth).clamp(260.0, 900.0);
+    designView = (p['design'] as Map?)?.cast<String, Object?>();
+    _panelSaved = jsonEncode(_panelNow);
   }
 
   /// The open panel over the whole page, the conversation set aside.

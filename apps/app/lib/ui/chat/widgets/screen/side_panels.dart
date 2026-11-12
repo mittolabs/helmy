@@ -194,6 +194,22 @@ class _FloatingDevice extends StatelessWidget {
   }
 }
 
+/// What can be opened in the panel, one item each: the + on its tabs, and
+/// the panel button while the panel has nothing in it.
+List<MenuItem> panelAddItems(ChatViewModel vm) => [
+  for (final kind in vm.addable)
+    MenuItem(
+      leading: AshlarIcon(_kindOf(kind).$2, size: 16),
+      // Several pages and terminals; one of each other kind.
+      onPressed: () => switch (kind) {
+        .preview || .terminal => vm.add(kind),
+        .side => unawaited(vm.sideChat()),
+        _ => vm.show(kind),
+      },
+      child: Text(_kindOf(kind).$1),
+    ),
+];
+
 /// A tab kind's name and icon.
 (String, IconData) _kindOf(SidePanel kind) => switch (kind) {
   .preview => ('Browser', AshlarIconsRoundedStroke.globe),
@@ -336,19 +352,7 @@ class _Panel extends StatelessWidget {
                                 ),
                               ),
                             DropdownMenu(
-                              items: [
-                                for (final kind in vm.addable)
-                                  MenuItem(
-                                    leading: AshlarIcon(_kindOf(kind).$2, size: 16),
-                                    // Several pages and terminals; one of each other kind.
-                                    onPressed: () => switch (kind) {
-                                      .preview || .terminal => vm.add(kind),
-                                      .side => unawaited(vm.sideChat()),
-                                      _ => vm.show(kind),
-                                    },
-                                    child: Text(_kindOf(kind).$1),
-                                  ),
-                              ],
+                              items: panelAddItems(vm),
                               builder: (context, menu) =>
                                   tool('Add a tab', AshlarIconsRoundedStroke.plus, menu.open),
                             ),

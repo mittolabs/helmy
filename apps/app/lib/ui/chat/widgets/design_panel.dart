@@ -182,7 +182,16 @@ class _DesignPanelState extends State<DesignPanel> {
   }
 
   Future<void> _open(String folder) async {
-    await _c.loadRequest(await DesignServer.shared.canvasFor(folder));
+    final canvas = await DesignServer.shared.canvasFor(folder);
+    // Where this chat last looked at its canvas, put back.
+    final v = widget.vm.designView;
+    await _c.loadRequest(
+      v == null
+          ? canvas
+          : canvas.replace(
+              queryParameters: {...canvas.queryParameters, 'v': '${v['x']},${v['y']},${v['s']}'},
+            ),
+    );
     _startWatching(folder);
   }
 
@@ -233,6 +242,7 @@ class _DesignPanelState extends State<DesignPanel> {
     }
     if (m is! Map || !mounted) return;
     if (m['zoom'] case final num z) setState(() => _zoom = z.toDouble());
+    if (m['view'] case final Map v) widget.vm.setDesignView(v.cast<String, Object?>());
     if (m['loaded'] case final Map l) {
       if (_frames) unawaited(_run('HelmyCanvas.frames(true)'));
       setState(() {

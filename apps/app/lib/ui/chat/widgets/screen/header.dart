@@ -118,12 +118,27 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          // How full the conversation is, as last measured: quiet while there
+          // is room; from three quarters, a press away from compacting.
           if (vm.context case final ctx?)
             Tooltip(
               message:
                   '${(ctx.used / 1000).round()}k of ${(ctx.window / 1000).round()}k tokens, as last measured. '
-                  'Compact from the menu to free some.',
-              child: Text('Context ${(ctx.fraction * 100).round()}%', style: muted),
+                  '${ctx.fraction >= .75 ? 'Nearly full: compacting keeps what matters and frees the rest, so long work does not lose its start.' : 'Compact from the menu to free some.'}',
+              child: ctx.fraction >= .75
+                  ? Button(
+                      variant: .ghost,
+                      size: .sm,
+                      onPressed: vm.busy ? null : vm.compact,
+                      leading: const AshlarIcon(AshlarIconsRoundedStroke.minimize2, size: 14),
+                      child: Text(
+                        'Context ${(ctx.fraction * 100).round()}% · Compact',
+                        style: ctx.fraction >= .9
+                            ? t.text.xs.copyWith(color: t.colors.destructive)
+                            : null,
+                      ),
+                    )
+                  : Text('Context ${(ctx.fraction * 100).round()}%', style: muted),
             ),
           // While the panel is hidden: what in it wants you, a press away.
           for (final p in vm.notices)
@@ -162,23 +177,31 @@ class _Header extends StatelessWidget {
               // The panel beside the conversation, shown or hidden, its tabs kept.
               TourTarget(
                 stop: .panel,
-                child: Tooltip(
-                  message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-                  child: Button(
-                    variant: vm.panelOpen ? .secondary : .ghost,
-                    size: .icon,
-                    semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
-                    onPressed: () {
-                      if (vm.tabs.isEmpty) {
-                        // Nothing in it yet: a page to start from.
-                        webViewHere ? vm.add(.preview) : vm.show(.changes);
-                      } else {
-                        vm.togglePanel();
-                      }
-                    },
-                    child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
-                  ),
-                ),
+                // Nothing in it yet: what to open in it, chosen.
+                child: vm.tabs.isEmpty
+                    ? DropdownMenu(
+                        items: panelAddItems(vm),
+                        builder: (context, menu) => Tooltip(
+                          message: 'Open the panel',
+                          child: Button(
+                            variant: .ghost,
+                            size: .icon,
+                            semanticLabel: 'Open the panel',
+                            onPressed: menu.open,
+                            child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+                          ),
+                        ),
+                      )
+                    : Tooltip(
+                        message: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                        child: Button(
+                          variant: vm.panelOpen ? .secondary : .ghost,
+                          size: .icon,
+                          semanticLabel: vm.panelOpen ? 'Hide the panel' : 'Show the panel',
+                          onPressed: vm.togglePanel,
+                          child: const AshlarIcon(AshlarIconsRoundedStroke.panelRight, size: 16),
+                        ),
+                      ),
               ),
               _SessionMenu(vm: vm),
             ],
