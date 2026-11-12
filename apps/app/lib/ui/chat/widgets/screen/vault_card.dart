@@ -284,7 +284,11 @@ class _KeepSecrets extends StatefulWidget {
 }
 
 class _KeepSecretsState extends State<_KeepSecrets> {
-  late final _names = [for (final s in widget.secrets) TextEditingController(text: s.name)];
+  // Never a name already kept: Keep it and send would replace that key unseen.
+  late final _names = [
+    for (final s in widget.secrets)
+      TextEditingController(text: widget.vault.freeName(widget.project, s.name)),
+  ];
   bool _shared = false;
   bool _saving = false;
   String? _trouble;
