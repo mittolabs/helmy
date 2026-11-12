@@ -107,6 +107,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final _text = MarkdownTypingController();
   List<_Suggestion> _suggestions = const [];
 
+  /// The suggestion Enter and Tab take: the first, or one walked to with the arrows.
+  int _picked = 0;
+
   // Find in this session (⌘F).
   bool _finding = false;
 
@@ -232,7 +235,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final typed = command.group(1)!;
       final all = await vm.commands();
       next = [
-        for (final c in all.where((c) => c.name.startsWith(typed)).take(8))
+        for (final c in all.where((c) => c.name.startsWith(typed)))
           (label: '/${c.name}', detail: withoutNames(c.description), insert: '/${c.name} '),
       ];
     } else if (mention != null) {
@@ -241,7 +244,10 @@ class _ChatScreenState extends State<ChatScreen> {
       next = [for (final p in picked) (label: p, detail: '', insert: '@$p ')];
     }
     if (!mounted || _text.text != text) return;
-    setState(() => _suggestions = next);
+    setState(() {
+      _suggestions = next;
+      _picked = 0;
+    });
   }
 
   void _sendStarter(String prompt) {
@@ -280,7 +286,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) return .ignored;
     final key = e.logicalKey;
     if (key == LogicalKeyboardKey.enter && _suggestions.isNotEmpty) {
-      _take(_suggestions.first);
+      _take(_suggestions[_picked.clamp(0, _suggestions.length - 1)]);
       return .handled;
     }
     // ⇧⌘Enter while the agent works: send now, redirecting it.
@@ -319,7 +325,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     final meta = Desktop.current.commandHeld;
     if (key == LogicalKeyboardKey.tab && _suggestions.isNotEmpty) {
-      _take(_suggestions.first);
+      _take(_suggestions[_picked.clamp(0, _suggestions.length - 1)]);
+      return .handled;
+    }
+    // Up and down walk the suggestions while they show.
+    if ((key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.arrowUp) &&
+        _suggestions.isNotEmpty) {
+      final step = key == LogicalKeyboardKey.arrowDown ? 1 : -1;
+      setState(() => _picked = (_picked + step) % _suggestions.length);
       return .handled;
     }
     if (key == LogicalKeyboardKey.escape && _suggestions.isNotEmpty) {
@@ -845,7 +858,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             : const SizedBox.shrink(),
                       ),
                     if (_suggestions.isNotEmpty)
-                      inColumn(_SuggestionList(items: _suggestions, onPick: _take))
+                      inColumn(_SuggestionList(items: _suggestions, picked: _picked, onPick: _take))
                     else if (vm.items.isEmpty && !vm.busy && alone)
                       inColumn(_Starters(vm: vm, text: _text, onSend: _sendStarter)),
                     Padding(

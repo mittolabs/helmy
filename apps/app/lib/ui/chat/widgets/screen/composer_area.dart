@@ -130,63 +130,105 @@ class _Starters extends StatelessWidget {
   }
 }
 
-/// Commands or files matching what is typed; Tab takes the first.
-class _SuggestionList extends StatelessWidget {
-  const new({required this.items, required this.onPick});
+/// Commands or files matching what is typed, as many as match: about eight
+/// show and the rest scroll. The arrows walk them; Enter or Tab takes the one
+/// picked.
+class _SuggestionList extends StatefulWidget {
+  const new({required this.items, required this.picked, required this.onPick});
   final List<_Suggestion> items;
+  final int picked;
   final ValueChanged<_Suggestion> onPick;
+
+  @override
+  State<_SuggestionList> createState() => _SuggestionListState();
+}
+
+class _SuggestionListState extends State<_SuggestionList> {
+  final _scroll = ScrollController();
+  final _keys = <int, GlobalKey>{};
+
+  @override
+  void didUpdateWidget(_SuggestionList old) {
+    super.didUpdateWidget(old);
+    if (old.items != widget.items) _keys.clear();
+    if (old.picked != widget.picked || old.items != widget.items) {
+      // The picked row brought into view once it is laid out.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final row = _keys[widget.picked]?.currentContext;
+        if (row != null && row.mounted) {
+          Scrollable.ensureVisible(
+            row,
+            duration: const Duration(milliseconds: 80),
+            alignmentPolicy: widget.picked > old.picked ? .keepVisibleAtEnd : .keepVisibleAtStart,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
+    final items = widget.items;
     return Padding(
       padding: .fromLTRB(sideMargin(context), 0, sideMargin(context), 6),
       child: Container(
         padding: const .all(4),
+        constraints: const BoxConstraints(maxHeight: 280),
         decoration: BoxDecoration(
           color: t.colors.popover,
           border: Border.all(color: t.colors.border),
           borderRadius: .circular(t.radiusLg),
         ),
-        child: Column(
-          crossAxisAlignment: .stretch,
-          children: [
-            for (final (i, s) in items.indexed)
-              Pressable(
-                onPressed: () => onPick(s),
-                semanticLabel: s.label,
-                builder: (context, state) => Container(
-                  padding: const .symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: state.hovered || i == 0 ? t.colors.accent : null,
-                    borderRadius: .circular(t.radiusMd),
-                  ),
-                  child: Row(
-                    spacing: 12,
-                    children: [
-                      Text(
-                        s.label,
-                        style: t.text.sm.copyWith(
-                          fontFamily: 'monospace',
-                          fontFamilyFallback: monoFonts,
-                        ),
-                      ),
-                      if (s.detail.isNotEmpty)
-                        Expanded(
-                          child: Text(
-                            s.detail,
-                            maxLines: 1,
-                            overflow: .ellipsis,
-                            style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+        child: SingleChildScrollView(
+          controller: _scroll,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            children: [
+              for (final (i, s) in items.indexed)
+                Pressable(
+                  key: _keys.putIfAbsent(i, GlobalKey.new),
+                  onPressed: () => widget.onPick(s),
+                  semanticLabel: s.label,
+                  builder: (context, state) => Container(
+                    padding: const .symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: state.hovered || i == widget.picked ? t.colors.accent : null,
+                      borderRadius: .circular(t.radiusMd),
+                    ),
+                    child: Row(
+                      spacing: 12,
+                      children: [
+                        Text(
+                          s.label,
+                          style: t.text.sm.copyWith(
+                            fontFamily: 'monospace',
+                            fontFamilyFallback: monoFonts,
                           ),
                         ),
-                      if (i == 0)
-                        Text('Tab', style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
-                    ],
+                        if (s.detail.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              s.detail,
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+                            ),
+                          ),
+                        if (i == widget.picked)
+                          Text('Tab', style: t.text.xs.copyWith(color: t.colors.mutedForeground)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

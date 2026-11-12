@@ -106,6 +106,18 @@ class ShellScreen extends StatelessWidget {
               bindingOf(.back, viewModel.settings.keys).activator: () => NavHistory.current?.back(),
               bindingOf(.forward, viewModel.settings.keys).activator: () =>
                   NavHistory.current?.forward(),
+              // ⌘+ and ⌘- make everything larger or smaller, a step of Text size
+              // at a time; ⌘0 puts it back.
+              for (final (key, shift) in const [
+                (LogicalKeyboardKey.equal, false),
+                (LogicalKeyboardKey.equal, true),
+                (LogicalKeyboardKey.add, true),
+                (LogicalKeyboardKey.numpadAdd, false),
+              ])
+                Desktop.current.shortcut(key, shift: shift): () => _zoom(viewModel, 1),
+              for (final key in const [LogicalKeyboardKey.minus, LogicalKeyboardKey.numpadSubtract])
+                Desktop.current.shortcut(key): () => _zoom(viewModel, -1),
+              Desktop.current.shortcut(LogicalKeyboardKey.digit0): () => _zoom(viewModel, 0),
               // Undo the last archive, snooze or settle (a text field's own undo
               // comes first).
               Desktop.current.shortcut(LogicalKeyboardKey.keyZ): viewModel.undo,
@@ -691,6 +703,15 @@ class ShellScreen extends StatelessWidget {
     await viewModel.deleteChat(all);
     if (context.mounted && all.any((t) => t.id == selectedId)) context.go('/');
   }
+}
+
+/// A step of Text size: [step] up or down, or back to Medium at 0. Kept like
+/// any setting, so Settings shows it.
+void _zoom(SidebarViewModel vm, int step) {
+  const sizes = TextSize.values;
+  final now = vm.settings.textSize;
+  final next = step == 0 ? TextSize.medium : sizes[(now.index + step).clamp(0, sizes.length - 1)];
+  if (next != now) unawaited(vm.updateSettings(vm.settings.copyWith(textSize: next)));
 }
 
 /// What the list shows and how: active, archived or all; grouped by folder or
