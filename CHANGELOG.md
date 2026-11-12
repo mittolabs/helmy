@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/mittolabs/helmy/compare/v0.3.1...v0.3.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **vault:** a caught key never replaces one already kept ([#13](https://github.com/mittolabs/helmy/issues/13)) ([bfb7495](https://github.com/mittolabs/helmy/commit/bfb749545691bb25a2b4e2e4e50f71df68223930))
+
 ## [0.3.1](https://github.com/mittolabs/helmy/compare/v0.3.0...v0.3.1) (2026-11-12)
 
 
