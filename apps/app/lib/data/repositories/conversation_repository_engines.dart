@@ -894,6 +894,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// Sends the next message that waited for this turn, if any.
   void _next(String sessionId) {
+    // Disposed, it starts nothing: a turn that ends afterwards (a command
+    // still running) does not send what was queued behind it.
+    if (_disposed) return;
     final c = of(sessionId);
     final session = _sessions.byId(sessionId);
     if (c.busy || c.queue.isEmpty || session == null) return;
@@ -1341,6 +1344,13 @@ class ConversationRepositoryEngines extends ConversationRepository {
   );
 
   bool _disposed = false;
+
+  /// Nothing reaches listeners once disposed: work that ends afterwards
+  /// (a command, a process's last words) still finishes, unheard.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   @override
   void dispose() {
