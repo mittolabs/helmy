@@ -59,6 +59,8 @@ class _Named implements AgentEngine {
   @override
   Future<String?> ask(String instructions, String question) async => null;
   @override
+  Future<List<ModelChoice>> models() async => const [];
+  @override
   Future<List<MemoryNote>> memoryNotes() async => const [];
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) => throw UnimplementedError();
