@@ -174,6 +174,12 @@ class ToolCall extends ChatItem {
 
   bool get done => result != null;
 
+  /// Turned down before it ran, by the person (Don't) or by Helmy: Codex
+  /// ends such a step "declined"; Claude Code answers that the user doesn't
+  /// want to proceed. Not a failure, and not done.
+  bool get declined =>
+      isError && (result == 'declined' || (result ?? '').contains("doesn't want to proceed"));
+
   /// The one line that says what the call does, for the collapsed card.
   String get summary {
     String? s(String k) => input[k] is String ? input[k]! as String : null;

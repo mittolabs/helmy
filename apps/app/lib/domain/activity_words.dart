@@ -153,6 +153,15 @@ ActivityWords commandActivity(String command) {
       'read file contents',
     );
   }
+  // A program file run as it is ("node check-stripe.mjs"), not code written
+  // into the command: named.
+  final file = RegExp(
+    r'^\s*(?:node|python3?|ruby|deno(?: run)?|bun|tsx|ts-node|bash|sh|zsh|swift|perl)\s+(?:[\w.~/-]+/)?([\w.-]+\.(?:mjs|cjs|js|ts|py|rb|sh|swift|pl))(?=\s|$)',
+  ).firstMatch(command);
+  if (file != null && !RegExp(r'[;&|]|<<|\s-[ce]\s').hasMatch(command)) {
+    final name = file[1]!;
+    return words('Run $name', 'Running $name', 'Ran $name', 'ran $name');
+  }
   if (scriptActivity(text) case final w?) return w;
   return words('Run a script', 'Running a script', 'Ran a script', 'ran a script');
 }
@@ -267,6 +276,55 @@ List<String> namedFiles(String command) => {
     if (_fileExtensions.contains(m[3]!.toLowerCase()) && !m[2]!.contains('*'))
       m[2]!.split('/').last,
 }.where((n) => n.isNotEmpty && !n.startsWith('.')).take(5).toList();
+
+/// What a step turned down before it ran would have done, from its title in
+/// the past tense: "Removed notes.md" is "Didn't remove notes.md". A verb not
+/// known here keeps the title whole, after "Didn't go ahead:".
+String declinedLabel(String doneTitle) {
+  final space = doneTitle.indexOf(' ');
+  final verb = space < 0 ? doneTitle : doneTitle.substring(0, space);
+  final rest = space < 0 ? '' : doneTitle.substring(space);
+  if (_baseOf[verb] case final base?) return "Didn't $base$rest";
+  final lower = doneTitle.isEmpty ? doneTitle : doneTitle[0].toLowerCase() + doneTitle.substring(1);
+  return "Didn't go ahead: $lower";
+}
+
+const _baseOf = {
+  'Removed': 'remove',
+  'Moved': 'move',
+  'Copied': 'copy',
+  'Compared': 'compare',
+  'Read': 'read',
+  'Looked': 'look',
+  'Committed': 'commit',
+  'Pushed': 'push',
+  'Ran': 'run',
+  'Checked': 'check',
+  'Built': 'build',
+  'Formatted': 'format',
+  'Inspected': 'inspect',
+  'Searched': 'search',
+  'Reviewed': 'review',
+  'Sorted': 'sort',
+  'Created': 'create',
+  'Wrote': 'write',
+  'Processed': 'process',
+  'Fetched': 'fetch',
+  'Tested': 'test',
+  'Edited': 'edit',
+  'Used': 'use',
+  'Asked': 'ask',
+  'Updated': 'update',
+  'Made': 'make',
+  'Prepared': 'prepare',
+  'Listed': 'list',
+  'Deleted': 'delete',
+  'Sent': 'send',
+  'Opened': 'open',
+  'Installed': 'install',
+  'Started': 'start',
+  'Stopped': 'stop',
+};
 
 /// Files a plain shell command names without quotes (rm a/b/notes.md), by
 /// name, each once.
