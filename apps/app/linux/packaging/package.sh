@@ -31,7 +31,7 @@ Description: Helmy, one assistant for every AI you pay for
  subscriptions, plus a free connection, and picks one for each message.
 CONTROL
 [ "$version" = dev ] && sed -i 's/^Version: .*/Version: 0.0.0-dev/' "$pkg/DEBIAN/control"
-dpkg-deb --root-owner-group --build "$pkg" "Helmy-$tag-linux-$arch.deb"
+dpkg-deb -Zxz --root-owner-group --build "$pkg" "Helmy-$tag-linux-$arch.deb"
 
 # AppImage: one file that runs on most distributions.
 app=$work/Helmy.AppDir
