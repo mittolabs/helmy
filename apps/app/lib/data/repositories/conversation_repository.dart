@@ -28,6 +28,9 @@ class Conversation {
   /// itself at this time. Null when nothing is held.
   DateTime? heldUntil;
 
+  /// The last turn ended because you stopped it: nothing to tell you of.
+  bool stoppedByYou = false;
+
   int get pendingPrompts =>
       items.whereType<PermissionPrompt>().where((p) => p.decision == .pending).length;
 }

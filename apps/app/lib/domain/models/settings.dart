@@ -308,7 +308,6 @@ class const AppSettings({
   /// How a notification comes, and whether one shows inside Helmy when it
   /// is in front.
   final AlertStyle alertStyle = .both,
-  final bool inAppNotices = true,
 
   /// While chats work, ⌘Q quits on a second press, not the first.
   final bool quitTwice = true,
@@ -558,7 +557,6 @@ class const AppSettings({
     String? promptFont,
     double? contrast,
     AlertStyle? alertStyle,
-    bool? inAppNotices,
     bool? quitTwice,
     int? settleDays,
     bool? keepWithPr,
@@ -644,7 +642,6 @@ class const AppSettings({
     promptFont: promptFont == '' ? null : promptFont ?? this.promptFont,
     contrast: contrast ?? this.contrast,
     alertStyle: alertStyle ?? this.alertStyle,
-    inAppNotices: inAppNotices ?? this.inAppNotices,
     quitTwice: quitTwice ?? this.quitTwice,
     settleDays: settleDays ?? this.settleDays,
     keepWithPr: keepWithPr ?? this.keepWithPr,
@@ -733,7 +730,6 @@ class const AppSettings({
     'promptFont': promptFont,
     'contrast': contrast,
     'alertStyle': alertStyle.name,
-    'inAppNotices': inAppNotices,
     'quitTwice': quitTwice,
     'settleDays': settleDays,
     'keepWithPr': keepWithPr,
@@ -817,7 +813,6 @@ class const AppSettings({
     promptFont: json['promptFont'] as String?,
     contrast: (json['contrast'] as num?)?.toDouble() ?? 0,
     alertStyle: AlertStyle.values.asNameMap()[json['alertStyle']] ?? .both,
-    inAppNotices: json['inAppNotices'] as bool? ?? true,
     quitTwice: json['quitTwice'] as bool? ?? true,
     settleDays: (json['settleDays'] as num?)?.toInt() ?? 3,
     keepWithPr: json['keepWithPr'] as bool? ?? true,
@@ -974,7 +969,6 @@ const restorableSettings = <String, List<String>>{
   'Contrast': ['contrast'],
   'Time format': ['clock'],
   'How it tells you': ['alertStyle'],
-  'Notices inside Helmy': ['inAppNotices'],
   'Quit on a second press while chats work': ['quitTwice'],
 };
 

@@ -29,8 +29,11 @@ abstract class AttentionRepository extends ChangeNotifier {
   bool isUnread(String sessionId);
   void markRead(String sessionId);
   set viewing(String? sessionId);
+
+  /// The screen of [sessionId] closed. Only clears what is on screen when
+  /// it is still that chat: the next screen opens before the last closes.
+  void left(String sessionId);
   String? faceNow();
-  Stream<({String sessionId, String title, String body})> get inApp;
 }
 
 class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingObserver {
@@ -124,6 +127,11 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   set viewing(String? sessionId) {
     _viewing = sessionId;
     if (sessionId != null) _seen(sessionId);
+  }
+
+  @override
+  void left(String sessionId) {
+    if (_viewing == sessionId) _viewing = null;
   }
 
   @override
@@ -244,6 +252,11 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   }
 
   Future<void> _finished(String sessionId, String title) async {
+    // Stopped by you: you know.
+    if (_conversations.of(sessionId).stoppedByYou) {
+      _conversations.of(sessionId).stoppedByYou = false;
+      return;
+    }
     if (await _inSightNow(sessionId)) return;
     final items = _conversations.of(sessionId).items;
     final last = items.lastOrNull;
@@ -264,19 +277,11 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
     return text.length > 120 ? '${text.substring(0, 117)}...' : text;
   }
 
-  /// Said inside Helmy instead, when it is in front: a session other than
-  /// the one on screen finished or needs you.
-  @override
-  Stream<({String sessionId, String title, String body})> get inApp => _inApp.stream;
-  final _inApp = StreamController<({String sessionId, String title, String body})>.broadcast();
-
+  /// The system's own notification, whether or not Helmy is in front: only
+  /// ever for a chat that is not the one on screen (the callers see to it).
   Future<void> _send(String sessionId, String title, String body, {bool thumbsUp = false}) async {
     if (!_settings.settings.notify) return;
     final s = _settings.settings;
-    if (await _notify.isActive() ?? _active) {
-      if (s.inAppNotices) _inApp.add((sessionId: sessionId, title: title, body: body));
-      return;
-    }
     _notify.notify(
       sessionId: sessionId,
       title: title,
@@ -298,7 +303,6 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   @override
   void dispose() {
     unawaited(_inSightChanges?.cancel());
-    unawaited(_inApp.close());
     _dozing?.cancel();
     _wakingUp?.cancel();
     _wake?.cancel();

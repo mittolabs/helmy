@@ -122,7 +122,6 @@ class FakeScheduleRepository extends ScheduleRepository {
 
 class FakeAttentionRepository extends AttentionRepository {
   final Set<String> unread = {};
-  final _inApp = StreamController<({String sessionId, String title, String body})>.broadcast();
   String? viewed;
 
   @override
@@ -144,14 +143,12 @@ class FakeAttentionRepository extends AttentionRepository {
   set viewing(String? sessionId) => viewed = sessionId;
 
   @override
-  String? faceNow() => null;
+  void left(String sessionId) {
+    if (viewed == sessionId) viewed = null;
+  }
 
   @override
-  Stream<({String sessionId, String title, String body})> get inApp => _inApp.stream;
-
-  /// Says [body] inside Helmy, as the real one does for another session.
-  void say(String sessionId, String title, String body) =>
-      _inApp.add((sessionId: sessionId, title: title, body: body));
+  String? faceNow() => null;
 }
 
 class FakeShipRepository extends ShipRepository {
