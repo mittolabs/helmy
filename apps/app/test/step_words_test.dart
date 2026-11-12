@@ -34,6 +34,15 @@ void main() {
       'Looked for AGENTS.md',
       'Committed the changes',
       'Removed menu-draft-spring.md and menu-draft-summer.md',
+      // Codex designing a landing page, from the Design tutorial take.
+      'Looked for notes.md and AGENTS.md',
+      'Inspected notes',
+      'Created a folder',
+      'Edited index.html',
+      'Wrote a file',
+      'Wrote a file',
+      'Edited a file',
+      'Removed review.html',
     ]);
   });
 

@@ -111,12 +111,15 @@ ActivityWords commandActivity(String command) {
       'moved files to the trash',
     );
   }
+  if (has(r'\bmkdir\s')) {
+    return words('Create a folder', 'Creating a folder', 'Created a folder', 'created a folder');
+  }
   if (has(r'\brm\s')) {
     return words('Remove files', 'Removing files', 'Removed files', 'removed files');
   }
   // Looking for particular files by name: "rg --files -g AGENTS.md", "find -name",
   // "[ -f AGENTS.md ]".
-  if (has(r'\brg\s+--files\b') ||
+  if ((has(r'\brg\s+--files\b') && RegExp(r'''(?:-g|--glob)\s+['"]?[^!'"\s*]''').hasMatch(text)) ||
       has(r'\bfind\s[^;&|\n]*-i?name\b') ||
       RegExp(r'(?:\[|\btest)\s+-[fe]\s').hasMatch(executableText.toString())) {
     return words('Look for files', 'Looking for files', 'Looked for files', 'looked for files');
@@ -230,6 +233,11 @@ ActivityWords? scriptActivity(String command) {
       'Read the documents',
       'read the documents',
     );
+  }
+  if (has(r'read_text|readfilesync|\.read\(') &&
+      has(r'write_text|writefile') &&
+      has(r'\.replace\(')) {
+    return w('Edit a file', 'Editing a file', 'Edited a file', 'edited a file');
   }
   if (has(r'write_text|writefile|open\([^)]*,\s*.w')) {
     return w('Write a file', 'Writing a file', 'Wrote a file', 'wrote a file');
@@ -440,13 +448,20 @@ String specificCommandLabel(String command, {required bool done, String? result}
     'copied files': ('Copying', 'Copied', ''),
     'compared files': ('Comparing', 'Compared', ''),
     'read the documents': ('Reading', 'Read', ''),
+    'edited a file': ('Editing', 'Edited', ''),
+    'wrote a file': ('Writing', 'Wrote', ''),
   };
   if (filesGroups[words.group] case (final doing, final did, final tail)) {
+    // A script names the files it reads too: a file written is named only when it is
+    // the only one.
+    final most = words.group == 'wrote a file' || words.group == 'edited a file' ? 1 : 2;
     final named = namedFiles(command);
-    if (named.isNotEmpty && named.length <= 2) return '${done ? did : doing} ${join(named)}$tail';
+    if (named.isNotEmpty && named.length <= most) {
+      return '${done ? did : doing} ${join(named)}$tail';
+    }
     // A plain command (rm, mv) names its files unquoted.
     final bare = scriptActivity(command) == null ? _bareFiles(command) : const <String>[];
-    if (bare.isNotEmpty && bare.length <= 2) return '${done ? did : doing} ${join(bare)}$tail';
+    if (bare.isNotEmpty && bare.length <= most) return '${done ? did : doing} ${join(bare)}$tail';
   }
   if (words.group == 'looked for files') {
     // The names looked for, not patterns ("*menu*").
