@@ -49,10 +49,11 @@ format:
 	cd $(APP) && fvm dart format lib test
 
 # A design's export drawn beside the design, pixel by pixel (DESIGN=folder,
-# the test design by default).
+# the test design by default). CHROME=path uses a Chromium already there
+# instead of downloading Playwright's.
 DESIGN ?= test/fixtures/design
 design-check:
-	cd $(APP)/tool/design_check && npm install --silent && npx playwright install chromium
+	cd $(APP)/tool/design_check && npm install --silent && { [ -n "$CHROME" ] || npx playwright install chromium; }
 	cd $(APP) && rm -rf build/design-check && fvm dart run tool/design_export.dart $(DESIGN) build/design-check/react react
 	cd $(APP) && node tool/design_check/check.mjs $(DESIGN) build/design-check/react build/design-check/out
 
