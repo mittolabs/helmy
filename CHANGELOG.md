@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/mittolabs/helmy/compare/v0.4.0...v0.4.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **chat:** design comments read as written; the mac disk image says what to do ([#20](https://github.com/mittolabs/helmy/issues/20)) ([f143c56](https://github.com/mittolabs/helmy/commit/f143c5622c0f1293d7efee84d5ee5251a488c8e8))
+
 ## [0.4.0](https://github.com/mittolabs/helmy/compare/v0.3.2...v0.4.0) (2026-11-12)
 
 
