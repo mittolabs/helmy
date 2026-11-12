@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 env:
   FLUTTER_VERSION: "3.47.5"
@@ -192,3 +193,16 @@ jobs:
           name: Helmy-${{ matrix.name }}
           path: apps/app/Helmy-dev-*
           retention-days: 7
+
+  # The download page lists a release once its builds are attached, so the site is built
+  # again now. Started here because a build started with the built-in token (as
+  # release.yml starts this one) fires no workflow_run for site.yml to hear.
+  site:
+    needs: build
+    if: inputs.tag != ''
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Build the site again, with this release on its download page
+        run: gh workflow run site.yml -R "$GITHUB_REPOSITORY" --ref main
