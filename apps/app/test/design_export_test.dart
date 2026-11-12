@@ -79,10 +79,9 @@ void main() {
   test('what will not convert to app code is found, each with where and why', () async {
     final issues = await checkDesign('test/fixtures/design');
     String whatOf(String prefix) => issues.firstWhere((i) => i.what.startsWith(prefix)).why;
-    // The real design: a sticky header, a shadow filter, columns that fit themselves.
-    expect(issues.map((i) => i.what.split(':').first).toSet(), {'position', 'filter', 'grid-template-columns'});
+    // The real design: a sticky header, a shadow filter (columns that fit themselves now convert).
+    expect(issues.map((i) => i.what.split(':').first).toSet(), {'position', 'filter'});
     expect(whatOf('position'), contains('sticky'));
-    expect(whatOf('grid-template-columns'), contains('flex-wrap'));
     // Found again on the page by where it is.
     expect(issues.first.selector, startsWith('body > '));
 
