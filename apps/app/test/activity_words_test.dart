@@ -26,11 +26,12 @@ void main() {
     );
   });
 
-  test('known activities describe the work; arbitrary scripts stay generic', () {
+  test('known activities describe the work; a file run is named; inline code stays generic', () {
     expect(commandActivity('flutter test test/example_test.dart').done, 'Ran tests');
     expect(commandActivity('flutter build macos --debug').action, 'Build the app');
     expect(commandActivity('ps -axo pid,comm | rg Helmy.app').done, 'Checked the installation');
-    expect(commandActivity('python3 unknown.py').done, 'Ran a script');
+    expect(commandActivity('python3 unknown.py').done, 'Ran unknown.py');
+    expect(commandActivity('python3 -c "print(1)"').done, 'Ran a script');
     expect(commandActivity('write_text helmy-relaunch Popen').action, 'Prepare Helmy to reopen');
   });
 
