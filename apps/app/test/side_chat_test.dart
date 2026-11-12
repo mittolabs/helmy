@@ -42,6 +42,7 @@ void main() {
     vm = ChatViewModel(sessionId: main.id, sessions: sessions, conversations: repo);
   });
   tearDown(() async {
+    await vm.panelSaved;
     vm.dispose();
     await root.delete(recursive: true);
   });

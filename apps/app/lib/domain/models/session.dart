@@ -58,6 +58,10 @@ class const Session({
   /// The chat this thread is part of (decision `0014`).
   final String? chatId,
 
+  /// The panel beside the conversation as it was left: its tabs, which one
+  /// showed, its width and whether it was open. Put back on coming back.
+  final Map<String, Object?>? panel,
+
   /// Its chat's brief as it stood when the thread began: frozen for it.
   final String? brief,
 
@@ -110,6 +114,7 @@ class const Session({
     String? branch,
     bool? watchChecks,
     String? chatId,
+    Map<String, Object?>? panel,
     String? brief,
     String? summary,
 
@@ -141,6 +146,7 @@ class const Session({
     watchChecks: watchChecks ?? this.watchChecks,
     sideOf: sideOf,
     chatId: chatId ?? this.chatId,
+    panel: panel ?? this.panel,
     brief: brief ?? this.brief,
     summary: summary ?? this.summary,
     draft: draft ?? this.draft,
@@ -169,6 +175,7 @@ class const Session({
     if (watchChecks) 'watchChecks': true,
     'sideOf': ?sideOf,
     'chatId': ?chatId,
+    'panel': ?panel,
     'brief': ?brief,
     'summary': ?summary,
     if (hasDraft) 'draft': draft,
@@ -207,6 +214,7 @@ class const Session({
       watchChecks: json['watchChecks'] == true,
       sideOf: json['sideOf'] as String?,
       chatId: json['chatId'] as String?,
+      panel: (json['panel'] as Map?)?.cast<String, Object?>(),
       brief: json['brief'] as String?,
       summary: json['summary'] as String?,
       draft: json['draft'] as String?,
