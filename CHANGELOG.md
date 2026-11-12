@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/mittolabs/helmy/compare/v0.4.2...v0.5.0) (2026-11-12)
+
+
+### Features
+
+* **docs:** getting started and design tutorials ([#24](https://github.com/mittolabs/helmy/issues/24)) ([bee84f7](https://github.com/mittolabs/helmy/commit/bee84f747600b45dd9df99fb75d24a73fefc52a1))
+
 ## [0.4.2](https://github.com/mittolabs/helmy/compare/v0.4.1...v0.4.2) (2026-11-12)
 
 
