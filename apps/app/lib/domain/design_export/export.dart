@@ -12,7 +12,7 @@ import 'react_writer.dart';
 enum ExportTarget {
   web('Web', 'The pages as they are'),
   react('React', 'A Vite project, TypeScript, React Router'),
-  flutter('Flutter', 'On Ashlar UI, the house standard'),
+  flutter('Flutter', 'Built on Ashlar UI'),
   flutterPlain('Flutter, plain', 'Widgets only, for any app');
 
   const ExportTarget(this.label, this.description);
@@ -29,8 +29,19 @@ Future<List<String>> exportDesign(
   ExportTarget target, {
   bool measure = false,
   Future<List<int>?> Function(Uri url)? fetch,
+  Set<String>? only,
 }) async {
-  final read = await readDesign(design);
+  // [only]: these screens (their files), not the whole design.
+  final whole = await readDesign(design);
+  final read = only == null
+      ? whole
+      : (
+          title: whole.title,
+          screens: [
+            for (final s in whole.screens)
+              if (only.contains(s.file)) s,
+          ],
+        );
   final written = <String>[];
   Future<void> put(String path, List<int> bytes) async {
     final f = File('$to/$path');
@@ -46,6 +57,8 @@ Future<List<String>> exportDesign(
         final rel = e.path.substring(design.length + 1);
         // The canvas's own index and saves are not the site.
         if (rel == 'canvas.json' || rel.endsWith('.helmy-saving')) continue;
+        // One screen: the other screens' pages stay behind.
+        if (only != null && rel.endsWith('.html') && !only.contains(rel)) continue;
         await put(rel, await e.readAsBytes());
       }
     case ExportTarget.react:

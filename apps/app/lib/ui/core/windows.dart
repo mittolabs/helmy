@@ -100,14 +100,16 @@ class HelmyWindows extends ChangeNotifier {
 
   /// Moves [tab] of [vm]'s panel into a window of its own, beside the main
   /// one, titled with the tab and its chat.
-  void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false}) {
+  /// [size]: the window's, when the tab has one of its own (a screen
+  /// previewed in its device's size).
+  void moveOut(ChatViewModel vm, PanelTab tab, {bool atPointer = false, Size? size}) {
     if (!supported) return;
     if (tab.windowed) return show(tab);
     final key = _keyOf(vm);
     if (key != null) holdChat(key, () => vm);
     final w = TabWindow._(vm: vm, tab: tab, chatKey: key);
     w.controller = RegularWindowController(
-      size: const Size(760, 620),
+      size: size ?? const Size(760, 620),
       title: w.title,
       delegate: _TabWindowClosed(this, w),
     );

@@ -6,6 +6,7 @@ import 'package:ashlar_icons/ashlar_icons.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../data/services/design_server.dart';
@@ -16,10 +17,11 @@ import '../../core/ashlar/toast.dart';
 import '../../../utils/platform.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/dropdown_menu.dart';
-import '../../core/ashlar/popover.dart' show openOverlays;
+import '../../core/ashlar/popover.dart' show PopoverPanel, openOverlays;
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/tooltip.dart';
 import '../../core/window_web_view.dart';
+import '../../core/windows.dart';
 import '../view_models/chat_view_model.dart';
 
 /// Where a chat's design lives: `design/` in its folder.
@@ -178,7 +180,11 @@ class _DesignPanelState extends State<DesignPanel> {
   }
 
   Future<void> _open(String folder) async {
-    final canvas = await DesignServer.shared.canvasFor(folder);
+    final found = await DesignServer.shared.canvasFor(folder);
+    // Where Helmy opens windows of its own, a screen previews in one.
+    final canvas = HelmyWindows.supported
+        ? found.replace(queryParameters: {...found.queryParameters, 'windows': '1'})
+        : found;
     // Where this chat last looked at its canvas, put back.
     final v = widget.vm.designView;
     await _c.loadRequest(
@@ -250,7 +256,15 @@ class _DesignPanelState extends State<DesignPanel> {
         ];
       });
     }
-    if (m['download'] case final String file) unawaited(_saveCopy(file));
+    if (m['download'] case final String file) {
+      // Its menu under the screen's button: the HTML file, or exported as code.
+      final at = m['at'] is List ? (m['at'] as List).whereType<num>().toList() : const <num>[];
+      _screenMenuFile = file;
+      _screenMenu.open(
+        position: at.length == 2 ? Offset(at[0].toDouble(), at[1].toDouble()) : Offset.zero,
+      );
+    }
+    if (m['previewWindow'] case final Map p) _previewWindow(p);
     // A screen opened in a browser tab of the panel, from its preview.
     if (m['open'] case final String url) widget.vm.preview(url);
     if (m['comment'] case final Map c) _comment(c);
@@ -309,18 +323,27 @@ class _DesignPanelState extends State<DesignPanel> {
 
   /// Writes the design out as [target], into a folder of its own inside one
   /// the person picks, and shows it.
-  Future<void> _export(ExportTarget target) async {
+  Future<void> _export(ExportTarget target, {String? screen}) async {
     final design = _folder;
     if (design == null) return;
     final into = await getDirectoryPath(confirmButtonText: 'Export here');
     if (into == null || !mounted) return;
-    final name = _title.isEmpty ? 'Design' : _title.replaceAll(RegExp(r'[/:\\]'), '-');
+    final whole = _title.isEmpty ? 'Design' : _title;
+    final name = (screen == null ? whole : '$whole, ${_screenTitle(screen)}').replaceAll(
+      RegExp(r'[/:\\]'),
+      '-',
+    );
     var to = Directory('$into/$name (${target.label})');
     for (var n = 2; to.existsSync(); n++) {
       to = Directory('$into/$name (${target.label}) $n');
     }
     try {
-      final files = await exportDesign(design, to.path, target);
+      final files = await exportDesign(
+        design,
+        to.path,
+        target,
+        only: screen == null ? null : {screen},
+      );
       if (!mounted) return;
       showToast(
         context,
@@ -332,6 +355,21 @@ class _DesignPanelState extends State<DesignPanel> {
       if (!mounted) return;
       showToast(context, title: "Couldn't export it", description: '$e', type: .error);
     }
+  }
+
+  /// The menu a screen's save button opens, and the screen it is for.
+  final _screenMenu = MenuController();
+  String? _screenMenuFile;
+
+  /// A screen on its own and working, in a window of its own the size of
+  /// its device (and the page's bar above it).
+  void _previewWindow(Map p) {
+    final url = p['url'];
+    if (url is! String) return;
+    final width = (p['width'] as num?)?.toDouble() ?? 1440;
+    final height = (p['height'] as num?)?.toDouble() ?? 900;
+    final tab = widget.vm.add(.preview, url: url, focus: false);
+    context.read<HelmyWindows>().moveOut(widget.vm, tab, size: Size(width, height + 44));
   }
 
   Future<void> _saveCopy(String file) async {
@@ -560,9 +598,40 @@ class _DesignPanelState extends State<DesignPanel> {
         Expanded(
           child: Stack(
             children: [
-              Focus(
-                focusNode: _keys,
-                child: WindowWebView(controller: _c),
+              RawMenuAnchor(
+                controller: _screenMenu,
+                onOpen: () => openOverlays.value++,
+                onClose: () => openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30),
+                overlayBuilder: (context, info) => PopoverPanel(
+                  info: info,
+                  child: MenuList(
+                    children: [
+                      MenuItem(
+                        onPressed: () {
+                          _screenMenu.close();
+                          if (_screenMenuFile case final f?) unawaited(_saveCopy(f));
+                        },
+                        child: const Text('Save the HTML file'),
+                      ),
+                      const MenuSeparator(),
+                      const MenuLabel(child: Text('Export this screen as')),
+                      for (final target in ExportTarget.values)
+                        MenuItem(
+                          onPressed: () {
+                            _screenMenu.close();
+                            if (_screenMenuFile case final f?) {
+                              unawaited(_export(target, screen: f));
+                            }
+                          },
+                          child: Text('${target.label}: ${target.description}'),
+                        ),
+                    ],
+                  ),
+                ),
+                child: Focus(
+                  focusNode: _keys,
+                  child: WindowWebView(controller: _c),
+                ),
               ),
               // A click on the canvas while a menu is open closes the menu.
               ValueListenableBuilder(

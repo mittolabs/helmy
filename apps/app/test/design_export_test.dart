@@ -279,4 +279,26 @@ void main() {
     expect(out.files['lib/main.dart'], contains('tapTarget: 0,'));
     expect(out.files['lib/main.dart'], contains('darkTheme: designTheme(),'));
   });
+
+  test('one screen exports on its own, as the web and as code', () async {
+    final out = Directory.systemTemp.createTempSync('one_screen');
+    addTearDown(() => out.deleteSync(recursive: true));
+    await exportDesign(
+      'test/fixtures/design',
+      '${out.path}/web',
+      ExportTarget.web,
+      only: {'download.html'},
+    );
+    expect(File('${out.path}/web/download.html').existsSync(), isTrue);
+    expect(File('${out.path}/web/index.html').existsSync(), isFalse);
+    final react = await exportDesign(
+      'test/fixtures/design',
+      '${out.path}/react',
+      ExportTarget.react,
+      only: {'download.html'},
+    );
+    expect(react.where((f) => f.contains('/screens/')).map((f) => f.split('/')[2]).toSet(), {
+      'Download',
+    });
+  });
 }
