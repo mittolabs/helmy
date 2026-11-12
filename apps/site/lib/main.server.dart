@@ -34,6 +34,7 @@ void main() {
         ),
         link(rel: 'stylesheet', href: '/styles.css'),
         script(src: '/reveal.js', defer: true),
+        script(src: '/copy.js', defer: true),
         // Analytics, run by us (stats.ashlar.ke), first-party under /u/ (analytics.dart).
         // Release builds only: in development there is no tracker to load.
         if (kReleaseMode) ...[

@@ -83,21 +83,9 @@ class Download extends StatelessComponent {
           section(classes: 'download-system reveal', [
             h2([Component.text('Terminal')]),
             p(classes: 'download-other', [Component.text('macOS and Linux:')]),
-            pre(
-              classes: 'download-cmd',
-              attributes: {'data-system': 'macOS and Linux'},
-              [
-                code([Component.text('curl -fsSL https://helmy.ke/install.sh | sh')]),
-              ],
-            ),
+            _Command(system: 'macOS and Linux', command: 'curl -fsSL https://helmy.ke/install.sh | sh'),
             p(classes: 'download-other', [Component.text('Windows, in PowerShell:')]),
-            pre(
-              classes: 'download-cmd',
-              attributes: {'data-system': 'Windows'},
-              [
-                code([Component.text('irm https://helmy.ke/install.ps1 | iex')]),
-              ],
-            ),
+            _Command(system: 'Windows', command: 'irm https://helmy.ke/install.ps1 | iex'),
           ]),
           p(classes: 'download-other center reveal', [
             Component.text('All builds are on the '),
@@ -116,4 +104,36 @@ class Download extends StatelessComponent {
       const Footer(),
     ]);
   }
+}
+
+/// An install command, with a button that copies it (web/copy.js).
+class _Command extends StatelessComponent {
+  const _Command({required this.system, required this.command});
+  final String system, command;
+
+  // Lucide's copy and check, at 16 points (ISC licence).
+  static const _copy =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" '
+      'rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  static const _done =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  @override
+  Component build(BuildContext context) => div(
+    classes: 'download-cmd',
+    attributes: {'data-system': system},
+    [
+      code([Component.text(command)]),
+      button(
+        classes: 'copy',
+        attributes: {'type': 'button', 'data-copy': command, 'aria-label': 'Copy the command', 'title': 'Copy'},
+        [
+          span(classes: 'copy-icon', [RawText(_copy)]),
+          span(classes: 'done-icon', [RawText(_done)]),
+        ],
+      ),
+    ],
+  );
 }
