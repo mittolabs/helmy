@@ -1572,6 +1572,54 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     ],
   ].join('\n');
 
+  /// A message [commentsText] began, taken apart again for showing: each part
+  /// commented on, as a person reads it ("Rise Bakery · Home, the h2 "Your
+  /// loaf, set aside.""), with what was said, and the rest of the message.
+  /// Null for a message with no comments.
+  static ({List<({String part, String note})> comments, String rest})? splitComments(String text) {
+    const heads = [
+      'About these parts of the design (each a file in the design folder: read it before changing it):',
+      'About these parts of the conversation and the design:',
+      'About these parts of the conversation:',
+    ];
+    if (!heads.any(text.startsWith)) return null;
+    final lines = text.split('\n').skip(1).toList();
+    final comments = <({String part, String note})>[];
+    var i = 0;
+    while (i < lines.length &&
+        lines[i].isEmpty &&
+        i + 1 < lines.length &&
+        lines[i + 1].startsWith('> ')) {
+      i++;
+      final quote = <String>[];
+      while (i < lines.length && lines[i].startsWith('> ')) {
+        quote.add(lines[i].substring(2));
+        i++;
+      }
+      final note = i < lines.length ? lines[i] : '';
+      i++;
+      comments.add((
+        part: _partOf(quote.join('\n')),
+        note: note.startsWith('(no comment written') ? '' : note,
+      ));
+    }
+    if (comments.isEmpty) return null;
+    return (comments: comments, rest: lines.skip(i).join('\n').trim());
+  }
+
+  /// A quoted part, short: a design element by its screen and words, not its
+  /// file and path; a conversation's by its first line.
+  static String _partOf(String quote) {
+    if (quote.startsWith(designComment)) {
+      return quote
+          .substring(designComment.length)
+          .replaceFirst(RegExp(r' \(design/[^)]*\)'), '')
+          .replaceFirst(RegExp(r' at [^"]*$'), '')
+          .replaceFirstMapped(RegExp(r'^"([^"]*)"'), (m) => m[1]!);
+    }
+    return quote.split('\n').first;
+  }
+
   Future<Result<void>> _send(String text) async {
     final s = session;
     if (s == null || (text.trim().isEmpty && !hasExtras)) {

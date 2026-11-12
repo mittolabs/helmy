@@ -263,7 +263,7 @@ class _UserState extends State<_User> {
                 onPointerDown: (e) => _clicked(e.position),
                 child: Message(
                   align: .end,
-                  child: Bubble(variant: .muted, child: Text(widget.text)),
+                  child: Bubble(variant: .muted, child: _Said(widget.text)),
                 ),
               ),
             Row(
@@ -404,6 +404,51 @@ class _BranchSwitch extends StatelessWidget {
           label: 'Next version',
           onPressed: vm.busy || b.active == b.length - 1 ? null : () => go(b.active + 1),
         ),
+      ],
+    );
+  }
+}
+
+/// What the person said: comments on parts of the conversation or the design
+/// as they wrote them (the part, then their note), then the message. The
+/// instruction those comments carry for the assistant is not shown.
+class _Said extends StatelessWidget {
+  const _Said(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final split = ChatViewModel.splitComments(text);
+    if (split == null) return Text(text);
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    return Column(
+      crossAxisAlignment: .start,
+      mainAxisSize: .min,
+      spacing: 8,
+      children: [
+        for (final (:part, :note) in split.comments)
+          Container(
+            padding: const .only(left: 10),
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: c.border, width: 2)),
+            ),
+            child: Column(
+              crossAxisAlignment: .start,
+              mainAxisSize: .min,
+              spacing: 2,
+              children: [
+                Text(
+                  part,
+                  maxLines: 2,
+                  overflow: .ellipsis,
+                  style: t.text.xs.copyWith(color: c.mutedForeground),
+                ),
+                if (note.isNotEmpty) Text(note),
+              ],
+            ),
+          ),
+        if (split.rest.isNotEmpty) Text(split.rest),
       ],
     );
   }
