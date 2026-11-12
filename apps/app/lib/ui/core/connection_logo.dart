@@ -6,7 +6,8 @@ import 'ashlar/theme.dart';
 
 /// A connection's own logo, in one color like the rest of Helmy's icons:
 /// Claude's for every Claude Code account, OpenAI's for Codex, Ollama's for
-/// the model on this computer, and an agent's as the ACP registry lists it
+/// the model on this computer, Cursor's, Grok's, Antigravity's and OpenCode's,
+/// and any other agent's as the ACP registry lists it
 /// ([icon]). A generic mark where there is none.
 class ConnectionLogo extends StatelessWidget {
   const ConnectionLogo(this.engineId, {super.key, this.icon, this.size = 16, this.color});
@@ -23,6 +24,10 @@ class ConnectionLogo extends StatelessWidget {
     _ when engineId.startsWith('claude') => 'assets/logos/claude.svg',
     _ when engineId.startsWith('codex') => 'assets/logos/openai.svg',
     _ when engineId.contains('ollama') => 'assets/logos/ollama.svg',
+    _ when engineId.startsWith('acp.cursor') => 'assets/logos/cursor.svg',
+    _ when engineId.startsWith('acp.grok-build') => 'assets/logos/grok.svg',
+    _ when engineId.startsWith('acp.antigravity-acp') => 'assets/logos/antigravity.svg',
+    _ when engineId.startsWith('acp.opencode') => 'assets/logos/opencode.svg',
     _ => null,
   };
 

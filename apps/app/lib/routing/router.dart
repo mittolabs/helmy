@@ -126,6 +126,7 @@ GoRouter router(String initialLocation) => GoRouter(
       builder: (context, state) => _Kept(
         create: (context) => OnboardingViewModel(
           installFree: installFreeAgent,
+          installAgent: installAgent,
           setup: context.read(),
           settings: context.read(),
           engines: context.read(),

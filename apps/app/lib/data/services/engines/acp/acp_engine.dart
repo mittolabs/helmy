@@ -35,7 +35,19 @@ class const AcpProfile({
 
   /// Why [models] are the ones, for the person reading Settings.
   final String? note,
+
+  /// A maker's own agent on the person's subscription, as able as Claude Code
+  /// or Codex (Cursor, Grok, Antigravity): Helmy gives it any work. Others
+  /// answer only what they are set best at.
+  final bool general = false,
 });
+
+/// The agents people pay for, by registry id: given any work, like Claude Code.
+const subscriptionAgents = {
+  'cursor': 'Cursor',
+  'grok-build': 'Grok',
+  'antigravity-acp': 'Antigravity',
+};
 
 /// OpenCode: only its free models whose makers keep nothing and do not
 /// train on what is sent (opencode.ai/docs/zen, 2026-11-05). The others are
@@ -56,8 +68,11 @@ final opencodeProfile = AcpProfile(
 );
 
 /// The profile for an agent from the registry, by its registry id.
-AcpProfile profileFor(String agentId) =>
-    agentId.startsWith('opencode') ? opencodeProfile : const AcpProfile();
+AcpProfile profileFor(String agentId) => agentId.startsWith('opencode')
+    ? opencodeProfile
+    : subscriptionAgents.containsKey(agentId)
+    ? const AcpProfile(general: true)
+    : const AcpProfile();
 
 /// Any agent that speaks the Agent Client Protocol (agentclientprotocol.com),
 /// started as [command] with [args]: one from the ACP registry, or a local
@@ -76,7 +91,7 @@ class AcpEngine implements AgentEngine {
          id: id,
          name: name,
          capabilities: const {Capability.tools},
-         assignedOnly: true,
+         assignedOnly: !profile.general,
        );
 
   final CliLocator _locator;
@@ -211,6 +226,15 @@ class AcpEngine implements AgentEngine {
   Future<bool> signIn(Map<String, Object?> method) async {
     final program = await _program();
     if (program == null) return false;
+    // Cursor's one way in reads a login made beforehand ("Run 'agent login'
+    // first"): that login, in Terminal, is the sign-in.
+    if (method['id'] == 'cursor_login') {
+      method = {
+        ...method,
+        'type': 'terminal',
+        'args': ['login'],
+      };
+    }
     if (method['type'] == 'terminal') {
       final env = (method['env'] as Map?)?.cast<String, Object?>() ?? {};
       final line = [

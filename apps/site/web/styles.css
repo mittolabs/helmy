@@ -166,7 +166,6 @@ p { margin: 0; }
 .works-chip { display: flex; align-items: center; gap: 9px; padding: 10px 16px; border-radius: 999px;
   background: var(--card); font-weight: 500; font-size: 15px; }
 .works-chip img { filter: invert(1); opacity: 0.9; }
-.works-dot { width: 14px; height: 14px; border-radius: 3px; background: var(--ink); }
 .works p { max-width: 640px; }
 
 /* A feature: words and a picture, side by side. */

@@ -59,7 +59,9 @@ class Download extends StatelessComponent {
                 ]),
               ]),
           p(classes: 'muted small reveal', [
-            Component.text('Helmy connects to Claude Code, Codex, OpenCode or Ollama on first run. '),
+            Component.text(
+              'Helmy connects to Claude Code, Codex, Cursor, Grok, Antigravity, OpenCode or Ollama on first run. ',
+            ),
             a(href: '/docs/getting-started/', [Component.text('Getting started')]),
             Component.text(' walks through it.'),
           ]),
