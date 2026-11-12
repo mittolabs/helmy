@@ -192,6 +192,10 @@ void main() {
     expect(next.sent, hasLength(1));
     expect(repo.of(session.id).items.whereType<AssistantText>().single.text, 'Done');
     expect(repo.of(session.id).busy, isFalse);
+    // Said plainly, without naming either connection.
+    final said = repo.of(session.id).items.whereType<Notice>().map((n) => n.text).join();
+    expect(said, contains('reached its usage limit, so another answered'));
+    expect(said, isNot(contains('First')));
   });
 
   test('offline, a message sure to need no tools gets a plain answer', () async {
