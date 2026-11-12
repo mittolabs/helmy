@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/mittolabs/helmy/compare/v0.6.0...v0.7.0) (2026-11-12)
+
+
+### Features
+
+* **design:** each screen previews in a window of its own, and exports alone ([0bc09a1](https://github.com/mittolabs/helmy/commit/0bc09a1762aec17ab089851c57f5abc95b18c621))
+* **design:** export a design to Flutter that looks exactly like it ([16fef25](https://github.com/mittolabs/helmy/commit/16fef25e77e4e676483a92a3d7fd86ea1110af7a))
+
+
+### Bug Fixes
+
+* **chat:** a command that ends after Helmy closes a chat sends nothing more ([7a7a045](https://github.com/mittolabs/helmy/commit/7a7a04549c458bdaaffa4be04dd81c01a10b246c))
+* **chats:** naming a chat stops when Helmy closes it ([d954da7](https://github.com/mittolabs/helmy/commit/d954da771d9a91751e2d945529cb07f4fa46cbb8))
+* **design:** a screen's zoom button looks like zoom, not expand ([0a36780](https://github.com/mittolabs/helmy/commit/0a367801027bc61ab26796532b70f9dfc053cc80))
+* **design:** exporting finishes when a font can't be downloaded ([1f81f07](https://github.com/mittolabs/helmy/commit/1f81f078db1502007c1b3a8c9c94bff2c628c66f))
+* **settings:** searching finds every setting, Developer mode included ([c55a3f5](https://github.com/mittolabs/helmy/commit/c55a3f5674aee8eb75c596c730c87666db4c412c))
+* **settings:** settings, menus and buttons use the names people know ([574b305](https://github.com/mittolabs/helmy/commit/574b305d67fcdb9189b0080e4ddf180f4254e88d))
+* **site:** the changelog shows no raw links, and keeps addresses as written ([3a4a38f](https://github.com/mittolabs/helmy/commit/3a4a38f8637f4e441e6dab0f486e59da4ad7a931))
+
 ## [0.6.0](https://github.com/mittolabs/helmy/compare/v0.5.0...v0.6.0) (2026-11-12)
 
 
