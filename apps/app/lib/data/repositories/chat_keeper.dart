@@ -243,6 +243,7 @@ class ChatKeeper {
       );
       if (n == null) return;
       final now = _chats.byId(chat.id) ?? chat;
+      if (_disposed) return;
       await _chats.describe(
         chat.id,
         title: now.titled || now.named ? null : n.title,
@@ -252,6 +253,7 @@ class ChatKeeper {
       );
       final thread = _sessions.byId(id);
       if (n.thread != null && thread != null && rawTitle(thread, first)) {
+        if (_disposed) return;
         await _sessions.save(thread.copyWith(title: n.thread));
       }
     } finally {
@@ -269,6 +271,7 @@ class ChatKeeper {
       await _conversations.load(latest.id);
       if (!_conversations.of(latest.id).items.any((i) => i is UserMessage)) {
         if (latest.untitled && latest.title != 'New chat') {
+          if (_disposed) return;
           await _sessions.save(latest.copyWith(title: 'New chat'));
         }
         continue;
@@ -314,6 +317,7 @@ class ChatKeeper {
     );
     final now = _sessions.byId(id);
     if (summary != null && now != null && now.summary != summary) {
+      if (_disposed) return;
       await _sessions.save(now.copyWith(summary: summary));
     }
 
@@ -341,11 +345,17 @@ class ChatKeeper {
       kept: brief != null,
     );
     if (brief != null && brief != chat.brief) {
+      if (_disposed) return;
       await _chats.setBrief(chat.id, brief, byPerson: false);
     }
   }
 
+  /// Disposed, work already under way stops before it writes anything: a
+  /// summary or a name that comes back afterwards is let go.
+  bool _disposed = false;
+
   void dispose() {
+    _disposed = true;
     _catchUp?.cancel();
     _conversations.removeListener(_watch);
     for (final t in _timers.values) {
