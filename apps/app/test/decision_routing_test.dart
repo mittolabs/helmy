@@ -13,6 +13,7 @@ import 'package:helmy/data/services/engines/usage_meter.dart';
 import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
+import 'package:helmy/domain/problem.dart';
 import 'package:helmy/domain/models/memory.dart';
 import 'package:helmy/domain/models/session.dart';
 import 'package:helmy/utils/result.dart';
@@ -22,6 +23,9 @@ import 'support/storage.dart';
 /// An engine that answers every message with [reply], or (for a plain engine
 /// that finds it needs tools) with the needs-tools signal.
 class _Engine implements AgentEngine {
+  @override
+  Future<List<ModelChoice>> models() async => const [];
+
   _Engine(this.info, this.reply);
   @override
   final EngineInfo info;
@@ -30,12 +34,14 @@ class _Engine implements AgentEngine {
   String? failure;
   final sent = <String>[];
 
-  /// The folder each run started in.
+  /// The folder each run started in, and what it was started with.
   final startedIn = <String>[];
+  final launches = <EngineLaunch>[];
 
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
     startedIn.add(launch.cwd);
+    launches.add(launch);
     return _Run(this, items);
   }
 
@@ -73,9 +79,10 @@ class _Run implements EngineRun {
     engine.sent.add(text);
     scheduleMicrotask(() {
       if (engine.failure case final error?) {
-        items
-          ..add(AssistantText('limit', error))
-          ..add(TurnSummary(ok: false, error: error));
+        // A limit some connections print as an answer; any other failure
+        // only ends the turn.
+        if (isUsageLimit(error)) items.add(AssistantText('limit', error));
+        items.add(TurnSummary(ok: false, error: error));
       } else if (engine.asksForTools) {
         items.add(TurnSummary(ok: false, error: needsToolsError));
       } else {
@@ -140,8 +147,13 @@ void main() {
     await root.delete(recursive: true);
   });
 
-  Future<(ConversationRepositoryEngines, Session)> make(List<_Engine> engines, _Decider d) async {
-    final meter = UsageMeter();
+  Future<(ConversationRepositoryEngines, Session)> make(
+    List<_Engine> engines,
+    _Decider d, {
+    bool developer = false,
+    UsageMeter? meter,
+  }) async {
+    meter ??= UsageMeter();
     final repo = ConversationRepositoryEngines(
       engines: EngineRegistry(engines),
       router: HeadroomRouter(meter),
@@ -149,6 +161,7 @@ void main() {
       storage: storage,
       sessions: sessions,
       decider: d,
+      developerMode: () => developer,
     );
     final s = (await sessions.create(cwd: root.path) as Ok).value as Session;
     repo.of(s.id).loaded = true;
@@ -196,6 +209,88 @@ void main() {
     final said = repo.of(session.id).items.whereType<Notice>().map((n) => n.text).join();
     expect(said, contains('reached its usage limit, so another answered'));
     expect(said, isNot(contains('First')));
+  });
+
+  test('failures that are not limits are said as they are, never as being out of room', () async {
+    final meter = UsageMeter();
+    final first = _Engine(
+      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+      '',
+    )..failure = 'The model could not be reached';
+    final next = _Engine(
+      const EngineInfo(id: 'next', name: 'Next', capabilities: {Capability.tools}),
+      '',
+    )..failure = 'The model could not be reached';
+    final (repo, session) = await make([first, next], _Decider(), meter: meter);
+    addTearDown(repo.dispose);
+    await repo.send(session, 'design some pages');
+    await pumpEventQueue();
+    final items = repo.of(session.id).items;
+    expect(items.whereType<Notice>().map((n) => n.text).join(), isNot(contains('usage limit')));
+    expect(items.whereType<TurnSummary>().last.error, 'The model could not be reached');
+    expect(repo.of(session.id).busy, isFalse);
+    // Neither is set aside as out of room: the next message tries them again.
+    expect((meter.isDown('first'), meter.isDown('next')), (false, false));
+  });
+
+  test('a chat held to a connection and model goes there, and its answer says so', () async {
+    final first = _Engine(
+      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+      'from first',
+    );
+    final next = _Engine(
+      const EngineInfo(id: 'next', name: 'Next', capabilities: {Capability.tools}),
+      'from next',
+    );
+    final (repo, session) = await make([first, next], _Decider(), developer: true);
+    addTearDown(repo.dispose);
+    await sessions.save(
+      session.copyWith(pin: const EnginePin(engineId: 'next', model: 'big-1', effort: 'high')),
+    );
+    expect(await answerTo(repo, session, 'change the code'), 'from next');
+    expect(first.sent, isEmpty);
+    expect((next.launches.single.model, next.launches.single.effort), ('big-1', 'high'));
+    final by = repo.of(session.id).items.whereType<TurnSummary>().last;
+    expect((by.engineId, by.effort, by.why), ('next', 'high', 'chosen by you'));
+
+    // Another model chosen: the connection starts again with it.
+    await sessions.save(
+      sessions.byId(session.id)!.copyWith(pin: const EnginePin(engineId: 'next', model: 'small-1')),
+    );
+    await answerTo(repo, session, 'and again');
+    expect(next.launches.map((l) => l.model), ['big-1', 'small-1']);
+  });
+
+  test('held to a connection at its limit, it says so and offers to let Helmy choose', () async {
+    final meter = UsageMeter();
+    final first = _Engine(
+      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+      'from first',
+    );
+    final (repo, session) = await make([first], _Decider(), developer: true, meter: meter);
+    addTearDown(repo.dispose);
+    meter.markDown('first');
+    await sessions.save(session.copyWith(pin: const EnginePin(engineId: 'first')));
+    await repo.send(sessions.byId(session.id)!, 'change the code');
+    await pumpEventQueue();
+    final notice = repo.of(session.id).items.whereType<Notice>().last;
+    expect(notice.text, contains('held to First, which is at its usage limit'));
+    expect(notice.fix, Fix.chooseForMe.link);
+    expect(first.sent, isEmpty);
+    expect(repo.of(session.id).busy, isFalse);
+  });
+
+  test('outside Developer mode, a held chat is Helmy\'s to route, and the answer says why', () async {
+    final first = _Engine(
+      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+      'from first',
+    );
+    final (repo, session) = await make([first], _Decider());
+    addTearDown(repo.dispose);
+    await sessions.save(session.copyWith(pin: const EnginePin(engineId: 'gone')));
+    expect(await answerTo(repo, session, 'change the code'), 'from first');
+    final by = repo.of(session.id).items.whereType<TurnSummary>().last;
+    expect((by.engineId, by.why), ('first', 'the only one free'));
   });
 
   test('offline, a message sure to need no tools gets a plain answer', () async {

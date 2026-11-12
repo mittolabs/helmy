@@ -69,6 +69,9 @@ class _Turn {
   /// said once the answer is in, so a change in voice has its reason.
   bool limitSwitched = false;
   String? lastEngine;
+
+  /// Why the connection answering was chosen, for the answer's label.
+  String? why;
 }
 
 /// Routes every message to an engine and hands the conversation across when the
@@ -88,8 +91,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
     this._log,
     this._lessons,
     bool Function(String repo)? ownCopies,
+    bool Function()? developerMode,
     this.holdMargin = const Duration(seconds: 30),
   }) : _ownCopies = ownCopies ?? ((_) => false),
+       _developerMode = developerMode ?? (() => false),
        _enabled = enabled ?? ((_) => true),
        _rules = rules ?? (() => const []);
 
@@ -213,6 +218,15 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// Engines the user turned off in settings are never chosen.
   final bool Function(String engineId) _enabled;
+
+  /// Developer mode: a chat held to a connection and model goes there.
+  final bool Function() _developerMode;
+
+  /// The connection and model [session] is held to, while Developer mode is on.
+  EnginePin? _pinOf(Session session) => _developerMode() ? session.pin : null;
+
+  /// How each run was started (its pin), to start it afresh when that changes.
+  final Map<String, EnginePin?> _launchedWith = {};
 
   final EngineRegistry _engines;
 
@@ -449,14 +463,33 @@ class ConversationRepositoryEngines extends ConversationRepository {
         }
       }
       final ended = _lastTurnEnd[session.id];
-      final id = _router.choose(
-        candidates: eligible(candidates, turn.needs),
-        current: session.lastEngineId,
-        needs: turn.needs,
-        kind: turn.kind,
-        // Its connection still holds it in cache: within minutes of its last turn.
-        warm: ended != null && DateTime.now().difference(ended) < cacheLife,
-      );
+      final pin = _pinOf(session);
+      final String? id;
+      if (pin != null) {
+        // Held to one connection (Developer mode): there, or said why not.
+        if (await _pinnedUnavailable(pin) case final why?) {
+          c
+            ..busy = false
+            ..thinking = false;
+          c.items.add(Notice(why, fix: Fix.chooseForMe.link));
+          _turns.remove(sessionId);
+          _persist(sessionId);
+          notifyListeners();
+          return;
+        }
+        id = turn.tried.contains(pin.engineId) ? null : pin.engineId;
+        turn.why = 'chosen by you';
+      } else {
+        id = _router.choose(
+          candidates: eligible(candidates, turn.needs),
+          current: session.lastEngineId,
+          needs: turn.needs,
+          kind: turn.kind,
+          // Its connection still holds it in cache: within minutes of its last turn.
+          warm: ended != null && DateTime.now().difference(ended) < cacheLife,
+        );
+        turn.why = _router.why;
+      }
       if (id == null) {
         if (await _hold(sessionId, turn)) return;
         c
@@ -493,7 +526,14 @@ class ConversationRepositoryEngines extends ConversationRepository {
         ..tried.add(id);
       final run = await _runFor(session, id);
       if (run == null) {
-        _meter.markDown(id);
+        // It would not start: tried for this message, and not taken for
+        // being out of room, which only a usage limit says.
+        final why =
+            "It couldn't start: ${_startErrors.remove(_key(session.id, id)) ?? 'no reason given'}";
+        turn
+          ..lastError = why
+          ..lastEngine = id;
+        _logFailure(session, id, why);
         continue;
       }
       final thread = session.threads[id] ?? const EngineThread();
@@ -574,8 +614,38 @@ class ConversationRepositoryEngines extends ConversationRepository {
     return true;
   }
 
+  /// Why the connection [pin] holds a chat to cannot answer now, in words
+  /// that name it (the person chose it); null when it can.
+  Future<String?> _pinnedUnavailable(EnginePin pin) async {
+    final engine = _engines.byId(pin.engineId);
+    final name =
+        '${engine?.info.name ?? 'The connection'}${pin.model == null ? '' : ' (${pin.model})'}';
+    final String? why;
+    if (engine == null) {
+      why = 'is no longer set up';
+    } else if (!_enabled(pin.engineId)) {
+      why = 'is turned off in Settings';
+    } else if (await engine.unavailableReason() case final reason?) {
+      why = "can't start: $reason";
+    } else if (_meter.downUntil(pin.engineId) case final until?) {
+      why = 'is at its usage limit until ${atTime(until, null)}';
+    } else {
+      why = null;
+    }
+    return why == null
+        ? null
+        : 'This chat is held to $name, which $why. Let Helmy choose, or pick another '
+              'connection for this chat.';
+  }
+
   Future<EngineRun?> _runFor(Session session, String engineId) async {
     final key = _key(session.id, engineId);
+    final pin = _pinOf(session)?.engineId == engineId ? _pinOf(session) : null;
+    // Another model, effort or speed chosen since it started: started afresh,
+    // picking up its own thread.
+    if (_runs.containsKey(key) && '${_launchedWith[key]?.toJson()}' != '${pin?.toJson()}') {
+      await _close(key);
+    }
     final existing = _runs[key];
     if (existing != null) return existing;
     final engine = _engines.byId(engineId)!;
@@ -593,19 +663,49 @@ class ConversationRepositoryEngines extends ConversationRepository {
           lessons: _lessons == null
               ? null
               : LessonRepository.asInstructions(_lessons.forProject(session.repo ?? session.cwd)),
+          model: pin?.model,
+          effort: pin?.effort,
+          fast: pin?.fast ?? false,
         ),
         of(session.id).items,
       );
-    } on Object {
+    } on Object catch (e) {
+      _startErrors[key] = '$e';
       return null;
     }
     _runs[key] = run;
+    _launchedWith[key] = pin;
     _subscriptions[key] = run.changes.listen(
       (ended) => _onChange(session.id, engineId, run, ended),
       onDone: () => _onExit(session.id, engineId, run),
     );
     return run;
   }
+
+  /// Why each run that would not start did not, by `sessionId/engineId`,
+  /// until the turn that asked reads it.
+  final Map<String, String> _startErrors = {};
+
+  /// Whether what a failed turn left says the connection is out of room:
+  /// the only failure that sets it aside until its limit resets.
+  bool _hitLimit(Conversation c, _Turn turn) => c.items
+      .skip(turn.start)
+      .any(
+        (i) =>
+            (i is TurnSummary && !i.ok && isUsageLimit(i.error ?? '')) ||
+            (i is AssistantText && isUsageLimit(i.text)) ||
+            (i is Notice && isUsageLimit(i.text)),
+      );
+
+  void _logFailure(Session session, String engineId, String error) => unawaited(
+    _log?.failed(
+      chat: session.chatId,
+      thread: session.id,
+      connection: engineId,
+      error: error,
+      limit: isUsageLimit(error),
+    ),
+  );
 
   /// A turn failed before doing anything: safe to give to another engine
   /// without repeating what it did.
@@ -655,10 +755,19 @@ class ConversationRepositoryEngines extends ConversationRepository {
             ..lastEngine = engineId;
           if (isUsageLimit(error)) turn.limitSwitched = true;
         }
+        final limited = _hitLimit(c, turn);
+        if (!askedForTools && _sessions.byId(sessionId) != null) {
+          _logFailure(
+            _sessions.byId(sessionId)!,
+            engineId,
+            failed?.error ?? run.exitDetail ?? 'no reason given',
+          );
+        }
         c.items.removeRange(turn.start, c.items.length);
         if (askedForTools) {
           turn.needs.add(Capability.tools);
-        } else {
+        } else if (limited) {
+          // Out of room: left alone until its limit resets.
           _meter.markDown(engineId);
         }
         unawaited(_dispatch(sessionId, turn));
@@ -690,6 +799,16 @@ class ConversationRepositoryEngines extends ConversationRepository {
       if (p.decision == .pending) p.decision = .cancelled;
     }
     final session = _sessions.byId(sessionId);
+    // What answered, and why: on the answer, shown on hover.
+    if (turn != null) {
+      final summary = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+      final pin = session == null ? null : _pinOf(session);
+      summary
+        ?..engineId = engineId
+        ..model = run.status.model
+        ..effort = pin?.engineId == engineId ? pin?.effort : null
+        ..why = turn.why;
+    }
     if (turn != null && turn.limitSwitched) {
       // Before the turn's summary, so the turn still reads as done.
       final end = c.items.lastIndexWhere((i) => i is TurnSummary);
@@ -923,6 +1042,16 @@ class ConversationRepositoryEngines extends ConversationRepository {
   }
 
   @override
+  Future<List<({String id, String name, List<ModelChoice> models})>> connectionModels() async => [
+    for (final e in _engines.engines)
+      if (_enabled(e.info.id) && await e.unavailableReason() == null)
+        (id: e.info.id, name: e.info.name, models: await e.models()),
+  ];
+
+  @override
+  String? connectionName(String engineId) => _engines.byId(engineId)?.info.name;
+
+  @override
   Future<List<SlashCommand>> commands(Session session) async {
     final seen = <String>{};
     final all = <SlashCommand>[
@@ -1015,8 +1144,17 @@ class ConversationRepositoryEngines extends ConversationRepository {
       if (p.decision == .pending) p.decision = .cancelled;
     }
     if (!turn.unasked && _failedClean(c, turn)) {
+      final limited = _hitLimit(c, turn);
+      final error =
+          c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull?.error ??
+          run.exitDetail ??
+          'it stopped without saying why';
+      turn
+        ..lastError = error
+        ..lastEngine = engineId;
+      if (_sessions.byId(sessionId) case final session?) _logFailure(session, engineId, error);
       c.items.removeRange(turn.start, c.items.length);
-      _meter.markDown(engineId);
+      if (limited) _meter.markDown(engineId);
       unawaited(_dispatch(sessionId, turn));
     } else {
       // It had started working; running it again elsewhere could do things twice.

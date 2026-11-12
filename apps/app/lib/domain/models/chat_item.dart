@@ -378,9 +378,20 @@ class TurnSummary extends ChatItem {
   /// When the answer finished, as Helmy saw it; unknown for older turns.
   DateTime? endedAt;
 
-  /// The connection that answered (or failed), for a fix that needs it;
-  /// never shown.
+  /// The connection that answered (or failed). Shown on the answer, on
+  /// hover, with [model] and [why]: the only place a chat names it.
   String? engineId;
+
+  /// The model that answered, as the connection names it; null when it
+  /// did not say.
+  String? model;
+
+  /// How hard it was asked to think, when chosen (Developer mode).
+  String? effort;
+
+  /// Why this connection answered, in a few words: "most room left",
+  /// "chosen by you".
+  String? why;
 
   @override
   Map<String, Object?> toJson() => {
@@ -391,6 +402,9 @@ class TurnSummary extends ChatItem {
     'error': error,
     if (endedAt != null) 'endedAt': endedAt!.toIso8601String(),
     'engineId': ?engineId,
+    'model': ?model,
+    'effort': ?effort,
+    'why': ?why,
   };
 
   static TurnSummary fromJson(Map<String, Object?> json) =>
@@ -401,7 +415,10 @@ class TurnSummary extends ChatItem {
           error: json['error'] as String?,
         )
         ..endedAt = DateTime.tryParse('${json['endedAt'] ?? ''}')
-        ..engineId = json['engineId'] as String?;
+        ..engineId = json['engineId'] as String?
+        ..model = json['model'] as String?
+        ..effort = json['effort'] as String?
+        ..why = json['why'] as String?;
 }
 
 /// A picture an engine made, kept as the file it saved.

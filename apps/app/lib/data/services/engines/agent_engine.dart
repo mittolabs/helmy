@@ -21,6 +21,12 @@ class const EngineLaunch({
   /// What Helmy has learned working with the person (LessonRepository),
   /// as instructions, frozen with the thread as its brief is.
   final String? lessons,
+
+  /// A model, effort and speed chosen for the chat (Developer mode); null
+  /// for the connection's own.
+  final String? model,
+  final String? effort,
+  final bool fast = false,
 });
 
 /// State an engine reports alongside the items it writes.
@@ -40,6 +46,9 @@ class EngineStatus {
   /// Set when the agent began a turn nobody sent it, as Claude Code does when
   /// work it left in the background ends. Whoever acts on it clears it.
   bool startedByItself = false;
+
+  /// The model answering, as the connection names it; null until it says.
+  String? model;
 }
 
 /// How the user answered a [PermissionPrompt].
@@ -61,6 +70,10 @@ abstract class AgentEngine {
   /// What it runs for a message that starts with /name, in [cwd]. Engines
   /// with none return an empty list.
   Future<List<SlashCommand>> commands(String cwd) async => const [];
+
+  /// The models it offers, for choosing one in Developer mode; empty when
+  /// it offers no choice.
+  Future<List<ModelChoice>> models() async => const [];
 
   /// Its usage now, asked without sending a message; null when the engine has
   /// no way to say outside a turn.

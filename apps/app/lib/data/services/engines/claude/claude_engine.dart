@@ -142,22 +142,55 @@ class ClaudeEngine implements AgentEngine {
   Future<List<SlashCommand>> commands(String cwd) =>
       _commands.putIfAbsent(cwd, () => _fetchCommands(cwd));
 
-  Future<List<SlashCommand>> _fetchCommands(String cwd) async {
+  /// What Claude Code says of itself when it starts in [cwd] (its commands,
+  /// its models), asked without sending a message. Throws when it cannot.
+  Future<Map<String, Object?>> _hello(String cwd) async {
     final binary = await _locator.find('claude');
-    if (binary == null) return const [];
+    if (binary == null) throw StateError('not installed');
+    final process = await ClaudeProcess.start(
+      binary: binary,
+      environment: {...await _locator.environment(), 'CLAUDE_CONFIG_DIR': ?configDir},
+      cwd: cwd,
+      permissionMode: 'default',
+    );
     try {
-      final process = await ClaudeProcess.start(
-        binary: binary,
-        environment: {...await _locator.environment(), 'CLAUDE_CONFIG_DIR': ?configDir},
-        cwd: cwd,
-        permissionMode: 'default',
-      );
       final reply = await process.messages
           .firstWhere((m) => m['type'] == 'control_response')
           .timeout(const Duration(seconds: 20));
+      return (((reply['response'] as Map?)?['response'] as Map?) ?? const {})
+          .cast<String, Object?>();
+    } finally {
       await process.close();
-      final list =
-          (((reply['response'] as Map?)?['response'] as Map?)?['commands'] as List?) ?? const [];
+    }
+  }
+
+  Future<List<ModelChoice>>? _models;
+
+  /// Its models as it lists them, aliases (opus, sonnet) and all; asked once.
+  @override
+  Future<List<ModelChoice>> models() => _models ??= () async {
+    try {
+      final list = (await _hello(homeDir))['models'] as List? ?? const [];
+      return [
+        for (final m in list.whereType<Map>())
+          if (m['value'] != 'default')
+            ModelChoice(
+              id: '${m['value']}',
+              name: '${m['displayName'] ?? m['value']}',
+              description: '${m['description'] ?? ''}',
+              efforts: [for (final e in m['supportedEffortLevels'] as List? ?? const []) '$e'],
+              fast: m['supportsFastMode'] == true,
+            ),
+      ];
+    } on Object {
+      _models = null;
+      return const <ModelChoice>[];
+    }
+  }();
+
+  Future<List<SlashCommand>> _fetchCommands(String cwd) async {
+    try {
+      final list = (await _hello(cwd))['commands'] as List? ?? const [];
       return [
         for (final c in list.whereType<Map>())
           SlashCommand(
@@ -272,6 +305,10 @@ class ClaudeEngine implements AgentEngine {
       allowedTools: HelmyTools.claudeTools,
       servers: {for (final s in tools?.servers() ?? const <ToolServer>[]) s.name: s.forClaude},
       pluginDir: tools?.skills?.pluginDir,
+      model: launch.model,
+      effort: launch.effort,
+      // Its faster tier is a setting, the one /fast turns on.
+      settings: launch.fast ? const {'fastMode': true} : null,
     );
     return _ClaudeRun(process, ClaudeReducer(items), launch.resumeId);
   }
@@ -324,7 +361,8 @@ class _ClaudeRun implements EngineRun {
       ..resumeId = _reducer.sessionId ?? status.resumeId
       ..usage = _reducer.usage ?? status.usage
       ..context = _reducer.context ?? status.context
-      ..tokens = _reducer.tokens ?? status.tokens;
+      ..tokens = _reducer.tokens ?? status.tokens
+      ..model = _reducer.model ?? status.model;
     _changes.add(ended);
   }
 

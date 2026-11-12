@@ -83,6 +83,10 @@ class OllamaChatEngine implements AgentEngine {
   @override
   Future<Usage?> readUsage() async => null;
 
+  /// Its model is the one picked in Settings: none to choose here.
+  @override
+  Future<List<ModelChoice>> models() async => const [];
+
   @override
   Future<List<({String name, String status})>> servers() async => const [];
 

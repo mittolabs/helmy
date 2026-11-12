@@ -30,6 +30,10 @@ enum Fix {
   /// Install what carries taps and typing to iOS simulators (AXe).
   installDeviceInput,
 
+  /// Let Helmy choose the connection again, for a chat held to one that
+  /// cannot answer now (Developer mode), and send the message again.
+  chooseForMe,
+
   /// Nothing to press: it fixes itself, at [Problem.until].
   wait;
 
@@ -44,6 +48,7 @@ enum Fix {
     allowAccessibility => 'allow-accessibility',
     allowScreenRecording => 'allow-screen-recording',
     installDeviceInput => 'install-device-input',
+    chooseForMe => 'choose-for-me',
     wait => 'wait',
   };
 
@@ -63,6 +68,7 @@ enum Fix {
     allowAccessibility => 'Allow Accessibility',
     allowScreenRecording => 'Allow Screen Recording',
     installDeviceInput => 'Install it',
+    chooseForMe => 'Let Helmy choose',
     wait => '',
   };
 }

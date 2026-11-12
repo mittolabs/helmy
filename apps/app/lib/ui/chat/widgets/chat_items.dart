@@ -47,6 +47,8 @@ import '../view_models/chat_view_model.dart';
 import 'problem_card.dart';
 import 'saved_toast.dart';
 import '../../../domain/problem.dart';
+import '../../../domain/model_names.dart';
+import '../../core/connection_logo.dart';
 import '../../../utils/platform.dart';
 import 'diff_view.dart';
 import 'file_popup.dart';
@@ -207,6 +209,7 @@ List<ChatRow> buildRows(ChatViewModel vm) {
               sentAt: (items[ask] as UserMessage).sentAt,
               endedAt: s.endedAt,
               end: i,
+              by: s,
             ),
           ));
         }

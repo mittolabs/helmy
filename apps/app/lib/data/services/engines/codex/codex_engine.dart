@@ -350,6 +350,57 @@ class CodexEngine implements AgentEngine {
     await store.linkInto(home ?? Platform.environment['CODEX_HOME'] ?? '$homeDir/.codex');
   }
 
+  Future<List<ModelChoice>>? _models;
+
+  /// Its models as `model/list` gives them, hidden ones left out; asked once.
+  @override
+  Future<List<ModelChoice>> models() => _models ??= () async {
+    if (_local != null) return const <ModelChoice>[];
+    final binary = await _locator.find('codex');
+    if (binary == null) {
+      _models = null;
+      return const <ModelChoice>[];
+    }
+    try {
+      final rpc = await CodexRpc.start(
+        binary: binary,
+        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
+        cwd: homeDir,
+      );
+      try {
+        await rpc.request('initialize', {
+          'clientInfo': {'name': 'helmy', 'title': 'Helmy', 'version': '0.1.0'},
+          'capabilities': null,
+        });
+        rpc.notify('initialized', {});
+        final r = await rpc.request('model/list', {}).timeout(const Duration(seconds: 20));
+        return [
+          for (final m in (r['data'] as List? ?? const []).whereType<Map>())
+            if (m['hidden'] != true)
+              ModelChoice(
+                id: '${m['model'] ?? m['id']}',
+                name: '${m['displayName'] ?? m['id']}',
+                description: '${m['description'] ?? ''}',
+                efforts: [
+                  for (final e
+                      in (m['supportedReasoningEfforts'] as List? ?? const []).whereType<Map>())
+                    '${e['reasoningEffort']}',
+                ],
+                defaultEffort: m['defaultReasoningEffort'] as String?,
+                fast: (m['serviceTiers'] as List? ?? const []).whereType<Map>().any(
+                  (t) => t['id'] == 'priority',
+                ),
+              ),
+        ];
+      } finally {
+        await rpc.close();
+      }
+    } on Object {
+      _models = null;
+      return const <ModelChoice>[];
+    }
+  }();
+
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
     final binary = await _locator.find('codex');
@@ -376,6 +427,9 @@ class CodexEngine implements AgentEngine {
 }
 
 class _CodexRun implements EngineRun {
+  /// What each turn is started with beside its words: effort and speed.
+  Map<String, Object?> _turnExtras = const {};
+
   new(this._rpc, this._reducer, this._skills, this._provider, this._toolsUrl, this._servers) {
     _rpc.incoming.listen(_onMessage, onDone: _changes.close);
   }
@@ -453,6 +507,12 @@ class _CodexRun implements EngineRun {
         // Added to Codex's own instructions: it answers as Helmy.
         'developerInstructions': identityWith(launch.brief, lessons: launch.lessons),
         ..._provider,
+        'model': ?launch.model,
+      };
+      _turnExtras = {
+        'effort': ?launch.effort,
+        // Its "Fast" tier.
+        if (launch.fast) 'serviceTier': 'priority',
       };
       final result = launch.resumeId == null
           ? await _rpc.request('thread/start', settings)
@@ -463,6 +523,7 @@ class _CodexRun implements EngineRun {
             });
       _threadId = (result['thread'] as Map?)?['id'] as String?;
       status.resumeId = _threadId;
+      status.model = result['model'] as String? ?? launch.model;
       _changes.add(false);
       return _threadId;
     } on Object catch (e) {
@@ -529,6 +590,7 @@ class _CodexRun implements EngineRun {
     try {
       await _rpc.request('turn/start', {
         'threadId': threadId,
+        ..._turnExtras,
         'input': [
           ?skill,
           {

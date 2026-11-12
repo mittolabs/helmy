@@ -261,6 +261,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         storage: context.read(),
         sessions: context.read(),
         enabled: (id) => loaded.settings.settings.uses(id),
+        developerMode: () => loaded.settings.settings.developerMode,
         rules: () => loaded.settings.settings.rules,
         snapshots: Snapshots(),
         worktrees: context.read<Worktrees>(),

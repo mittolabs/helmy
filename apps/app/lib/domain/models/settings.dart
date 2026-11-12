@@ -395,6 +395,10 @@ class const AppSettings({
   /// A message sent while a chat works redirects it at once, rather than
   /// waiting its turn; ⇧⌘Enter does the other.
   final bool steerByDefault = false,
+
+  /// Developer mode: each chat can be held to a connection and model of
+  /// your choosing, with its effort and speed, instead of Helmy choosing.
+  final bool developerMode = false,
   final ClockFormat clock = .system,
 
   /// Accounts added beside the usual Claude Code and Codex ones.
@@ -560,6 +564,7 @@ class const AppSettings({
     bool? keepWithPr,
     String? namingNote,
     bool? steerByDefault,
+    bool? developerMode,
     bool? formatAsYouType,
     Map<String, String>? keys,
     String? commitStyle,
@@ -645,6 +650,7 @@ class const AppSettings({
     keepWithPr: keepWithPr ?? this.keepWithPr,
     namingNote: namingNote ?? this.namingNote,
     steerByDefault: steerByDefault ?? this.steerByDefault,
+    developerMode: developerMode ?? this.developerMode,
     formatAsYouType: formatAsYouType ?? this.formatAsYouType,
     keys: keys ?? this.keys,
     commitStyle: commitStyle ?? this.commitStyle,
@@ -733,6 +739,7 @@ class const AppSettings({
     'keepWithPr': keepWithPr,
     'namingNote': namingNote,
     'steerByDefault': steerByDefault,
+    'developerMode': developerMode,
     'formatAsYouType': formatAsYouType,
     'keys': keys,
     'commitStyle': commitStyle,
@@ -816,6 +823,7 @@ class const AppSettings({
     keepWithPr: json['keepWithPr'] as bool? ?? true,
     namingNote: json['namingNote'] as String? ?? '',
     steerByDefault: json['steerByDefault'] as bool? ?? false,
+    developerMode: json['developerMode'] as bool? ?? false,
     formatAsYouType: json['formatAsYouType'] as bool? ?? true,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
@@ -934,6 +942,7 @@ const restorableSettings = <String, List<String>>{
   'Keep chats with an open pull request': ['keepWithPr'],
   'How chats are named': ['namingNote'],
   'A message sent while a chat works': ['steerByDefault'],
+  'Developer mode': ['developerMode'],
   'Format as you type': ['formatAsYouType'],
   'Shortcuts': ['keys'],
   'Commits and pull requests': ['commitStyle', 'commitNote'],

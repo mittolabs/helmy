@@ -643,6 +643,32 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   /// How full the context is, as the engine that answered last reported.
   ContextUse? get context => _c.context;
 
+  // Developer mode: the chat held to a connection and model of your
+  // choosing, the way other coding apps let you pick.
+
+  bool get developerMode => _settings?.settings.developerMode ?? false;
+
+  /// The connection and model this chat is held to; null while Helmy chooses
+  /// (and always, outside Developer mode).
+  EnginePin? get pin => developerMode ? session?.pin : null;
+
+  /// Holds this chat to [pin], or lets Helmy choose again with null.
+  Future<void> setPin(EnginePin? pin) async {
+    final s = session;
+    if (s == null) return;
+    await _sessions.save(pin == null ? s.copyWith(unpin: true) : s.copyWith(pin: pin));
+    notifyListeners();
+  }
+
+  Future<List<({String id, String name, List<ModelChoice> models})>>? _choices;
+
+  /// What this chat can be held to: every connection, with its models.
+  Future<List<({String id, String name, List<ModelChoice> models})>> pinChoices() =>
+      _choices ??= _conversations.connectionModels();
+
+  /// A connection's name, for the picker and the label on an answer.
+  String? connectionName(String engineId) => _conversations.connectionName(engineId);
+
   Future<Result<void>> compact() async {
     final s = session;
     if (s == null) return .error(Exception('No thread'));

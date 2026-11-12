@@ -10,7 +10,25 @@ import 'ashlar/theme.dart';
 /// and any other agent's as the ACP registry lists it
 /// ([icon]). A generic mark where there is none.
 class ConnectionLogo extends StatelessWidget {
-  const ConnectionLogo(this.engineId, {super.key, this.icon, this.size = 16, this.color});
+  const ConnectionLogo(
+    this.engineId, {
+    super.key,
+    this.icon,
+    this.size = 16,
+    this.color,
+    this.brand = false,
+  });
+
+  /// In the maker's own color, where it has one (Claude's orange); the
+  /// black-and-white marks (OpenAI, Cursor, Grok) stay in the text color.
+  final bool brand;
+
+  /// The maker's color for [engineId]'s logo; null for a black-and-white mark.
+  static Color? brandColor(String engineId) => switch (engineId) {
+    _ when engineId.startsWith('claude') => const Color(0xFFD97757),
+    _ when engineId.startsWith('acp.antigravity-acp') => const Color(0xFF4285F4),
+    _ => null,
+  };
 
   final String engineId;
 
@@ -33,7 +51,10 @@ class ConnectionLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AshlarTheme.of(context).colors.foreground;
+    final c =
+        color ??
+        (brand ? brandColor(engineId) : null) ??
+        AshlarTheme.of(context).colors.foreground;
     final filter = ColorFilter.mode(c, BlendMode.srcIn);
     final fallback = AshlarIcon(AshlarIconsRoundedStroke.aiAgent, size: size, color: c);
     final asset = assetFor(engineId);

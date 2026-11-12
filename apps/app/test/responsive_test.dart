@@ -36,6 +36,9 @@ import 'support/storage.dart';
 
 /// An engine that is only a name in settings: nothing runs.
 class _Named implements AgentEngine {
+  @override
+  Future<List<ModelChoice>> models() async => const [];
+
   _Named(this.info);
   @override
   final EngineInfo info;

@@ -488,6 +488,9 @@ class _Scripted implements EngineRouter {
   int _next = 0;
 
   @override
+  String? get why => null;
+
+  @override
   String? choose({
     required List<EngineInfo> candidates,
     required String? current,
@@ -506,6 +509,9 @@ class _Scripted implements EngineRouter {
 
 /// An engine that is installed but cannot start.
 class _Broken implements AgentEngine {
+  @override
+  Future<List<ModelChoice>> models() async => const [];
+
   @override
   final info = const EngineInfo(id: 'broken', name: 'Broken');
   @override

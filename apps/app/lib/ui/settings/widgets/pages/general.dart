@@ -282,6 +282,20 @@ class _General extends StatelessWidget {
             ],
           ),
         ),
+        const _Heading('Developer mode'),
+        _Row(
+          title: 'Developer mode',
+          description: s.developerMode
+              ? 'Each chat can be held to a connection and model you pick, with its effort and '
+                    'speed, from the message box. Chats you leave alone, Helmy still chooses for.'
+              : 'Helmy chooses the connection and model for every message. Turn this on to pick '
+                    'them yourself, chat by chat.',
+          control: Switch(
+            value: s.developerMode,
+            semanticLabel: 'Developer mode',
+            onChanged: (v) => vm.update(s.copyWith(developerMode: v)),
+          ),
+        ),
       ],
     );
   }

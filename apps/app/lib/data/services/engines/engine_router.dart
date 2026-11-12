@@ -15,6 +15,10 @@ abstract class EngineRouter {
     WorkKind? kind,
     bool warm = false,
   });
+
+  /// Why the last [choose] chose what it did, in a few words for the person
+  /// ("most room left"); null when it did not say.
+  String? get why;
 }
 
 /// Capability first, then measured headroom (decision `0014`). A message
@@ -68,6 +72,9 @@ class HeadroomRouter implements EngineRouter {
   double _used(String id) => _meter.usageOf(id)?.used ?? .5;
 
   @override
+  String? why;
+
+  @override
   String? choose({
     required List<EngineInfo> candidates,
     required String? current,
@@ -75,6 +82,7 @@ class HeadroomRouter implements EngineRouter {
     WorkKind? kind,
     bool warm = false,
   }) {
+    why = null;
     final best = kind == null ? null : _bestAt(kind);
     // One that says nothing of itself answers only what it is set best at.
     // Unless it is all there is: it answering beats nothing answering.
@@ -96,6 +104,17 @@ class HeadroomRouter implements EngineRouter {
       if (theirs.isNotEmpty) pool = theirs;
     }
     if (pool.isEmpty) return null;
+    final forWork = best != null && pool.every((id) => _family(id) == best) && kind != null;
+    final forNeeds = able.isNotEmpty && able.length < known.length && needs.isNotEmpty;
+    String because(String plain) => forNeeds
+        ? 'the one that ${needs.map((n) => switch (n) {
+            .tools => 'can change files and run commands',
+            .imageGeneration => 'can make images',
+            _ => 'is connected to ${n.label}',
+          }).join(' and ')}'
+        : forWork
+        ? 'best at ${kind.label.toLowerCase()}'
+        : plain;
     String roomiestOf(List<String> ids) => ids.reduce((a, b) => _used(b) < _used(a) ? b : a);
     // Where a thread may start: not where it would soon have to move from.
     final open = [
@@ -103,21 +122,35 @@ class HeadroomRouter implements EngineRouter {
         if (!_tight(id)) id,
     ];
     final roomiest = roomiestOf(open.isEmpty ? pool : open);
-    if (current == null || !pool.contains(current)) return roomiest;
+    if (current == null || !pool.contains(current)) {
+      why = because(pool.length == 1 ? 'the only one free' : 'most room left');
+      return roomiest;
+    }
     final mine = _meter.usageOf(current)?.used;
-    if (mine == null) return current;
+    if (mine == null) {
+      why = because('already has this chat');
+      return current;
+    }
     if (mine >= nearlyOut) {
       // Forced: the same kind of engine first, so the thread reads the same.
       final kin = [
         for (final id in pool)
           if (id != current && _family(id) == _family(current) && _used(id) < nearlyOut) id,
       ];
+      why = because('the last one was nearly out of room');
       if (kin.isNotEmpty) return roomiestOf(kin);
       return roomiest != current ? roomiest : current;
     }
     // Warm, it stays: moving would throw its cache away.
-    if (warm) return current;
-    if (_used(roomiest) + _margin() < mine) return roomiest;
+    if (warm) {
+      why = because('already has this chat, fresh');
+      return current;
+    }
+    if (_used(roomiest) + _margin() < mine) {
+      why = because('clearly more room left');
+      return roomiest;
+    }
+    why = because('already has this chat');
     return current;
   }
 }
