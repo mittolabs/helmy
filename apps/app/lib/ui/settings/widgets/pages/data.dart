@@ -93,7 +93,12 @@ class _DataState extends State<_Data> {
     return _Page(
       children: [
         if (widget.storage) ...[
-          const _Heading('Where things are', first: true),
+          _Heading(
+            vm.places.isEmpty || vm.places.any((p) => p.bytes == null)
+                ? 'Where things are'
+                : 'Where things are  ·  ${_size(vm.places.fold<int>(0, (a, p) => a + (p.bytes ?? 0)))} in all',
+            first: true,
+          ),
           if (vm.places.isEmpty) const Padding(padding: .all(16), child: Spinner(size: 16)),
           for (final p in vm.places)
             _Row(
@@ -218,7 +223,9 @@ class _RunningState extends State<_Running> {
           ? 'Looking...'
           : list.isEmpty
           ? 'Nothing running besides Helmy'
-          : '${list.length} running',
+          : '${list.length} running  ·  '
+                '${list.fold<double>(0, (a, p) => a + p.cpu).toStringAsFixed(1)}% CPU  ·  '
+                '${_size(list.fold<int>(0, (a, p) => a + p.bytes))} in all',
       child: Column(
         crossAxisAlignment: .stretch,
         spacing: 6,

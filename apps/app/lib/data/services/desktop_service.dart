@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 
 import '../../utils/platform.dart';
@@ -303,12 +304,39 @@ class DesktopService {
     }
   }
 
-  static String _programName(String command) {
-    final exe = command.split(' ').first.split('/').last;
+  static String _programName(String command) =>
+      programName(command, exists: (p) => File(p).existsSync());
+
+  /// A process's name from its command line: its program's file name, read
+  /// as far as the path goes (a path can hold spaces, as Application
+  /// Support does), and a connection's agent by its connection's name.
+  @visibleForTesting
+  static String programName(String command, {required bool Function(String path) exists}) {
     if (command.contains('--user-data-dir=') && command.contains('/chromium/profiles/')) {
       return 'Browser for the Preview panel';
     }
-    return exe.isEmpty ? command : exe;
+    final words = command.split(' ');
+    var exe = words.first;
+    for (var i = 1; i < words.length && !exists(exe); i++) {
+      final longer = words.sublist(0, i + 1).join(' ');
+      if (exists(longer)) {
+        exe = longer;
+        break;
+      }
+    }
+    if (exe.contains('/agents/')) {
+      // Helmy's own copy of an agent: agents/<name>/<version>/<program>.
+      final name = exe.split('/agents/').last.split('/').first;
+      return const {
+            'opencode': 'OpenCode',
+            'cursor': 'Cursor',
+            'grok-build': 'Grok',
+            'antigravity-acp': 'Antigravity',
+          }[name] ??
+          name;
+    }
+    final file = exe.split('/').last;
+    return file.isEmpty ? command : file;
   }
 
   /// Stops [processId], one of [helmysProcesses]; true when it was asked to.
