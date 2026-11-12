@@ -93,6 +93,8 @@
 (() => {
   const params = new URLSearchParams(location.search);
   const base = 'd/' + params.get('d') + '/';
+  // Helmy can open a window of its own here: a screen previews in one.
+  const windows = params.get('windows') === '1';
   const stage = document.getElementById('stage');
   const world = document.getElementById('world');
   const overlay = document.getElementById('overlay');
@@ -307,10 +309,16 @@
         name.className = 'name';
         name.title = 'Double-click to rename';
         name.addEventListener('pointerdown', (e) => { if (renaming?.el === name) e.stopPropagation(); });
+        // Saving: Helmy's menu, under the button (the HTML file, or exported as code).
+        const save = button('download', 'Save or export this screen', () => {
+          const r = save.getBoundingClientRect();
+          tell({ download: file, at: [r.left, r.bottom + 4] });
+        });
         strip.append(name,
-          button('play', 'Preview it on its own, working', () => preview(file)),
+          button('play', 'Preview it on its own, working',
+            () => windows ? tell({ previewWindow: previewOf(file) }) : preview(file)),
           button('expand', 'Fit this screen', () => fit(file)),
-          button('download', 'Save a copy', () => tell({ download: file })));
+          save);
         const widths = document.createElement('span');
         widths.className = 'widths';
         for (const [label, w] of [['Phone', 390], ['Tablet', 834], ['Desktop', 1440]]) {
@@ -591,13 +599,22 @@
   document.body.append(present);
   let presenting = null; // { file, iframe }
 
+  /** A device's height for a screen: the width is the screen's own. */
+  const deviceHeight = (kind) => ({ phone: 844, tablet: 1194, desktop: 900 }[kind]);
+
+  /** What Helmy needs to open [file] in a window of its own, the size of its device. */
+  function previewOf(file) {
+    const b = canvas.boards[file];
+    return { url: new URL(base + file, location.href).href, width: b.w, height: deviceHeight(deviceOf(b)), title: b.title ?? file };
+  }
+
   /** [file] on its own, working (links go to the other screens), in its device. */
   function preview(file) {
     const b = canvas.boards[file];
     if (!b) return;
     const kind = deviceOf(b);
     // The screen as a device shows it: its width, and a device's height.
-    const h = { phone: 844, tablet: 1194, desktop: 900 }[kind];
+    const h = deviceHeight(kind);
     present.innerHTML = '';
     const bar = document.createElement('div');
     bar.className = 'bar';

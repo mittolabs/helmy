@@ -10,7 +10,7 @@ import 'planner.dart';
 import 'reader.dart';
 import 'subset.dart' show stickyHeader;
 
-/// Which Flutter: Ashlar UI's app, theme and Pressable (the house standard),
+/// Which Flutter: Ashlar UI's app, theme and Pressable (Mittolabs' own),
 /// or plain widgets for anyone's app. The screens are the same either way.
 enum FlutterFlavor { ashlar, plain }
 
