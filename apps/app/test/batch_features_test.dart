@@ -277,49 +277,54 @@ void main() {
     await tester.runAsync(() => s.root.delete(recursive: true));
   });
 
-  test('in front, another chat finishing is told by the system; yours and your stops are not', () async {
-    final s = await _setup();
-    final session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
-    final notes = _Notes();
-    final attention = AttentionRepositoryLocal(
-      conversations: s.repo,
-      sessions: s.sessions,
-      settings: s.settings,
-      notify: notes,
-    );
-    Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));
-    Future<void> finish({bool stopped = false}) async {
-      final c = s.repo.of(session.id)..busy = true;
-      s.repo.notifyListeners();
+  test(
+    'in front, another chat finishing is told by the system; yours and your stops are not',
+    () async {
+      final s = await _setup();
+      final session = (await s.sessions.create(cwd: '/w') as Ok).value as Session;
+      final notes = _Notes();
+      final attention = AttentionRepositoryLocal(
+        conversations: s.repo,
+        sessions: s.sessions,
+        settings: s.settings,
+        notify: notes,
+      );
+      Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));
+      Future<void> finish({bool stopped = false}) async {
+        final c = s.repo.of(session.id)..busy = true;
+        s.repo.notifyListeners();
+        await settle();
+        if (stopped) c.stoppedByYou = true;
+        c
+          ..busy = false
+          ..items.add(TurnSummary(ok: true));
+        s.repo.notifyListeners();
+        await settle();
+      }
+
+      notes.sight.add(true);
+      attention.viewing = 'another';
       await settle();
-      if (stopped) c.stoppedByYou = true;
-      c
-        ..busy = false
-        ..items.add(TurnSummary(ok: true));
-      s.repo.notifyListeners();
-      await settle();
-    }
+      await finish();
+      expect(notes.sent, [
+        '${session.title}: Finished',
+      ], reason: 'another chat: the system says so');
 
-    notes.sight.add(true);
-    attention.viewing = 'another';
-    await settle();
-    await finish();
-    expect(notes.sent, ['${session.title}: Finished'], reason: 'another chat: the system says so');
+      // Back on this chat: the new screen opens before the old one closes,
+      // and the old one leaving does not undo that it is on screen.
+      attention.viewing = session.id;
+      attention.left('another');
+      notes.sent.clear();
+      await finish();
+      expect(notes.sent, isEmpty, reason: 'the chat on screen is not news');
 
-    // Back on this chat: the new screen opens before the old one closes,
-    // and the old one leaving does not undo that it is on screen.
-    attention.viewing = session.id;
-    attention.left('another');
-    notes.sent.clear();
-    await finish();
-    expect(notes.sent, isEmpty, reason: 'the chat on screen is not news');
+      attention.viewing = 'another';
+      await finish(stopped: true);
+      expect(notes.sent, isEmpty, reason: 'a stop you made is not news');
 
-    attention.viewing = 'another';
-    await finish(stopped: true);
-    expect(notes.sent, isEmpty, reason: 'a stop you made is not news');
-
-    attention.dispose();
-    s.repo.dispose();
-    await s.root.delete(recursive: true);
-  });
+      attention.dispose();
+      s.repo.dispose();
+      await s.root.delete(recursive: true);
+    },
+  );
 }

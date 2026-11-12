@@ -155,10 +155,12 @@ class _ReactWriter {
     DNode? best;
     for (final d in root.descendants) {
       if (d.isText || d.tag == 'svg') continue;
-      if (ctx.pieces.containsKey(d) || ctx.partsOf.containsKey(d) || plan.componentOf(d) != null)
+      if (ctx.pieces.containsKey(d) || ctx.partsOf.containsKey(d) || plan.componentOf(d) != null) {
         continue;
-      if (d.ancestors.any((a) => ctx.pieces.containsKey(a) || plan.componentOf(a) != null))
+      }
+      if (d.ancestors.any((a) => ctx.pieces.containsKey(a) || plan.componentOf(a) != null)) {
         continue;
+      }
       if (best == null || d.size > best.size) best = d;
     }
     return best != null && best.size > 3 ? best : null;
@@ -426,8 +428,9 @@ class _ReactWriter {
 
   /// A file of the design's (`img/a.png`), as `public/` serves it.
   String _asset(String value) {
-    if (value.isEmpty || value.contains(':') || value.startsWith('//') || value.startsWith('#'))
+    if (value.isEmpty || value.contains(':') || value.startsWith('//') || value.startsWith('#')) {
       return value;
+    }
     final clean = value.replaceFirst(RegExp(r'^\./'), '').split('?').first;
     if (clean.startsWith('/')) return value;
     assets.add(clean);

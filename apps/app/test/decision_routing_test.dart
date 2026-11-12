@@ -245,7 +245,9 @@ void main() {
     final (repo, session) = await make([first, next], _Decider(), developer: true);
     addTearDown(repo.dispose);
     await sessions.save(
-      session.copyWith(pin: const EnginePin(engineId: 'next', model: 'big-1', effort: 'high')),
+      session.copyWith(
+        pin: const EnginePin(engineId: 'next', model: 'big-1', effort: 'high'),
+      ),
     );
     expect(await answerTo(repo, session, 'change the code'), 'from next');
     expect(first.sent, isEmpty);
@@ -255,7 +257,11 @@ void main() {
 
     // Another model chosen: the connection starts again with it.
     await sessions.save(
-      sessions.byId(session.id)!.copyWith(pin: const EnginePin(engineId: 'next', model: 'small-1')),
+      sessions
+          .byId(session.id)!
+          .copyWith(
+            pin: const EnginePin(engineId: 'next', model: 'small-1'),
+          ),
     );
     await answerTo(repo, session, 'and again');
     expect(next.launches.map((l) => l.model), ['big-1', 'small-1']);
@@ -280,18 +286,21 @@ void main() {
     expect(repo.of(session.id).busy, isFalse);
   });
 
-  test('outside Developer mode, a held chat is Helmy\'s to route, and the answer says why', () async {
-    final first = _Engine(
-      const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
-      'from first',
-    );
-    final (repo, session) = await make([first], _Decider());
-    addTearDown(repo.dispose);
-    await sessions.save(session.copyWith(pin: const EnginePin(engineId: 'gone')));
-    expect(await answerTo(repo, session, 'change the code'), 'from first');
-    final by = repo.of(session.id).items.whereType<TurnSummary>().last;
-    expect((by.engineId, by.why), ('first', 'the only one free'));
-  });
+  test(
+    'outside Developer mode, a held chat is Helmy\'s to route, and the answer says why',
+    () async {
+      final first = _Engine(
+        const EngineInfo(id: 'first', name: 'First', capabilities: {Capability.tools}),
+        'from first',
+      );
+      final (repo, session) = await make([first], _Decider());
+      addTearDown(repo.dispose);
+      await sessions.save(session.copyWith(pin: const EnginePin(engineId: 'gone')));
+      expect(await answerTo(repo, session, 'change the code'), 'from first');
+      final by = repo.of(session.id).items.whereType<TurnSummary>().last;
+      expect((by.engineId, by.why), ('first', 'the only one free'));
+    },
+  );
 
   test('offline, a message sure to need no tools gets a plain answer', () async {
     final d = _Decider()..next = (direct: true, services: <Capability>{});

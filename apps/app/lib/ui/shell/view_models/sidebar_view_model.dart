@@ -196,11 +196,7 @@ class SidebarViewModel extends ChangeNotifier {
     ];
     if (settings.group == .none) {
       if (rest.isNotEmpty || out.isEmpty) {
-        out.add((
-          label: out.isEmpty ? null : 'Everything else',
-          folder: null,
-          sessions: rest,
-        ));
+        out.add((label: out.isEmpty ? null : 'Everything else', folder: null, sessions: rest));
       }
       return out;
     }
@@ -237,7 +233,6 @@ class SidebarViewModel extends ChangeNotifier {
   bool isUnread(String id) => _attention?.isUnread(id) == true;
 
   /// Another session finished or needs you, while Helmy is in front.
-
 
   /// Helmy's notifications are on, but the system blocks them.
   bool get notificationsBlocked => _attention?.notificationsBlocked ?? false;
