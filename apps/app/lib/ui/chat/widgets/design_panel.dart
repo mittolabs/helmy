@@ -132,15 +132,6 @@ class _DesignPanelState extends State<DesignPanel> {
     }
   }
 
-  /// Each screen in its device: a phone's or a tablet's bezel, a browser's
-  /// window. A way of looking, not part of the design.
-  bool _frames = false;
-
-  void _useFrames(bool on) {
-    setState(() => _frames = on);
-    unawaited(_run('HelmyCanvas.frames($on)'));
-  }
-
   /// Move (select, edit, drag) or hand (pan only).
   String _tool = 'select';
 
@@ -244,7 +235,6 @@ class _DesignPanelState extends State<DesignPanel> {
     if (m['zoom'] case final num z) setState(() => _zoom = z.toDouble());
     if (m['view'] case final Map v) widget.vm.setDesignView(v.cast<String, Object?>());
     if (m['loaded'] case final Map l) {
-      if (_frames) unawaited(_run('HelmyCanvas.frames(true)'));
       setState(() {
         _title = '${l['title'] ?? ''}';
         _screens = [
@@ -386,16 +376,6 @@ class _DesignPanelState extends State<DesignPanel> {
                   semanticLabel: 'Comment',
                   onPressed: () => _useTool('comment'),
                   child: AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: glyph),
-                ),
-              ),
-              Tooltip(
-                message: _frames ? 'Hide the devices' : 'Show each screen in its device',
-                child: Button(
-                  variant: _frames ? .secondary : .ghost,
-                  size: button,
-                  semanticLabel: 'Devices',
-                  onPressed: () => _useFrames(!_frames),
-                  child: AshlarIcon(AshlarIconsRoundedStroke.devices, size: glyph),
                 ),
               ),
               divider,
