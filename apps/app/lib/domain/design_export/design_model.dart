@@ -145,9 +145,7 @@ class DComponent {
   DNode get model => uses.first;
 
   /// What [use] gives each parameter.
-  Map<String, Object> argsOf(DNode use) => {
-    for (final p in params) p.name: _at(use, p),
-  };
+  Map<String, Object> argsOf(DNode use) => {for (final p in params) p.name: _at(use, p)};
 
   static Object _at(DNode use, DParam p) {
     var n = use;

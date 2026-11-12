@@ -19,7 +19,8 @@ DesignPlan planDesign({required String title, required List<DScreen> screens}) {
 
 const _landmarks = {'header', 'nav', 'section', 'footer', 'aside', 'article'};
 
-bool _isPart(DNode n) => !n.isText && (_landmarks.contains(n.tag) || (n.attrs['id'] ?? '').isNotEmpty);
+bool _isPart(DNode n) =>
+    !n.isText && (_landmarks.contains(n.tag) || (n.attrs['id'] ?? '').isNotEmpty);
 
 /// The landmarks and elements with an id, from the top: a wrapper around
 /// them (main, a div) is looked into, and what is not in one stays with the
@@ -40,7 +41,8 @@ List<DPart> _partsOf(DScreen s) {
   walk(s.body);
   final names = <String>{};
   return [
-    for (final (i, n) in found.indexed) DPart(name: _unique(names, _partName(n, s, i)), node: n, screen: s),
+    for (final (i, n) in found.indexed)
+      DPart(name: _unique(names, _partName(n, s, i)), node: n, screen: s),
   ];
 }
 
@@ -93,7 +95,8 @@ String _signature(DNode n, Map<DNode, String> memo) {
     sig = 'T';
   } else if (n.tag == 'svg') {
     // An icon is one thing, which may differ between uses.
-    sig = 'svg[${n.attrs['width']}x${n.attrs['height']}|${_styleKey(n.style)}|${n.classes.join('.')}]';
+    sig =
+        'svg[${n.attrs['width']}x${n.attrs['height']}|${_styleKey(n.style)}|${n.classes.join('.')}]';
   } else {
     final attrs = [
       for (final e in n.attrs.entries)
@@ -106,11 +109,11 @@ String _signature(DNode n, Map<DNode, String> memo) {
   return memo[n] = sig;
 }
 
-String _styleKey(Map<String, String> style) => (style.entries.map((e) => '${e.key}:${e.value}').toList()
-      ..sort())
-    .join(';');
+String _styleKey(Map<String, String> style) =>
+    (style.entries.map((e) => '${e.key}:${e.value}').toList()..sort()).join(';');
 
-int _weight(DNode n) => n.isText ? 0 : (n.tag == 'svg' ? 1 : 1 + n.children.fold(0, (a, c) => a + _weight(c)));
+int _weight(DNode n) =>
+    n.isText ? 0 : (n.tag == 'svg' ? 1 : 1 + n.children.fold(0, (a, c) => a + _weight(c)));
 
 List<DComponent> _components(List<DScreen> screens, Map<DScreen, List<DPart>> parts) {
   final memo = <DNode, String>{};
@@ -161,19 +164,23 @@ String _componentName(List<DNode> uses, Map<DNode, DPart> partOf, List<DScreen> 
   // All a landmark holds (the header's one row): named for the landmark.
   final holder = n.parent;
   final only = holder != null && holder.children.where((c) => !c.isText).length == 1;
-  final landmark = only ? const {'header': 'Header', 'footer': 'Footer', 'nav': 'Nav'}[holder.tag] : null;
-  final kind = landmark ?? switch (n.tag) {
-    'header' => 'Header',
-    'footer' => 'Footer',
-    'nav' => 'Nav',
-    'a' => 'Link',
-    'button' => 'Button',
-    'li' => 'Item',
-    'section' => 'Section',
-    _ when n.descendants.any((d) => RegExp(r'^h[1-6]$').hasMatch(d.tag ?? '')) => 'Card',
-    _ when n.descendants.any((d) => d.tag == 'img') => 'Picture',
-    _ => 'Block',
-  };
+  final landmark = only
+      ? const {'header': 'Header', 'footer': 'Footer', 'nav': 'Nav'}[holder.tag]
+      : null;
+  final kind =
+      landmark ??
+      switch (n.tag) {
+        'header' => 'Header',
+        'footer' => 'Footer',
+        'nav' => 'Nav',
+        'a' => 'Link',
+        'button' => 'Button',
+        'li' => 'Item',
+        'section' => 'Section',
+        _ when n.descendants.any((d) => RegExp(r'^h[1-6]$').hasMatch(d.tag ?? '')) => 'Card',
+        _ when n.descendants.any((d) => d.tag == 'img') => 'Picture',
+        _ => 'Block',
+      };
   // Named for where its uses are: the one part they are all in, else the
   // one screen, else the site.
   DPart? partAround(DNode u) => [u, ...u.ancestors].map((a) => partOf[a]).nonNulls.firstOrNull;
@@ -191,7 +198,9 @@ String _componentName(List<DNode> uses, Map<DNode, DPart> partOf, List<DScreen> 
 }
 
 /// Class names that say how, not what: `hide-sm`, `flex`, `p-4`.
-final _utility = RegExp(r'^(hide|show|flip|art|sm|md|lg|xl|p|m|px|py|mx|my|flex|grid|gap|w|h|text|bg)(-|$)');
+final _utility = RegExp(
+  r'^(hide|show|flip|art|sm|md|lg|xl|p|m|px|py|mx|my|flex|grid|gap|w|h|text|bg)(-|$)',
+);
 
 /// Where [uses] differ: each such place a parameter, named by what it is.
 List<DParam> _params(List<DNode> uses) {
@@ -212,7 +221,8 @@ List<DParam> _params(List<DNode> uses) {
       }
       return;
     }
-    final keys = {for (final u in at) ...u.attrs.keys}.where(contentAttrs.contains).toList()..sort();
+    final keys = {for (final u in at) ...u.attrs.keys}.where(contentAttrs.contains).toList()
+      ..sort();
     for (final k in keys) {
       if (at.map((u) => u.attrs[k] ?? '').toSet().length > 1) {
         out.add(
@@ -283,16 +293,26 @@ List<DToken> _tokens(List<DScreen> screens) {
   for (final e in colorUses.entries) {
     final total = e.value.values.fold(0, (a, b) => a + b);
     if (total < 2) continue;
-    final role = (e.value.entries.toList()
-          ..sort((a, b) => b.value != a.value ? b.value.compareTo(a.value) : a.key.compareTo(b.key)))
-        .first
-        .key;
+    final role =
+        (e.value.entries.toList()..sort(
+              (a, b) => b.value != a.value ? b.value.compareTo(a.value) : a.key.compareTo(b.key),
+            ))
+            .first
+            .key;
     (byRole[role] ??= []).add((e.key, total));
   }
   for (final role in byRole.keys.toList()..sort()) {
-    final list = byRole[role]!..sort((a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$1.compareTo(b.$1));
+    final list = byRole[role]!
+      ..sort((a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$1.compareTo(b.$1));
     for (final (i, (value, uses)) in list.indexed) {
-      out.add(DToken(name: i == 0 ? role : '$role${i + 1}', value: value, kind: DTokenKind.color, uses: uses));
+      out.add(
+        DToken(
+          name: i == 0 ? role : '$role${i + 1}',
+          value: value,
+          kind: DTokenKind.color,
+          uses: uses,
+        ),
+      );
     }
   }
   // Fonts: the page's own (the body's) first, then by how much each is used.

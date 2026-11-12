@@ -77,9 +77,7 @@ class _ReactWriter {
     final ctx = _Ctx(from: 'src/screens/$name', partsOf: partOf);
     final body = s.body;
     final extra = _bodyStyleOf(s);
-    final jsx = [
-      for (final c in body.children) ..._jsx(c, ctx, 2),
-    ];
+    final jsx = [for (final c in body.children) ..._jsx(c, ctx, 2)];
     final effects = <String>[
       if (s.pageTitle != null) 'document.title = ${jsonEncode(s.pageTitle)};',
       if (extra.isNotEmpty) 'Object.assign(document.body.style, ${_styleObject(extra)});',
@@ -138,7 +136,14 @@ class _ReactWriter {
       final piece = '$name${pascal(biggest.tag ?? 'piece')}${++n}';
       ctx.pieces[biggest] = piece;
       final inner = _jsx(biggest, ctx.without(biggest), 0);
-      pieces.addAll(['', 'function $piece() {', '  return (', ...inner.map((l) => '    $l'), '  );', '}']);
+      pieces.addAll([
+        '',
+        'function $piece() {',
+        '  return (',
+        ...inner.map((l) => '    $l'),
+        '  );',
+        '}',
+      ]);
       lines = _jsx(node, ctx, 0);
     }
     return lines;
@@ -150,8 +155,10 @@ class _ReactWriter {
     DNode? best;
     for (final d in root.descendants) {
       if (d.isText || d.tag == 'svg') continue;
-      if (ctx.pieces.containsKey(d) || ctx.partsOf.containsKey(d) || plan.componentOf(d) != null) continue;
-      if (d.ancestors.any((a) => ctx.pieces.containsKey(a) || plan.componentOf(a) != null)) continue;
+      if (ctx.pieces.containsKey(d) || ctx.partsOf.containsKey(d) || plan.componentOf(d) != null)
+        continue;
+      if (d.ancestors.any((a) => ctx.pieces.containsKey(a) || plan.componentOf(a) != null))
+        continue;
       if (best == null || d.size > best.size) best = d;
     }
     return best != null && best.size > 3 ? best : null;
@@ -198,7 +205,10 @@ class _ReactWriter {
     if (ctx.partsOf[n] case final part?) {
       final c = plan.componentOf(n);
       if (c != null) return ['$pad${_use(c, n, ctx)}'];
-      ctx.imports[part.name] = _rel(ctx.from, 'src/screens/${screenNames[part.screen]}/sections/${part.name}');
+      ctx.imports[part.name] = _rel(
+        ctx.from,
+        'src/screens/${screenNames[part.screen]}/sections/${part.name}',
+      );
       return ['$pad<${part.name} />'];
     }
     if (ctx.pieces[n] case final piece?) return ['$pad<$piece />'];
@@ -210,7 +220,10 @@ class _ReactWriter {
     if (ctx.paramAt(n, DParamKind.element) case final p?) return ['$pad{${p.name}}'];
 
     final tag = n.tag!;
-    final internal = tag == 'a' && _route(n.attrs['href']) != null && ctx.paramAt(n, DParamKind.attr, 'href') == null;
+    final internal =
+        tag == 'a' &&
+        _route(n.attrs['href']) != null &&
+        ctx.paramAt(n, DParamKind.attr, 'href') == null;
     final name = internal ? 'Link' : tag;
     if (internal) ctx.router = true;
     final attrs = <String>[
@@ -222,7 +235,9 @@ class _ReactWriter {
     if (_void.contains(tag) || n.children.isEmpty) return ['$pad$open />'];
     final kids = [for (final c in n.children) ..._jsx(c, ctx, indent + 1)];
     // Short and on one line where it fits.
-    if (kids.length == 1 && kids.first.trim().length + open.length < 90 && !kids.first.trim().startsWith('<')) {
+    if (kids.length == 1 &&
+        kids.first.trim().length + open.length < 90 &&
+        !kids.first.trim().startsWith('<')) {
       return ['$pad$open>${kids.first.trim()}</$name>'];
     }
     return ['$pad$open>', ...kids, '$pad</$name>'];
@@ -230,7 +245,9 @@ class _ReactWriter {
 
   String _attr(DNode n, String key, String value, _Ctx ctx, {required bool internal}) {
     final p = ctx.paramAt(n, DParamKind.attr, key);
-    final name = key == 'href' && internal ? 'to' : _attrName(key, svg: n.tag == 'svg' || n.ancestors.any((a) => a.tag == 'svg'));
+    final name = key == 'href' && internal
+        ? 'to'
+        : _attrName(key, svg: n.tag == 'svg' || n.ancestors.any((a) => a.tag == 'svg'));
     if (p != null) return '$name={${p.name}}';
     var v = value;
     if (key == 'href') v = internal ? _route(value)! : _asset(value);
@@ -255,9 +272,13 @@ class _ReactWriter {
           props.add('${p.name}=${jsonEncode(v)}');
         case DParamKind.attr:
           final s = v as String;
-          props.add('${p.name}=${jsonEncode(p.attr == 'href' ? (_route(s) ?? _asset(s)) : (p.attr == 'src' ? _asset(s) : s))}');
+          props.add(
+            '${p.name}=${jsonEncode(p.attr == 'href' ? (_route(s) ?? _asset(s)) : (p.attr == 'src' ? _asset(s) : s))}',
+          );
         case DParamKind.element:
-          props.add('${p.name}={${_jsx(v as DNode, ctx.inUse(), 0).join(' ').replaceAll(RegExp(r'\s+'), ' ')}}');
+          props.add(
+            '${p.name}={${_jsx(v as DNode, ctx.inUse(), 0).join(' ').replaceAll(RegExp(r'\s+'), ' ')}}',
+          );
       }
     }
     return props.isEmpty ? '<${c.name} />' : '<${c.name} ${props.join(' ')} />';
@@ -283,8 +304,29 @@ class _ReactWriter {
     if (display != null) return !display.startsWith('inline') && display != 'contents';
     if ((n.style['position'] == 'absolute' || n.style['position'] == 'fixed')) return true;
     return const {
-      'address', 'article', 'aside', 'blockquote', 'body', 'dd', 'details', 'dialog', 'div', 'dl', 'dt', //
-      'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header',
+      'address',
+      'article',
+      'aside',
+      'blockquote',
+      'body',
+      'dd',
+      'details',
+      'dialog',
+      'div',
+      'dl',
+      'dt', //
+      'fieldset',
+      'figcaption',
+      'figure',
+      'footer',
+      'form',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'header',
       'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'summary', 'table', 'ul',
     }.contains(n.tag);
   }
@@ -307,7 +349,8 @@ class _ReactWriter {
 
   String _styleObject(Map<String, String> style) {
     final entries = [
-      for (final e in style.entries) '${_styleKey(e.key)}: ${jsonEncode(_tokenized(e.key, e.value))}',
+      for (final e in style.entries)
+        '${_styleKey(e.key)}: ${jsonEncode(_tokenized(e.key, e.value))}',
     ];
     return '{ ${entries.join(', ')} }';
   }
@@ -318,7 +361,9 @@ class _ReactWriter {
       final t = plan.tokenFor(value);
       return t == null ? value : 'var(--${t.name})';
     }
-    return value.replaceAllMapped(RegExp(r'#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)'), (m) {
+    return value.replaceAllMapped(RegExp(r'#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)'), (
+      m,
+    ) {
       final t = plan.tokenFor(m[0]!.replaceAll(' ', ''));
       return t == null ? m[0]! : 'var(--${t.name})';
     });
@@ -360,7 +405,10 @@ class _ReactWriter {
     if (key.startsWith('data-') || key.startsWith('aria-')) return key;
     if (svg && key.contains('-')) {
       final parts = key.split('-');
-      return [parts.first, for (final p in parts.skip(1)) '${p[0].toUpperCase()}${p.substring(1)}'].join();
+      return [
+        parts.first,
+        for (final p in parts.skip(1)) '${p[0].toUpperCase()}${p.substring(1)}',
+      ].join();
     }
     return key;
   }
@@ -378,7 +426,8 @@ class _ReactWriter {
 
   /// A file of the design's (`img/a.png`), as `public/` serves it.
   String _asset(String value) {
-    if (value.isEmpty || value.contains(':') || value.startsWith('//') || value.startsWith('#')) return value;
+    if (value.isEmpty || value.contains(':') || value.startsWith('//') || value.startsWith('#'))
+      return value;
     final clean = value.replaceFirst(RegExp(r'^\./'), '').split('?').first;
     if (clean.startsWith('/')) return value;
     assets.add(clean);
@@ -417,7 +466,10 @@ class _ReactWriter {
   }
 
   String _theme() {
-    final css = <String>{for (final s in plan.screens) if (s.css.isNotEmpty) s.css};
+    final css = <String>{
+      for (final s in plan.screens)
+        if (s.css.isNotEmpty) s.css,
+    };
     return [
       '/* The design\'s colors and fonts, named; the pages use these names. */',
       ':root {',
@@ -437,13 +489,15 @@ class _ReactWriter {
     "import { createRoot } from 'react-dom/client';",
     "import { BrowserRouter, Route, Routes } from 'react-router-dom';",
     "import './theme.css';",
-    for (final s in plan.screens) "import ${screenNames[s]} from './screens/${screenNames[s]}/${screenNames[s]}';",
+    for (final s in plan.screens)
+      "import ${screenNames[s]} from './screens/${screenNames[s]}/${screenNames[s]}';",
     '',
     "createRoot(document.getElementById('root')!).render(",
     '  <StrictMode>',
     '    <BrowserRouter>',
     '      <Routes>',
-    for (final s in plan.screens) '        <Route path="${routes[s.file]}" element={<${screenNames[s]} />} />',
+    for (final s in plan.screens)
+      '        <Route path="${routes[s.file]}" element={<${screenNames[s]} />} />',
     '      </Routes>',
     '    </BrowserRouter>',
     '  </StrictMode>,',
@@ -472,7 +526,10 @@ class _ReactWriter {
   }
 
   String _package() {
-    final name = plan.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+    final name = plan.title
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
     return '${const JsonEncoder.withIndent('  ').convert({
       'name': name.isEmpty ? 'design' : name,
       'private': true,
@@ -480,13 +537,7 @@ class _ReactWriter {
       'type': 'module',
       'scripts': {'dev': 'vite', 'build': 'tsc -b && vite build', 'preview': 'vite preview'},
       'dependencies': {'react': '^19.1.0', 'react-dom': '^19.1.0', 'react-router-dom': '^7.6.0'},
-      'devDependencies': {
-        '@types/react': '^19.1.0',
-        '@types/react-dom': '^19.1.0',
-        '@vitejs/plugin-react': '^4.5.0',
-        'typescript': '^5.8.0',
-        'vite': '^6.3.0',
-      },
+      'devDependencies': {'@types/react': '^19.1.0', '@types/react-dom': '^19.1.0', '@vitejs/plugin-react': '^4.5.0', 'typescript': '^5.8.0', 'vite': '^6.3.0'},
     })}\n';
   }
 
@@ -512,7 +563,19 @@ export default defineConfig({ plugins: [react()] });
 ''';
 
   static const _void = {
-    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr', //
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'source',
+    'track',
+    'wbr', //
   };
 }
 
@@ -585,5 +648,6 @@ class _Sub extends _Ctx {
   @override
   set router(bool v) => outer.router = v;
   @override
-  DParam? paramAt(DNode n, DParamKind kind, [String? attr]) => noParams ? null : outer.paramAt(n, kind, attr);
+  DParam? paramAt(DNode n, DParamKind kind, [String? attr]) =>
+      noParams ? null : outer.paramAt(n, kind, attr);
 }
