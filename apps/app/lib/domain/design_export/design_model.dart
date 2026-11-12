@@ -40,6 +40,18 @@ class DNode {
   /// Where it sits, set once the tree is read: its parent, null at the top.
   DNode? parent;
 
+  /// Its place among its parent's elements in the page as written (from 1,
+  /// counting those the converter leaves out, like scripts): for finding it
+  /// again in the page with `:nth-child`.
+  int nth = 1;
+
+  /// How the page finds it: `body > div:nth-child(2) > a:nth-child(1)`.
+  String get selector {
+    if (isText) return parent?.selector ?? 'body';
+    if (parent == null) return tag!;
+    return '${parent!.selector} > $tag:nth-child($nth)';
+  }
+
   bool get isText => tag == null;
 
   /// Elements in this subtree, itself included.

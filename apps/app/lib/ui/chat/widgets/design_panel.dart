@@ -10,6 +10,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../data/services/design_server.dart';
 import '../../../domain/design_export/export.dart';
+import '../../../domain/design_export/subset.dart';
 import '../../../utils/format.dart';
 import '../../core/ashlar/toast.dart';
 import '../../../utils/platform.dart';
@@ -216,6 +217,7 @@ class _DesignPanelState extends State<DesignPanel> {
         final changed = [..._changed];
         _changed.clear();
         unawaited(_run('HelmyCanvas.reload(${jsonEncode(changed)})'));
+        unawaited(_check());
       });
     });
   }
@@ -239,6 +241,7 @@ class _DesignPanelState extends State<DesignPanel> {
     if (m['zoom'] case final num z) setState(() => _zoom = z.toDouble());
     if (m['view'] case final Map v) widget.vm.setDesignView(v.cast<String, Object?>());
     if (m['loaded'] case final Map l) {
+      unawaited(_check());
       setState(() {
         _title = '${l['title'] ?? ''}';
         _screens = [
@@ -271,6 +274,39 @@ class _DesignPanelState extends State<DesignPanel> {
   }
 
   /// A copy of [file] (a screen) in Downloads, shown in the Finder.
+  /// What in the design will not convert 1:1 to app code (Flutter), checked
+  /// again as its files change.
+  List<SubsetIssue> _issues = const [];
+  int _checking = 0;
+
+  Future<void> _check() async {
+    final folder = _folder;
+    if (folder == null || !File('$folder/canvas.json').existsSync()) return;
+    final mine = ++_checking;
+    try {
+      final found = await checkDesign(folder);
+      if (mounted && mine == _checking) setState(() => _issues = found);
+    } on Object {
+      // Mid-write: checked again when it settles.
+    }
+  }
+
+  /// The screen's name on the canvas, for [file].
+  String _screenTitle(String file) =>
+      _screens.where((s) => s.file == file).firstOrNull?.title ?? file;
+
+  /// Asks for the design to be brought inside what converts, in the chat.
+  void _askToFix() {
+    final lines = [
+      for (final i in _issues) '- ${_screenTitle(i.file)} (design/${i.file}): ${i.what}. ${i.why}',
+    ];
+    widget.vm.send.execute(
+      'Change the design so every screen converts exactly to app code. These are outside it:\n'
+      '${lines.join('\n')}\n'
+      'Keep each screen looking the same.',
+    );
+  }
+
   /// Writes the design out as [target], into a folder of its own inside one
   /// the person picks, and shows it.
   Future<void> _export(ExportTarget target) async {
@@ -442,6 +478,56 @@ class _DesignPanelState extends State<DesignPanel> {
               tool(AshlarIconsRoundedStroke.folderOpen, 'Show the files', () {
                 if (_folder case final f?) unawaited(widget.vm.reveal(f));
               }),
+              if (_issues.isNotEmpty)
+                DropdownMenu(
+                  align: .end,
+                  width: 420,
+                  items: [
+                    for (final i in _issues.take(40))
+                      MenuItem(
+                        onPressed: () => unawaited(
+                          _run(
+                            'HelmyCanvas.show(${jsonEncode(i.file)}, ${jsonEncode(i.selector)})',
+                          ),
+                        ),
+                        child: Tooltip(
+                          message: i.why,
+                          child: Text(
+                            '${_screenTitle(i.file)}: ${i.what}',
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                          ),
+                        ),
+                      ),
+                    if (_issues.length > 40)
+                      MenuLabel(child: Text('And ${_issues.length - 40} more')),
+                    const MenuSeparator(),
+                    MenuItem(
+                      leading: const AshlarIcon(AshlarIconsRoundedStroke.sparkles, size: 16),
+                      onPressed: _askToFix,
+                      child: const Text('Ask Helmy to fix them'),
+                    ),
+                  ],
+                  builder: (context, menu) => Tooltip(
+                    message:
+                        'Outside what converts exactly to app code. The web and React exports '
+                        'are still exact.',
+                    child: Button(
+                      variant: .ghost,
+                      size: .sm,
+                      onPressed: menu.open,
+                      leading: AshlarIcon(
+                        AshlarIconsRoundedStroke.triangleAlert,
+                        size: 14,
+                        color: c.mutedForeground,
+                      ),
+                      child: Text(
+                        roomy ? '${_issues.length} won\'t convert to Flutter' : '${_issues.length}',
+                        style: t.text.xs.copyWith(color: c.mutedForeground),
+                      ),
+                    ),
+                  ),
+                ),
               DropdownMenu(
                 align: .end,
                 items: [

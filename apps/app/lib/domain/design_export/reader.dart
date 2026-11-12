@@ -76,9 +76,13 @@ DNode? _node(dom.Node n, {required bool preformatted}) {
       tag == 'textarea' ||
       (style['white-space']?.startsWith('pre') ?? false);
   final children = <DNode>[];
+  var nth = 0;
   for (final c in n.nodes) {
+    if (c is dom.Element) nth++;
     final d = _node(c, preformatted: pre);
-    if (d != null) children.add(d);
+    if (d == null) continue;
+    if (!d.isText) d.nth = nth;
+    children.add(d);
   }
   return DNode.element(
     tag,

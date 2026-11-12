@@ -984,6 +984,12 @@
     reload: (changed) => load(changed ?? true),
     fit: () => fit(),
     focus: (file) => fit(file),
+    // A thing Helmy points at (it will not convert): its screen in view, it picked.
+    show: (file, selector) => {
+      fit(file);
+      const el = selector === 'style' ? null : docOf(file)?.querySelector(selector);
+      pick(el ? { file, el } : { file });
+    },
     zoomIn: () => zoomAt(1.25, innerWidth / 2, innerHeight / 2),
     zoomOut: () => zoomAt(0.8, innerWidth / 2, innerHeight / 2),
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
