@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../analytics.dart';
+import 'star.dart';
 
 /// The bar at the top: Helmy, its pages, and the way to get it.
 class Nav extends StatelessComponent {
@@ -16,10 +17,11 @@ class Nav extends StatelessComponent {
       ]),
       nav(classes: 'links', [
         a(href: '/#how', [Component.text('How it works')]),
-        a(href: '/#open', [Component.text('Open source')]),
+        a(href: '/download', attributes: track('get-helmy', {'from': 'nav link'}), [Component.text('Download')]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),
+      const Star(from: 'nav'),
       a(
         classes: 'btn btn-light btn-sm',
         href: '/download',
@@ -36,26 +38,52 @@ class Footer extends StatelessComponent {
 
   @override
   Component build(BuildContext context) => footer(classes: 'footer', [
-    div(classes: 'wrap footer-inner', [
+    div(classes: 'wrap footer-grid', [
       div(classes: 'footer-brand', [
         img(src: '/helmy/hello.png', alt: '', width: 44, height: 44),
         div([
           p([
             strong([Component.text('Helmy')]),
           ]),
-          p(classes: 'muted', [Component.text('Dream it, do it. Made by Mittolabs.')]),
+          p(classes: 'muted', [Component.text('Dream it, do it.')]),
         ]),
       ]),
-      nav(classes: 'footer-links', [
-        a(href: '/#how', [Component.text('How it works')]),
-        a(href: '/#open', [Component.text('Open source')]),
-        a(href: '/changelog', [Component.text('Changelog')]),
-        a(href: '/docs/', [Component.text('Docs')]),
-        a(href: '/download', attributes: track('get-helmy', {'from': 'footer'}), [Component.text('Download')]),
-        a(href: '/privacy', [Component.text('Privacy')]),
+      _column('Product', [
+        ('/#how', 'How it works'),
+        ('/download', 'Download'),
+        ('/changelog', 'Changelog'),
+        ('/docs/', 'Docs'),
       ]),
-      p(classes: 'muted small', [Component.text('© 2026 Mittolabs')]),
+      _column('Open source', [
+        (repoUrl, 'GitHub'),
+        ('$repoUrl/blob/main/CONTRIBUTING.md', 'Contributing'),
+        ('$repoUrl/issues/new/choose', 'Report a bug'),
+        ('$repoUrl/blob/main/SECURITY.md', 'Security'),
+      ]),
+      _column('Legal', [
+        ('/privacy', 'Privacy'),
+        ('/terms', 'Terms'),
+        ('$repoUrl/blob/main/LICENSE', 'License (BSD)'),
+      ]),
     ]),
+    div(classes: 'wrap footer-base', [
+      p([Component.text('© 2026 Mittolabs. Helmy is free and open source.')]),
+      p(classes: 'footer-powered', [
+        img(src: '/mittolabs-white.png', alt: '', width: 16, height: 15),
+        Component.text('Powered by '),
+        b([Component.text('Mittolabs')]),
+      ]),
+    ]),
+  ]);
+
+  static Component _column(String title, List<(String, String)> links) => nav(classes: 'footer-col', [
+    p(classes: 'footer-title', [Component.text(title)]),
+    for (final (href, text) in links)
+      a(
+        href: href,
+        attributes: href.startsWith('http') ? {'target': '_blank', 'rel': 'noopener'} : null,
+        [Component.text(text)],
+      ),
   ]);
 }
 

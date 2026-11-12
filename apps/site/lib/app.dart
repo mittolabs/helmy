@@ -6,6 +6,7 @@ import 'pages/changelog.dart';
 import 'pages/download.dart';
 import 'pages/home.dart';
 import 'pages/privacy.dart';
+import 'pages/terms.dart';
 
 /// The site, pre-rendered. The scripts in the browser are web/reveal.js (the reveal
 /// on scroll, the nav filling in once the page scrolls) and, on helmy.ke, Umami's
@@ -22,6 +23,7 @@ class App extends StatelessComponent {
         Route(path: '/changelog', builder: (context, state) => const Changelog()),
         Route(path: '/download', builder: (context, state) => const Download()),
         Route(path: '/privacy', builder: (context, state) => const Privacy()),
+        Route(path: '/terms', builder: (context, state) => const Terms()),
       ],
     ),
   ]);

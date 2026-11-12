@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../analytics.dart';
+import 'star.dart';
 import '../release.dart';
 
 /// The opening: what Helmy is, in its own words, with Helmy itself beside
@@ -235,7 +236,7 @@ class OpenSource extends StatelessComponent {
       h2(classes: 'reveal', [Component.text('Yours to read, change and run.')]),
       p(classes: 'lead reveal', [
         Component.text('Helmy is BSD licensed, and '),
-        a(href: 'https://github.com/mittolabs/helmy', [Component.text('its code is on GitHub')]),
+        a(href: repoUrl, [Component.text('its code is on GitHub')]),
         Component.text(
           ". There is nothing to pay for. It runs on subscriptions you already have. Don't "
           'like something? Change it, or ship your own build.',
@@ -243,8 +244,12 @@ class OpenSource extends StatelessComponent {
       ]),
       ul(classes: 'points reveal', [
         li([Component.text('Free. No Helmy account to make.')]),
-        li([Component.text('Your chats, files and keys stay on your Mac.')]),
+        li([Component.text('Your chats, files and keys stay on your computer.')]),
         li([Component.text("Nothing you'd want for yourself is held back.")]),
+      ]),
+      div(classes: 'star-ask reveal', [
+        p([Component.text('Like Helmy? A star on GitHub helps more people find it.')]),
+        const Star(from: 'open source', large: true),
       ]),
     ]),
     div(classes: 'feature-media reveal', [
