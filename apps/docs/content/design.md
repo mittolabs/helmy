@@ -3,8 +3,6 @@ title: Design
 description: Use the Design canvas to get screens and pages by asking for them, then change them by hand or by comment.
 ---
 
-<Tutorial src="design" title="Design, in about a minute" />
-
 Ask for an app's screens, a landing page, a mockup or a poster, and Helmy lays them out on the Design canvas beside the chat. They're real HTML pages, not pictures, so you can resize them, edit their text, and point at exactly what to change. Nothing is published unless you ask.
 
 Some examples of what to ask for:
