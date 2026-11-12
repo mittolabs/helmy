@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,11 +25,27 @@ void main() {
     String name(SettingsSection s) => s.name;
     expect(searchSettings('dark', name).first.title, 'Theme');
     expect(searchSettings('battery', name), isEmpty);
-    expect(searchSettings('whitespace', name).single.title, 'Hide changes only in spaces');
+    expect(searchSettings('whitespace', name).single.title, 'Ignore whitespace');
     expect(searchSettings('send', name).first.title, 'Send with');
     // Every word must match somewhere.
     expect(searchSettings('theme dark', name).first.title, 'Theme');
     expect(searchSettings('theme battery', name), isEmpty);
+  });
+
+  test('every setting on a page can be searched for, by its name', () {
+    final indexed = {for (final e in settingsIndex) e.title};
+    final missing = <String>[];
+    for (final f in Directory('lib/ui/settings/widgets/pages').listSync()) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      for (final m in RegExp(r"_Row\(\s*title: '([^'$]+)'").allMatches(f.readAsStringSync())) {
+        // An empty list's placeholder is not a setting.
+        if (m[1] == 'None yet') continue;
+        if (!indexed.contains(m[1])) missing.add('${f.uri.pathSegments.last}: ${m[1]}');
+      }
+    }
+    expect(missing, isEmpty, reason: 'add each to settingsIndex');
+    String name(SettingsSection s) => s.name;
+    expect(searchSettings('developer mode', name).first.title, 'Developer mode');
   });
 
   testWidgets('results in place of the sections; ↓ shows the next; Enter goes there', (

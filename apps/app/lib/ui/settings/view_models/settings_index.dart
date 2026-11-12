@@ -4,11 +4,7 @@ import 'settings_view_model.dart';
 /// [title] is the row's or heading's title as the page draws it, which is
 /// how the page finds it to scroll to; [keywords] are other words people
 /// use for it.
-typedef SettingEntry = ({
-  String title,
-  SettingsSection section,
-  String keywords,
-});
+typedef SettingEntry = ({String title, SettingsSection section, String keywords});
 
 /// Everything in Settings, page by page, in the pages' order.
 const List<SettingEntry> settingsIndex = [
@@ -18,20 +14,16 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'notifications alerts badge sound done finished approval',
   ),
-  (
-    title: 'Alert style',
-    section: .general,
-    keywords: 'notification sound banner alert quiet',
-  ),
-  (
-    title: 'Notices inside Helmy',
-    section: .general,
-    keywords: 'toast in-app notice popup',
-  ),
+  (title: 'Alert style', section: .general, keywords: 'notification sound banner alert quiet'),
   (
     title: 'Confirm before quitting',
     section: .general,
     keywords: 'quit confirm close command q twice hold',
+  ),
+  (
+    title: 'Device control',
+    section: .general,
+    keywords: 'simulator emulator phone device panel tap apps computer use',
   ),
   (
     title: 'Resume chats after restart',
@@ -58,31 +50,15 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'pull fetch main git update automatically',
   ),
-  (
-    title: 'Send error reports',
-    section: .general,
-    keywords: 'crash bugs diagnostics privacy',
-  ),
+  (title: 'Send error reports', section: .general, keywords: 'crash bugs diagnostics privacy'),
   (
     title: 'Expand steps by default',
     section: .general,
     keywords: 'tools commands expanded collapsed details',
   ),
-  (
-    title: 'Open at login',
-    section: .general,
-    keywords: 'startup launch boot start automatically',
-  ),
-  (
-    title: 'Ask before deleting a chat',
-    section: .general,
-    keywords: 'confirm confirmation delete',
-  ),
-  (
-    title: 'Keep chats with an open pull request',
-    section: .general,
-    keywords: 'pr settle done',
-  ),
+  (title: 'Open at login', section: .general, keywords: 'startup launch boot start automatically'),
+  (title: 'Ask before deleting a chat', section: .general, keywords: 'confirm confirmation delete'),
+  (title: 'Keep chats with an open pull request', section: .general, keywords: 'pr settle done'),
   (
     title: 'Messages sent while working',
     section: .general,
@@ -93,11 +69,7 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'markdown rich text bold italic composer',
   ),
-  (
-    title: 'Chat titles',
-    section: .general,
-    keywords: 'names titles naming instructions',
-  ),
+  (title: 'Chat titles', section: .general, keywords: 'names titles naming instructions'),
   (
     title: 'Mark inactive chats done',
     section: .general,
@@ -113,72 +85,30 @@ const List<SettingEntry> settingsIndex = [
     section: .general,
     keywords: 'screenshot capture window shortcut snap',
   ),
+  (title: 'When a screenshot is taken', section: .general, keywords: 'screenshot sound flash test'),
+  (
+    title: 'Developer mode',
+    section: .general,
+    keywords: 'developer dev mode pick model connection effort speed advanced',
+  ),
   // Appearance.
-  (
-    title: 'Theme',
-    section: .appearance,
-    keywords: 'dark light mode system color scheme',
-  ),
-  (
-    title: 'Colors',
-    section: .appearance,
-    keywords: 'palette theme stone mist colours',
-  ),
+  (title: 'Theme', section: .appearance, keywords: 'dark light mode system color scheme'),
+  (title: 'Colors', section: .appearance, keywords: 'palette theme stone mist colours'),
   (
     title: 'Import VS Code theme',
     section: .appearance,
     keywords: 'import vscode theme json colors dracula nord',
   ),
-  (
-    title: 'Accent',
-    section: .appearance,
-    keywords: 'color highlight buttons blue rose',
-  ),
-  (
-    title: 'Interface font',
-    section: .appearance,
-    keywords: 'font family typeface type',
-  ),
-  (
-    title: 'Code font',
-    section: .appearance,
-    keywords: 'monospace mono font code terminal',
-  ),
-  (
-    title: 'Message font',
-    section: .appearance,
-    keywords: 'prompt composer typing font',
-  ),
-  (
-    title: 'Contrast',
-    section: .appearance,
-    keywords: 'contrast borders accessibility readable',
-  ),
-  (
-    title: 'Time format',
-    section: .appearance,
-    keywords: 'clock 24 hour 12 hour am pm time',
-  ),
-  (
-    title: 'Text size',
-    section: .appearance,
-    keywords: 'font bigger smaller zoom scale',
-  ),
-  (
-    title: 'Chat width',
-    section: .appearance,
-    keywords: 'chat width wide layout column',
-  ),
-  (
-    title: 'Wrap long code blocks',
-    section: .appearance,
-    keywords: 'word wrap lines code',
-  ),
-  (
-    title: 'Diff colors',
-    section: .appearance,
-    keywords: 'diff red green blue orange colorblind',
-  ),
+  (title: 'Accent', section: .appearance, keywords: 'color highlight buttons blue rose'),
+  (title: 'Interface font', section: .appearance, keywords: 'font family typeface type'),
+  (title: 'Code font', section: .appearance, keywords: 'monospace mono font code terminal'),
+  (title: 'Message font', section: .appearance, keywords: 'prompt composer typing font'),
+  (title: 'Contrast', section: .appearance, keywords: 'contrast borders accessibility readable'),
+  (title: 'Time format', section: .appearance, keywords: 'clock 24 hour 12 hour am pm time'),
+  (title: 'Text size', section: .appearance, keywords: 'font bigger smaller zoom scale'),
+  (title: 'Chat width', section: .appearance, keywords: 'chat width wide layout column'),
+  (title: 'Wrap long code blocks', section: .appearance, keywords: 'word wrap lines code'),
+  (title: 'Diff colors', section: .appearance, keywords: 'diff red green blue orange colorblind'),
   (
     title: 'Unified diff',
     section: .appearance,
@@ -189,26 +119,10 @@ const List<SettingEntry> settingsIndex = [
     section: .appearance,
     keywords: 'diff expanded collapsed files',
   ),
-  (
-    title: 'Icon and pin',
-    section: .projects,
-    keywords: 'project emoji icon pin first',
-  ),
-  (
-    title: 'Branch names',
-    section: .projects,
-    keywords: 'worktree branch prefix semantic feat fix',
-  ),
-  (
-    title: 'Worktree base',
-    section: .projects,
-    keywords: 'worktree remote origin base',
-  ),
-  (
-    title: 'Worktree location',
-    section: .projects,
-    keywords: 'worktree folder location path',
-  ),
+  (title: 'Icon and pin', section: .projects, keywords: 'project emoji icon pin first'),
+  (title: 'Branch names', section: .projects, keywords: 'worktree branch prefix semantic feat fix'),
+  (title: 'Worktree base', section: .projects, keywords: 'worktree remote origin base'),
+  (title: 'Worktree location', section: .projects, keywords: 'worktree folder location path'),
   (
     title: 'Remove worktrees of finished chats',
     section: .projects,
@@ -219,17 +133,9 @@ const List<SettingEntry> settingsIndex = [
     section: .projects,
     keywords: 'commit message conventional style writing pr template',
   ),
-  (
-    title: 'Ignore whitespace',
-    section: .appearance,
-    keywords: 'whitespace diff ignore',
-  ),
+  (title: 'Ignore whitespace', section: .appearance, keywords: 'whitespace diff ignore'),
   // Preview panel.
-  (
-    title: 'Browser engine',
-    section: .preview,
-    keywords: 'browser webkit chromium preview engine',
-  ),
+  (title: 'Browser engine', section: .preview, keywords: 'browser webkit chromium preview engine'),
   (title: 'Zoom', section: .preview, keywords: 'preview zoom scale size page'),
   (
     title: 'Page appearance',
@@ -241,21 +147,13 @@ const List<SettingEntry> settingsIndex = [
     section: .preview,
     keywords: 'search engine google duckduckgo bing brave kagi',
   ),
-  (
-    title: 'Open links in',
-    section: .preview,
-    keywords: 'links browser preview open target',
-  ),
+  (title: 'Open links in', section: .preview, keywords: 'links browser preview open target'),
   (
     title: 'Profile',
     section: .preview,
     keywords: 'browser profile sign in cookies accounts work personal',
   ),
-  (
-    title: 'Chromium browser',
-    section: .preview,
-    keywords: 'chrome edge brave arc browser',
-  ),
+  (title: 'Chromium browser', section: .preview, keywords: 'chrome edge brave arc browser'),
   // Connections.
   (
     title: 'Connections',
@@ -263,11 +161,7 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'claude code codex ollama accounts sign in update version',
   ),
   // Usage.
-  (
-    title: 'Usage limits',
-    section: .usage,
-    keywords: 'usage limits quota room left reset',
-  ),
+  (title: 'Usage limits', section: .usage, keywords: 'usage limits quota room left reset'),
   (
     title: 'Switch connections at limits',
     section: .usage,
@@ -278,35 +172,20 @@ const List<SettingEntry> settingsIndex = [
     section: .agents,
     keywords: 'advanced code writing research pictures quick questions which connection strengths',
   ),
-  (
-    title: 'Ollama model',
-    section: .agents,
-    keywords: 'local model offline llm',
-  ),
+  (title: 'Local model', section: .agents, keywords: 'ollama offline model on this mac llm'),
+  (title: 'Routing', section: .agents, keywords: 'routing switching which connection limits'),
+  (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
   // Skills.
-  (
-    title: 'Helmy\'s skills',
-    section: .skills,
-    keywords: 'skills commands slash skill.md new add',
-  ),
+  (title: 'Helmy\'s skills', section: .skills, keywords: 'skills commands slash skill.md new add'),
   // Tools.
   (
     title: 'Accounts',
     section: .tools,
-    keywords:
-        'gmail calendar slack notion drive integrations connectors sign in',
+    keywords: 'gmail calendar slack notion drive integrations connectors sign in',
   ),
-  (
-    title: 'Add MCP server',
-    section: .tools,
-    keywords: 'mcp server tools plugins integrations',
-  ),
+  (title: 'Add MCP server', section: .tools, keywords: 'mcp server tools plugins integrations'),
   // What Helmy learned, and memory files.
-  (
-    title: 'Memory',
-    section: .learned,
-    keywords: 'lessons learned corrections habits forget',
-  ),
+  (title: 'Memory', section: .learned, keywords: 'lessons learned corrections habits forget'),
   (
     title: 'Instructions',
     section: .memory,
@@ -324,40 +203,39 @@ const List<SettingEntry> settingsIndex = [
     keywords: 'processes diagnostics cpu memory stop kill logs',
   ),
   // Data.
+  (title: 'Export chats', section: .data, keywords: 'export markdown backup history'),
+  (title: 'Export all chats', section: .data, keywords: 'export markdown backup save'),
+  (title: 'Import chats', section: .data, keywords: 'import history claude codex'),
   (
-    title: 'Export chats',
+    title: 'Clean up old files',
     section: .data,
-    keywords: 'export markdown backup history',
-  ),
-  (
-    title: 'Import chats',
-    section: .data,
-    keywords: 'import history claude codex',
+    keywords: 'tidy cleanup delete pasted pictures screenshots old leftovers',
   ),
   // Keyboard.
-  (
-    title: 'Shortcuts',
-    section: .keyboard,
-    keywords: 'keyboard keybindings hotkeys keys',
-  ),
+  (title: 'Shortcuts', section: .keyboard, keywords: 'keyboard keybindings hotkeys keys'),
   // Projects.
-  (
-    title: 'Projects',
-    section: .projects,
-    keywords: 'repositories folders actions scripts',
-  ),
+  (title: 'Projects', section: .projects, keywords: 'repositories folders actions scripts'),
   // Phone.
   (
     title: 'Use Helmy from your phone',
     section: .phone,
     keywords: 'remote mobile iphone android pair qr',
   ),
-  (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key'),
   (
-    title: 'Paired phones',
+    title: 'Screen sharing',
     section: .phone,
-    keywords: 'unpair revoke remove phone devices',
+    keywords: 'screen share remote control see use mac from phone',
   ),
+  (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key'),
+  (title: 'Paired phones', section: .phone, keywords: 'unpair revoke remove phone devices'),
+  (
+    title: 'Keys and passwords',
+    section: .vault,
+    keywords: 'vault secrets api keys passwords tokens keychain env',
+  ),
+  (title: 'HashiCorp Vault', section: .vault, keywords: 'hashicorp vault secrets server token'),
+  (title: 'In a terminal', section: .vault, keywords: 'helmy run terminal command secrets'),
+  (title: 'helmy run', section: .vault, keywords: 'helmy run command secrets terminal npm'),
   // Archive.
   (
     title: 'Archived chats',
@@ -366,25 +244,14 @@ const List<SettingEntry> settingsIndex = [
   ),
   // About.
   (title: 'Helmy', section: .about, keywords: 'about version update release'),
-  (
-    title: 'Privacy',
-    section: .about,
-    keywords: 'privacy data sent telemetry policy',
-  ),
-  (
-    title: 'Licenses',
-    section: .about,
-    keywords: 'open source licenses credits',
-  ),
+  (title: 'Privacy', section: .about, keywords: 'privacy data sent telemetry policy'),
+  (title: 'Licenses', section: .about, keywords: 'open source licenses credits'),
 ];
 
 /// The entries that match [query], best first: every word must appear in the
 /// title, the page's name or the keywords; a title that matches outranks one
 /// matched by its keywords.
-List<SettingEntry> searchSettings(
-  String query,
-  String Function(SettingsSection) pageName,
-) {
+List<SettingEntry> searchSettings(String query, String Function(SettingsSection) pageName) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
   final words = q.split(RegExp(r'\s+'));
@@ -404,8 +271,6 @@ List<SettingEntry> searchSettings(
         : 1;
     out.add((e, rank, i));
   }
-  out.sort(
-    (a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$3.compareTo(b.$3),
-  );
+  out.sort((a, b) => b.$2 != a.$2 ? b.$2.compareTo(a.$2) : a.$3.compareTo(b.$3));
   return [for (final (e, _, _) in out) e];
 }
