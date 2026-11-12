@@ -150,9 +150,9 @@ class Changelog extends StatelessComponent {
       const Nav(),
       main_([
         const PageHead(
-          eyebrow: 'Changelog',
-          title: 'What changed.',
-          lead: 'Each release, as it ships, by the part of Helmy it touches.',
+          eyebrow: 'Releases',
+          title: 'Changelog',
+          lead: 'New features, improvements and fixes in each Helmy release, newest first.',
         ),
         section(classes: 'wrap releases', [
           if (releases.isEmpty)
