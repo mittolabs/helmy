@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helmy: dream it, do it</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Only what inline styles cannot say: the narrow-screen layout. */
+  @media (max-width: 720px) { .hide-sm { display: none !important; } }
+  @media (max-width: 860px) { .art-first { order: -1 !important; } .flip-copy { order: 0 !important; } }
+</style>
+</head>
+<body style="margin:0;background:#000;color:#f5f5f3;font-family:Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden">
+<header style="position:sticky;top:0;z-index:50;background:transparent">
+  <div style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;align-items:center;gap:28px;height:64px">
+    <a href="index.html" style="display:flex;align-items:center;gap:10px;font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.02em;color:#f5f5f3;text-decoration:none"><img src="img/icon.png" alt="" width="28" height="28" style="border-radius:7px;display:block"><span>Helmy</span></a>
+    <div style="flex:1"></div>
+    <nav class="hide-sm" style="display:flex;gap:24px;font-size:14.5px">
+      <a href="index.html#how" style="color:rgba(245,245,243,0.6);text-decoration:none">How it works</a>
+      <a href="download.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Download</a>
+      <a href="changelog.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Changelog</a>
+      <a href="https://helmy.ke/docs/" style="color:rgba(245,245,243,0.6);text-decoration:none">Docs</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:10px">
+      <a class="hide-sm" href="https://github.com/mittolabs/helmy" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid rgba(255,255,255,0.15);border-radius:999px;color:#f5f5f3;font-size:14px;font-weight:500;text-decoration:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg><span>Star</span></a>
+      <a href="download.html" style="display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:600;font-size:15px;line-height:1;text-decoration:none;padding:9px 16px;font-size:14px;background:#f5f5f3;color:#000">Get Helmy</a>
+    </div>
+  </div>
+</header>
+<main>
+  <section style="position:relative;margin-top:-64px;padding:calc(clamp(40px,5vw,72px) + 64px) 0 40px;overflow:hidden">
+    <div style="position:absolute;top:0;left:-10%;right:-10%;height:860px;pointer-events:none;background:radial-gradient(600px 380px at 72% 30%, rgba(242,163,107,0.18), transparent 70%), radial-gradient(500px 300px at 20% 10%, rgba(120,140,255,0.08), transparent 70%)"></div>
+    <div style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);position:relative">
+      <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:center">
+        <div style="flex:1.25 1 520px;display:flex;flex-direction:column;gap:18px">
+          <p style="display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:14px;color:rgba(245,245,243,0.6)"><img src="img/mittolabs-white.png" alt="" style="width:22px;height:auto;display:block">Powered by <b style="font-weight:600;color:#f5f5f3">Mittolabs</b></p>
+          <h1 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(44px,5.4vw,76px)">Dream it.<br><span style="color:#f2a36b">Do it.</span></h1>
+          <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Stop hopping between Claude, ChatGPT and the rest. Tell Helmy what you want done. It picks the right one for each message, moves on when one runs out, and keeps the whole conversation with you.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <a href="download.html" style="display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:600;font-size:15px;line-height:1;text-decoration:none;background:#f2a36b;color:#1a1008">Get Helmy</a>
+            <a href="#how" style="display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:600;font-size:15px;line-height:1;text-decoration:none;background:rgba(255,255,255,0.07);color:#f5f5f3">See how it works</a>
+          </div>
+          <p style="margin:0;font-size:14px;color:rgba(245,245,243,0.45)">Free and open source. Pairs with your phone in one scan.</p>
+        </div>
+        <div class="art-first" style="flex:0.75 1 260px;display:flex;justify-content:center">
+          <img src="img/hello.png" alt="Helmy, a small astronaut, waving" style="width:clamp(160px,17vw,230px);height:auto;display:block;filter:drop-shadow(0 24px 48px rgba(242,163,107,0.25))">
+        </div>
+      </div>
+      <div style="margin-top:clamp(32px,4vw,48px)">
+        <figure style="margin:0;position:relative;border-radius:2.2% / 3.4%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);background:#111;box-shadow:0 40px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.6), 0 0 80px rgba(242,163,107,0.18)"><img src="img/chat.jpg" alt="A conversation in Helmy, on a Mac" style="width:100%;height:auto;display:block"></figure>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);padding-top:56px;padding-bottom:24px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+    <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">Works with what you already pay for</p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px">
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/claude.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Claude Code</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/openai.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Codex</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/cursor.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Cursor</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/grok.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Grok</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/antigravity.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Antigravity</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/opencode.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">OpenCode</span>
+      <span style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#0f0f0f;font-weight:500;font-size:15px"><img src="img/ollama.svg" alt="" width="20" height="20" style="filter:invert(1);opacity:0.9;display:block">Ollama</span>
+    </div>
+    <p style="margin:0;max-width:640px;color:rgba(245,245,243,0.6)">Helmy doesn't resell anything. Sign in with the accounts you already have, and Helmy uses them all, one conversation across every one of them.</p>
+  </section>
+
+  <section id="how" style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div style="flex:1 1 420px;display:flex;flex-direction:column;gap:18px">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">Helmy chooses</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">You say what. Helmy figures out how.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">For each message, Helmy weighs what it needs against how much room each of your accounts has left. Quick questions can go to free models, and heavy work goes where there is room.</p>
+      <ul style="margin:8px 0 0;padding:0;list-style:none;display:grid;gap:14px">
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>No model picker. No effort dial.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Two Claude accounts? Helmy takes turns.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>With Ollama, a model on your Mac answers when you are offline.</li>
+      </ul>
+    </div>
+    <div style="flex:1.1 1 440px;min-width:0">
+      <div style="position:relative;display:grid;place-items:center;padding:24px">
+        <div style="position:absolute;width:70%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle, rgba(242,163,107,0.18), transparent 70%)"></div>
+        <img src="img/onboarding-connect.png" alt="Helmy connecting accounts" style="position:relative;width:clamp(220px,26vw,320px);height:auto;display:block">
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div class="flip-copy" style="flex:1 1 420px;display:flex;flex-direction:column;gap:18px;order:2">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">Design</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">Design screens by asking for them.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Ask for an app's screens or a landing page. They show up next to the chat as real pages you can zoom, drag and retype. Point at something and say what to change.</p>
+      <ul style="margin:8px 0 0;padding:0;list-style:none;display:grid;gap:14px">
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Phone, tablet and web sizes. Drag a page to any width.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Your edits save to the files, so Helmy sees them.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Leave a comment on any element and send it with your message.</li>
+      </ul>
+    </div>
+    <div style="flex:1.1 1 440px;min-width:0">
+      <figure style="margin:0;position:relative;border-radius:2.2% / 3.4%;overflow:hidden;border:1px solid rgba(255,255,255,0.15);background:#111;box-shadow:0 40px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.6), 0 0 80px rgba(242,163,107,0.18)"><img src="img/design.jpg" alt="The design canvas beside a chat" style="width:100%;height:auto;display:block"></figure>
+    </div>
+  </section>
+
+  <section style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div style="flex:1 1 420px;display:flex;flex-direction:column;gap:18px">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">In your hand</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">Take it with you.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Scan a code to pair your phone, and your chats follow you, live. Send a message, approve something or stop a task from wherever you are. Designs open there too, and you can tap from screen to screen.</p>
+      <ul style="margin:8px 0 0;padding:0;list-style:none;display:grid;gap:14px">
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Encrypted with a key only your pairing code has.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Works on the same Wi-Fi, or anywhere with Tailscale.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Need the Mac itself? Its screen is a tap away.</li>
+      </ul>
+    </div>
+    <div style="flex:1.1 1 440px;min-width:0">
+      <figure style="margin:0 auto;width:min(300px,80%);border-radius:44px;overflow:hidden;border:10px solid #111;box-shadow:0 0 0 1.5px #333, 0 40px 100px rgba(0,0,0,0.7), 0 0 80px rgba(242,163,107,0.18)"><img src="img/phone-chats.jpg" alt="Helmy's chats on a phone" style="width:100%;height:auto;display:block"></figure>
+    </div>
+  </section>
+
+  <section style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div style="flex:0.8 1 300px;padding:32px;border-radius:18px;background:#0f0f0f;display:grid;gap:12px">
+      <p style="margin:0;font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;font-size:clamp(72px,10vw,128px);line-height:0.9;letter-spacing:-0.05em;color:#f2a36b">93%</p>
+      <p style="margin:0;color:rgba(245,245,243,0.6)">of permission prompts get approved anyway, according to <a href="https://www.anthropic.com/engineering/claude-code-auto-mode" style="color:#f2a36b;text-decoration:none">Anthropic</a>. People stop reading them.</p>
+    </div>
+    <div style="flex:1.2 1 440px;display:flex;flex-direction:column;gap:18px">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">No more allow, allow, allow</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">It only asks when it matters.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Helmy checks every action against what you asked for. Reading files and editing in the chat's folder just happen, since they can be undone. Anything that leaves your Mac or can't be taken back comes to you as one plain question.</p>
+      <figure style="margin:0;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.15);max-width:560px"><img src="img/approval.jpg" alt="An approval question in Helmy" style="display:block;width:100%;height:auto"></figure>
+      <p style="margin:0;font-size:14px;color:rgba(245,245,243,0.6);max-width:620px">The check sees your messages and the action, never the contents of a web page or a file. Instructions hidden in them can't talk their way past it. Passwords, keys, downloaded scripts and sudo always ask you first.</p>
+    </div>
+  </section>
+
+  <section style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div class="flip-copy" style="flex:1 1 420px;display:flex;flex-direction:column;gap:18px;order:2">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">The vault</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">Your keys stay out of the chat.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">API keys live in your Mac's Keychain or in HashiCorp Vault. Helmy can run things that need them, but only ever sees their names. If a key turns up in the output, it's blanked out. And .env files are off limits.</p>
+      <ul style="margin:8px 0 0;padding:0;list-style:none;display:grid;gap:14px">
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>When a key is needed, you type it in a private field, not the chat.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Paste a key by accident and Helmy stops it before it goes out.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Use the same keys in your own terminal with <code style="font:14px ui-monospace,SFMono-Regular,Menlo,monospace;color:#f2a36b">helmy run</code>.</li>
+      </ul>
+    </div>
+    <div style="flex:1.1 1 440px;min-width:0">
+      <div style="position:relative;display:grid;place-items:center;padding:24px">
+        <div style="position:absolute;width:70%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle, rgba(242,163,107,0.18), transparent 70%)"></div>
+        <img src="img/shield.png" alt="Helmy holding a shield" style="position:relative;width:clamp(220px,26vw,320px);height:auto;display:block">
+      </div>
+    </div>
+  </section>
+
+  <section id="open" style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-wrap:wrap;gap:clamp(32px,6vw,88px);align-items:center;padding-top:72px;padding-bottom:72px">
+    <div style="flex:1.1 1 440px;display:flex;flex-direction:column;gap:18px">
+      <p style="margin:0;font-size:12.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,245,243,0.45)">Open source</p>
+      <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">Yours to read, change and run.</h2>
+      <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Helmy is BSD licensed, and <a href="https://github.com/mittolabs/helmy" style="color:#f2a36b;text-decoration:none">its code is on GitHub</a>. There is nothing to pay for. It runs on subscriptions you already have. Don't like something? Change it, or ship your own build.</p>
+      <ul style="margin:8px 0 0;padding:0;list-style:none;display:grid;gap:14px">
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Free. No Helmy account to make.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Your chats, files and keys stay on your computer.</li>
+        <li style="position:relative;padding-left:36px;line-height:1.5"><span style="position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:rgba(242,163,107,0.14);box-shadow:inset 0 0 0 1px rgba(242,163,107,0.28);display:grid;place-items:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="#f2a36b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Nothing you'd want for yourself is held back.</li>
+      </ul>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px;margin-top:8px">
+        <p style="margin:0;color:rgba(245,245,243,0.6)">Like Helmy? A star on GitHub helps more people find it.</p>
+        <a href="https://github.com/mittolabs/helmy" style="display:inline-flex;align-items:center;gap:7px;padding:11px 18px;border:1px solid rgba(255,255,255,0.15);border-radius:999px;color:#f5f5f3;font-size:15px;font-weight:500;text-decoration:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg><span>Star on GitHub</span></a>
+      </div>
+    </div>
+    <div style="flex:0.9 1 360px">
+      <div style="position:relative;display:grid;place-items:center;padding:24px">
+        <div style="position:absolute;width:70%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle, rgba(242,163,107,0.18), transparent 70%)"></div>
+        <img src="img/onboarding-folders.png" alt="Helmy with folders" style="position:relative;width:clamp(220px,26vw,320px);height:auto;display:block">
+      </div>
+    </div>
+  </section>
+
+  <section id="get" style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px);display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding-top:48px;padding-bottom:96px">
+    <img src="img/onboarding-done.png" alt="Helmy, ready" style="width:180px;height:auto;display:block">
+    <h2 style="font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:1.02;margin:0;font-size:clamp(32px,4.4vw,56px)">Get Helmy.</h2>
+    <p style="margin:0;font-size:clamp(16px,1.35vw,19px);line-height:1.62;color:rgba(245,245,243,0.6);max-width:620px">Free and open source. On first run it connects to Claude Code, Codex, Cursor, Grok, Antigravity, OpenCode or Ollama. Have none? It installs OpenCode for you.</p>
+    <a href="download.html" style="display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:600;font-size:15px;line-height:1;text-decoration:none;background:#f2a36b;color:#1a1008">Download</a>
+  </section>
+</main>
+<footer style="padding:56px 0 40px;border-top:1px solid rgba(255,255,255,0.08);margin-top:24px">
+  <div style="max-width:1200px;margin:0 auto;padding-left:clamp(20px,5vw,64px);padding-right:clamp(20px,5vw,64px)">
+    <div style="display:flex;flex-wrap:wrap;gap:32px 40px;align-items:flex-start">
+      <div style="flex:1.6 1 260px;display:flex;align-items:center;gap:12px">
+        <img src="img/icon.png" alt="" width="40" height="40" style="border-radius:10px;display:block">
+        <div>
+          <p style="margin:0;font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.02em">Helmy</p>
+          <p style="margin:0;font-size:14px;color:rgba(245,245,243,0.6)">Dream it, do it.</p>
+        </div>
+      </div>
+      <div style="flex:1 1 140px;display:flex;flex-direction:column;gap:10px;font-size:14.5px">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:0.04em;color:#f5f5f3">Product</p>
+      <a href="index.html#how" style="color:rgba(245,245,243,0.6);text-decoration:none">How it works</a>
+      <a href="download.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Download</a>
+      <a href="changelog.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Changelog</a>
+      <a href="https://helmy.ke/docs/" style="color:rgba(245,245,243,0.6);text-decoration:none">Docs</a>
+    </div>
+      <div style="flex:1 1 140px;display:flex;flex-direction:column;gap:10px;font-size:14.5px">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:0.04em;color:#f5f5f3">Open source</p>
+      <a href="https://github.com/mittolabs/helmy" style="color:rgba(245,245,243,0.6);text-decoration:none">GitHub</a>
+      <a href="https://github.com/mittolabs/helmy/blob/main/CONTRIBUTING.md" style="color:rgba(245,245,243,0.6);text-decoration:none">Contributing</a>
+      <a href="https://github.com/mittolabs/helmy/issues/new/choose" style="color:rgba(245,245,243,0.6);text-decoration:none">Report a bug</a>
+      <a href="https://github.com/mittolabs/helmy/blob/main/SECURITY.md" style="color:rgba(245,245,243,0.6);text-decoration:none">Security</a>
+    </div>
+      <div style="flex:1 1 140px;display:flex;flex-direction:column;gap:10px;font-size:14.5px">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:0.04em;color:#f5f5f3">Legal</p>
+      <a href="privacy.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Privacy</a>
+      <a href="terms.html" style="color:rgba(245,245,243,0.6);text-decoration:none">Terms</a>
+      <a href="https://github.com/mittolabs/helmy/blob/main/LICENSE" style="color:rgba(245,245,243,0.6);text-decoration:none">License (BSD)</a>
+    </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 24px;margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08);color:rgba(245,245,243,0.45);font-size:13.5px">
+      <p style="margin:0">© 2026 Mittolabs. Helmy is free and open source.</p>
+      <p style="margin:0;display:flex;align-items:center;gap:7px"><img src="img/mittolabs-white.png" alt="" style="width:16px;height:auto;opacity:0.8;display:block">Powered by <b style="color:rgba(245,245,243,0.6);font-weight:600">Mittolabs</b></p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

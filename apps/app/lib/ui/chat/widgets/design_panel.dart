@@ -3,11 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../data/services/design_server.dart';
+import '../../../domain/design_export/export.dart';
+import '../../../utils/format.dart';
+import '../../core/ashlar/toast.dart';
 import '../../../utils/platform.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/dropdown_menu.dart';
@@ -267,6 +271,33 @@ class _DesignPanelState extends State<DesignPanel> {
   }
 
   /// A copy of [file] (a screen) in Downloads, shown in the Finder.
+  /// Writes the design out as [target], into a folder of its own inside one
+  /// the person picks, and shows it.
+  Future<void> _export(ExportTarget target) async {
+    final design = _folder;
+    if (design == null) return;
+    final into = await getDirectoryPath(confirmButtonText: 'Export here');
+    if (into == null || !mounted) return;
+    final name = _title.isEmpty ? 'Design' : _title.replaceAll(RegExp(r'[/:\\]'), '-');
+    var to = Directory('$into/$name (${target.label})');
+    for (var n = 2; to.existsSync(); n++) {
+      to = Directory('$into/$name (${target.label}) $n');
+    }
+    try {
+      final files = await exportDesign(design, to.path, target);
+      if (!mounted) return;
+      showToast(
+        context,
+        title: 'Exported as ${target.label}',
+        description: '${files.length} files in ${tildePath(to.path)}',
+      );
+      await widget.vm.reveal(to.path);
+    } on Object catch (e) {
+      if (!mounted) return;
+      showToast(context, title: "Couldn't export it", description: '$e', type: .error);
+    }
+  }
+
   Future<void> _saveCopy(String file) async {
     final folder = _folder;
     final from = folder == null ? null : DesignServer.fileIn(folder, file);
@@ -411,6 +442,26 @@ class _DesignPanelState extends State<DesignPanel> {
               tool(AshlarIconsRoundedStroke.folderOpen, 'Show the files', () {
                 if (_folder case final f?) unawaited(widget.vm.reveal(f));
               }),
+              DropdownMenu(
+                align: .end,
+                items: [
+                  for (final target in ExportTarget.values)
+                    MenuItem(
+                      onPressed: _screens.isEmpty ? null : () => unawaited(_export(target)),
+                      child: Text('${target.label}: ${target.description}'),
+                    ),
+                ],
+                builder: (context, menu) => Tooltip(
+                  message: 'Export as code',
+                  child: Button(
+                    variant: .ghost,
+                    size: button,
+                    semanticLabel: 'Export as code',
+                    onPressed: menu.open,
+                    child: AshlarIcon(AshlarIconsRoundedStroke.download, size: glyph),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

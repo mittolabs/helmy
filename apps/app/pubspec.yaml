@@ -58,6 +58,7 @@ dependencies:
   qr: ^4.0.1
   mobile_scanner: ^7.5.0
   flutter_svg: ^2.3.2
+  html: ^0.15.7
 dev_dependencies:
   integration_test:
     sdk: flutter
