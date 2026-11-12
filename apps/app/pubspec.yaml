@@ -59,6 +59,7 @@ dependencies:
   mobile_scanner: ^7.5.0
   flutter_svg: ^2.3.2
   html: ^0.15.7
+  dart_style: ^3.1.14
 dev_dependencies:
   integration_test:
     sdk: flutter

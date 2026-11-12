@@ -259,6 +259,9 @@ String? _checkProperty(String prop, String value) {
       (m) => List.filled(int.parse(m[1]!), m[2]!.trim()).join(' '),
     );
     if (RegExp(r'^((\d*\.?\d+(px|fr))\s*)+$').hasMatch(tracks.trim())) return null;
+    // As many equal columns as fit at a least width: worked out exactly.
+    final fit = RegExp(r'^repeat\((auto-fill|auto-fit),minmax\((min\(100%,)?[\d.]+px\)?,1fr\)\)$');
+    if (fit.hasMatch(v.replaceAll(' ', ''))) return null;
     return 'Only fixed columns convert (repeat(3, 1fr), 240px 1fr); auto-fit and minmax do not: '
         'use flex-wrap.';
   }

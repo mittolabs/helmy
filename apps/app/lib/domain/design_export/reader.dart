@@ -35,9 +35,7 @@ Future<({String title, List<DScreen> screens})> readDesign(String folder) async 
 DScreen readScreen(String file, String source, {required String title}) {
   final doc = html.parse(source);
   final css = [for (final s in doc.querySelectorAll('style')) s.text.trim()].join('\n\n');
-  final links = [
-    for (final l in doc.querySelectorAll('link[rel="stylesheet"]')) l.outerHtml,
-  ];
+  final links = [for (final l in doc.querySelectorAll('link[rel="stylesheet"]')) l.outerHtml];
   final body = _node(doc.body!, preformatted: false)!;
   _link(body, null);
   return DScreen(
@@ -91,7 +89,10 @@ DNode? _node(dom.Node n, {required bool preformatted}) {
         if (e.key != 'style' && e.key != 'class') '${e.key}': e.value,
     },
     style: style,
-    classes: (n.attributes['class'] ?? '').split(RegExp(r'\s+')).where((c) => c.isNotEmpty).toList(),
+    classes: (n.attributes['class'] ?? '')
+        .split(RegExp(r'\s+'))
+        .where((c) => c.isNotEmpty)
+        .toList(),
     children: children,
   );
 }
