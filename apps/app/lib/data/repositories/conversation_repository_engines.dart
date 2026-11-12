@@ -64,6 +64,10 @@ class _Turn {
   /// The last failure on the way, and where: when no connection is left to
   /// try, this is the cause the user is told, not a vague "try later".
   String? lastError;
+
+  /// Another connection took over because one reached its usage limit:
+  /// said once the answer is in, so a change in voice has its reason.
+  bool limitSwitched = false;
   String? lastEngine;
 }
 
@@ -649,6 +653,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
           turn
             ..lastError = error
             ..lastEngine = engineId;
+          if (isUsageLimit(error)) turn.limitSwitched = true;
         }
         c.items.removeRange(turn.start, c.items.length);
         if (askedForTools) {
@@ -685,6 +690,17 @@ class ConversationRepositoryEngines extends ConversationRepository {
       if (p.decision == .pending) p.decision = .cancelled;
     }
     final session = _sessions.byId(sessionId);
+    if (turn != null && turn.limitSwitched) {
+      // Before the turn's summary, so the turn still reads as done.
+      final end = c.items.lastIndexWhere((i) => i is TurnSummary);
+      c.items.insert(
+        end < turn.start ? c.items.length : end,
+        Notice(
+          'One of my connections reached its usage limit, so another answered this. '
+          'Nothing for you to do.',
+        ),
+      );
+    }
     final moveTo = turn == null ? null : _takeFolderMove(c, turn.start, session?.cwd);
     if (session != null) {
       final thread = EngineThread(resumeId: run.status.resumeId, seen: c.items.length);
