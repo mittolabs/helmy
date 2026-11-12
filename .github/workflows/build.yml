@@ -44,7 +44,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macos-universal
+          # Built once for both, packaged as one .dmg each for Apple silicon and Intel.
+          - name: macos
             os: macos-latest
             platform: macos
           - name: windows-x64
@@ -132,14 +133,27 @@ jobs:
           archs=$(lipo -archs "$app/Contents/MacOS/Helmy")
           echo "architectures: $archs"
           [[ $archs == *arm64* && $archs == *x86_64* ]]
-          ditto -c -k --keepParent "$app" "Helmy-$TAG-${{ matrix.name }}.zip"
+          # One .dmg for Apple silicon, one for Intel, as people download them.
+          macos/packaging/package.sh "$TAG"
+      # An installer (.exe), made by Inno Setup; installed first where the runner lacks it.
       - name: Package (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Compress-Archive -Path build/windows/${{ matrix.arch }}/runner/Release/* -DestinationPath "Helmy-$env:TAG-${{ matrix.name }}.zip"
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Invoke-WebRequest https://jrsoftware.org/download.php/is.exe -OutFile "$env:RUNNER_TEMP\is.exe"
+            Start-Process -Wait "$env:RUNNER_TEMP\is.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-"
+          }
+          $version = if ($env:TAG -eq "dev") { "0.0.0" } else { $env:TAG.TrimStart("v") }
+          $source = (Resolve-Path "build/windows/${{ matrix.arch }}/runner/Release").Path
+          & $iscc "/DAppVersion=$version" "/DArch=${{ matrix.arch }}" "/DSourceDir=$source" "/DOutputName=Helmy-$env:TAG-${{ matrix.name }}" windows/installer/helmy.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Move-Item "windows/installer/Helmy-$env:TAG-${{ matrix.name }}.exe" .
       - name: Package (Linux)
         if: matrix.platform == 'linux'
-        run: tar -czf "Helmy-$TAG-${{ matrix.name }}.tar.gz" -C build/linux/${{ matrix.arch }}/release bundle
+        # A .deb, and an AppImage for every other distribution.
+        run: linux/packaging/package.sh "$TAG" ${{ matrix.arch }}
       - name: Package (Android)
         if: matrix.platform == 'apk'
         run: cp build/app/outputs/flutter-apk/app-release.apk "Helmy-$TAG-android.apk"

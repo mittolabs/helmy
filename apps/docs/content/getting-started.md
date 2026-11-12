@@ -14,10 +14,10 @@ Helmy runs on macOS, Windows and Linux. You don't need an AI account to start: H
 ## Step 1: Install Helmy
 
 1. Download the build for your system from [helmy.ke/download](https://helmy.ke/download).
-2. Unzip it.
-   - **macOS:** drag **Helmy** into **Applications**.
-   - **Windows:** open **helmy.exe** in the unzipped folder.
-   - **Linux:** extract the archive and run **helmy** in its **bundle** folder.
+2. Install it:
+   - **macOS:** open the `.dmg` and drag **Helmy** onto **Applications**. There is one build for Apple silicon and one for Intel.
+   - **Windows:** run the installer. It installs Helmy for you alone, with no administrator needed, and opens it.
+   - **Linux:** install the `.deb` with `sudo apt install ./Helmy-<version>-linux-x64.deb`, or make the AppImage executable (`chmod +x`) and open it.
 
 <Info>
 The macOS build isn't signed yet, so macOS blocks it the first time. Go to **System Settings > Privacy & Security** and click **Open Anyway**. You only need to do this once.
