@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/activity_words.dart';
+import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/permission_rule.dart';
 
 void main() {
@@ -71,5 +72,26 @@ void main() {
     );
     expect(PermissionRule.plainCommand("/bin/zsh -lc 'git status'"), "git status");
     expect(PermissionRule.plainCommand("git status"), "git status");
+  });
+
+  test("a step turned down says what it didn't do", () {
+    expect(
+      declinedLabel("Removed menu-draft-spring.md and menu-draft-summer.md"),
+      "Didn't remove menu-draft-spring.md and menu-draft-summer.md",
+    );
+    expect(declinedLabel("Committed the changes"), "Didn't commit the changes");
+    expect(declinedLabel("Opened Gmail"), "Didn't open Gmail");
+    expect(declinedLabel("Shared a link"), "Didn't go ahead: shared a link");
+    final call = ToolCall(id: "1", name: "Shell", input: const {})
+      ..isError = true
+      ..result = "declined";
+    expect(call.declined, isTrue);
+    expect(
+      (ToolCall(id: "2", name: "Shell", input: const {})
+            ..isError = true
+            ..result = "exit 1")
+          .declined,
+      isFalse,
+    );
   });
 }

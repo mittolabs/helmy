@@ -25,7 +25,7 @@ class _HelperSteps extends StatelessWidget {
                 stepTitle(s, done: s.done),
                 if (s.summary.isNotEmpty && s.input['command'] == null && s.activityLabel == null)
                   s.summary,
-                if (s.isError) 'failed',
+                if (s.isError && !s.declined) 'failed',
               ].join('  ·  '),
               maxLines: 1,
               overflow: .ellipsis,
@@ -78,7 +78,8 @@ class _StepGroup extends StatelessWidget {
     final c = t.colors;
     final calls = [for (final s in steps) s.$2];
     final running = vm.busy && calls.any((c) => !c.done);
-    final failed = calls.where((c) => c.isError).length;
+    // A step turned down says so in its own words; it has not failed.
+    final failed = calls.where((c) => c.isError && !c.declined).length;
     final muted = t.text.sm.copyWith(color: c.mutedForeground);
     final title = stepsSummary(calls);
     return Collapsible(
@@ -128,6 +129,12 @@ class _StepGroup extends StatelessWidget {
 /// What a step did, in words, whichever engine took it: "Ran a command",
 /// "Edited notes.md". [done] picks the tense.
 String stepTitle(ToolCall call, {required bool done}) {
+  // Turned down: what it would have done, not done.
+  if (call.declined) return declinedLabel(_title(call, done: true));
+  return _title(call, done: done);
+}
+
+String _title(ToolCall call, {required bool done}) {
   if (done && (call.activityLabel ?? '').isNotEmpty) return call.activityLabel!;
   final description = call.input['description'];
   if (call.input['command'] is String &&
@@ -225,9 +232,9 @@ class _Step extends StatelessWidget {
                       ),
               ),
               Text(
-                denied
+                denied && !call.declined
                     ? '$title, stopped'
-                    : failed
+                    : failed && !call.declined
                     ? '$title, failed'
                     : title,
                 style: muted.copyWith(
