@@ -137,9 +137,12 @@ String stepTitle(ToolCall call, {required bool done}) {
 String _title(ToolCall call, {required bool done}) {
   if (done && (call.activityLabel ?? '').isNotEmpty) return call.activityLabel!;
   final description = call.input['description'];
+  // A description that is only the command again says nothing a person reads: the
+  // step's own words instead.
   if (call.input['command'] is String &&
       description is String &&
       description.trim().isNotEmpty &&
+      description.trim() != (call.input['command']! as String).trim() &&
       description.length <= 140 &&
       !description.contains('\n')) {
     return description.trim();
