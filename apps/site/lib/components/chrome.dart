@@ -1,6 +1,8 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
+import '../analytics.dart';
+
 /// The bar at the top: Helmy, its pages, and the way to get it.
 class Nav extends StatelessComponent {
   const Nav({super.key});
@@ -18,7 +20,12 @@ class Nav extends StatelessComponent {
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),
-      a(classes: 'btn btn-light btn-sm', href: '/download', [Component.text('Get Helmy')]),
+      a(
+        classes: 'btn btn-light btn-sm',
+        href: '/download',
+        attributes: track('get-helmy', {'from': 'nav'}),
+        [Component.text('Get Helmy')],
+      ),
     ]),
   ]);
 }
@@ -44,7 +51,8 @@ class Footer extends StatelessComponent {
         a(href: '/#open', [Component.text('Open source')]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
-        a(href: '/download', [Component.text('Download')]),
+        a(href: '/download', attributes: track('get-helmy', {'from': 'footer'}), [Component.text('Download')]),
+        a(href: '/privacy', [Component.text('Privacy')]),
       ]),
       p(classes: 'muted small', [Component.text('© 2026 Mittolabs')]),
     ]),

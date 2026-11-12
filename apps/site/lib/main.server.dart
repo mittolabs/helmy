@@ -4,6 +4,7 @@ library;
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/server.dart';
 
+import 'analytics.dart';
 import 'app.dart';
 import 'main.server.options.dart';
 
@@ -33,6 +34,20 @@ void main() {
         ),
         link(rel: 'stylesheet', href: '/styles.css'),
         script(src: '/reveal.js', defer: true),
+        // Analytics, run by us (stats.ashlar.ke), first-party under /u/ (analytics.dart).
+        // Release builds only: in development there is no tracker to load.
+        if (kReleaseMode) ...[
+          script(
+            src: '/u/script.js',
+            defer: true,
+            attributes: {
+              'data-website-id': umamiWebsiteId,
+              'data-domains': 'helmy.ke',
+              'data-do-not-track': 'true',
+            },
+          ),
+          script(src: '/track.js', defer: true),
+        ],
       ],
       body: const App(),
     ),
