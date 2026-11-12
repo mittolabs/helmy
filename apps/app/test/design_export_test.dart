@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/design_export/export.dart';
+import 'package:helmy/domain/design_export/flutter_css.dart';
+import 'package:helmy/domain/design_export/image_size.dart';
 import 'package:helmy/domain/design_export/planner.dart';
 import 'package:helmy/domain/design_export/react_writer.dart';
 import 'package:helmy/domain/design_export/subset.dart';
@@ -20,7 +22,10 @@ void main() {
   test('a design is cut where it already is, the same way every time', () async {
     final d = await readDesign('test/fixtures/design');
     final plan = planDesign(title: d.title, screens: d.screens);
-    final again = planDesign(title: d.title, screens: (await readDesign('test/fixtures/design')).screens);
+    final again = planDesign(
+      title: d.title,
+      screens: (await readDesign('test/fixtures/design')).screens,
+    );
 
     expect(plan.screens.map((s) => s.title), ['Home', 'Download']);
     final download = plan.parts[plan.screens[1]]!.map((p) => p.name).toList();
@@ -48,7 +53,14 @@ void main() {
     final d = await readDesign('test/fixtures/design');
     final out = writeReact(planDesign(title: d.title, screens: d.screens));
     final files = out.files;
-    expect(files.keys, containsAll(['src/screens/Download/Download.tsx', 'src/components/SiteFooter.tsx', 'src/theme.css']));
+    expect(
+      files.keys,
+      containsAll([
+        'src/screens/Download/Download.tsx',
+        'src/components/SiteFooter.tsx',
+        'src/theme.css',
+      ]),
+    );
     for (final e in files.entries.where((e) => e.key.endsWith('.tsx'))) {
       expect('\n'.allMatches(e.value).length, lessThan(220), reason: '${e.key} runs long');
     }
@@ -71,9 +83,19 @@ void main() {
     final web = await exportDesign('test/fixtures/design', '${out.path}/web', ExportTarget.web);
     expect(web, containsAll(['download.html', 'index.html', 'img/icon.png']));
     expect(web, isNot(contains('canvas.json')), reason: "the canvas's index is not the site");
-    final react = await exportDesign('test/fixtures/design', '${out.path}/react', ExportTarget.react);
-    expect(react, containsAll(['package.json', 'index.html', 'src/main.tsx', 'public/img/icon.png']));
-    expect(File('${out.path}/react/src/screens/Download/Download.tsx').readAsStringSync(), contains('↗'));
+    final react = await exportDesign(
+      'test/fixtures/design',
+      '${out.path}/react',
+      ExportTarget.react,
+    );
+    expect(
+      react,
+      containsAll(['package.json', 'index.html', 'src/main.tsx', 'public/img/icon.png']),
+    );
+    expect(
+      File('${out.path}/react/src/screens/Download/Download.tsx').readAsStringSync(),
+      contains('↗'),
+    );
   });
 
   test('what will not convert to app code is found, each with where and why', () async {
@@ -86,19 +108,72 @@ void main() {
     expect(issues.first.selector, startsWith('body > '));
 
     List<SubsetIssue> check(String body, {String css = ''}) => checkSubset(
-      readScreen('a.html', '<html><head><style>$css</style></head><body>$body</body></html>', title: 'A'),
+      readScreen(
+        'a.html',
+        '<html><head><style>$css</style></head><body>$body</body></html>',
+        title: 'A',
+      ),
     );
     // Centering with a grid of one cell, and fixed columns, convert.
     expect(check('<div style="display:grid;place-items:center"><b>x</b></div>'), isEmpty);
-    expect(check('<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px"></div>'), isEmpty);
+    expect(
+      check('<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px"></div>'),
+      isEmpty,
+    );
     expect(check('<div style="float:left;transform:skew(10deg)"></div>').map((i) => i.what), [
       'float: left',
       'transform: skew(10deg)',
     ]);
     // A style block may only switch classes by width.
-    expect(check('', css: '@media (max-width: 720px) { .hide-sm { display: none !important; } }'), isEmpty);
+    expect(
+      check('', css: '@media (max-width: 720px) { .hide-sm { display: none !important; } }'),
+      isEmpty,
+    );
     expect(check('', css: 'p { color: red; }').single.selector, 'style');
     // Agents are told the same, when they design.
     expect(helmyIdentity, contains(subsetForAgents));
   });
+
+  test('a picture is as large as its file says, read from its header', () {
+    List<int> file(String name) => File('test/fixtures/design/img/$name').readAsBytesSync();
+    expect(imageSize(file('design.jpg')), (160.0, 107.0));
+    expect(imageSize(file('hello.png')), isNotNull);
+    expect(imageSize(file('claude.svg')), isNotNull);
+    expect(imageSize(const [1, 2, 3]), isNull);
+  });
+
+  test('a percentage is a share of what it is said to be of', () {
+    expect(length('80%'), isNull);
+    expect(length('80%', percentOf: 'b')?.code, 'b * 0.8');
+    expect(length('min(300px,80%)', percentOf: 'b')?.code, 'math.min(300.0, b * 0.8)');
+    expect(hasPercent('min(300px,80%)'), isTrue);
+    expect(hasPercent('clamp(20px,5vw,64px)'), isFalse);
+  });
+
+  test(
+    'Flutter: shares of the line, pictures in proportion, margins that follow the screen',
+    () async {
+      final out = Directory.systemTemp.createTempSync('flutter_export');
+      addTearDown(() => out.deleteSync(recursive: true));
+      await exportDesign(
+        'test/fixtures/design',
+        out.path,
+        ExportTarget.flutterPlain,
+        fetch: (_) async => null,
+      );
+      String read(String p) => File('${out.path}/$p').readAsStringSync();
+      final all = [
+        for (final f in Directory('${out.path}/lib').listSync(recursive: true))
+          if (f is File) f.readAsStringSync(),
+      ].join('\n');
+      // width:100% on a picture, min(300px, 80%) on the phone's frame (its
+      // 10px borders added, as its width is its content's).
+      expect(all, contains('width: (b) => b * 1.0'));
+      expect(all, contains('width: (b) => math.min(300.0, b * 0.8) + 20.0'));
+      // Each picture's own size, so it is laid out before it has loaded.
+      expect(read('lib/ui/core/design.dart'), contains('"assets/img/design.jpg": (160.0, 107.0)'));
+      // margin-top: clamp(32px, 4vw, 48px).
+      expect(all, contains('SizedBox(height: (vw(context, 4.0)).clamp(32.0, 48.0))'));
+    },
+  );
 }

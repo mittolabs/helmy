@@ -22,8 +22,11 @@ enum FlutterFlavor { ashlar, plain }
   bool measure = false,
   String package = 'design_app',
   List<({String family, int weight, bool italic, String asset})> fonts = const [],
+  (double, double)? Function(String asset)? imageSize,
 }) {
-  final w = _FlutterWriter(plan, flavor, measure, package)..fontFiles = fonts;
+  final w = _FlutterWriter(plan, flavor, measure, package)
+    ..fontFiles = fonts
+    ..imageSize = imageSize;
   final files = w.files();
   // Formatted as Dart formats itself: code that reads as written by hand.
   final formatter = DartFormatter(
@@ -132,6 +135,9 @@ class _FlutterWriter {
   final screenNames = <DScreen, String>{};
   final assets = <String>{};
   final fonts = <String>{};
+
+  /// An asset's own size in px, from its file, where the export can read it.
+  (double, double)? Function(String asset)? imageSize;
 
   /// The typeface files bundled, for pubspec.yaml.
   List<({String family, int weight, bool italic, String asset})> fontFiles = const [];
@@ -488,6 +494,19 @@ class _FlutterWriter {
     'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'summary', 'table', 'ul',
   };
 
+  /// Whether [n] is as wide as its line, as a block in flow is, or an item
+  /// a flex column stretches.
+  bool _fillsLine(DNode n) {
+    if (!_isBlock(n)) return false;
+    final p = n.parent;
+    if (p == null) return true;
+    final d = _display(p);
+    if (!d.contains('flex') && !d.contains('grid')) return true;
+    final column = (p.style['flex-direction'] ?? 'row').startsWith('column');
+    final align = n.style['align-self'] ?? p.style['align-items'] ?? 'stretch';
+    return d.contains('flex') && column && (align == 'stretch' || align == 'normal');
+  }
+
   bool _isBlock(DNode n) {
     if (n.isText) return false;
     final pos = n.style['position'];
@@ -520,15 +539,16 @@ class _FlutterWriter {
   /// text, the vertical margins between blocks collapsed as CSS does.
   List<String> _flow(DNode n, _Ctx ctx, _Text text) {
     final out = <String>[];
-    double? lastBottom;
+    DLen? lastBottom;
     final run = <DNode>[];
     void flushRun() {
       if (run.isEmpty) return;
       final rich = _inline(run, ctx, text, n);
       run.clear();
       if (rich == null) return;
-      if (lastBottom != null && lastBottom! > 0) out.add('SizedBox(height: ${num(lastBottom!)})');
-      lastBottom = 0;
+      if (lastBottom != null && _positive(lastBottom!))
+        out.add('SizedBox(height: ${lastBottom!.code})');
+      lastBottom = DLen.px(0);
       out.add(rich);
     }
 
@@ -541,45 +561,66 @@ class _FlutterWriter {
         final gap = lastBottom == null ? m.$1 : _collapse(lastBottom!, m.$1);
         final w = _element(c, ctx, text);
         if (w == null) continue;
-        if (gap > 0) out.add('SizedBox(height: ${num(gap)})');
+        if (_positive(gap)) out.add('SizedBox(height: ${gap.code})');
         // A negative margin pulls it up over what is before it.
-        out.add(_mediaWrap(c, gap < 0 ? 'Margin(top: ${num(gap)}, child: $w)' : w, ctx));
+        final pull = gap.value != null && gap.value! < 0;
+        out.add(_mediaWrap(c, pull ? 'Margin(top: ${gap.code}, child: $w)' : w, ctx));
         lastBottom = m.$2;
       } else {
         run.add(c);
       }
     }
     flushRun();
-    if (lastBottom != null && lastBottom! > 0) out.add('SizedBox(height: ${num(lastBottom!)})');
+    if (lastBottom != null && _positive(lastBottom!))
+      out.add('SizedBox(height: ${lastBottom!.code})');
     return out;
   }
 
-  double _collapse(double a, double b) {
-    if (a >= 0 && b >= 0) return a > b ? a : b;
-    if (a < 0 && b < 0) return a < b ? a : b;
-    return a + b;
+  /// Whether [l] takes room: a px value above 0, or one that follows the
+  /// screen (never below 0 in the subset: a clamp of positive lengths).
+  bool _positive(DLen l) => l.value == null ? !l.code.startsWith('-') : l.value! > 0;
+
+  /// Two margins that meet, as one: the larger, or for negatives their
+  /// sum, as CSS collapses them. One that follows the screen is taken as
+  /// positive.
+  DLen _collapse(DLen a, DLen b) {
+    if (a.value != null && b.value != null) {
+      final x = a.value!, y = b.value!;
+      if (x >= 0 && y >= 0) return DLen.px(x > y ? x : y);
+      if (x < 0 && y < 0) return DLen.px(x < y ? x : y);
+      return DLen.px(x + y);
+    }
+    if (a.isZero) return b;
+    if (b.isZero) return a;
+    return DLen('math.max(${a.code}, ${b.code})', dynamic: true);
   }
 
   bool _hidden(DNode n) => _display(n) == 'none';
 
-  /// Top and bottom margins in px (auto as 0), from the style or the tag's
-  /// own (a heading's, a paragraph's).
-  (double, double) _verticalMargins(DNode n, _Text own) {
+  /// Top and bottom margins (auto as 0), from the style or the tag's own (a
+  /// heading's, a paragraph's): px, or code that follows the screen.
+  (DLen, DLen) _verticalMargins(DNode n, _Text own) {
     final s = n.style;
-    double? top, bottom;
+    final zero = DLen.px(0);
+    DLen? top, bottom;
     if (s['margin'] case final m?) {
       final v = sides(m);
-      top = length(v[0], fontSize: own.size)?.value;
-      bottom = length(v[2], fontSize: own.size)?.value;
-      top ??= 0;
-      bottom ??= 0;
+      top = length(v[0], fontSize: own.size) ?? zero;
+      bottom = length(v[2], fontSize: own.size) ?? zero;
     } else if (_tagMargins[n.tag] case final em?) {
-      top = em * own.size;
-      bottom = em * own.size;
+      top = DLen.px(em * own.size);
+      bottom = DLen.px(em * own.size);
     }
-    if (s['margin-top'] case final t?) top = length(t, fontSize: own.size)?.value ?? 0;
-    if (s['margin-bottom'] case final b?) bottom = length(b, fontSize: own.size)?.value ?? 0;
-    return (top ?? 0, bottom ?? 0);
+    if (s['margin-top'] case final t?) top = length(t, fontSize: own.size) ?? zero;
+    if (s['margin-bottom'] case final b?) bottom = length(b, fontSize: own.size) ?? zero;
+    return (top ?? zero, bottom ?? zero);
+  }
+
+  /// [w] with its top and bottom margins as padding, kept as they are.
+  String _keepMargins((DLen, DLen) m, String w) {
+    if (m.$1.isZero && m.$2.isZero) return w;
+    final sides = [if (!m.$1.isZero) 'top: ${m.$1.code}', if (!m.$2.isZero) 'bottom: ${m.$2.code}'];
+    return 'Padding(padding: EdgeInsets.only(${sides.join(', ')}), child: $w)';
   }
 
   static const _tagMargins = {
@@ -589,15 +630,43 @@ class _FlutterWriter {
 
   /// A run of text and inline elements as one Text.rich, its spaces
   /// collapsed as the page collapses them; null when it is only space.
+  /// The last text in [run] that has more than space in it, when nothing
+  /// drawn (a badge, an image, a break) comes after it; null otherwise.
+  DNode? _lastText(List<DNode> run) {
+    DNode? last;
+    void walk(DNode n) {
+      if (n.isText) {
+        if (n.text!.trim().isNotEmpty) last = n;
+        return;
+      }
+      if (_hidden(n) || _absolute(n)) return;
+      if (_isAtom(n) || n.tag == 'br') {
+        last = null;
+        return;
+      }
+      for (final c in n.children) {
+        walk(c);
+      }
+    }
+
+    for (final n in run) {
+      walk(n);
+    }
+    return last;
+  }
+
   String? _inline(List<DNode> run, _Ctx ctx, _Text text, DNode container) {
     final spans = <String>[];
     var lastSpace = true; // a line starts without leading space
+    final end = _lastText(run);
     void walk(DNode n, _Text t, String? href) {
       if (n.isText) {
         var s = n.text!;
         if (!t.nowrap || true) {
           s = s.replaceAll(RegExp(r'\s+'), ' ');
           if (lastSpace && s.startsWith(' ')) s = s.substring(1);
+          // Nor is space at the end of the last line drawn.
+          if (identical(n, end)) s = s.trimRight();
         }
         if (s.isEmpty) return;
         lastSpace = s.endsWith(' ');
@@ -774,7 +843,14 @@ class _FlutterWriter {
       'scale-down' => 'BoxFit.scaleDown',
       _ => 'BoxFit.cover',
     };
-    final size = [if (w != null) 'width: ${num(w)}', if (h != null) 'height: ${num(h)}'].join(', ');
+    // No size anywhere: as large as the file is, as the page draws it.
+    bool unset(String? v) => v == null || v.trim() == 'auto';
+    final natural = w == null && h == null && unset(n.style['width']) && unset(n.style['height']);
+    final size = [
+      if (w != null) 'width: ${num(w)}',
+      if (h != null) 'height: ${num(h)}',
+      if (natural) 'natural: true',
+    ].join(', ');
     final extra = size.isEmpty ? '' : ', $size';
     if (param != null) return 'designImage(${param.name}, fit: $fit$extra)';
     if (!src.contains(':') && src.isNotEmpty) assets.add(src.replaceFirst(RegExp(r'^\./'), ''));
@@ -806,7 +882,8 @@ class _FlutterWriter {
 
   String _raw(String s) => s.contains("'''") ? jsonEncode(s) : "r'''$s'''";
 
-  String _positioned(DNode l, String w, _Text text) {
+  String _positioned(DNode l, String child, _Text text) {
+    var w = child;
     final s = l.style;
     final v = <String, String>{};
     if (s['inset'] case final i?) {
@@ -826,7 +903,59 @@ class _FlutterWriter {
         }
       }
     }
+    // No insets on an axis: where it would be in flow. In a flex or grid
+    // box that is where the box aligns its items (place-items: center).
+    final (ax, ay) = _staticAlign(l);
+    final x = !v.containsKey('left') && !v.containsKey('right') ? ax : null;
+    final y = !v.containsKey('top') && !v.containsKey('bottom') ? ay : null;
+    if ((x ?? -1) != -1 || (y ?? -1) != -1) {
+      // Its own box sizes it then (its width, a share of the box's).
+      if (x != null) {
+        v
+          ..remove('width')
+          ..['left'] = '0'
+          ..['right'] = '0';
+      }
+      if (y != null) {
+        v
+          ..remove('height')
+          ..['top'] = '0'
+          ..['bottom'] = '0';
+      }
+      // Aligned both ways it may be larger than the box and still centered,
+      // as the page draws it: past the box, not squeezed into it.
+      w = x != null && y != null
+          ? 'OverflowBox(alignment: Alignment($x, $y), minWidth: 0, minHeight: 0, maxHeight: double.infinity, child: $w)'
+          : 'Align(alignment: Alignment(${x ?? -1}, ${y ?? -1}), child: $w)';
+    }
     return 'Positioned(${[for (final e in v.entries) '${e.key}: ${e.value}'].join(', ')}${v.isEmpty ? '' : ', '}child: $w)';
+  }
+
+  /// Where a flex or grid box would put [l] without insets, across and down:
+  /// -1 at the start, 0 centered, 1 at the end.
+  (int, int) _staticAlign(DNode l) {
+    final p = l.parent;
+    if (p == null) return (-1, -1);
+    final d = _display(p);
+    final ps = p.style;
+    int at(String? v) => switch (v?.trim()) {
+      'center' => 0,
+      'end' || 'flex-end' || 'right' || 'bottom' => 1,
+      _ => -1,
+    };
+    if (d.contains('grid')) {
+      final place = ps['place-items'] == null ? null : splitTop(ps['place-items']!, ' ');
+      final down = l.style['align-self'] ?? ps['align-items'] ?? place?.first;
+      final across = l.style['justify-self'] ?? ps['justify-items'] ?? place?.last;
+      return (at(across), at(down));
+    }
+    if (d.contains('flex')) {
+      final column = (ps['flex-direction'] ?? 'row').startsWith('column');
+      final main = at(ps['justify-content']),
+          cross = at(l.style['align-self'] ?? ps['align-items']);
+      return column ? (cross, main) : (main, cross);
+    }
+    return (-1, -1);
   }
 
   /// [child] boxed as [n]'s style says: padding, background, border,
@@ -886,6 +1015,11 @@ class _FlutterWriter {
     String w = child ?? 'SizedBox.shrink()';
     final boxSizing = s['box-sizing'] == 'border-box';
     final size = _constraints(n, fs, ctx);
+    // A block with a max-width and no width fills its line up to it: Flutter
+    // would let it shrink to its content once it is aligned.
+    if (size != null && size.contains('maxWidth') && s['width'] == null && _fillsLine(n)) {
+      w = 'SizedBox(width: double.infinity, child: $w)';
+    }
     // Layers sit against the padding's outer edge, as CSS places them: the
     // padding goes inside the stack, under them.
     if (layers.isNotEmpty) {
@@ -908,16 +1042,20 @@ class _FlutterWriter {
     if (size != null && (boxSizing || container.isEmpty))
       w = 'ConstrainedBox(constraints: $size, child: $w)';
     if (clip && deco.isEmpty) w = 'ClipRect(child: $w)';
+    // Its height from its width, so inside what sets the width.
+    if (s['aspect-ratio'] case final ar?) {
+      final p = ar.split('/').map((x) => double.tryParse(x.trim())).toList();
+      final ratio = p.length == 2 && p[0] != null && p[1] != null ? p[0]! / p[1]! : p[0];
+      if (ratio != null) w = 'AspectRatio(aspectRatio: ${num(ratio)}, child: $w)';
+    }
+    // Widths that are a share of the line's (80%, min(300px, 80%)).
+    final percent = _percentWidth(n, fs, w, extra: boxSizing ? 0 : _sideRoom(s, fs));
+    if (percent != null) w = percent;
     // Measured here: the box itself, inside its margins and alignment.
     if (measure) w = 'KeyedSubtree(key: ${_measureKey(n, ctx)}, child: $w)';
     // As wide as its content (fit-content, max-content), at the line's start.
     if (const {'fit-content', 'max-content', 'min-content'}.contains(s['width']?.trim())) {
       w = 'Align(alignment: Alignment.topLeft, widthFactor: 1, child: IntrinsicWidth(child: $w))';
-    }
-    if (s['aspect-ratio'] case final ar?) {
-      final p = ar.split('/').map((x) => double.tryParse(x.trim())).toList();
-      final ratio = p.length == 2 && p[0] != null && p[1] != null ? p[0]! / p[1]! : p[0];
-      if (ratio != null) w = 'AspectRatio(aspectRatio: ${num(ratio)}, child: $w)';
     }
     if (s['backdrop-filter'] ?? s['-webkit-backdrop-filter'] case final f?) {
       final blur = RegExp(r'blur\(([\d.]+)px\)').firstMatch(f);
@@ -946,9 +1084,10 @@ class _FlutterWriter {
       if (dx != null || dy != null)
         w = 'Transform.translate(offset: Offset(${dx ?? '0'}, ${dy ?? '0'}), child: $w)';
     }
-    // A box narrower than its line (its own width or max-width) sits at the
+    // A box narrower than its line (its own width or max-width; min-width
+    // never narrows it) sits at the
     // line's start, as a block does: Flutter would stretch it otherwise.
-    final ownWidth = size != null && (size.contains('maxWidth') || size.contains('minWidth'));
+    final ownWidth = percent != null || (size?.contains('maxWidth') ?? false);
     final m0 = s['margin'] == null ? null : sides(s['margin']!);
     final autoMargin =
         (s['margin-left'] ?? m0?[3]) == 'auto' || (s['margin-right'] ?? m0?[1]) == 'auto';
@@ -973,6 +1112,46 @@ class _FlutterWriter {
   }
 
   DLen? _len(String? v, double fs) => v == null ? null : length(v, fontSize: fs);
+
+  /// [child] in a [PercentWidth], when its width or limits are a share of
+  /// the line's; null when none is. [extra] is its padding and border, for a
+  /// content-box width.
+  String? _percentWidth(DNode n, double fs, String child, {double extra = 0}) {
+    final s = n.style;
+    final args = <String>[];
+    for (final (key, name) in [
+      ('width', 'width'),
+      ('min-width', 'minWidth'),
+      ('max-width', 'maxWidth'),
+    ]) {
+      final v = s[key];
+      if (v == null || !hasPercent(v)) continue;
+      final l = length(v, fontSize: fs, percentOf: 'b');
+      if (l == null || l.code.contains('context')) continue;
+      final plus = extra == 0 || key != 'width' ? '' : ' + ${num(extra)}';
+      args.add('$name: (b) => ${l.code}$plus');
+    }
+    if (args.isEmpty) return null;
+    return 'PercentWidth(${args.join(', ')}, child: $child)';
+  }
+
+  /// Its padding and border across, in px, where they are known.
+  double _sideRoom(Map<String, String> s, double fs) {
+    double side(String? v) => v == null ? 0 : (length(v, fontSize: fs)?.value ?? 0);
+    final pad = s['padding'] == null ? null : sides(s['padding']!);
+    double border(String? v) {
+      if (v == null) return 0;
+      for (final part in splitTop(v, ' ')) {
+        if (length(part, fontSize: fs)?.value case final x?) return x;
+      }
+      return 0;
+    }
+
+    return side(s['padding-left'] ?? pad?[3]) +
+        side(s['padding-right'] ?? pad?[1]) +
+        border(s['border-left'] ?? s['border']) +
+        border(s['border-right'] ?? s['border']);
+  }
 
   String _filter(String f, String w, _Ctx ctx) {
     final blur = RegExp(r'blur\(([\d.]+)px\)').firstMatch(f);
@@ -1097,7 +1276,16 @@ class _FlutterWriter {
       for (final c in items) {
         final w = _item(c, ctx, text, row: row, inFlex: false);
         if (w == null) continue;
-        final basis = c.isText ? null : _basisOf(c);
+        // A basis is its content's width: its padding and border go on top.
+        var basis = c.isText ? null : _basisOf(c);
+        final room = c.isText || c.style['box-sizing'] == 'border-box'
+            ? 0.0
+            : _sideRoom(c.style, text.size);
+        if (basis != null && room > 0) {
+          basis = basis.value != null
+              ? DLen.px(basis.value! + room)
+              : DLen('(${basis.code} + ${num(room)})', dynamic: true);
+        }
         final grow = c.isText
             ? 0.0
             : (_growOf(c.style['flex']?.trim()) ??
@@ -1125,8 +1313,17 @@ class _FlutterWriter {
         for (final c in items)
           if (_item(c, ctx, text, row: row, inFlex: false) case final w?) w,
       ];
-      return 'Wrap(direction: ${row ? 'Axis.horizontal' : 'Axis.vertical'}, spacing: ${mainGap?.code ?? '0'}, runSpacing: ${crossGap?.code ?? '0'}, '
+      final wrapped =
+          'Wrap(direction: ${row ? 'Axis.horizontal' : 'Axis.vertical'}, spacing: ${mainGap?.code ?? '0'}, runSpacing: ${crossGap?.code ?? '0'}, '
           'alignment: ${_wrapAlign(s['justify-content'])}, crossAxisAlignment: ${_wrapCross(align)}, children: [${widgets.join(', ')}])';
+      // Where it is not stretched, as wide as its content on one line, or
+      // as its room if less (CSS's fit-content); a Wrap would take only its
+      // widest line.
+      // (A Wrap leaves its spacing out of how wide it says it would be.)
+      final gaps = widgets.length < 2 || mainGap == null || mainGap.isZero
+          ? ''
+          : 'extra: ${mainGap.code} * ${widgets.length - 1}, ';
+      return row ? 'FitContent(${gaps}child: $wrapped)' : wrapped;
     }
     final stretchRow =
         row &&
@@ -1221,21 +1418,14 @@ class _FlutterWriter {
     if (w == null || c.isText) return w;
     if (!inFlex) {
       // A grid's or a wrap's item: its margins kept, never collapsed.
-      final m = _verticalMargins(c, _textOf(c, text));
-      if (m.$1 == 0 && m.$2 == 0) return w;
-      return 'Padding(padding: EdgeInsets.only(${[if (m.$1 != 0) 'top: ${num(m.$1)}', if (m.$2 != 0) 'bottom: ${num(m.$2)}'].join(', ')}), child: $w)';
+      return _keepMargins(_verticalMargins(c, _textOf(c, text)), w);
     }
     final s = c.style;
     final flex = s['flex']?.trim();
     final grow = s['flex-grow'] != null ? double.tryParse(s['flex-grow']!) : _growOf(flex);
     final shrink = s['flex-shrink'] != null ? double.tryParse(s['flex-shrink']!) : _shrinkOf(flex);
     // Top and bottom margins in a flex line stay with the item.
-    final m = _verticalMargins(c, _textOf(c, text));
-    var item = w;
-    if (m.$1 != 0 || m.$2 != 0) {
-      item =
-          'Padding(padding: EdgeInsets.only(${[if (m.$1 != 0) 'top: ${num(m.$1)}', if (m.$2 != 0) 'bottom: ${num(m.$2)}'].join(', ')}), child: $item)';
-    }
+    final item = _keepMargins(_verticalMargins(c, _textOf(c, text)), w);
     if (grow != null && grow > 0)
       return 'Expanded(flex: ${grow.round().clamp(1, 1000)}, child: $item)';
     // Text shrinks to fit, as flex-shrink 1 lets it, in a line where nothing
@@ -1667,13 +1857,118 @@ class _FlutterWriter {
       '  }',
       '}',
       '',
-      '/// A picture from the app\'s assets or the web.',
-      'Widget designImage(String src, {BoxFit fit = BoxFit.cover, double? width, double? height}) {',
+      '/// As wide as its content on one line, or as its room if less (CSS fit-content).',
+      '/// [extra] is room its content leaves out of how wide it says it is.',
+      'class FitContent extends SingleChildRenderObjectWidget {',
+      '  const FitContent({super.key, this.extra = 0, super.child});',
+      '  final double extra;',
+      '',
+      '  @override',
+      '  RenderObject createRenderObject(BuildContext context) => RenderFitContent(extra);',
+      '',
+      '  @override',
+      '  void updateRenderObject(BuildContext context, RenderFitContent renderObject) =>',
+      '      renderObject.extra = extra;',
+      '}',
+      '',
+      'class RenderFitContent extends RenderProxyBox {',
+      '  RenderFitContent(this._extra);',
+      '  double _extra;',
+      '  set extra(double v) {',
+      '    _extra = v;',
+      '    markNeedsLayout();',
+      '  }',
+      '',
+      '  @override',
+      '  double computeMaxIntrinsicWidth(double height) => (child?.getMaxIntrinsicWidth(height) ?? 0) + _extra;',
+      '',
+      '  @override',
+      '  void performLayout() {',
+      '    final c = child;',
+      '    if (c == null) { size = constraints.smallest; return; }',
+      '    final w = constraints.constrainWidth(c.getMaxIntrinsicWidth(double.infinity) + _extra);',
+      '    c.layout(constraints.tighten(width: w), parentUsesSize: true);',
+      '    size = constraints.constrain(c.size);',
+      '  }',
+      '}',
+      '',
+      '/// A width that is a share of the width of the line, as CSS percentages are:',
+      '/// each is worked out from the room it is given (b), then held to its limits.',
+      '/// Where the room has no end (an item of a row), it is as wide as its content.',
+      'class PercentWidth extends SingleChildRenderObjectWidget {',
+      '  const PercentWidth({super.key, this.width, this.minWidth, this.maxWidth, super.child});',
+      '  final double Function(double b)? width, minWidth, maxWidth;',
+      '',
+      '  @override',
+      '  RenderObject createRenderObject(BuildContext context) => RenderPercentWidth(width, minWidth, maxWidth);',
+      '',
+      '  @override',
+      '  void updateRenderObject(BuildContext context, RenderPercentWidth renderObject) => renderObject',
+      '    ..width = width',
+      '    ..minWidth = minWidth',
+      '    ..maxWidth = maxWidth',
+      '    ..markNeedsLayout();',
+      '}',
+      '',
+      'class RenderPercentWidth extends RenderShiftedBox {',
+      '  RenderPercentWidth(this.width, this.minWidth, this.maxWidth) : super(null);',
+      '  double Function(double b)? width, minWidth, maxWidth;',
+      '',
+      '  @override',
+      '  void performLayout() {',
+      '    final c = child;',
+      '    if (c == null) { size = constraints.smallest; return; }',
+      '    var inner = constraints;',
+      '    if (constraints.hasBoundedWidth) {',
+      '      final b = constraints.maxWidth;',
+      '      final lo = (minWidth?.call(b) ?? 0).clamp(0.0, b);',
+      '      final hi = (maxWidth?.call(b) ?? b).clamp(lo, b);',
+      '      final w = width?.call(b);',
+      '      inner = BoxConstraints(',
+      '        minWidth: w == null ? lo : w.clamp(lo, hi),',
+      '        maxWidth: w == null ? hi : w.clamp(lo, hi),',
+      '        minHeight: constraints.minHeight,',
+      '        maxHeight: constraints.maxHeight,',
+      '      );',
+      '    }',
+      '    c.layout(inner, parentUsesSize: true);',
+      '    (c.parentData! as BoxParentData).offset = Offset.zero;',
+      '    size = constraints.constrain(c.size);',
+      '  }',
+      '}',
+      '',
+      '/// Each picture\'s own size, as its file has it: what the page lays an',
+      '/// <img> out by before it has loaded.',
+      'const designImageSizes = <String, (double, double)>{',
+      for (final a in assets.toList()..sort())
+        if (imageSize?.call(a) case final z?)
+          '  ${jsonEncode('assets/$a')}: (${num(z.$1)}, ${num(z.$2)}),',
+      '};',
+      '',
+      '/// A picture from the app\'s assets or the web. Given one of its sizes, the',
+      '/// other keeps its proportions; given none, it is as large as its file says',
+      '/// when [natural], or as wide as it is let be, in proportion, otherwise.',
+      'Widget designImage(String src, {BoxFit fit = BoxFit.cover, double? width, double? height, bool natural = false}) {',
+      '  if (designImageSizes[src] case (final ow, final oh) when ow > 0 && oh > 0) {',
+      '    if (width != null && height == null) {',
+      '      height = width * oh / ow;',
+      '    } else if (height != null && width == null) {',
+      '      width = height * ow / oh;',
+      '    } else if (width == null && height == null) {',
+      '      if (natural) {',
+      '        (width, height) = (ow, oh);',
+      '      } else {',
+      '        return AspectRatio(aspectRatio: ow / oh, child: designImage(src, fit: fit, width: double.infinity, height: double.infinity));',
+      '      }',
+      '    }',
+      '  }',
       "  final web = src.startsWith('http');",
       "  if (src.endsWith('.svg')) {",
-      '    return web',
-      '        ? SvgPicture.network(src, fit: fit, width: width, height: height)',
-      '        : SvgPicture.asset(src, fit: fit, width: width, height: height);',
+      '    // In the box it is given, as an <img> keeps its size whatever the drawing.',
+      '    final svg = web',
+      '        ? SvgPicture.network(src, fit: BoxFit.contain, width: width, height: height)',
+      '        : SvgPicture.asset(src, fit: BoxFit.contain, width: width, height: height);',
+      '    return width != null && height != null ? SizedBox(width: width, height: height, child: svg) : svg;',
       '  }',
       '  return web',
       '      ? Image.network(src, fit: fit, width: width, height: height)',

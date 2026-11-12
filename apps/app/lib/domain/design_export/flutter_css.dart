@@ -28,20 +28,24 @@ String _num(double v) {
 
 String num(double v) => _num(v);
 
-/// [text] as a length, its em against [fontSize]; null for `auto`, a
-/// percentage, or what it cannot read.
-DLen? length(String text, {double fontSize = 16}) {
+/// [text] as a length, its em against [fontSize]; null for `auto`, or what
+/// it cannot read. A percentage is of [percentOf], code for the length it is
+/// a share of; without it, a percentage is null too.
+DLen? length(String text, {double fontSize = 16, String? percentOf}) {
   final t = text.trim().toLowerCase();
-  if (t.isEmpty || t == 'auto' || t == 'none' || t.endsWith('%')) return null;
-  return _expr(t, fontSize);
+  if (t.isEmpty || t == 'auto' || t == 'none') return null;
+  return _expr(t, fontSize, percentOf);
 }
 
-DLen? _expr(String t, double fontSize) {
+/// Whether [text] has a percentage in it, at the top or inside a function.
+bool hasPercent(String text) => RegExp(r'[\d.]%').hasMatch(text);
+
+DLen? _expr(String t, double fontSize, [String? percentOf]) {
   final fn = RegExp(r'^(clamp|min|max|calc)\((.*)\)$').firstMatch(t);
   if (fn != null) {
     final args = splitTop(fn[2]!, ',');
-    if (fn[1] == 'calc') return _calc(fn[2]!, fontSize);
-    final parts = [for (final a in args) _expr(a.trim(), fontSize)];
+    if (fn[1] == 'calc') return _calc(fn[2]!, fontSize, percentOf);
+    final parts = [for (final a in args) _expr(a.trim(), fontSize, percentOf)];
     if (parts.any((p) => p == null)) return null;
     final p = parts.cast<DLen>();
     switch (fn[1]) {
@@ -60,6 +64,12 @@ DLen? _expr(String t, double fontSize) {
         return DLen(p.map((x) => x.code).reduce((a, b) => 'math.${fn[1]}($a, $b)'), dynamic: true);
     }
   }
+  final pct = RegExp(r'^(-?[\d.]+)%$').firstMatch(t);
+  if (pct != null) {
+    final v = double.tryParse(pct[1]!);
+    if (v == null || percentOf == null) return null;
+    return DLen('$percentOf * ${_num(v / 100)}', dynamic: true);
+  }
   final m = RegExp(r'^(-?[\d.]+)(px|em|rem|vw|vh)?$').firstMatch(t);
   if (m == null) return null;
   final v = double.tryParse(m[1]!);
@@ -76,7 +86,7 @@ DLen? _expr(String t, double fontSize) {
 
 /// `calc(a + b * 2)`: operands (lengths, clamps, numbers) joined by the
 /// operators between them, read outside brackets.
-DLen? _calc(String body, double fontSize) {
+DLen? _calc(String body, double fontSize, [String? percentOf]) {
   final out = StringBuffer();
   var depth = 0;
   var start = 0;
@@ -85,8 +95,8 @@ DLen? _calc(String body, double fontSize) {
     final p = part.trim();
     if (p.isEmpty) return true;
     final inner = p.startsWith('(') && p.endsWith(')')
-        ? _calc(p.substring(1, p.length - 1), fontSize)
-        : _expr(p, fontSize);
+        ? _calc(p.substring(1, p.length - 1), fontSize, percentOf)
+        : _expr(p, fontSize, percentOf);
     final n = inner ?? (double.tryParse(p) == null ? null : DLen.px(double.parse(p)));
     if (n == null) return false;
     out.write(n.code);
