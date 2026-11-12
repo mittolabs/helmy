@@ -68,7 +68,7 @@ Future<List<String>> exportDesign(
         measure: measure,
         fonts: [
           for (final f in faces)
-            (family: f.family, weight: f.weight, italic: f.italic, asset: f.asset),
+            (family: f.family, weight: f.weight, italic: f.italic, asset: f.asset, opsz: f.opsz),
         ],
         imageSize: (a) {
           final f = File('$design/$a');
@@ -78,7 +78,7 @@ Future<List<String>> exportDesign(
       for (final e in out.files.entries) {
         await put(e.key, utf8.encode(e.value));
       }
-      for (final f in faces) {
+      for (final f in {for (final f in faces) f.asset: f}.values) {
         await put(f.asset, f.bytes);
       }
       for (final a in out.assets.toList()..sort()) {
@@ -119,7 +119,17 @@ Future<List<String>> _ashlar(String to) async {
 }
 
 /// One weight of a typeface, downloaded.
-typedef FontFace = ({String family, int weight, bool italic, String asset, List<int> bytes});
+/// A typeface file for one weight. [opsz]: the file is the family's variable
+/// font, and its optical size follows the text's size, as the page draws it
+/// when the design asks Google Fonts for that axis.
+typedef FontFace = ({
+  String family,
+  int weight,
+  bool italic,
+  String asset,
+  List<int> bytes,
+  bool opsz,
+});
 
 /// The Google Fonts the screens link to, as TTF files (one per weight), at
 /// `assets/fonts/<Family_Name>-<weight>.ttf`.
@@ -136,6 +146,19 @@ Future<List<FontFace>> googleFonts(
   };
   final out = <FontFace>[];
   final seen = <String>{};
+  // Families asked for with an optical size axis (family=Name:opsz,wght@...):
+  // Google Fonts serves those as fixed cuts to anything but a browser, so
+  // the variable font comes from Google's own source repository.
+  final variable = <String, List<int>?>{};
+  for (final href in hrefs) {
+    for (final spec in Uri.parse(href).queryParametersAll['family'] ?? const <String>[]) {
+      final name = spec.split(':').first;
+      final axes = spec.contains(':') ? spec.split(':')[1].split('@').first.split(',') : const [];
+      if (axes.contains('opsz') && !variable.containsKey(name)) {
+        variable[name] = await _variableFont(name, fetch);
+      }
+    }
+  }
   for (final href in hrefs) {
     final css = await fetch(Uri.parse(href));
     if (css == null) continue;
@@ -147,15 +170,58 @@ Future<List<FontFace>> googleFonts(
       final italic = body.contains('font-style: italic');
       final url = RegExp(r'url\(([^)]+\.ttf)\)').firstMatch(body)?[1];
       if (family == null || url == null) continue;
+      if (variable[family] case final v? when !italic) {
+        // One file, named for each weight, so no weight is drawn made-up bold.
+        if (!seen.add('$family-$weight')) continue;
+        final asset = 'assets/fonts/${family.replaceAll(' ', '_')}-variable.ttf';
+        out.add((
+          family: family,
+          weight: weight,
+          italic: false,
+          asset: asset,
+          bytes: v,
+          opsz: true,
+        ));
+        continue;
+      }
       final asset = 'assets/fonts/${family.replaceAll(' ', '_')}-$weight${italic ? 'i' : ''}.ttf';
       if (!seen.add(asset)) continue;
       final bytes = await fetch(Uri.parse(url));
       if (bytes != null) {
-        out.add((family: family, weight: weight, italic: italic, asset: asset, bytes: bytes));
+        out.add((
+          family: family,
+          weight: weight,
+          italic: italic,
+          asset: asset,
+          bytes: bytes,
+          opsz: false,
+        ));
       }
     }
   }
   return out;
+}
+
+/// [family]'s variable font (upright) from github.com/google/fonts, where
+/// Google Fonts keeps its sources; null when it has none.
+Future<List<int>?> _variableFont(String family, Future<List<int>?> Function(Uri url) fetch) async {
+  final id = family.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
+  for (final license in ['ofl', 'apache', 'ufl']) {
+    final list = await fetch(
+      Uri.parse('https://api.github.com/repos/google/fonts/contents/$license/$id'),
+    );
+    if (list == null) continue;
+    final files = jsonDecode(utf8.decode(list));
+    if (files is! List) continue;
+    for (final f in files) {
+      if (f is! Map) continue;
+      final name = '${f['name']}';
+      if (name.endsWith('.ttf') && name.contains('[') && !name.contains('Italic')) {
+        return fetch(Uri.parse('${f['download_url']}'));
+      }
+    }
+  }
+  return null;
 }
 
 /// A GET without a browser's name: Google Fonts then serves TTF, which

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/design_export/export.dart';
 import 'package:helmy/domain/design_export/flutter_css.dart';
+import 'package:helmy/domain/design_export/flutter_writer.dart';
 import 'package:helmy/domain/design_export/image_size.dart';
 import 'package:helmy/domain/design_export/planner.dart';
 import 'package:helmy/domain/design_export/react_writer.dart';
@@ -99,20 +101,41 @@ void main() {
   });
 
   test('what will not convert to app code is found, each with where and why', () async {
-    final issues = await checkDesign('test/fixtures/design');
-    String whatOf(String prefix) => issues.firstWhere((i) => i.what.startsWith(prefix)).why;
-    // The real design: a sticky header, a shadow filter (columns that fit themselves now convert).
-    expect(issues.map((i) => i.what.split(':').first).toSet(), {'position', 'filter'});
-    expect(whatOf('position'), contains('sticky'));
-    // Found again on the page by where it is.
-    expect(issues.first.selector, startsWith('body > '));
+    // The real design converts whole: its sticky header, drop-shadow and
+    // saturated backdrop included.
+    expect(await checkDesign('test/fixtures/design'), isEmpty);
 
-    List<SubsetIssue> check(String body, {String css = ''}) => checkSubset(
+    List<SubsetIssue> check(String body, {String css = '', String head = ''}) => checkSubset(
       readScreen(
         'a.html',
-        '<html><head><style>$css</style></head><body>$body</body></html>',
+        '<html><head>$head<style>$css</style></head><body>$body</body></html>',
         title: 'A',
       ),
+    );
+    // A header stuck to the top is pinned; sticky anywhere else is not.
+    expect(check('<header style="position:sticky;top:0">x</header><main>y</main>'), isEmpty);
+    final sticky = check('<main>y</main><aside style="position:sticky;top:0">x</aside>');
+    expect(sticky.single.what, 'position: sticky');
+    // Found again on the page by where it is.
+    expect(sticky.single.selector, startsWith('body > '));
+    // A font only some computers have cannot be bundled; one from Google Fonts can.
+    const fonts =
+        '<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">';
+    expect(
+      check('<code style="font:14px ui-monospace,monospace">x</code>', head: fonts).single.why,
+      contains('ui-monospace is not loaded from Google Fonts'),
+    );
+    expect(
+      check("<code style=\"font:14px/1.4 'JetBrains Mono',monospace\">x</code>", head: fonts),
+      isEmpty,
+    );
+    // Filters: drop-shadow on the element converts; behind it, it does not.
+    expect(check('<img style="filter:drop-shadow(0 4px 8px #000) saturate(2)">'), isEmpty);
+    expect(
+      check('<div style="backdrop-filter:blur(4px) drop-shadow(0 4px 8px #000)"></div>')
+          .single
+          .what,
+      startsWith('backdrop-filter'),
     );
     // Centering with a grid of one cell, and fixed columns, convert.
     expect(check('<div style="display:grid;place-items:center"><b>x</b></div>'), isEmpty);
@@ -176,4 +199,84 @@ void main() {
       expect(all, contains('SizedBox(height: (vw(context, 4.0)).clamp(32.0, 48.0))'));
     },
   );
+
+  test('Flutter: text, layers, filters and fonts drawn as the page draws them', () async {
+    final out = Directory.systemTemp.createTempSync('flutter_exact');
+    addTearDown(() => out.deleteSync(recursive: true));
+    final asked = <String>[];
+    // Google Fonts' CSS, Google's font sources and their files, stood in for.
+    Future<List<int>?> fetch(Uri url) async {
+      asked.add(url.toString());
+      if (url.host == 'fonts.googleapis.com') {
+        String face(String family, int weight) =>
+            "@font-face { font-family: '$family'; font-weight: $weight; src: url(https://fonts.gstatic.com/${family.replaceAll(' ', '')}$weight.ttf) format('truetype'); }";
+        return utf8.encode(
+          [
+            face('Bricolage Grotesque', 700),
+            face('Bricolage Grotesque', 800),
+            face('Inter', 400),
+          ].join('\n'),
+        );
+      }
+      if (url.host == 'api.github.com') {
+        return url.path.endsWith('/ofl/bricolagegrotesque')
+            ? utf8.encode(
+                jsonEncode([
+                  {
+                    'name': 'BricolageGrotesque[opsz,wdth,wght].ttf',
+                    'download_url': 'https://raw.example/var.ttf',
+                  },
+                ]),
+              )
+            : null;
+      }
+      return [0, 1, 0, 0];
+    }
+
+    await exportDesign('test/fixtures/design', out.path, ExportTarget.flutterPlain, fetch: fetch);
+    String read(String p) => File('${out.path}/$p').readAsStringSync();
+    final all = [
+      for (final f in Directory('${out.path}/lib').listSync(recursive: true))
+        if (f is File) f.readAsStringSync(),
+    ].join('\n');
+    // The code as written, whatever the formatter's line breaks.
+    final flat = all.replaceAll(RegExp(r'\s+'), '');
+    Matcher has(String code) =>
+        predicate<String>((_) => flat.contains(code.replaceAll(RegExp(r'\s+'), '')), 'has $code');
+
+    // Asked for with an optical size, Bricolage is its variable font, one file
+    // under each weight, its size and weight set on each text; Inter, asked
+    // for by weight only, stays a file per weight.
+    expect(asked, contains('https://raw.example/var.ttf'));
+    expect(read('pubspec.yaml'), contains('assets/fonts/Bricolage_Grotesque-variable.ttf'));
+    expect(
+      'assets/fonts/Bricolage_Grotesque-variable.ttf'.allMatches(read('pubspec.yaml')),
+      hasLength(2),
+    );
+    expect(read('pubspec.yaml'), contains('assets/fonts/Inter-400.ttf'));
+    expect(all, has("FontVariation('opsz', (vw(context, 4.4)).clamp(32.0, 56.0))"));
+    // Text in CssText, which places each line where the page does.
+    expect(all, has('CssText(TextSpan('));
+    expect(all, isNot(has('Text.rich(')));
+    // A component's text cased as the page cases it.
+    expect(all, has('text.toUpperCase()'));
+    // The sticky header pinned over the page as it scrolls.
+    expect(read('lib/ui/home/widgets/home_screen.dart'), contains('PinnedHeaderSliver('));
+    // The hero's -64px margin passes through main: main is pulled up, not the hero in it.
+    expect(all, has('Margin(top: -64.0'));
+    // Hidden below 720px: out of the row, its gap with it.
+    expect(all, has('if (MediaQuery.sizeOf(context).width > 720.0)'));
+    // Filters: a drop-shadow under the astronaut, a backdrop saturated after its blur.
+    expect(all, has('DropShadow(offset: Offset(0.0, 24.0), sigma: 24.0'));
+    expect(all, has('ui.ImageFilter.compose('));
+    // A one-column grid as wide as what will not wrap in it.
+    expect(all, has('GridTrack(child: Column('));
+  });
+
+  test('Flutter on Ashlar: links and buttons the size the design draws them', () async {
+    final d = await readDesign('test/fixtures/design');
+    final out = writeFlutter(planDesign(title: d.title, screens: d.screens));
+    expect(out.files['lib/main.dart'], contains('tapTarget: 0,'));
+    expect(out.files['lib/main.dart'], contains('darkTheme: designTheme(),'));
+  });
 }
