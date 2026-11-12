@@ -34,7 +34,7 @@ void main(List<String> args) {
           )
           // Counted as the site is (lib/analytics.dart): added after the rewrite, so the
           // tracker stays at the root, where the edge serves it.
-          .replaceFirst('</head>', '$trackerTags</head>'),
+          .replaceFirst('</head>', '$trackerTags$_shareTags</head>'),
     );
   });
 }
@@ -52,3 +52,10 @@ void _copy(Directory from, Directory to, List<int> Function(String, List<int>) c
     file.writeAsBytesSync(change(relative, entity.readAsBytesSync()));
   }
 }
+
+/// A docs page's link preview on X and elsewhere: the site's card (web/og.png).
+const _shareTags =
+    '<meta property="og:image" content="https://helmy.ke/og.png">'
+    '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'
+    '<meta name="twitter:card" content="summary_large_image">'
+    '<meta name="twitter:image" content="https://helmy.ke/og.png">';

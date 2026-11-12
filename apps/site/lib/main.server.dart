@@ -12,6 +12,9 @@ const _description =
     'Stop hopping between Claude, ChatGPT and the rest. Helmy picks the right one for each '
     'message, moves on when one runs out, and keeps the whole conversation with you.';
 
+const _image = 'https://helmy.ke/og.png';
+const _imageAlt = 'Helmy, waving, beside "Dream it. Do it." and "One assistant for every AI you pay for."';
+
 void main() {
   Jaspr.initializeApp(options: defaultServerOptions);
   runApp(
@@ -21,9 +24,21 @@ void main() {
       meta: const {'description': _description, 'theme-color': '#000000'},
       head: [
         link(rel: 'icon', type: 'image/png', href: '/icon.png'),
+        // How a link to helmy.ke shows on X and elsewhere: the large card, with web/og.png
+        // (1200x630). Absolute URLs, as X and others require.
         _property('og:type', 'website'),
+        _property('og:site_name', 'Helmy'),
+        _property('og:url', 'https://helmy.ke/'),
         _property('og:description', _description),
-        meta(name: 'twitter:card', content: 'summary'),
+        _property('og:image', _image),
+        _property('og:image:width', '1200'),
+        _property('og:image:height', '630'),
+        _property('og:image:alt', _imageAlt),
+        meta(name: 'twitter:card', content: 'summary_large_image'),
+        meta(name: 'twitter:title', content: App.title),
+        meta(name: 'twitter:description', content: _description),
+        meta(name: 'twitter:image', content: _image),
+        meta(name: 'twitter:image:alt', content: _imageAlt),
         link(rel: 'preconnect', href: 'https://fonts.googleapis.com'),
         link(rel: 'preconnect', href: 'https://fonts.gstatic.com', attributes: {'crossorigin': ''}),
         link(
