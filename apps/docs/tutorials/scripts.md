@@ -21,11 +21,11 @@ fresh Helmy, with only Helmy's window captured.
 |---|---|
 | helmy.ke, the download page | This tutorial shows you how to install Helmy and send your first message. It takes about two minutes. |
 | The macOS card, downloading | Go to helmy dot k e, slash download, and download the build for your computer. |
-| Finder: unzip, drag Helmy to Applications | Unzip it, and drag Helmy into Applications. |
+| The disk image: drag Helmy onto Applications | Open it, and drag Helmy into Applications. |
 | macOS blocks it; System Settings > Privacy & Security > Open Anyway | This build isn't signed yet, so macOS blocks it the first time. Go to System Settings, then Privacy and Security, and click Open Anyway. You only need to do this once. |
 | Setup: Connections | On first run, Helmy walks you through setup, starting with Connections: the AI tools Helmy works through. |
 | The free connection, on | Helmy sets up a free connection that needs no account, so you can start right away. |
-| A found subscription, switched on by hand | If you have a Claude or ChatGPT subscription, Helmy finds it on your computer and leaves it off until you switch it on, so it never spends a subscription you didn't choose. |
+| A found subscription, switched on by hand; Cursor, Grok and Antigravity rows | If you have a Claude or ChatGPT subscription, Helmy finds it and leaves it off until you switch it on, so it never spends a subscription you didn't choose. Cursor, Grok and Antigravity are one click away. |
 | Chats step, then Folders | Next, bring in your existing chats if you want them, and choose where new chats start. |
 | The message box; typing "What's in my Studio folder?"; Enter | Type what you want done, and press Enter. |
 | The answer arriving | Helmy picks a connection for the message, does the work, and answers. There's no model to choose. |
