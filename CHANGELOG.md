@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0](https://github.com/mittolabs/helmy/compare/v0.3.2...v0.4.0) (2026-11-12)
+
+
+### Features
+
+* **connections:** cursor, grok and antigravity, first party like claude code ([#17](https://github.com/mittolabs/helmy/issues/17)) ([4a795f0](https://github.com/mittolabs/helmy/commit/4a795f01acf625bb08b8f22eed1401462c687e15))
+* **docs:** tutorials at the top of their pages ([#15](https://github.com/mittolabs/helmy/issues/15)) ([6c7e4b4](https://github.com/mittolabs/helmy/commit/6c7e4b449e9bdc34878a663eff2ec76ebfd90e89))
+* **downloads:** installers for every system, and a one-line install ([#18](https://github.com/mittolabs/helmy/issues/18)) ([678a0c0](https://github.com/mittolabs/helmy/commit/678a0c03e3e6ee8babb48e50170e77c2c5acfc6c))
+* **site:** count visits, downloads and tutorial plays in our umami ([#19](https://github.com/mittolabs/helmy/issues/19)) ([28b70bc](https://github.com/mittolabs/helmy/commit/28b70bc41207ca17d602a60705004af1540513ca))
+
 ## [0.3.2](https://github.com/mittolabs/helmy/compare/v0.3.1...v0.3.2) (2026-11-12)
 
 
