@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:dart_style/dart_style.dart';
 
 import 'design_model.dart';
 import 'flutter_css.dart';
+import 'flutter_support.dart';
 import 'planner.dart';
 import 'reader.dart';
+import 'subset.dart' show stickyHeader;
 
 /// Which Flutter: Ashlar UI's app, theme and Pressable (the house standard),
 /// or plain widgets for anyone's app. The screens are the same either way.
@@ -21,7 +24,7 @@ enum FlutterFlavor { ashlar, plain }
   FlutterFlavor flavor = FlutterFlavor.ashlar,
   bool measure = false,
   String package = 'design_app',
-  List<({String family, int weight, bool italic, String asset})> fonts = const [],
+  List<({String family, int weight, bool italic, String asset, bool opsz})> fonts = const [],
   (double, double)? Function(String asset)? imageSize,
 }) {
   final w = _FlutterWriter(plan, flavor, measure, package)
@@ -140,7 +143,7 @@ class _FlutterWriter {
   (double, double)? Function(String asset)? imageSize;
 
   /// The typeface files bundled, for pubspec.yaml.
-  List<({String family, int weight, bool italic, String asset})> fontFiles = const [];
+  List<({String family, int weight, bool italic, String asset, bool opsz})> fontFiles = const [];
 
   /// Classes switched by width: class -> [(max width, property, value)].
   final _media = <String, List<(double, bool, String, String)>>{};
@@ -181,16 +184,22 @@ class _FlutterWriter {
     final body = s.body;
     final text = _rootText();
     final bodyText = _textOf(body, text);
-    final children = _flow(body, ctx, bodyText);
+    // A header that sticks to the top as the page scrolls: pinned over it.
+    final pinned = stickyHeader(body);
+    final children = _flow(body, ctx, bodyText, skip: pinned);
     final bg = _background(body.style);
     final margin = body.style['margin'] ?? '8px';
     final pad = _insets(margin, bodyText.size, ctx);
     final column =
         'Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [${children.join(', ')}])';
+    final scroll = pinned == null
+        ? 'SingleChildScrollView(child: ${pad == null ? column : 'Padding(padding: $pad, child: $column)'})'
+        // Drawn first, it is over the page that scrolls under it.
+        : 'CustomScrollView(slivers: [PinnedHeaderSliver(child: ${_element(pinned, ctx, bodyText) ?? 'SizedBox.shrink()'}), '
+              'SliverToBoxAdapter(child: ${pad == null ? column : 'Padding(padding: $pad, child: $column)'})])';
     final page =
         'ColoredBox(color: ${bg ?? 'const Color(0xFFFFFFFF)'}, child: '
-        'DefaultTextStyle(style: ${_style(bodyText, ctx)}, child: '
-        'SingleChildScrollView(child: ${pad == null ? column : 'Padding(padding: $pad, child: $column)'})))';
+        'DefaultTextStyle(style: ${_style(bodyText, ctx)}, child: $scroll))';
     return _dart(ctx, [
       '/// ${s.title}: the screen, its parts in order.',
       'class ${name}Screen extends StatelessWidget {',
@@ -276,7 +285,7 @@ class _FlutterWriter {
       if (body.any((l) => l.contains('SvgPicture')))
         "import 'package:flutter_svg/flutter_svg.dart';",
       if (RegExp(
-        r'\b(Design(Colors|Fonts)|vw|vh|ShowWhen|designImage|openLink|Margin|DesignGrid|FlexWrap)\b',
+        r'\b(Design(Colors|Fonts)|vw|vh|ShowWhen|designImage|openLink|Margin|DesignGrid|FlexWrap|PercentWidth|FitContent|CssText|GridTrack|DropShadow)\b',
       ).hasMatch(body.join('\n')))
         "import 'package:$package/ui/core/design.dart';",
       for (final i in ctx.imports) "import 'package:$package/$i';",
@@ -455,6 +464,10 @@ class _FlutterWriter {
       if (t.italic) 'fontStyle: FontStyle.italic',
       if (t.family != null) 'fontFamily: ${_familyRef(t.family!)}',
       if (t.family == null && t.mono) "fontFamilyFallback: const ['SF Mono', 'Menlo', 'monospace']",
+      // A variable font: its weight, and its optical size as the page sets it
+      // (font-optical-sizing: auto, the size in px).
+      if (t.family != null && fontFiles.any((f) => f.family == t.family && f.opsz))
+        'fontVariations: [FontVariation(\'wght\', ${t.weight}), FontVariation(\'opsz\', ${t.sizeCode ?? num(t.size)})]',
       if (t.lineHeight != null) 'height: ${num(t.lineHeight!)}',
       if (t.lineHeight != null) 'leadingDistribution: TextLeadingDistribution.even',
       if (t.spacingCode != null)
@@ -538,9 +551,68 @@ class _FlutterWriter {
 
   /// Block flow: [n]'s children top to bottom, runs of inline content as
   /// text, the vertical margins between blocks collapsed as CSS does.
-  List<String> _flow(DNode n, _Ctx ctx, _Text text) {
+  /// Whether a margin on [side] of [n]'s first (top) or last (bottom) child
+  /// goes through it, as CSS collapses it with [n]'s own when nothing is
+  /// between them: [n] a block in flow, with no padding, border or
+  /// clipping on that side (and no height set, at the bottom).
+  bool _passes(DNode n, String side) {
+    final p = n.parent;
+    if (p == null) return false;
+    if (n.tag == 'body' || n.tag == 'html') return false;
+    final d = _display(n);
+    if (d != 'block' && d != 'list-item') return false;
+    final pd = _display(p);
+    if (pd.contains('flex') || pd.contains('grid')) return false;
+    final s = n.style;
+    if ((s['overflow'] ?? s['overflow-y'] ?? 'visible') != 'visible') return false;
+    if (s['position'] == 'absolute' || s['position'] == 'fixed' || s['float'] != null) return false;
+    final i = side == 'top' ? 0 : 2;
+    bool none(String? v) => v == null || (length(v)?.value ?? 1) == 0 || v.trim() == 'none';
+    if (!none(s['padding-$side'] ?? (s['padding'] == null ? null : sides(s['padding']!)[i]))) {
+      return false;
+    }
+    final border = s['border-$side'] ?? s['border'];
+    if (border != null && !border.contains('none') && border.trim() != '0') return false;
+    if (side == 'bottom' && (s['height'] != null || s['min-height'] != null)) return false;
+    return true;
+  }
+
+  /// [n]'s first or last child in flow, when it is a block: what a margin
+  /// can pass through to.
+  DNode? _edgeBlock(DNode n, {required bool first}) {
+    final kids = [
+      for (final c in n.children)
+        if (c.isText ? c.text!.trim().isNotEmpty : !_absolute(c) && !_hidden(c)) c,
+    ];
+    if (kids.isEmpty) return null;
+    final c = first ? kids.first : kids.last;
+    return _isBlock(c) ? c : null;
+  }
+
+  /// [n]'s top and bottom margins with those of its first and last children
+  /// that pass through it.
+  (DLen, DLen) _outerMargins(DNode n, _Text text) {
+    final own = _verticalMargins(n, _textOf(n, text));
+    var top = own.$1, bottom = own.$2;
+    if (_passes(n, 'top')) {
+      if (_edgeBlock(n, first: true) case final c?) {
+        top = _collapse(top, _outerMargins(c, _textOf(n, text)).$1);
+      }
+    }
+    if (_passes(n, 'bottom')) {
+      if (_edgeBlock(n, first: false) case final c?) {
+        bottom = _collapse(bottom, _outerMargins(c, _textOf(n, text)).$2);
+      }
+    }
+    return (top, bottom);
+  }
+
+  List<String> _flow(DNode n, _Ctx ctx, _Text text, {DNode? skip}) {
     final out = <String>[];
     DLen? lastBottom;
+    // Margins that went through [n] to its parent are not kept in it too.
+    final firstOut = _passes(n, 'top') ? _edgeBlock(n, first: true) : null;
+    final lastOut = _passes(n, 'bottom') ? _edgeBlock(n, first: false) : null;
     final run = <DNode>[];
     void flushRun() {
       if (run.isEmpty) return;
@@ -555,19 +627,29 @@ class _FlutterWriter {
     }
 
     for (final c in n.children) {
+      if (identical(c, skip)) continue;
       if (!c.isText && _absolute(c)) continue;
       if (!c.isText && _hidden(c)) continue;
       if (_isBlock(c)) {
         flushRun();
-        final m = _verticalMargins(c, _textOf(c, text));
-        final gap = lastBottom == null ? m.$1 : _collapse(lastBottom!, m.$1);
+        final m = _outerMargins(c, text);
+        final gap = lastBottom == null
+            ? (identical(c, firstOut) ? DLen.px(0) : m.$1)
+            : _collapse(lastBottom!, m.$1);
         final w = _element(c, ctx, text);
         if (w == null) continue;
-        if (_positive(gap)) out.add('SizedBox(height: ${gap.code})');
         // A negative margin pulls it up over what is before it.
         final pull = gap.value != null && gap.value! < 0;
-        out.add(_mediaWrap(c, pull ? 'Margin(top: ${gap.code}, child: $w)' : w, ctx));
-        lastBottom = m.$2;
+        final item = pull ? 'Margin(top: ${gap.code}, child: $w)' : w;
+        final space = _positive(gap) ? 'SizedBox(height: ${gap.code})' : null;
+        // Hidden at a width, it is gone with the space before it.
+        if (_shownIf(c) case final shown?) {
+          out.add('if ($shown) ...[${[?space, item].join(', ')}]');
+        } else {
+          if (space != null) out.add(space);
+          out.add(item);
+        }
+        lastBottom = identical(c, lastOut) ? DLen.px(0) : m.$2;
       } else {
         run.add(c);
       }
@@ -674,7 +756,17 @@ class _FlutterWriter {
         if (s.isEmpty) return;
         lastSpace = s.endsWith(' ');
         final param = ctx.paramAt(n, DParamKind.text);
-        final value = param != null ? param.name : jsonEncode(_transformed(s, t.transform));
+        // A component's text comes in as it is written: cased here, as the
+        // page cases it (text-transform), like text written in place.
+        final value = param != null
+            ? switch (t.transform) {
+                'uppercase' => '${param.name}.toUpperCase()',
+                'lowercase' => '${param.name}.toLowerCase()',
+                'capitalize' =>
+                  "${param.name}.replaceAllMapped(RegExp(r'\\b\\w'), (m) => m[0]!.toUpperCase())",
+                _ => param.name,
+              }
+            : jsonEncode(_transformed(s, t.transform));
         spans.add(_span(value, t, text, ctx, href: href, trimEnd: false));
         return;
       }
@@ -714,10 +806,12 @@ class _FlutterWriter {
     if (spans.isEmpty) return null;
     final align = _textAlign(text.align);
     final props = [if (align != null) 'textAlign: $align', if (text.nowrap) 'softWrap: false'];
-    final id = measure ? container.selector : null;
-    final rich =
-        'Text.rich(TextSpan(style: ${_style(text, ctx)}, children: [${spans.join(', ')}])${props.isEmpty ? '' : ', ${props.join(', ')}'})';
-    return id == null ? rich : rich;
+    final span = 'TextSpan(style: ${_style(text, ctx)}, children: [${spans.join(', ')}])';
+    final rest = props.isEmpty ? '' : ', ${props.join(', ')}';
+    // CssText places each line where the page does; it draws text only, so
+    // a run with a widget in it, or justified, stays a Text.rich.
+    final exact = !spans.any((x) => x.startsWith('WidgetSpan(')) && align != 'TextAlign.justify';
+    return exact ? 'CssText($span$rest)' : 'Text.rich($span$rest)';
   }
 
   String _atomAlign(DNode n) {
@@ -802,7 +896,7 @@ class _FlutterWriter {
           final flow = _flow(n, ctx, text);
           child = switch (flow.length) {
             0 => null,
-            1 => flow.single,
+            1 when !flow.single.startsWith('if (') => flow.single,
             _ =>
               'Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [${flow.join(', ')}])',
           };
@@ -831,7 +925,7 @@ class _FlutterWriter {
     return w;
   }
 
-  bool _simpleText(String child) => child.startsWith('Text.rich(');
+  bool _simpleText(String child) => child.startsWith('Text.rich(') || child.startsWith('CssText(');
 
   String _image(DNode n, _Ctx ctx) {
     final src = n.attrs['src'] ?? '';
@@ -1062,10 +1156,25 @@ class _FlutterWriter {
       w = 'Align(alignment: Alignment.topLeft, widthFactor: 1, child: IntrinsicWidth(child: $w))';
     }
     if (s['backdrop-filter'] ?? s['-webkit-backdrop-filter'] case final f?) {
-      final blur = RegExp(r'blur\(([\d.]+)px\)').firstMatch(f);
-      if (blur != null) {
+      // Its functions in order, each over the last: blur(24px) saturate(140%)
+      // blurs what is behind, then saturates that.
+      String? filter;
+      for (final (name, arg) in _filterFunctions(f)) {
+        final next = name == 'blur'
+            ? switch (length(arg.isEmpty ? '0' : arg)?.value ?? 0) {
+                final r when r > 0 => 'ui.ImageFilter.blur(sigmaX: ${num(r)}, sigmaY: ${num(r)})',
+                _ => null,
+              }
+            : switch (_colorMatrix(name, arg)) {
+                final m? => 'ColorFilter.matrix(<double>[${m.map(num).join(', ')}])',
+                null => null,
+              };
+        if (next == null) continue;
+        filter = filter == null ? next : 'ui.ImageFilter.compose(outer: $next, inner: $filter)';
+      }
+      if (filter != null) {
         ctx.usesUi = true;
-        w = 'ClipRect(child: BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: ${blur[1]}, sigmaY: ${blur[1]}), child: $w))';
+        w = 'ClipRect(child: BackdropFilter(filter: $filter, child: $w))';
       }
     }
     if (s['filter'] case final f?) w = _filter(f, w, ctx);
@@ -1158,17 +1267,117 @@ class _FlutterWriter {
         border(s['border-right'] ?? s['border']);
   }
 
-  String _filter(String f, String w, _Ctx ctx) {
-    final blur = RegExp(r'blur\(([\d.]+)px\)').firstMatch(f);
-    if (blur != null) {
-      ctx.usesUi = true;
-      w = 'ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: ${blur[1]}, sigmaY: ${blur[1]}), child: $w)';
+  /// The functions of a CSS filter, in order: (name, its argument).
+  List<(String, String)> _filterFunctions(String f) => [
+    for (final m in RegExp(r'([a-z-]+)\(((?:[^()]|\([^()]*\))*)\)').allMatches(f))
+      if (!const {'rgb', 'rgba', 'hsl', 'hsla', 'var', 'calc'}.contains(m[1]))
+        (m[1]!, m[2]!.trim()),
+  ];
+
+  /// The 4x5 color matrix (Flutter's, offsets in 0..255) of a CSS filter
+  /// function, as the Filter Effects spec gives it, in sRGB as the page draws
+  /// it; null for blur, drop-shadow and what is not a color change.
+  List<double>? _colorMatrix(String name, String arg) {
+    double amount({double whole = 1}) {
+      final t = arg.trim();
+      if (t.isEmpty) return whole;
+      if (t.endsWith('%')) return (double.tryParse(t.substring(0, t.length - 1)) ?? 100) / 100;
+      return double.tryParse(t) ?? whole;
     }
-    final invert = RegExp(r'invert\(([\d.]+)(%?)\)').firstMatch(f);
-    if (invert != null) {
-      final a = double.parse(invert[1]!) / (invert[2] == '%' ? 100 : 1);
-      final k = 1 - 2 * a;
-      w = 'ColorFiltered(colorFilter: ColorFilter.matrix(<double>[${num(k)}, 0, 0, 0, ${num(a * 255)}, 0, ${num(k)}, 0, 0, ${num(a * 255)}, 0, 0, ${num(k)}, 0, ${num(a * 255)}, 0, 0, 0, 1, 0]), child: $w)';
+
+    List<double> m(List<double> rgb, {double o = 0, double alpha = 1}) => [
+      for (var r = 0; r < 3; r++) ...[rgb[r * 3], rgb[r * 3 + 1], rgb[r * 3 + 2], 0.0, o * 255],
+      0.0,
+      0.0,
+      0.0,
+      alpha,
+      0.0,
+    ];
+    switch (name) {
+      case 'brightness':
+        final a = amount();
+        return m([a, 0, 0, 0, a, 0, 0, 0, a]);
+      case 'contrast':
+        final a = amount();
+        return m([a, 0, 0, 0, a, 0, 0, 0, a], o: 0.5 - 0.5 * a);
+      case 'invert':
+        final a = amount().clamp(0.0, 1.0);
+        final k = 1 - 2 * a;
+        return m([k, 0, 0, 0, k, 0, 0, 0, k], o: a);
+      case 'opacity':
+        return m([1, 0, 0, 0, 1, 0, 0, 0, 1], alpha: amount().clamp(0.0, 1.0));
+      case 'saturate':
+        final s = amount();
+        return m([
+          0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, //
+          0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s,
+          0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s,
+        ]);
+      case 'grayscale':
+        final g = 1 - amount().clamp(0.0, 1.0);
+        return m([
+          0.2126 + 0.7874 * g, 0.7152 - 0.7152 * g, 0.0722 - 0.0722 * g, //
+          0.2126 - 0.2126 * g, 0.7152 + 0.2848 * g, 0.0722 - 0.0722 * g,
+          0.2126 - 0.2126 * g, 0.7152 - 0.7152 * g, 0.0722 + 0.9278 * g,
+        ]);
+      case 'sepia':
+        final g = 1 - amount().clamp(0.0, 1.0);
+        return m([
+          0.393 + 0.607 * g, 0.769 - 0.769 * g, 0.189 - 0.189 * g, //
+          0.349 - 0.349 * g, 0.686 + 0.314 * g, 0.168 - 0.168 * g,
+          0.272 - 0.272 * g, 0.534 - 0.534 * g, 0.131 + 0.869 * g,
+        ]);
+      case 'hue-rotate':
+        final t = arg.trim();
+        final v = double.tryParse(t.replaceAll(RegExp(r'[a-z]+$'), '')) ?? 0;
+        final rad = t.endsWith('turn')
+            ? v * 2 * math.pi
+            : t.endsWith('grad')
+            ? v * math.pi / 200
+            : t.endsWith('rad')
+            ? v
+            : v * math.pi / 180;
+        final c = math.cos(rad), n = math.sin(rad);
+        return m([
+          0.213 + c * 0.787 - n * 0.213,
+          0.715 - c * 0.715 - n * 0.715,
+          0.072 - c * 0.072 + n * 0.928, //
+          0.213 - c * 0.213 + n * 0.143,
+          0.715 + c * 0.285 + n * 0.140,
+          0.072 - c * 0.072 - n * 0.283,
+          0.213 - c * 0.213 - n * 0.787,
+          0.715 - c * 0.715 + n * 0.715,
+          0.072 + c * 0.928 + n * 0.072,
+        ]);
+    }
+    return null;
+  }
+
+  /// [w] through the CSS filter [f], its functions applied left to right as
+  /// the page applies them: blur, drop-shadow and color changes.
+  String _filter(String f, String w, _Ctx ctx) {
+    for (final (name, arg) in _filterFunctions(f)) {
+      switch (name) {
+        case 'blur':
+          final r = length(arg.isEmpty ? '0' : arg)?.value ?? 0;
+          if (r > 0) {
+            ctx.usesUi = true;
+            w = 'ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: ${num(r)}, sigmaY: ${num(r)}), child: $w)';
+          }
+        case 'drop-shadow':
+          final parts = splitTop(arg, ' ');
+          final lens = [for (final p in parts) ?length(p)?.value];
+          final color = [for (final p in parts) ?_color(p)].firstOrNull ?? 0xFF000000;
+          if (lens.length >= 2) {
+            final blur = lens.length > 2 ? lens[2] : 0.0;
+            // Its blur radius is twice the deviation, as box-shadow's is.
+            w = 'DropShadow(offset: Offset(${num(lens[0])}, ${num(lens[1])}), sigma: ${num(blur / 2)}, color: ${colorRef(color)}, child: $w)';
+          }
+        default:
+          if (_colorMatrix(name, arg) case final m?) {
+            w = 'ColorFiltered(colorFilter: ColorFilter.matrix(<double>[${m.map(num).join(', ')}]), child: $w)';
+          }
+      }
     }
     return w;
   }
@@ -1360,7 +1569,7 @@ class _FlutterWriter {
           ? (c.isText ? null : c.style['margin-left'] ?? ms?[3])
           : (c.isText ? null : c.style['margin-top'] ?? ms?[0]);
       if (before == 'auto') children.add('Spacer()');
-      children.add(_mediaWrap(c, w, ctx));
+      children.add(_mediaItem(c, w));
     }
     var ordered = children;
     if (dir.endsWith('reverse')) ordered = children.reversed.toList();
@@ -1453,7 +1662,8 @@ class _FlutterWriter {
     return item;
   }
 
-  bool _isText(String w) => w.startsWith('Text.rich(') || w.startsWith('Text(');
+  bool _isText(String w) =>
+      w.startsWith('Text.rich(') || w.startsWith('Text(') || w.startsWith('CssText(');
 
   bool _fixedWidth(DNode c) => c.style['width'] != null && length(c.style['width']!) != null;
 
@@ -1523,8 +1733,11 @@ class _FlutterWriter {
       // One column: each item a row of its own.
       final widgets = [for (final c in items) ?_item(c, ctx, text, row: false, inFlex: false)];
       if (widgets.length == 1 && center) return 'Center(child: ${widgets.single})';
-      return 'Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: ${center ? 'CrossAxisAlignment.center' : 'CrossAxisAlignment.stretch'}, '
+      final column =
+          'Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: ${center ? 'CrossAxisAlignment.center' : 'CrossAxisAlignment.stretch'}, '
           '${gaps.$1 != null && !gaps.$1!.isZero ? 'spacing: ${gaps.$1!.code}, ' : ''}children: [${widgets.join(', ')}])';
+      // Its column is at least as wide as what will not wrap in it.
+      return 'GridTrack(child: $column)';
     }
     // As many equal columns as fit at a least width: worked out from the
     // width there is, as the page does.
@@ -1617,6 +1830,27 @@ class _FlutterWriter {
     }
     return w;
   }
+
+  /// When [n] is shown, as code, where a width rule hides it; null otherwise.
+  String? _shownIf(DNode n) {
+    if (n.isText) return null;
+    for (final cls in n.classes) {
+      for (final (width, max, prop, value)
+          in _media[cls] ?? const <(double, bool, String, String)>[]) {
+        if (prop == 'display' && value == 'none') {
+          return 'MediaQuery.sizeOf(context).width ${max ? '>' : '<='} ${num(width)}';
+        }
+      }
+    }
+    return null;
+  }
+
+  /// [w] as an item of a list of children, left out where a width rule hides
+  /// it, as display: none takes it out of the line, gaps and all.
+  String _mediaItem(DNode n, String w) => switch (_shownIf(n)) {
+    final c? => 'if ($c) $w',
+    null => w,
+  };
 
   /// A flex direction a width rule changes: the expression choosing it.
   String? _mediaDirection(DNode n) {
@@ -1715,6 +1949,8 @@ class _FlutterWriter {
         if (t.kind == DTokenKind.font) t,
     ];
     return [
+      "import 'dart:ui' show ImageFilter;",
+      '',
       "import 'package:flutter/rendering.dart';",
       "import 'package:flutter/widgets.dart';",
       "import 'package:flutter_svg/flutter_svg.dart';",
@@ -1987,6 +2223,9 @@ class _FlutterWriter {
       '  launchUrl(Uri.parse(to));',
       '}',
       '',
+      cssTextSource,
+      gridTrackSource,
+      dropShadowSource,
     ].join('\n');
   }
 
@@ -2012,20 +2251,26 @@ class _FlutterWriter {
         '',
         'void main() => runApp(const App());',
         '',
+        '/// Ashlar\'s dark theme, its page and text the design\'s own.',
+        '///',
+        '/// tapTarget 0: a link or button is the size the design draws it. Ashlar',
+        '/// would grow each to 44 (iOS) or 48 (Android) for a finger, which moves',
+        '/// everything around it; set it to null to have that instead.',
+        'AshlarThemeData designTheme() => AshlarThemeData(',
+        '  brightness: Brightness.dark,',
+        '  colors: AshlarColors.dark.copyWith(${[if (bg != null) 'background: DesignColors.${bg.name}', if (fg != null) 'foreground: DesignColors.${fg.name}'].join(', ')}),',
+        '  tapTarget: 0,',
+        ');',
+        '',
         'class App extends StatelessWidget {',
         '  const App({super.key});',
         '',
         '  @override',
         '  Widget build(BuildContext context) {',
-        '    // Ashlar\'s dark theme, its page and text the design\'s own.',
-        '    final colors = AshlarColors.dark;',
         '    return AshlarApp(',
         '      title: $title,',
         '      themeMode: AshlarThemeMode.dark,',
-        '      darkTheme: AshlarThemeData(',
-        '        brightness: Brightness.dark,',
-        '        colors: colors.copyWith(${[if (bg != null) 'background: DesignColors.${bg.name}', if (fg != null) 'foreground: DesignColors.${fg.name}'].join(', ')}),',
-        '      ),',
+        '      darkTheme: designTheme(),',
         '      routes: {',
         ...routeMap,
         '      },',
@@ -2111,6 +2356,8 @@ class _FlutterWriter {
     "import 'package:flutter/services.dart';",
     "import 'package:flutter/widgets.dart';",
     "import 'package:flutter_test/flutter_test.dart';",
+    if (flavor == FlutterFlavor.ashlar) "import 'package:$package/main.dart';",
+    if (flavor == FlutterFlavor.ashlar) "import 'package:$package/ui/core/ashlar/theme.dart';",
     for (final s in plan.screens)
       "import 'package:$package/ui/${snake(screenNames[s]!)}/widgets/${snake(screenNames[s]!)}_screen.dart';",
     '',
@@ -2133,7 +2380,7 @@ class _FlutterWriter {
     '  tester.view.devicePixelRatio = 1;',
     '  tester.view.physicalSize = Size(width, 20000);',
     '  addTearDown(tester.view.reset);',
-    '  await tester.pumpWidget(Directionality(textDirection: TextDirection.ltr, child: MediaQuery(data: MediaQueryData(size: Size(width, 900)), child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width, child: screen)))));',
+    '  await tester.pumpWidget(Directionality(textDirection: TextDirection.ltr, child: MediaQuery(data: MediaQueryData(size: Size(width, 900)), child: Align(alignment: Alignment.topLeft, child: SizedBox(width: width, child: ${flavor == FlutterFlavor.ashlar ? 'AshlarTheme(data: designTheme(), child: screen)' : 'screen'})))));',
     '  await tester.pump();',
     '  final out = <String, List<double>>{};',
     '  for (final e in find.byWidgetPredicate((w) => w is KeyedSubtree && w.key is ValueKey<String>).evaluate()) {',

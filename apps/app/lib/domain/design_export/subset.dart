@@ -12,10 +12,13 @@ import 'reader.dart';
 const subsetForAgents =
     'Keep each screen inside the CSS that converts exactly to app code: lay out with flexbox '
     '(display flex, flex-direction, flex-wrap, justify-content, align-items, gap, flex), never '
-    'grid, float, tables or position fixed or sticky; size with px, %, em, rem, vw, vh and '
+    'grid, float, tables or position fixed, or sticky except on a header that is the body\'s '
+    'first element at top 0; size with px, %, em, rem, vw, vh and '
     'clamp, min, max or calc of those; style with color, background (a color, a linear or '
     'radial gradient, or an image), border, border-radius, box-shadow, opacity, overflow, '
-    'transform (translate, scale, rotate), backdrop-filter blur, and type (font-family, '
+    'transform (translate, scale, rotate), backdrop-filter blur, and type (font-family naming '
+    'first a font the page loads from Google Fonts with a <link>, never a system font such as '
+    'ui-monospace or -apple-system, which an app cannot bundle; '
     'font-size, font-weight, font-style, line-height, letter-spacing, text-align, '
     'text-decoration, text-transform, white-space nowrap, text-overflow ellipsis); position '
     'absolute inside a position relative parent for layering. A <style> block holds only '
@@ -63,10 +66,22 @@ List<SubsetIssue> checkSubset(DScreen screen) {
     ),
   );
 
+  final loaded = loadedFonts(screen);
   for (final n in [screen.body, ...screen.body.descendants]) {
     if (n.isText) continue;
     if (_tags[n.tag] case final why?) add(n, '<${n.tag}>', why);
+    if (_firstFamily(n.style) case (final key, final value, final family)
+        when !loaded.contains(family.toLowerCase())) {
+      add(
+        n,
+        '$key: $value',
+        '$family is not loaded from Google Fonts, so an app cannot bundle it and draws another '
+            'font in its place. Load a Google Font with the page\'s <link> and name it first.',
+      );
+    }
     for (final e in n.style.entries) {
+      // A header stuck to the top converts: pinned over the page.
+      if (e.key == 'position' && identical(n, stickyHeader(screen.body))) continue;
       final why = _checkProperty(e.key, e.value);
       if (why != null) add(n, '${e.key}: ${e.value}', why);
     }
@@ -75,6 +90,43 @@ List<SubsetIssue> checkSubset(DScreen screen) {
     out.add(SubsetIssue(file: screen.file, selector: 'style', what: why.$1, why: why.$2));
   }
   return out;
+}
+
+/// The body's first element when it sticks at the top (position: sticky;
+/// top: 0): what an app pins over the page as it scrolls.
+DNode? stickyHeader(DNode body) {
+  final first = body.children.where((c) => !c.isText).firstOrNull;
+  if (first == null || first.style['position'] != 'sticky') return null;
+  final top = first.style['top']?.trim();
+  return top == '0' || top == '0px' ? first : null;
+}
+
+/// The families [screen] loads from Google Fonts, lower case.
+Set<String> loadedFonts(DScreen screen) => {
+  for (final l in screen.links)
+    if (RegExp(r'href="([^"]+)"').firstMatch(l)?[1] case final h?
+        when h.contains('fonts.googleapis.com'))
+      for (final spec
+          in Uri.parse(h.replaceAll('&amp;', '&')).queryParametersAll['family'] ?? const <String>[])
+        spec.split(':').first.replaceAll('+', ' ').toLowerCase(),
+};
+
+/// The style's font-family (or font) and the family it names first.
+(String, String, String)? _firstFamily(Map<String, String> style) {
+  String? list;
+  String? key;
+  if (style['font-family'] case final f?) {
+    (key, list) = ('font-family', f);
+  } else if (style['font'] case final f?) {
+    final m = RegExp(
+      r'^(?:(?:italic|oblique|normal|bold|bolder|lighter|small-caps|\d{3})\s+)*[\d.]+(?:px|em|rem|%|pt)(?:\s*/\s*\S+)?\s+(.+)$',
+    ).firstMatch(f.trim());
+    if (m != null) (key, list) = ('font', m[1]!);
+  }
+  if (list == null || key == null) return null;
+  final first = list.split(',').first.trim().replaceAll(RegExp(r'''^['"]|['"]$'''), '');
+  if (first.isEmpty || const {'inherit', 'initial', 'unset'}.contains(first)) return null;
+  return (key, style[key]!, first);
 }
 
 /// Every screen of the design in [folder], checked.
@@ -282,20 +334,38 @@ String? _checkProperty(String prop, String value) {
   if (prop == 'filter' || prop.endsWith('backdrop-filter')) {
     final fns = RegExp(r'([a-z-]+)\(').allMatches(v).map((m) => m[1]).toSet()
       ..removeAll(const ['rgb', 'rgba', 'hsl', 'hsla', 'var', 'calc']);
-    // Blur, and what a color matrix can do.
-    final other = fns.difference({
-      'blur',
-      'saturate',
-      'brightness',
-      'contrast',
-      'opacity',
-      'invert',
-      'grayscale',
-      'sepia',
-      'hue-rotate', //
-    });
+    // Blur and what a color matrix can do; drop-shadow too on the element
+    // itself (filter), not behind it (backdrop-filter).
+    final other = fns.difference(
+      prop == 'filter'
+          ? const {
+              'blur',
+              'drop-shadow',
+              'saturate',
+              'brightness',
+              'contrast',
+              'opacity',
+              'invert',
+              'grayscale',
+              'sepia',
+              'hue-rotate',
+            }
+          : const {
+              'blur',
+              'saturate',
+              'brightness',
+              'contrast',
+              'opacity',
+              'invert',
+              'grayscale',
+              'sepia',
+              'hue-rotate',
+            },
+    );
     if (other.isNotEmpty) {
-      return '${other.join(', ')} in $prop does not convert; blur and color changes do.';
+      return prop == 'filter'
+          ? '${other.join(', ')} in $prop does not convert; blur, drop-shadow and color changes do.'
+          : '${other.join(', ')} in $prop does not convert; blur and color changes do.';
     }
   }
   if (prop == 'transform') {
