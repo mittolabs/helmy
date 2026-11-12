@@ -5,7 +5,7 @@ DOCS := apps/docs
 JASPR ?= $(HOME)/.pub-cache/bin/jaspr
 DART ?= fvm dart
 
-.PHONY: help setup app run test live analyze format sim-input site site-dev docs docs-dev web local local-down deploy
+.PHONY: help setup app run test live analyze format design-check design-check-flutter sim-input site site-dev docs docs-dev web local local-down deploy
 
 help:
 	@echo "make setup     the commit hook and dependencies"
@@ -16,6 +16,7 @@ help:
 	@echo "make analyze   static analysis"
 	@echo "make format    format the code (100 columns)"
 	@echo "make design-check [DESIGN=folder]  a design exported to React, compared pixel by pixel"
+	@echo "make design-check-flutter [DESIGN=folder]  exported to Flutter, each element where the page puts it"
 	@echo "make sim-input rebuild the iOS simulator input helper (needs AXe and Xcode)"
 	@echo "make site-dev  the site with hot reload on :8484"
 	@echo "make site      release build of the site"
@@ -53,9 +54,22 @@ format:
 # instead of downloading Playwright's.
 DESIGN ?= test/fixtures/design
 design-check:
-	cd $(APP)/tool/design_check && npm install --silent && { [ -n "$CHROME" ] || npx playwright install chromium; }
+	cd $(APP)/tool/design_check && npm install --silent && { [ -n "$$CHROME" ] || npx playwright install chromium; }
 	cd $(APP) && rm -rf build/design-check && fvm dart run tool/design_export.dart $(DESIGN) build/design-check/react react
 	cd $(APP) && node tool/design_check/check.mjs $(DESIGN) build/design-check/react build/design-check/out
+
+# Each Flutter flavor (Ashlar, plain) exported with its elements keyed, laid
+# out by Flutter at phone, tablet and desktop widths, and compared with where
+# Chromium puts each one: all within TOLERANCE px (0.1 by default), or it fails.
+design-check-flutter:
+	cd $(APP)/tool/design_check && npm install --silent && { [ -n "$$CHROME" ] || npx playwright install chromium; }
+	cd $(APP) && rm -rf build/design-check-flutter
+	cd $(APP) && for f in flutter flutterPlain; do \
+	  out=build/design-check-flutter/$$f; \
+	  fvm dart run tool/design_export.dart $(DESIGN) $$out $$f --measure && \
+	  (cd $$out && fvm flutter pub get >/dev/null && fvm flutter test test/measure_test.dart) && \
+	  TOLERANCE=$${TOLERANCE:-0.1} node tool/design_check/flutter.mjs $(DESIGN) $$out || exit 1; \
+	done
 
 sim-input:
 	$(APP)/tool/sim_input/build.sh
