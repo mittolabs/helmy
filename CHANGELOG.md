@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/mittolabs/helmy/compare/v0.7.0...v0.8.0) (2026-11-12)
+
+
+### Features
+
+* **design:** play a screen as Figma does, in Preview or Present ([c76e06f](https://github.com/mittolabs/helmy/commit/c76e06fc2cab18f4a4748f370ffb07843123e8bd))
+
+
+### Bug Fixes
+
+* **chat:** double-clicking your message to edit it works on a busy Mac ([83c9bbe](https://github.com/mittolabs/helmy/commit/83c9bbe15e5f5632e88a7b7f0a3ac44ab1495d97))
+
 ## [0.7.0](https://github.com/mittolabs/helmy/compare/v0.6.0...v0.7.0) (2026-11-12)
 
 
