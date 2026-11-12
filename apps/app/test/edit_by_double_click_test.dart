@@ -67,6 +67,9 @@ void main() {
       await mouse.down(at);
       await mouse.up();
       await tester.pump(const Duration(milliseconds: 50));
+      // Handled late, as on a loaded machine: the clicks were 50 ms apart,
+      // whatever the clock says when they are handled.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
     }
     await tester.pumpAndSettle();
     expect(vm.editing, 0);

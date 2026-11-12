@@ -32,8 +32,9 @@ class _UserState extends State<_User> {
   ({Duration at, Offset where})? _lastClick;
 
   /// A second click soon after the first, near it, opens the message to edit.
-  void _clicked(Offset where) {
-    final now = Duration(microseconds: DateTime.now().microsecondsSinceEpoch);
+  /// Timed by the clicks' own times, as Flutter's gestures are: the clock
+  /// when they are handled can be later than when they happened.
+  void _clicked(Offset where, Duration now) {
     final last = _lastClick;
     _lastClick = (at: now, where: where);
     if (last == null ||
@@ -260,7 +261,7 @@ class _UserState extends State<_User> {
               // Double-click to edit. Read from raw pointer events, since the
               // conversation's text selection claims double-clicks for itself.
               Listener(
-                onPointerDown: (e) => _clicked(e.position),
+                onPointerDown: (e) => _clicked(e.position, e.timeStamp),
                 child: Message(
                   align: .end,
                   child: Bubble(variant: .muted, child: _Said(widget.text)),
