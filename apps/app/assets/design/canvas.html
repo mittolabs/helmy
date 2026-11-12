@@ -83,6 +83,13 @@
   #present .device.phone::after { content: ''; position: absolute; top: 9px; left: 50%; width: 112px; height: 32px;
     margin-left: -56px; border-radius: 16px; background: #000; }
   #present .device.tablet { border: 16px solid #0b0b0b; border-radius: 34px; box-shadow: 0 0 0 1.5px #3a3a40, 0 24px 64px rgba(0,0,0,.6); }
+  /* A window presenting one screen (Present): only it, nothing of the canvas. */
+  #present.window { overflow: auto; }
+  #present.window .device.actual { position: relative; left: auto; top: auto; transform: none; margin: 64px auto 32px; }
+  #present.window.desktop.on { display: flex; flex-direction: column; }
+  #present.window.desktop .bar { position: static; border-radius: 0; box-shadow: none; flex: none; border-bottom: 1px solid #2a2a2e; }
+  #present.window.desktop .device { position: static; transform: none; flex: 1; width: 100%; border-radius: 0; box-shadow: none; }
+  .strip button.narrow { width: 14px; }
   #present .device.desktop { border-radius: 10px; box-shadow: 0 0 0 1px #3a3a3e, 0 24px 64px rgba(0,0,0,.6); }
 </style>
 </head>
@@ -95,12 +102,19 @@
   const base = 'd/' + params.get('d') + '/';
   // Helmy can open a window of its own here: a screen previews in one.
   const windows = params.get('windows') === '1';
+  // A window presenting this one screen (Present): only it, nothing of the canvas.
+  const presentOnly = params.get('present');
+  // What ▶ plays: the view over the canvas (Preview), or a window (Present).
+  let playMode = windows && params.get('play') === 'present' ? 'present' : 'preview';
+  const playLabel = () => (playMode === 'present' ? 'Present' : 'Preview');
   const stage = document.getElementById('stage');
   const world = document.getElementById('world');
   const overlay = document.getElementById('overlay');
   const empty = document.getElementById('empty');
   const icons = {
     frame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    size: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>',
     play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16l13-8z"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
     forward: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
@@ -314,9 +328,17 @@
           const r = save.getBoundingClientRect();
           tell({ download: file, at: [r.left, r.bottom + 4] });
         });
+        const play = button('play', playLabel(), () => playIt(file));
+        play.classList.add('play');
+        // Beside ▶: Preview or Present, Helmy's menu under it.
+        const choose = button('chevron', 'Preview or present', () => {
+          const r = choose.getBoundingClientRect();
+          tell({ playMenu: file, mode: playMode, at: [r.left, r.bottom + 4] });
+        });
+        choose.classList.add('narrow');
         strip.append(name,
-          button('play', 'Preview it on its own, working',
-            () => windows ? tell({ previewWindow: previewOf(file) }) : preview(file)),
+          play,
+          ...(windows ? [choose] : []),
           button('frame', 'Zoom to this screen', () => fit(file)),
           save);
         const widths = document.createElement('span');
@@ -379,12 +401,18 @@
     apply();
   }
 
+  let presentedOnce = false;
+
   async function load(changed) {
     try {
       const r = await fetch(base + 'canvas.json', { cache: 'no-store' });
       if (!r.ok) throw new Error('none');
       canvas = await r.json();
       empty.style.display = 'none';
+      if (presentOnly) {
+        if (!presentedOnce) { presentedOnce = true; presentPage(presentOnly); }
+        return;
+      }
       draw(changed);
       if (!fitted) {
         fitted = true;
@@ -602,10 +630,70 @@
   /** A device's height for a screen: the width is the screen's own. */
   const deviceHeight = (kind) => ({ phone: 844, tablet: 1194, desktop: 900 }[kind]);
 
-  /** What Helmy needs to open [file] in a window of its own, the size of its device. */
-  function previewOf(file) {
+  /** ▶ on [file]: Present (a window of its own) or Preview (over the canvas). */
+  function playIt(file) {
     const b = canvas.boards[file];
-    return { url: new URL(base + file, location.href).href, width: b.w, height: deviceHeight(deviceOf(b)), title: b.title ?? file };
+    if (!b) return;
+    if (windows && playMode === 'present') {
+      tell({ present: { file, title: b.title ?? file, device: deviceOf(b), w: b.w, h: deviceHeight(deviceOf(b)) } });
+    } else {
+      preview(file);
+    }
+  }
+
+  /**
+   * This window presents [file] and nothing else (Present). A phone or tablet
+   * screen is in its device, fitted to the window or at its actual size; a
+   * desktop one is the window, its page reflowing as the window is resized.
+   */
+  function presentPage(file) {
+    const b = canvas.boards[file];
+    if (!b) { empty.style.display = 'grid'; empty.textContent = 'This screen is no longer in the design.'; return; }
+    const kind = deviceOf(b);
+    const h = deviceHeight(kind);
+    document.title = b.title ?? file;
+    present.innerHTML = '';
+    present.className = 'window ' + kind;
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const device = document.createElement('div');
+    device.className = 'device ' + kind;
+    const iframe = document.createElement('iframe');
+    iframe.src = base + file;
+    iframe.title = b.title ?? file;
+    device.append(iframe);
+    const title = document.createElement('span');
+    title.className = 'title';
+    title.textContent = b.title ?? file;
+    bar.append(
+      button('back', 'Back', () => iframe.contentWindow?.history.back()),
+      button('forward', 'Forward', () => iframe.contentWindow?.history.forward()),
+      button('restart', 'Reload', () => { iframe.src = base + file + '?v=' + Date.now(); }),
+      title,
+    );
+    if (kind !== 'desktop') {
+      // Fitted to the window, or at its actual size (scrolled when larger).
+      let actual = false;
+      Object.assign(device.style, { width: b.w + 'px', height: h + 'px' });
+      const border = kind === 'phone' ? 24 : 32;
+      const fitDevice = () => {
+        device.classList.toggle('actual', actual);
+        if (actual) { device.style.transform = ''; return; }
+        const s = Math.min(1, (innerWidth - 48) / (b.w + border), (innerHeight - 80) / (h + border));
+        device.style.transform = `translate(-50%, -50%) translateY(18px) scale(${s})`;
+      };
+      const size = button('size', 'Actual size', () => {
+        actual = !actual;
+        size.title = actual ? 'Fit to window' : 'Actual size';
+        size.setAttribute('aria-label', size.title);
+        fitDevice();
+      });
+      bar.append(size);
+      fitDevice();
+      addEventListener('resize', fitDevice);
+    }
+    present.append(bar, device);
+    present.classList.add('on');
   }
 
   /** [file] on its own, working (links go to the other screens), in its device. */
@@ -999,6 +1087,15 @@
   // What Helmy's toolbar and the folder watch call.
   window.HelmyCanvas = {
     reload: (changed) => load(changed ?? true),
+    // What ▶ plays from now on, and, given a screen, played now.
+    play: (mode, file) => {
+      playMode = mode === 'present' && windows ? 'present' : 'preview';
+      for (const b of document.querySelectorAll('.strip button.play')) {
+        b.title = playLabel();
+        b.setAttribute('aria-label', playLabel());
+      }
+      if (file) playIt(file);
+    },
     fit: () => fit(),
     focus: (file) => fit(file),
     // A thing Helmy points at (it will not convert): its screen in view, it picked.
