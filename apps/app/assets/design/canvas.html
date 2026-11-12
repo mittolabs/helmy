@@ -327,7 +327,16 @@
         iframe.src = base + file;
         iframe.title = b.title ?? file;
         // A responsive page is as tall as what it holds at its width.
-        iframe.addEventListener('load', () => fitHeight(file));
+        iframe.addEventListener('load', () => {
+          fitHeight(file);
+          // Scrolling over a screen moves the canvas, even while the screen
+          // has the pointer (its text being typed into): its page never
+          // scrolls by itself, being as tall as it is drawn.
+          iframe.contentWindow?.addEventListener('wheel', (e) => {
+            const r = iframe.getBoundingClientRect(), k = r.width / (iframe.clientWidth || 1);
+            wheel(e, r.left + e.clientX * k, r.top + e.clientY * k);
+          }, { passive: false });
+        });
         frame.append(iframe);
         el.append(strip, frame);
         boards.set(file, el);
@@ -577,11 +586,14 @@
 
   let drag = null;
 
-  stage.addEventListener('wheel', (e) => {
+  /** Pans, or with ⌘ or a pinch zooms, at (cx, cy) on the canvas. */
+  function wheel(e, cx, cy) {
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+    if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * 0.01), cx, cy);
     else { view.x -= e.deltaX; view.y -= e.deltaY; apply(); }
-  }, { passive: false });
+  }
+
+  stage.addEventListener('wheel', (e) => wheel(e, e.clientX, e.clientY), { passive: false });
 
   stage.addEventListener('pointerdown', (e) => {
     tell({ active: true }); // Helmy hands the keys over to the canvas
