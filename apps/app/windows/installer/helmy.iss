@@ -37,7 +37,8 @@ Name: "desktopicon"; Description: "Put Helmy on the desktop"; Flags: unchecked
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Helmy"; Filename: "{app}\helmy.exe"
+; The ID Windows names Helmy's notifications by (NotifyService.windowsAppId).
+Name: "{autoprograms}\Helmy"; Filename: "{app}\helmy.exe"; AppUserModelID: "Mittolabs.Helmy"
 Name: "{autodesktop}\Helmy"; Filename: "{app}\helmy.exe"; Tasks: desktopicon
 
 [Run]
