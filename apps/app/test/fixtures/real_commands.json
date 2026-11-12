@@ -13,5 +13,13 @@
  "/bin/zsh -lc 'git status --short && cat notes.md'",
  "/bin/zsh -lc \"for p in /AGENTS.md /Users/AGENTS.md /Users/sam/AGENTS.md /Users/sam/Studio/AGENTS.md '/Users/sam/Studio/Rise Bakery/AGENTS.md' /Users/sam/Studio/Archive/AGENTS.md; do if [ -f \\\"\"'$p\" ]; then printf '\"'\\\\n%s\\\\n' \\\"\"'$p\"; cat \"$p\"; fi; done; ls -la /Users/sam/Studio/Archive'",
  "/bin/zsh -lc \"git diff --check && git diff -- notes.md && git add -- notes.md && git commit -m 'Update opening hours to 8am–3pm'\"",
- "/bin/zsh -lc 'rm -- /Users/sam/Studio/Archive/menu-draft-spring.md /Users/sam/Studio/Archive/menu-draft-summer.md'"
+ "/bin/zsh -lc 'rm -- /Users/sam/Studio/Archive/menu-draft-spring.md /Users/sam/Studio/Archive/menu-draft-summer.md'",
+ "/bin/zsh -lc \"pwd && rg --files -g 'notes.md' -g 'AGENTS.md' -g 'design/**' -g '\"'!node_modules'\"'\"",
+ "/bin/zsh -lc \"cat notes.md && rg --files -g '\"'!node_modules'\"' -g '\"'!.*'\"'\"",
+ "/bin/zsh -lc 'mkdir -p design'",
+ "/bin/zsh -lc \"python3 - <<'PY'\nfrom pathlib import Path\np=Path('design/index.html')\ns=p.read_text().replace('photo-1585478259715-876acc5be8eb','photo-1509440159596-0249088772ff').replace('.hero-title{font-size:70px}', '.hero-title{font-size:62px}.brand-detail{display:none}.nav a{white-space:nowrap}')\ns=s.replace('<span style=\\\"font-size:10px;letter-spacing:.19em;line-height:1.6;margin-top:12px\\\">','<span class=\\\"brand-detail\\\" style=\\\"font-size:10px;letter-spacing:.19em;line-height:1.6;margin-top:12px\\\">')\np.write_text(s)\nPY\"",
+ "/bin/zsh -lc \"python3 - <<'PY'\nfrom pathlib import Path\nPath('design/review.html').write_text('''<html><meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\"><body style=\\\"margin:0\\\"><iframe src=\\\"index.html\\\" style=\\\"border:0;width:1440px;height:1830px;transform:scale(.2638889);transform-origin:0 0\\\"></iframe></body></html>''')\nPY\"",
+ "/bin/zsh -lc \"python3 - <<'PY'\nfrom pathlib import Path\nPath('design/review.html').write_text('''<html><meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\"><body style=\\\"margin:0\\\"><iframe src=\\\"index.html\\\" style=\\\"border:0;width:834px;height:2100px;transform:scale(.4556);transform-origin:0 0\\\"></iframe></body></html>''')\nPY\"",
+ "/bin/zsh -lc \"python3 - <<'PY'\nfrom pathlib import Path\np=Path('design/index.html');s=p.read_text().replace('.goods{display:grid;','.goods article{min-width:0}.goods svg{max-width:100%}.goods{display:grid;');p.write_text(s)\nPath('design/review.html').write_text('''<html><meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\"><body style=\\\"margin:0\\\"><iframe src=\\\"index.html\\\" style=\\\"border:0;width:390px;height:3600px;transform:scale(.21);transform-origin:0 0\\\"></iframe></body></html>''')\nPY\"",
+ "/bin/zsh -lc 'rm design/review.html'"
 ]
