@@ -84,16 +84,39 @@ class Changelog extends StatelessComponent {
     'mac': 'Mac',
   };
 
+  /// A link in a line ([text](url)) reads as its text.
+  static final _link = RegExp(r'\[([^\]]*)\]\([^)]*\)');
+  static final _url = RegExp(r'https?://\S+');
+
   static String _polish(String text) {
-    var t = text.trim();
-    for (final MapEntry(key: from, value: to) in _names.entries) {
-      t = t.replaceAllMapped(RegExp('\\b$from\\b', caseSensitive: false), (_) => to);
+    final t = text.replaceAllMapped(_link, (m) => m[1]!).trim();
+    // Names cased in the words only: an address stays as it is.
+    final out = StringBuffer();
+    var at = 0;
+    String words(String w) {
+      for (final MapEntry(key: from, value: to) in _names.entries) {
+        w = w.replaceAllMapped(RegExp('\\b$from\\b', caseSensitive: false), (_) => to);
+      }
+      return w;
     }
-    return t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
+
+    for (final m in _url.allMatches(t)) {
+      out
+        ..write(words(t.substring(at, m.start)))
+        ..write(m[0]);
+      at = m.end;
+    }
+    out.write(words(t.substring(at)));
+    final p = out.toString();
+    return p.isEmpty ? p : p[0].toUpperCase() + p.substring(1);
   }
 
   static final _heading = RegExp(r'^## \[?([0-9][^\]\s]*)\]?(?:\([^)]*\))?\s*\((\d{4}-\d{2}-\d{2})\)');
-  static final _line = RegExp(r'^\* (?:\*\*([\w-]+):\*\* )?(.*?)(?: \(\[[0-9a-f]{7,}\]\([^)]*\)\))?$');
+  // A line, without what release-please adds at its end: the pull request it
+  // came in by, (#31), and its commit.
+  static final _line = RegExp(
+    r'^\* (?:\*\*([\w-]+):\*\* )?(.*?)(?: \(\[#\d+\]\([^)]*\)\))?(?: \(\[[0-9a-f]{7,}\]\([^)]*\)\))?$',
+  );
 
   static List<Release> _releases() {
     final f = File('../../CHANGELOG.md');
