@@ -194,7 +194,13 @@ class AcpReducer {
       if (raw['command'] case final String c) 'command': c,
       if (raw['pattern'] case final String p) 'pattern': p,
       if (raw['url'] case final String w) 'url': w,
-      if (u['title'] case final String t when t.isNotEmpty) 'description': t,
+      // What the step is for, in the agent's words when it gave some; never its title
+      // when that is only the command again (OpenCode titles a shell step with it).
+      if (raw['description'] case final String d when d.trim().isNotEmpty)
+        'description': d
+      else if (u['title'] case final String t
+          when t.isNotEmpty && t.trim() != '${raw['command'] ?? ''}'.trim())
+        'description': t,
     };
   }
 

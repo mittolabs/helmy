@@ -149,4 +149,34 @@ void main() {
     final d = diffsOf(edited).single;
     expect((d.added, d.removed), (1, 1));
   });
+
+  test('a shell step titled with its command reads as what it does, not the command', () {
+    final items = <ChatItem>[];
+    AcpReducer(items).apply(
+      update({
+        'sessionUpdate': 'tool_call',
+        'toolCallId': 'b1',
+        'name': 'bash',
+        'title': 'which flutter && flutter --version 2>/dev/null | head -3',
+        'kind': 'execute',
+        'status': 'pending',
+        'rawInput': {'command': 'which flutter && flutter --version 2>/dev/null | head -3'},
+      }),
+    );
+    final call = items.single as ToolCall;
+    expect(call.input['description'], isNull, reason: 'the title is only the command again');
+    final described = <ChatItem>[];
+    AcpReducer(described).apply(
+      update({
+        'sessionUpdate': 'tool_call',
+        'toolCallId': 'b2',
+        'name': 'bash',
+        'title': 'ls -la',
+        'kind': 'execute',
+        'status': 'pending',
+        'rawInput': {'command': 'ls -la', 'description': 'List the project folder'},
+      }),
+    );
+    expect((described.single as ToolCall).input['description'], 'List the project folder');
+  });
 }
