@@ -134,4 +134,36 @@ void main() {
       ['review'],
     );
   });
+
+  test('a folder of skills comes in at once, and ones on this computer are offered', () async {
+    final tmp = await Directory.systemTemp.createTemp('skills-many');
+    void skill(String dir, String name) {
+      Directory(dir).createSync(recursive: true);
+      File('$dir/SKILL.md')
+          .writeAsStringSync('---\nname: $name\ndescription: Does $name\n---\n\nSteps.\n');
+    }
+
+    final store = SkillStore('${tmp.path}/helmy/skills');
+    await store.load();
+    // A project's .agents: its skills are a folder down.
+    skill('${tmp.path}/project/.agents/skills/deploy', 'deploy');
+    skill('${tmp.path}/project/.agents/skills/review', 'review');
+    Directory('${tmp.path}/project/.agents/skills/notes').createSync(); // no SKILL.md
+    final inAgents = await store.skillsIn('${tmp.path}/project/.agents');
+    expect(inAgents.map((s) => s.name), ['deploy', 'review']);
+    expect((await store.skillsIn('${tmp.path}/project/.agents/skills')).length, 2);
+    expect(await store.addAll(inAgents), 2);
+    expect(store.names, {'deploy', 'review'});
+
+    // A home folder's: the ones Helmy has are not offered again, nor its own
+    // skills seen through a connection's link to them.
+    final home = '${tmp.path}/home';
+    skill('$home/.claude/skills/review', 'review');
+    skill('$home/.claude/skills/write-docs', 'write-docs');
+    skill('$home/.agents/skills/triage', 'triage');
+    Directory('$home/.codex/skills').createSync(recursive: true);
+    Link('$home/.codex/skills/helmy').createSync(store.root);
+    final offered = await store.onThisComputer(home);
+    expect(offered.map((s) => s.name), ['triage', 'write-docs']);
+  });
 }

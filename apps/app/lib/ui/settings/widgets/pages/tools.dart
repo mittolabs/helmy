@@ -36,7 +36,35 @@ class _ToolsState extends State<_Tools> {
     if (!widget.vm.toolsLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.vm.loadTools());
     }
+    if (widget.skills) WidgetsBinding.instance.addPostFrameCallback((_) => _lookOnComputer());
   }
+
+  /// Skills kept on this computer for every project that Helmy does not
+  /// have yet; null until looked for.
+  List<Skill>? _onComputer;
+
+  Future<void> _lookOnComputer() async {
+    final SkillStore store;
+    try {
+      store = context.read<SkillStore>();
+    } on ProviderNotFoundException {
+      return;
+    }
+    final found = await store.onThisComputer(homeDir);
+    if (mounted) setState(() => _onComputer = found);
+  }
+
+  Future<void> _addFromComputer(SkillStore store) async {
+    final n = await store.addAll(_onComputer ?? const []);
+    await _lookOnComputer();
+    if (mounted) _added(n);
+  }
+
+  void _added(int n) => showToast(
+    context,
+    title: n == 1 ? 'Added a skill' : 'Added $n skills',
+    description: 'Every chat has them, however Helmy answers.',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +114,21 @@ class _ToolsState extends State<_Tools> {
               ],
             ),
           ),
+          if (_onComputer case final local? when local.isNotEmpty)
+            _Row(
+              title: local.length == 1
+                  ? 'A skill on this computer'
+                  : '${local.length} skills on this computer',
+              description:
+                  '${local.take(4).map((s) => '/${s.name}').join(', ')}${local.length > 4 ? ' and ${local.length - 4} more' : ''}. '
+                  'Added to Helmy, every chat has them, not only some.',
+              control: Button(
+                variant: .outline,
+                size: .sm,
+                onPressed: () => unawaited(_addFromComputer(store)),
+                child: Text(local.length == 1 ? 'Add it' : 'Add all'),
+              ),
+            ),
           if (store.skills.isEmpty)
             const _Row(
               title: 'None yet',
@@ -225,16 +268,22 @@ class _ToolsState extends State<_Tools> {
   }
 
   Future<void> _addFolder(BuildContext context, SkillStore store) async {
-    final dir = await getDirectoryPath(confirmButtonText: 'Add this skill');
+    // A skill's own folder, or one holding several (skills/, .agents/).
+    final dir = await getDirectoryPath(confirmButtonText: 'Add skills');
     if (dir == null) return;
-    final added = await store.addFolder(dir);
-    if (added == null && context.mounted) {
+    final found = await store.skillsIn(dir);
+    final added = found.isEmpty ? 0 : await store.addAll(found);
+    if (!context.mounted) return;
+    if (added > 0) {
+      _added(added);
+      unawaited(_lookOnComputer());
+    } else {
       await confirm(
         context,
         title: 'No skill in that folder',
         body:
             'A skill is a folder with a SKILL.md in it, which starts with its name and '
-            'description.',
+            'description. Choose one, or a folder of them.',
         action: 'OK',
       );
     }
