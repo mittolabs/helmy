@@ -1,7 +1,8 @@
 // Compares where every element lands in a Flutter export (its measure test's
 // build/measure/*.json) with where the page puts it in Chromium.
 //   node flutter.mjs <design folder> <flutter export folder>
-// TOLERANCE (px, 1 by default) is how far a box may be off and still match.
+// TOLERANCE (px, 1 by default) is how far a box may be off and still match;
+// it exits 1 when any is further off. WORST=n lists the n furthest.
 import fs from 'node:fs'; import path from 'node:path'; import http from 'node:http';
 import { chromium } from 'playwright';
 const [design, exp] = process.argv.slice(2).map((p) => path.resolve(p));
@@ -37,3 +38,5 @@ for (const f of files.sort()) {
 await browser.close(); srv.close();
 console.log(`ALL: ${good}/${all} within ${tol}px (${(100 * good / all).toFixed(1)}%)`);
 if (process.env.WORST) for (const w of worst.sort((a, b) => b.off - a.off).slice(0, Number(process.env.WORST))) console.log(JSON.stringify(w));
+// Every element where the page puts it, or the check fails.
+if (good < all) process.exitCode = 1;
