@@ -110,6 +110,7 @@
   let canvas = null;          // canvas.json as last read
   let view = { x: 0, y: 0, s: 1 };
   let fitted = false;
+  let viewTold = 0;
   const boards = new Map();   // file -> element
 
   // Editing: the tool, what is under the pointer, what is picked, what is
@@ -130,6 +131,9 @@
 
   function apply() {
     world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
+    // Where it is looked at, told once it rests, for Helmy to keep with the chat.
+    clearTimeout(viewTold);
+    viewTold = setTimeout(() => tell({ view: { x: Math.round(view.x), y: Math.round(view.y), s: view.s } }), 400);
     stage.style.backgroundSize = `${24 * view.s}px ${24 * view.s}px`;
     stage.style.backgroundPosition = `${view.x}px ${view.y}px`;
     // The strips stay a readable size at any zoom, as wide as their screen.
@@ -201,8 +205,39 @@
     if (!doc || h === b.h) return false;
     b.h = h;
     place(file);
+    unstack();
     marks();
     return true;
+  }
+
+  /**
+   * Nothing drawn over anything else: a screen that grew as its page loaded,
+   * or a title that wrapped onto more lines than its place had room for,
+   * moves what is under it down, keeping a gap. Only ever down, and only what
+   * overlaps (side by side is left alone); stickies sit where they are put.
+   */
+  function unstack() {
+    const GAP = 32, STRIP = 28; // a screen's name sits STRIP above it
+    const items = [];
+    for (const [file, b] of Object.entries(canvas?.boards ?? {})) {
+      items.push({ x: b.x, w: b.w, top: b.y - STRIP, h: b.h + STRIP, move: (d) => { b.y += d; place(file); } });
+    }
+    for (const el of world.querySelectorAll('.note:not(.sticky)')) {
+      const n = el._note;
+      if (!n) continue;
+      items.push({ x: n.x, w: el.offsetWidth, top: n.y, h: el.offsetHeight, move: (d) => { n.y += d; el.style.top = n.y + 'px'; } });
+    }
+    items.sort((a, b) => a.top - b.top || a.x - b.x);
+    for (let i = 1; i < items.length; i++) {
+      const it = items[i];
+      let down = 0;
+      for (let j = 0; j < i; j++) {
+        const o = items[j], bottom = o.top + o.h;
+        const across = it.x < o.x + o.w && o.x < it.x + it.w;
+        if (across && bottom > it.top) down = Math.max(down, bottom + GAP - it.top);
+      }
+      if (down > 0) { it.top += down; it.move(down); }
+    }
   }
 
   /** A responsive page drawn at [w] wide, kept in the index. */
@@ -286,11 +321,13 @@
       const el = document.createElement('div');
       el.className = 'note' + (n.kind === 'title' ? '' : ' sticky');
       el.textContent = n.text ?? '';
+      el._note = n;
       Object.assign(el.style, { left: n.x + 'px', top: n.y + 'px' });
       if (n.kind === 'title') el.style.fontSize = (n.size ?? 72) + 'px';
       if (n.w) el.style.width = n.w + 'px';
       world.prepend(el);
     }
+    unstack();
     apply();
   }
 
@@ -301,7 +338,12 @@
       canvas = await r.json();
       empty.style.display = 'none';
       draw(changed);
-      if (!fitted) { fitted = true; fit(); }
+      if (!fitted) {
+        fitted = true;
+        // Where this chat last looked, when Helmy kept it; else everything, fitted.
+        const [x, y, s] = (params.get('v') ?? '').split(',').map(Number);
+        if (s > 0 && Number.isFinite(x) && Number.isFinite(y)) { view = { x, y, s }; apply(); } else fit();
+      }
       tell({ loaded: { title: canvas.title ?? '', screens: (canvas.order ?? Object.keys(canvas.boards ?? {})).map((f) => ({ file: f, title: canvas.boards?.[f]?.title ?? f })) } });
     } catch (e) {
       if (canvas) return; // keep what showed; the file is mid-write
