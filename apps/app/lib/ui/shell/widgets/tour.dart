@@ -234,6 +234,9 @@ class _Spotlight extends StatelessWidget {
 
   static const _bubbleWidth = 340.0;
 
+  /// About as tall as a bubble gets, for choosing the side it fits on.
+  static const _bubbleHeight = 240.0;
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
@@ -242,8 +245,13 @@ class _Spotlight extends StatelessWidget {
       builder: (context, box) {
         final size = box.biggest;
         final cut = hole?.inflate(6);
-        // Beside the stop: below it where there is room, else above it.
-        final below = cut == null || cut.bottom + 200 < size.height;
+        // Beside the stop: below it where the whole bubble fits, else above it,
+        // else over the stop at the window's foot: never out of the window, where
+        // its buttons could not be reached.
+        final room = _bubbleHeight + 28;
+        final below = cut == null || size.height - cut.bottom >= room;
+        final above = !below && cut.top >= room;
+        final inside = !below && !above;
         final left = cut == null
             ? (size.width - _bubbleWidth) / 2
             : (cut.center.dx - _bubbleWidth / 2)
@@ -264,7 +272,11 @@ class _Spotlight extends StatelessWidget {
               Positioned(
                 left: left,
                 top: below ? cut.bottom + 12 : null,
-                bottom: below ? null : size.height - cut.top + 12,
+                bottom: above
+                    ? size.height - cut.top + 12
+                    : inside
+                    ? 16
+                    : null,
                 width: _bubbleWidth,
                 child: _Bubble(
                   stop: stop,
