@@ -11,18 +11,25 @@ Flutter, and `0012` why its UI is Ashlar UI.
 
 **Helmy is the assistant. Nothing else is.** Claude Code, Codex and models on
 Ollama are connections: the means Helmy uses to get things done, added in
-Settings the way you add an account. After that they never show.
+Settings the way you add an account. After that they never speak for themselves.
 
 - In a conversation, Helmy never names them, never says it is one of them, and
   never passes on their wording: their errors, their notices, their quirks.
   Talking to Helmy should feel like talking to a model of its own.
 - Which connection answers a message is Helmy's choice, made per message
-  (capability, then measured headroom, then the model on this Mac), and is
-  never shown.
-- Settings (and the first-run onboarding) are the only places they appear,
-  as connections to add, check and remove.
+  (capability, then measured headroom, then the model on this Mac). It is
+  never a choice you have to make.
+- Which one answered is shown on request: on each answer, on hover, its
+  logo, its name, the model and why Helmy chose it. That says where the
+  answer came from; it does not make the connection the voice.
+- Developer mode (Settings > General, off by default) lets a person hold a
+  chat to a connection and model, with its effort and speed, from under the
+  message box. Off, nothing of it shows.
+- Otherwise, Settings (and the first-run onboarding) are the only places
+  they appear, as connections to add, check and remove.
 
-When a change would let one of them show through, it is a bug.
+When a change would let one of them show through anywhere else (its
+wording, its errors, its voice), it is a bug.
 
 ## Two principles every change is judged by
 
@@ -30,7 +37,8 @@ When a change would let one of them show through, it is a bug.
 says what they want, and Helmy decides how (which connection, which model,
 how much effort, how many opinions), well and efficiently. Complexity is
 carried by Helmy, not handed over (Tesler's law). No model pickers, effort
-dials or knobs that only exist because we did not decide. A setting earns its
+dials or knobs that only exist because we did not decide, outside Developer
+mode, which is for people who want to choose and says so. A setting earns its
 place only when people genuinely differ in what they want.
 
 **When something goes wrong, Helmy shows the cause and the fix.** Never a
