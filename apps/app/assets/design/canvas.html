@@ -136,10 +136,15 @@
     viewTold = setTimeout(() => tell({ view: { x: Math.round(view.x), y: Math.round(view.y), s: view.s } }), 400);
     stage.style.backgroundSize = `${24 * view.s}px ${24 * view.s}px`;
     stage.style.backgroundPosition = `${view.x}px ${view.y}px`;
-    // The strips stay a readable size at any zoom, as wide as their screen.
+    // The strips stay a readable size at any zoom, as wide as their screen,
+    // but never taller than the room above their screen: zoomed out, a
+    // name the same size on screen would cover what is above it.
+    const room = roomAbove();
     for (const el of world.querySelectorAll('.strip')) {
-      el.style.transform = `scale(${1 / view.s})`;
-      el.style.width = (Number(el.dataset.w) * view.s) + 'px';
+      const fits = Math.max(room.get(el.parentElement.dataset.file) ?? Infinity, 10) / 28;
+      const k = Math.min(1 / view.s, fits);
+      el.style.transform = `scale(${k})`;
+      el.style.width = (Number(el.dataset.w) / k) + 'px';
     }
     marks();
     tell({ zoom: view.s });
@@ -206,7 +211,7 @@
     b.h = h;
     place(file);
     unstack();
-    marks();
+    apply();
     return true;
   }
 
@@ -216,8 +221,30 @@
    * moves what is under it down, keeping a gap. Only ever down, and only what
    * overlaps (side by side is left alone); stickies sit where they are put.
    */
+  /** Each screen's free height above it, up to what is over it, by file. */
+  function roomAbove() {
+    const out = new Map();
+    const all = Object.entries(canvas?.boards ?? {});
+    const others = [
+      ...all.map(([file, b]) => ({ file, x: b.x, w: b.w, top: b.y, bottom: b.y + b.h })),
+      ...[...world.querySelectorAll('.note:not(.sticky)')].filter((el) => el._note)
+        .map((el) => ({ x: el._note.x, w: el._w ?? el.offsetWidth, top: el._note.y, bottom: el._note.y + (el._h ?? el.offsetHeight) })),
+    ];
+    for (const [file, b] of all) {
+      let room = Infinity;
+      for (const o of others) {
+        if (o.file === file || !(b.x < o.x + o.w && o.x < b.x + b.w) || o.top >= b.y) continue;
+        room = Math.min(room, Math.max(0, b.y - o.bottom));
+      }
+      out.set(file, room);
+    }
+    return out;
+  }
+
   function unstack() {
-    const GAP = 32, STRIP = 28; // a screen's name sits STRIP above it
+    // A screen's name sits above it: room kept for it, so it can be read
+    // zoomed out to about half.
+    const GAP = 32, STRIP = 56;
     const items = [];
     for (const [file, b] of Object.entries(canvas?.boards ?? {})) {
       items.push({ x: b.x, w: b.w, top: b.y - STRIP, h: b.h + STRIP, move: (d) => { b.y += d; place(file); } });
@@ -225,7 +252,8 @@
     for (const el of world.querySelectorAll('.note:not(.sticky)')) {
       const n = el._note;
       if (!n) continue;
-      items.push({ x: n.x, w: el.offsetWidth, top: n.y, h: el.offsetHeight, move: (d) => { n.y += d; el.style.top = n.y + 'px'; } });
+      el._w = el.offsetWidth; el._h = el.offsetHeight;
+      items.push({ x: n.x, w: el._w, top: n.y, h: el._h, move: (d) => { n.y += d; el.style.top = n.y + 'px'; } });
     }
     items.sort((a, b) => a.top - b.top || a.x - b.x);
     for (let i = 1; i < items.length; i++) {
