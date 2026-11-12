@@ -37,6 +37,9 @@ class AcpRpc {
   );
 
   final Process _process;
+
+  /// The agent's process: the commands it runs are under it.
+  int get pid => _process.pid;
   final _incoming = StreamController<Map<String, Object?>>.broadcast();
   final _stderr = StringBuffer();
   final Map<int, Completer<Map<String, Object?>>> _pending = {};

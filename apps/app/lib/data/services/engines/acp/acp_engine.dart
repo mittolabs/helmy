@@ -365,6 +365,8 @@ class _AcpRun implements EngineRun {
         'clientCapabilities': {
           'fs': {'readTextFile': false, 'writeTextFile': false},
           'terminal': false,
+          // Questions as forms, drawn with Helmy's question card.
+          'elicitation': {'form': <String, Object?>{}},
         },
         'clientInfo': {'name': 'Helmy', 'version': '0.1.0'},
       });
@@ -448,11 +450,25 @@ class _AcpRun implements EngineRun {
 
   void _onMessage(Map<String, Object?> m) {
     if (_replaying && m['method'] == 'session/update') return;
+    // The agent going on by itself, between turns: after background work it
+    // started ended, as OpenCode does. The chat works on it like any turn,
+    // and it ends once the agent has been quiet a while.
+    if (m['method'] == 'session/update' && !_inTurn && _sessionId != null) {
+      if (!_selfTurn) {
+        _selfTurn = true;
+        status.startedByItself = true;
+      }
+      _selfQuiet?.cancel();
+      _selfQuiet = Timer(const Duration(seconds: 8), _endSelfTurn);
+    }
     _reducer.apply(m);
     final id = m['id'];
-    if (id != null && m['method'] != 'session/request_permission') {
+    if (id != null &&
+        m['method'] != 'session/request_permission' &&
+        m['method'] != 'elicitation/create') {
       _rpc.replyError(id, -32601, 'Not supported by this client');
     }
+    _watchBackground();
     status
       ..thinking = _reducer.thinking
       ..context = _reducer.context ?? status.context;
@@ -472,6 +488,9 @@ class _AcpRun implements EngineRun {
     final identity = _identity;
     _identity = null;
     status.thinking = true;
+    _inTurn = true;
+    _selfQuiet?.cancel();
+    _selfTurn = false;
     _changes.add(false);
     try {
       final result = await _rpc.request('session/prompt', {
@@ -486,8 +505,121 @@ class _AcpRun implements EngineRun {
     } on Object catch (e) {
       _reducer.ended(error: '$e');
     }
+    _inTurn = false;
     status.thinking = false;
     _changes.add(true);
+  }
+
+  // A turn under way, asked for; and one the agent began by itself.
+  bool _inTurn = false;
+  bool _selfTurn = false;
+  Timer? _selfQuiet;
+
+  void _endSelfTurn() {
+    if (!_selfTurn || _inTurn) return;
+    _selfTurn = false;
+    _reducer.ended();
+    status.thinking = false;
+    _changes.add(true);
+  }
+
+  // Commands the agent left running in its own background, followed in its
+  // process tree: running while one with the command's words is under the
+  // agent, finished once none is. Any agent, whatever its words for it.
+  Timer? _backgroundTimer;
+
+  Iterable<ToolCall> get _running =>
+      _reducer.items.whereType<ToolCall>().where((c) => c.background?.status == .running);
+
+  void _watchBackground() {
+    if (_backgroundTimer != null || _running.isEmpty) return;
+    _backgroundTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(_checkBackground()),
+    );
+  }
+
+  Future<void> _checkBackground() async {
+    final running = _running.toList();
+    if (running.isEmpty) {
+      _backgroundTimer?.cancel();
+      _backgroundTimer = null;
+      return;
+    }
+    final tree = await _agentProcesses();
+    final ended = [
+      for (final call in running)
+        if (_matching(tree, call).isEmpty) call,
+    ];
+    for (final call in ended) {
+      call.background!.status = .completed;
+    }
+    if (ended.isEmpty) return;
+    _changes.add(false);
+    // The agent said it would carry on once this ended, but over the protocol
+    // nothing wakes it (OpenCode 2.2.7 does not resume by itself): Helmy does,
+    // with what the command printed, as a turn the chat shows as working.
+    if (!_inTurn && !_selfTurn) {
+      status.startedByItself = true;
+      _changes.add(false);
+      unawaited(_send(await _finishedNote(ended), const []));
+    }
+  }
+
+  /// What Helmy tells the agent when its background commands end: each one,
+  /// and the end of what it printed.
+  Future<String> _finishedNote(List<ToolCall> ended) async {
+    final parts = <String>[];
+    for (final call in ended) {
+      var tail = '';
+      if (call.background?.outputFile case final path?) {
+        try {
+          final all = await File(path).readAsString();
+          tail = all.length > 4000 ? all.substring(all.length - 4000) : all;
+        } on FileSystemException {
+          tail = '';
+        }
+      }
+      parts.add(
+        'The background command `${call.input['command'] ?? call.background!.id}` has finished.'
+        '${tail.trim().isEmpty ? ' It printed nothing.' : ' The end of its output:\n\n```\n${tail.trimRight()}\n```'}',
+      );
+    }
+    return '${parts.join('\n\n')}\n\nCarry on with what you were doing.';
+  }
+
+  /// The processes under the agent: pid, and the command line.
+  Future<List<(int, String)>> _agentProcesses() async {
+    final r = await Process.run('/bin/ps', ['-A', '-o', 'pid=,ppid=,command=']);
+    final parent = <int, int>{}, command = <int, String>{};
+    for (final line in '${r.stdout}'.split('\n')) {
+      final m = RegExp(r'^\s*(\d+)\s+(\d+)\s+(.*)$').firstMatch(line);
+      if (m == null) continue;
+      final pid = int.parse(m[1]!);
+      parent[pid] = int.parse(m[2]!);
+      command[pid] = m[3]!;
+    }
+    bool under(int pid) {
+      for (var p = parent[pid], hops = 0; p != null && p > 1 && hops < 32; p = parent[p], hops++) {
+        if (p == _rpc.pid) return true;
+      }
+      return false;
+    }
+
+    return [
+      for (final MapEntry(:key, :value) in command.entries)
+        if (under(key)) (key, value),
+    ];
+  }
+
+  /// Which of [tree] run [call]'s command: its words before the first pipe.
+  static List<int> _matching(List<(int, String)> tree, ToolCall call) {
+    final words = '${call.input['command'] ?? ''}'.split('|').first.split('2>').first.trim();
+    if (words.isEmpty) return const [];
+    return [
+      for (final (pid, line) in tree)
+        if (line.contains(words)) pid,
+    ];
   }
 
   /// The protocol has no way to add to a turn under way.
@@ -506,6 +638,10 @@ class _AcpRun implements EngineRun {
   /// no. Cancelled when it offered none of that kind.
   @override
   void answer(PermissionPrompt prompt, PermissionAnswer answer, {String? why}) {
+    if (prompt.input['elicitation'] == true) {
+      _rpc.reply(_rpcId(prompt.requestId), {'action': answer == .deny ? 'decline' : 'cancel'});
+      return;
+    }
     final kinds = switch (answer) {
       .allow => ['allow_once', 'allow_always'],
       .allowForSession => ['allow_always', 'allow_once'],
@@ -520,13 +656,39 @@ class _AcpRun implements EngineRun {
     });
   }
 
+  /// A question the agent asked as a form: the choices picked, as the values
+  /// it offered, and anything typed, in its field for another answer.
   @override
-  void answerQuestion(PermissionPrompt prompt) => _rpc.reply(_rpcId(prompt.requestId), {
-    'outcome': {'outcome': 'cancelled'},
-  });
+  void answerQuestion(PermissionPrompt prompt) {
+    if (prompt.input['elicitation'] != true) {
+      _rpc.reply(_rpcId(prompt.requestId), {
+        'outcome': {'outcome': 'cancelled'},
+      });
+      return;
+    }
+    _rpc.reply(_rpcId(prompt.requestId), {
+      'action': 'accept',
+      'content': AcpReducer.formAnswers(prompt),
+    });
+  }
 
+  /// Stops a command the agent left running, and what it started.
   @override
-  void stopTask(String taskId) {}
+  void stopTask(String taskId) => unawaited(_stop(taskId));
+
+  Future<void> _stop(String taskId) async {
+    final call = _reducer.items
+        .whereType<ToolCall>()
+        .where((c) => c.background?.id == taskId)
+        .lastOrNull;
+    if (call == null) return;
+    final tree = await _agentProcesses();
+    for (final pid in _matching(tree, call)) {
+      Process.killPid(pid);
+    }
+    call.background!.status = .stopped;
+    _changes.add(false);
+  }
 
   /// Its own /compact, where it offers one.
   @override
@@ -538,5 +700,9 @@ class _AcpRun implements EngineRun {
   void setLevel(PermissionLevel level) {}
 
   @override
-  Future<void> close() => _rpc.close();
+  Future<void> close() {
+    _backgroundTimer?.cancel();
+    _selfQuiet?.cancel();
+    return _rpc.close();
+  }
 }

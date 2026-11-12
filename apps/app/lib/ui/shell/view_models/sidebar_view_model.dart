@@ -785,6 +785,10 @@ class SidebarViewModel extends ChangeNotifier {
     } else if (c.busy) {
       final step = c.items.whereType<ToolCall>().where((t) => !t.done).lastOrNull;
       text = step == null ? 'Working' : 'Working: ${toolLabel(step.name)}';
+    } else if (_inBackground(c)) {
+      // The turn is over, but something it started still runs: said, so the
+      // chat does not look finished while it is not.
+      text = 'Running in the background';
     } else if (about.isNotEmpty) {
       // What Helmy says the chat is about, once nothing live is to say.
       text = about;
@@ -908,13 +912,17 @@ class SidebarViewModel extends ChangeNotifier {
         .trim();
   }
 
+  /// Whether a step of [c] still runs in the background, after its turn.
+  static bool _inBackground(Conversation c) =>
+      c.items.whereType<ToolCall>().any((t) => t.background?.status == .running);
+
   void _onConversations() {
     var changed = false;
     for (final s in _sessions.sessions) {
       final c = _conversations.of(s.id);
       final a = c.pendingPrompts > 0
           ? SessionActivity.needsYou
-          : c.busy
+          : c.busy || _inBackground(c)
           ? SessionActivity.working
           : _attention?.isUnread(s.id) == true
           ? SessionActivity.unread
