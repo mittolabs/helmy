@@ -161,15 +161,22 @@ Future<List<FontFace>> googleFonts(
 /// A GET without a browser's name: Google Fonts then serves TTF, which
 /// Flutter takes.
 Future<List<int>?> _get(Uri url) async {
-  final client = HttpClient()..userAgent = null;
+  // GitHub's API answers only a client that names itself; a generic name.
+  final client = HttpClient()
+    ..userAgent = url.host == 'api.github.com' ? 'design-export' : null
+    ..connectionTimeout = const Duration(seconds: 20);
   try {
     final req = await client.getUrl(url);
-    final res = await req.close();
-    if (res.statusCode != 200) return null;
-    return [for (final chunk in await res.toList()) ...chunk];
+    final res = await req.close().timeout(const Duration(seconds: 60));
+    if (res.statusCode != 200) {
+      // Read to the end, or the open connection keeps the program running.
+      await res.drain<void>();
+      return null;
+    }
+    return [for (final chunk in await res.toList().timeout(const Duration(seconds: 60))) ...chunk];
   } on Object {
     return null;
   } finally {
-    client.close();
+    client.close(force: true);
   }
 }
