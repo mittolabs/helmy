@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/activity_words.dart';
+import 'package:helmy/domain/helmy_voice.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/permission_rule.dart';
 
@@ -93,5 +94,13 @@ void main() {
           .declined,
       isFalse,
     );
+  });
+
+  test("a program file run as it is, and the Vault's own steps, are named", () {
+    expect(specificCommandLabel("node check-stripe.mjs", done: true), "Ran check-stripe.mjs");
+    expect(specificCommandLabel("python3 scripts/tidy.py", done: false), "Running tidy.py");
+    expect(specificCommandLabel("node -e 'console.log(1)'", done: true), 'Ran a script');
+    expect(toolLabel("mcp__helmy__vault_list"), "Checked the Vault");
+    expect(ownStep("mcp__helmy__vault_ask"), ("Asked you for a key", "Asking you for a key"));
   });
 }

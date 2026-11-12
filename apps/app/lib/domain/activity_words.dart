@@ -153,6 +153,15 @@ ActivityWords commandActivity(String command) {
       'read file contents',
     );
   }
+  // A program file run as it is ("node check-stripe.mjs"), not code written
+  // into the command: named.
+  final file = RegExp(
+    r'^\s*(?:node|python3?|ruby|deno(?: run)?|bun|tsx|ts-node|bash|sh|zsh|swift|perl)\s+(?:[\w.~/-]+/)?([\w.-]+\.(?:mjs|cjs|js|ts|py|rb|sh|swift|pl))(?=\s|$)',
+  ).firstMatch(command);
+  if (file != null && !RegExp(r'[;&|]|<<|\s-[ce]\s').hasMatch(command)) {
+    final name = file[1]!;
+    return words('Run $name', 'Running $name', 'Ran $name', 'ran $name');
+  }
   if (scriptActivity(text) case final w?) return w;
   return words('Run a script', 'Running a script', 'Ran a script', 'ran a script');
 }

@@ -26,6 +26,9 @@ String inHelmysWords(String? raw) => diagnose(raw).what;
     ('browser_screenshot', 'Looked at the page', 'Looking at the page'),
     ('browser_logs', "Checked the page's errors", "Checking the page's errors"),
     ('browser_eval', 'Ran a script in the page', 'Running a script in the page'),
+    ('vault_list', 'Checked the Vault', 'Checking the Vault'),
+    ('vault_ask', 'Asked you for a key', 'Asking you for a key'),
+    ('vault_run', 'Ran it with your keys', 'Running it with your keys'),
   ]) {
     if (name.endsWith(tool)) return (done, doing);
   }

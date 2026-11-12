@@ -161,6 +161,13 @@ String _title(ToolCall call, {required bool done}) {
       done: done,
       result: call.result,
     ),
+    // Run with the Vault's keys: said as the command it ran.
+    _ when call.name.endsWith('vault_run') && call.input['command'] is String =>
+      specificCommandLabel(
+        PermissionRule.plainCommand(call.input['command']! as String),
+        done: done,
+        result: call.result,
+      ),
     'Read' => pick('Read ${file()}', 'Reading ${file()}'),
     'Write' => pick('Wrote ${file()}', 'Writing ${file()}'),
     'Edit' || 'NotebookEdit' => pick('Edited ${file()}', 'Editing ${file()}'),
