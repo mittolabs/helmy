@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/mittolabs/helmy/compare/v0.4.1...v0.4.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **tour:** the bubble stays in the window, where its buttons can be reached ([#22](https://github.com/mittolabs/helmy/issues/22)) ([f59584b](https://github.com/mittolabs/helmy/commit/f59584bf414699a1443ff8151aefe060d24efe4c))
+
 ## [0.4.1](https://github.com/mittolabs/helmy/compare/v0.4.0...v0.4.1) (2026-11-12)
 
 
