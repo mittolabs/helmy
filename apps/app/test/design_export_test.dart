@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/design_export/export.dart';
 import 'package:helmy/domain/design_export/planner.dart';
 import 'package:helmy/domain/design_export/react_writer.dart';
+import 'package:helmy/domain/design_export/subset.dart';
+import 'package:helmy/domain/identity.dart';
 import 'package:helmy/domain/design_export/reader.dart';
 
 void main() {
@@ -72,5 +74,32 @@ void main() {
     final react = await exportDesign('test/fixtures/design', '${out.path}/react', ExportTarget.react);
     expect(react, containsAll(['package.json', 'index.html', 'src/main.tsx', 'public/img/icon.png']));
     expect(File('${out.path}/react/src/screens/Download/Download.tsx').readAsStringSync(), contains('↗'));
+  });
+
+  test('what will not convert to app code is found, each with where and why', () async {
+    final issues = await checkDesign('test/fixtures/design');
+    String whatOf(String prefix) => issues.firstWhere((i) => i.what.startsWith(prefix)).why;
+    // The real design: a sticky header, a shadow filter, columns that fit themselves.
+    expect(issues.map((i) => i.what.split(':').first).toSet(), {'position', 'filter', 'grid-template-columns'});
+    expect(whatOf('position'), contains('sticky'));
+    expect(whatOf('grid-template-columns'), contains('flex-wrap'));
+    // Found again on the page by where it is.
+    expect(issues.first.selector, startsWith('body > '));
+
+    List<SubsetIssue> check(String body, {String css = ''}) => checkSubset(
+      readScreen('a.html', '<html><head><style>$css</style></head><body>$body</body></html>', title: 'A'),
+    );
+    // Centering with a grid of one cell, and fixed columns, convert.
+    expect(check('<div style="display:grid;place-items:center"><b>x</b></div>'), isEmpty);
+    expect(check('<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px"></div>'), isEmpty);
+    expect(check('<div style="float:left;transform:skew(10deg)"></div>').map((i) => i.what), [
+      'float: left',
+      'transform: skew(10deg)',
+    ]);
+    // A style block may only switch classes by width.
+    expect(check('', css: '@media (max-width: 720px) { .hide-sm { display: none !important; } }'), isEmpty);
+    expect(check('', css: 'p { color: red; }').single.selector, 'style');
+    // Agents are told the same, when they design.
+    expect(helmyIdentity, contains(subsetForAgents));
   });
 }
