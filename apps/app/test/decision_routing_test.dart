@@ -559,7 +559,9 @@ void holding() {
       meter: meter,
       storage: storage,
       sessions: sessions,
-      holdMargin: Duration.zero,
+      // Past the reset, as the app waits 30 s past it: on the very instant, the
+      // router can still see the limit while the hold no longer does.
+      holdMargin: const Duration(milliseconds: 50),
     );
     addTearDown(repo.dispose);
     final s = (await sessions.create(cwd: root.path) as Ok).value as Session;

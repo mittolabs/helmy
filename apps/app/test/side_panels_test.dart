@@ -143,6 +143,9 @@ void main() {
     vm.toggleExpanded();
     expect(vm.panelExpanded, isFalse, reason: 'nothing open to expand');
 
+    // The panel is saved in turn, after the change that asked for it: wait
+    // for the last of those, then for the files they write.
+    await vm.panelSaved;
     vm.dispose();
     repo.dispose();
     await storage.flush();
@@ -185,8 +188,10 @@ void main() {
     edit('d.txt');
     await vm.countChanges(turnEnded: true);
     expect(vm.panelOpen, isFalse, reason: 'closed here: it stays closed');
+    await vm.panelSaved;
     vm.dispose();
     repo.dispose();
+    await storage.flush();
     await root.delete(recursive: true);
   });
 }
