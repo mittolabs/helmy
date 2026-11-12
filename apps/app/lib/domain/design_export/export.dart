@@ -150,8 +150,9 @@ Future<List<FontFace>> googleFonts(
       final asset = 'assets/fonts/${family.replaceAll(' ', '_')}-$weight${italic ? 'i' : ''}.ttf';
       if (!seen.add(asset)) continue;
       final bytes = await fetch(Uri.parse(url));
-      if (bytes != null)
+      if (bytes != null) {
         out.add((family: family, weight: weight, italic: italic, asset: asset, bytes: bytes));
+      }
     }
   }
   return out;

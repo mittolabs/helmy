@@ -440,13 +440,14 @@ class _FlutterWriter {
   /// A color, as the theme names it where it does.
   String colorRef(int argb) {
     for (final t in plan.tokens) {
-      if (t.kind == DTokenKind.color && colorValue(t.value) == argb)
+      if (t.kind == DTokenKind.color && colorValue(t.value) == argb) {
         return 'DesignColors.${t.name}';
+      }
     }
     return 'const ${colorCode(argb)}';
   }
 
-  String _style(_Text t, _Ctx ctx, {_Text? base}) {
+  String _style(_Text t, _Ctx ctx) {
     final parts = <String>[
       'color: ${colorRef(t.color)}',
       'fontSize: ${t.sizeCode ?? num(t.size)}',
@@ -546,8 +547,9 @@ class _FlutterWriter {
       final rich = _inline(run, ctx, text, n);
       run.clear();
       if (rich == null) return;
-      if (lastBottom != null && _positive(lastBottom!))
+      if (lastBottom != null && _positive(lastBottom!)) {
         out.add('SizedBox(height: ${lastBottom!.code})');
+      }
       lastBottom = DLen.px(0);
       out.add(rich);
     }
@@ -571,8 +573,9 @@ class _FlutterWriter {
       }
     }
     flushRun();
-    if (lastBottom != null && _positive(lastBottom!))
+    if (lastBottom != null && _positive(lastBottom!)) {
       out.add('SizedBox(height: ${lastBottom!.code})');
+    }
     return out;
   }
 
@@ -779,7 +782,6 @@ class _FlutterWriter {
     if (ctx.paramAt(n, DParamKind.element) case final p?) return p.name;
 
     final text = _textOf(n, parentText);
-    final s = n.style;
     final display = _display(n);
     String? child;
     switch (n.tag) {
@@ -873,10 +875,11 @@ class _FlutterWriter {
       for (final e in n.attrs.entries) '${e.key}="${e.value.replaceAll('currentColor', hex)}"',
       if (n.tag == 'svg' && !n.attrs.containsKey('xmlns')) 'xmlns="http://www.w3.org/2000/svg"',
     ];
-    if (n.style.isNotEmpty)
+    if (n.style.isNotEmpty) {
       attrs.add(
         'style="${n.style.entries.map((e) => '${e.key}:${e.value}').join(';').replaceAll('currentColor', hex)}"',
       );
+    }
     return '<${n.tag}${attrs.isEmpty ? '' : ' ${attrs.join(' ')}'}>${n.children.map((c) => _markup(c, color)).join()}</${n.tag}>';
   }
 
@@ -1039,8 +1042,9 @@ class _FlutterWriter {
       w = 'ConstrainedBox(constraints: $size, child: $w)';
     }
     if (container.isNotEmpty) w = 'Container(${container.join(', ')}, child: $w)';
-    if (size != null && (boxSizing || container.isEmpty))
+    if (size != null && (boxSizing || container.isEmpty)) {
       w = 'ConstrainedBox(constraints: $size, child: $w)';
+    }
     if (clip && deco.isEmpty) w = 'ClipRect(child: $w)';
     // Its height from its width, so inside what sets the width.
     if (s['aspect-ratio'] case final ar?) {
@@ -1081,8 +1085,9 @@ class _FlutterWriter {
           (length(s['bottom'] ?? '', fontSize: fs) == null
               ? null
               : '-${length(s['bottom']!, fontSize: fs)!.code}');
-      if (dx != null || dy != null)
+      if (dx != null || dy != null) {
         w = 'Transform.translate(offset: Offset(${dx ?? '0'}, ${dy ?? '0'}), child: $w)';
+      }
     }
     // A box narrower than its line (its own width or max-width; min-width
     // never narrows it) sits at the
@@ -1221,8 +1226,9 @@ class _FlutterWriter {
       final i = x.indexOf(':');
       byName[x.substring(0, i)] = x.substring(i + 1).trim();
     }
-    if (byName.values.any((v) => v.contains('context')))
+    if (byName.values.any((v) => v.contains('context'))) {
       ctx.usesMath = ctx.usesMath || byName.values.any((v) => v.contains('math.'));
+    }
     return 'BoxConstraints(${byName.entries.map((e) => '${e.key}: ${e.value}').join(', ')})';
   }
 
@@ -1309,10 +1315,7 @@ class _FlutterWriter {
         for (final c in items)
           if (!c.isText) c,
       ]);
-      final widgets = [
-        for (final c in items)
-          if (_item(c, ctx, text, row: row, inFlex: false) case final w?) w,
-      ];
+      final widgets = [for (final c in items) ?_item(c, ctx, text, row: row, inFlex: false)];
       final wrapped =
           'Wrap(direction: ${row ? 'Axis.horizontal' : 'Axis.vertical'}, spacing: ${mainGap?.code ?? '0'}, runSpacing: ${crossGap?.code ?? '0'}, '
           'alignment: ${_wrapAlign(s['justify-content'])}, crossAxisAlignment: ${_wrapCross(align)}, children: [${widgets.join(', ')}])';
@@ -1426,8 +1429,9 @@ class _FlutterWriter {
     final shrink = s['flex-shrink'] != null ? double.tryParse(s['flex-shrink']!) : _shrinkOf(flex);
     // Top and bottom margins in a flex line stay with the item.
     final item = _keepMargins(_verticalMargins(c, _textOf(c, text)), w);
-    if (grow != null && grow > 0)
+    if (grow != null && grow > 0) {
       return 'Expanded(flex: ${grow.round().clamp(1, 1000)}, child: $item)';
+    }
     // Text shrinks to fit, as flex-shrink 1 lets it, in a line where nothing
     // grows: where something does, the text keeps its width and the growing
     // item takes what is left, as CSS lays it out.
@@ -1454,8 +1458,9 @@ class _FlutterWriter {
   bool _fixedWidth(DNode c) => c.style['width'] != null && length(c.style['width']!) != null;
 
   double? _growOf(String? flex) {
-    if (flex == null || flex == 'none' || flex == 'auto' || flex == 'initial')
+    if (flex == null || flex == 'none' || flex == 'auto' || flex == 'initial') {
       return flex == 'auto' ? 1 : null;
+    }
     return double.tryParse(flex.split(RegExp(r'\s+')).first);
   }
 
@@ -1516,10 +1521,7 @@ class _FlutterWriter {
     final template = s['grid-template-columns'];
     if (template == null) {
       // One column: each item a row of its own.
-      final widgets = [
-        for (final c in items)
-          if (_item(c, ctx, text, row: false, inFlex: false) case final w?) w,
-      ];
+      final widgets = [for (final c in items) ?_item(c, ctx, text, row: false, inFlex: false)];
       if (widgets.length == 1 && center) return 'Center(child: ${widgets.single})';
       return 'Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: ${center ? 'CrossAxisAlignment.center' : 'CrossAxisAlignment.stretch'}, '
           '${gaps.$1 != null && !gaps.$1!.isZero ? 'spacing: ${gaps.$1!.code}, ' : ''}children: [${widgets.join(', ')}])';

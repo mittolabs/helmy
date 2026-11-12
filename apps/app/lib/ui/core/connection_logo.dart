@@ -52,9 +52,7 @@ class ConnectionLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c =
-        color ??
-        (brand ? brandColor(engineId) : null) ??
-        AshlarTheme.of(context).colors.foreground;
+        color ?? (brand ? brandColor(engineId) : null) ?? AshlarTheme.of(context).colors.foreground;
     final filter = ColorFilter.mode(c, BlendMode.srcIn);
     final fallback = AshlarIcon(AshlarIconsRoundedStroke.aiAgent, size: size, color: c);
     final asset = assetFor(engineId);
