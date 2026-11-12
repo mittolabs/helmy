@@ -10,6 +10,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:helmy_site/analytics.dart';
+
 void main(List<String> args) {
   if (args.length != 3) {
     stderr.writeln('Usage: dart run tool/web.dart <site build> <docs build> <out>');
@@ -29,7 +31,10 @@ void main(List<String> args) {
             // An attribute that starts at the root, but not one that starts with "//".
             RegExp(r'''\b(href|src|poster)="/(?!/)'''),
             (m) => '${m[1]}="/docs/',
-          ),
+          )
+          // Counted as the site is (lib/analytics.dart): added after the rewrite, so the
+          // tracker stays at the root, where the edge serves it.
+          .replaceFirst('</head>', '$trackerTags</head>'),
     );
   });
 }

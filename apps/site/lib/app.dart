@@ -5,9 +5,11 @@ import 'package:jaspr_router/jaspr_router.dart';
 import 'pages/changelog.dart';
 import 'pages/download.dart';
 import 'pages/home.dart';
+import 'pages/privacy.dart';
 
-/// The site, pre-rendered. The only script in the browser is web/reveal.js:
-/// the reveal on scroll, and the nav filling in once the page scrolls.
+/// The site, pre-rendered. The scripts in the browser are web/reveal.js (the reveal
+/// on scroll, the nav filling in once the page scrolls) and, on helmy.ke, Umami's
+/// with web/track.js (analytics.dart).
 class App extends StatelessComponent {
   const App({super.key});
 
@@ -19,6 +21,7 @@ class App extends StatelessComponent {
         Route(path: '/', builder: (context, state) => const Home()),
         Route(path: '/changelog', builder: (context, state) => const Changelog()),
         Route(path: '/download', builder: (context, state) => const Download()),
+        Route(path: '/privacy', builder: (context, state) => const Privacy()),
       ],
     ),
   ]);

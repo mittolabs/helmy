@@ -1,6 +1,7 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
+import '../analytics.dart';
 import '../release.dart';
 
 /// The opening: what Helmy is, in its own words, with Helmy itself beside
@@ -32,7 +33,12 @@ class Hero extends StatelessComponent {
           ),
         ]),
         div(classes: 'cta reveal', [
-          a(classes: 'btn btn-accent', href: '/download', [Component.text('Get Helmy')]),
+          a(
+            classes: 'btn btn-accent',
+            href: '/download',
+            attributes: track('get-helmy', {'from': 'hero'}),
+            [Component.text('Get Helmy')],
+          ),
           a(classes: 'btn btn-ghost', href: '#how', [Component.text('See how it works')]),
         ]),
         p(classes: 'note reveal', [
@@ -276,7 +282,12 @@ class Get extends StatelessComponent {
       ]),
       div(classes: 'cta center reveal', [
         if (out)
-          a(classes: 'btn btn-accent', href: '/download', [Component.text('Download')])
+          a(
+            classes: 'btn btn-accent',
+            href: '/download',
+            attributes: track('get-helmy', {'from': 'end of page'}),
+            [Component.text('Download')],
+          )
         else
           span(
             classes: 'btn btn-accent disabled',

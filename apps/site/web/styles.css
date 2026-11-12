@@ -263,3 +263,8 @@ p { margin: 0; }
 
 /* The terminal installers on the download page. */
 .download-cmd { margin: 8px 0 4px; padding: 14px 18px; width: fit-content; max-width: 100%; overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--card); font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); user-select: all; }
+
+/* A page of plain reading: the privacy notice. */
+.prose { max-width: 720px; padding-bottom: 96px; }
+.prose h2 { font-size: 20px; margin: 32px 0 8px; }
+.prose p { color: var(--muted); line-height: 1.65; }

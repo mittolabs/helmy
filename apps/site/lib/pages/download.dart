@@ -3,6 +3,7 @@ import 'package:jaspr/jaspr.dart';
 
 import '../components/chrome.dart';
 import '../components/page_title.dart';
+import '../analytics.dart';
 import '../release.dart';
 
 /// The builds of the latest release, one card per file, grouped by system.
@@ -47,15 +48,20 @@ class Download extends StatelessComponent {
                 h2([Component.text(system)]),
                 div(classes: 'download-grid', [
                   for (final b in release.builds.where((b) => b.system == system && b.main))
-                    a(classes: 'download-card', href: b.url, [
-                      img(src: '/icon.png', alt: '', width: 32, height: 32),
-                      div([
-                        p(classes: 'download-name', [Component.text(b.name)]),
-                        p(classes: 'download-meta', [
-                          Component.text('${b.kind} · ${Release.size(b.bytes)}'),
+                    a(
+                      classes: 'download-card',
+                      href: b.url,
+                      attributes: track('download', {'system': b.system, 'build': b.name}),
+                      [
+                        img(src: '/icon.png', alt: '', width: 32, height: 32),
+                        div([
+                          p(classes: 'download-name', [Component.text(b.name)]),
+                          p(classes: 'download-meta', [
+                            Component.text('${b.kind} · ${Release.size(b.bytes)}'),
+                          ]),
                         ]),
-                      ]),
-                    ]),
+                      ],
+                    ),
                 ]),
                 if (release.builds.where((f) => f.system == system && !f.main).toList() case final rest
                     when rest.isNotEmpty)
@@ -63,7 +69,11 @@ class Download extends StatelessComponent {
                     Component.text(Release.others[system] ?? 'Also: '),
                     for (final (i, b) in rest.indexed) ...[
                       if (i > 0) Component.text(i == rest.length - 1 ? ' or ' : ', '),
-                      a(href: b.url, [Component.text(b.name)]),
+                      a(
+                        href: b.url,
+                        attributes: track('download', {'system': b.system, 'build': b.name}),
+                        [Component.text(b.name)],
+                      ),
                     ],
                     Component.text('.'),
                   ]),
@@ -73,13 +83,21 @@ class Download extends StatelessComponent {
           section(classes: 'download-system reveal', [
             h2([Component.text('Terminal')]),
             p(classes: 'download-other', [Component.text('macOS and Linux:')]),
-            pre(classes: 'download-cmd', [
-              code([Component.text('curl -fsSL https://helmy.ke/install.sh | sh')]),
-            ]),
+            pre(
+              classes: 'download-cmd',
+              attributes: {'data-system': 'macOS and Linux'},
+              [
+                code([Component.text('curl -fsSL https://helmy.ke/install.sh | sh')]),
+              ],
+            ),
             p(classes: 'download-other', [Component.text('Windows, in PowerShell:')]),
-            pre(classes: 'download-cmd', [
-              code([Component.text('irm https://helmy.ke/install.ps1 | iex')]),
-            ]),
+            pre(
+              classes: 'download-cmd',
+              attributes: {'data-system': 'Windows'},
+              [
+                code([Component.text('irm https://helmy.ke/install.ps1 | iex')]),
+              ],
+            ),
           ]),
           p(classes: 'download-other center reveal', [
             Component.text('All builds are on the '),
