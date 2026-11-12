@@ -1,0 +1,36 @@
+{
+  "title": "Helmy site",
+  "boards": {
+    "index.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 8313,
+      "title": "Home",
+      "device": "desktop",
+      "responsive": true
+    },
+    "download.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1985,
+      "title": "Download",
+      "device": "desktop",
+      "responsive": true
+    }
+  },
+  "order": [
+    "index.html",
+    "download.html"
+  ],
+  "notes": {
+    "site": {
+      "x": 0,
+      "y": -200,
+      "text": "helmy.ke",
+      "kind": "title",
+      "size": 72
+    }
+  }
+}

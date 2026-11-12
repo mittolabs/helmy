@@ -15,6 +15,7 @@ help:
 	@echo "make live      live tests against the real connections (costs usage)"
 	@echo "make analyze   static analysis"
 	@echo "make format    format the code (100 columns)"
+	@echo "make design-check [DESIGN=folder]  a design exported to React, compared pixel by pixel"
 	@echo "make sim-input rebuild the iOS simulator input helper (needs AXe and Xcode)"
 	@echo "make site-dev  the site with hot reload on :8484"
 	@echo "make site      release build of the site"
@@ -46,6 +47,14 @@ analyze:
 
 format:
 	cd $(APP) && fvm dart format lib test
+
+# A design's export drawn beside the design, pixel by pixel (DESIGN=folder,
+# the test design by default).
+DESIGN ?= test/fixtures/design
+design-check:
+	cd $(APP)/tool/design_check && npm install --silent && npx playwright install chromium
+	cd $(APP) && rm -rf build/design-check && fvm dart run tool/design_export.dart $(DESIGN) build/design-check/react react
+	cd $(APP) && node tool/design_check/check.mjs $(DESIGN) build/design-check/react build/design-check/out
 
 sim-input:
 	$(APP)/tool/sim_input/build.sh

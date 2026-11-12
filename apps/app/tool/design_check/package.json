@@ -1,0 +1,14 @@
+{
+  "name": "design-check",
+  "private": true,
+  "type": "module",
+  "description": "Checks a design export against its design, pixel by pixel.",
+  "dependencies": {
+    "esbuild": "0.25.5",
+    "playwright": "1.53.0",
+    "pngjs": "7.0.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "7.6.0"
+  }
+}
