@@ -448,7 +448,7 @@ class _ChatState extends State<_Chat> {
                           busy: vm.busy,
                           gap: 14,
                           padding: const .fromLTRB(16, 8, 16, 24),
-                          semanticLabel: 'Conversation',
+                          semanticLabel: 'Chat',
                           items: [
                             for (final r in rows)
                               MessageScrollerItem(id: r.id, anchor: r.anchor, child: r.child),

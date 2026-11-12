@@ -197,7 +197,7 @@ class _AddAccountState extends State<_AddAccount> {
                     ),
                     Switch(
                       value: _share,
-                      semanticLabel: 'Share conversations with the usual account',
+                      semanticLabel: 'Share chats with the usual account',
                       onChanged: _signingIn ? null : (v) => setState(() => _share = v),
                     ),
                   ],

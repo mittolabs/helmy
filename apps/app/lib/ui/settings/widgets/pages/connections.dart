@@ -572,7 +572,7 @@ List<Widget> _bestAt(SettingsViewModel vm) {
   final families = vm.families;
   return [
     _Row(
-      title: 'Best at',
+      title: 'Strengths',
       description:
           'Which connection each kind of message goes to first, while it has room. '
           "Helmy's choices are Mittolabs's judgment, not a measurement: change any of them.",
@@ -674,7 +674,7 @@ class _UsagePage extends StatelessWidget {
     final s = vm.settings;
     return _Page(
       children: [
-        const _Heading('How much is left', first: true),
+        const _Heading('Usage limits', first: true),
         if (vm.used.isEmpty)
           Text(
             'No connections yet. Add one in Connections, and how much of its limit is left shows here.',
@@ -688,11 +688,11 @@ class _UsagePage extends StatelessWidget {
           ),
         const _Heading('Routing'),
         _Row(
-          title: 'Move to a connection with more room',
+          title: 'Switch connections at limits',
           description:
               'Each message goes to a connection that can do what it asks, then to the one with '
               'the most of its usage limit left. A thread stays on its connection unless another '
-              'has clearly more room, since each switch hands the conversation across.',
+              'has clearly more room, since each switch hands the thread across.',
           control: SizedBox(
             width: 150,
             child: Select<Switching>(

@@ -20,27 +20,27 @@ class _Phone extends StatelessWidget {
     return _Page(
       children: [
         _Row(
-          title: 'Reach Helmy from your phone',
+          title: 'Use Helmy from your phone',
           description:
               'Your chats on your phone, as they happen: send, approve, stop. The work stays on '
               '${Desktop.current.thisComputer}; the phone shows it and says what to do.',
           control: Switch(
             value: s.remoteOn,
-            semanticLabel: 'Reach Helmy from your phone',
+            semanticLabel: 'Use Helmy from your phone',
             onChanged: (v) => vm.update(s.copyWith(remoteOn: v)),
           ),
         ),
         if (host.trouble case final trouble?) Text(trouble, style: muted),
         if (s.remoteOn)
           _Row(
-            title: 'See and use this Mac from your phone',
+            title: 'Screen sharing',
             description:
                 'A paired phone can show this screen and click and type on it. A bar at the top '
                 'says when one is watching, with Stop. Needs Screen Recording to show it and '
                 'Accessibility to use it.',
             control: Switch(
               value: s.remoteScreen,
-              semanticLabel: 'See and use this Mac from your phone',
+              semanticLabel: 'Screen sharing',
               onChanged: (v) => vm.update(s.copyWith(remoteScreen: v)),
             ),
           ),

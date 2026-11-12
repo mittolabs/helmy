@@ -522,7 +522,7 @@ class _ExplainState extends State<_Explain> {
                 ),
                 Expanded(
                   child: Text(
-                    _error ?? 'Asks a small model once, outside this conversation.',
+                    _error ?? 'Asks a small model once, outside this thread.',
                     style: muted.copyWith(color: _error == null ? null : c.destructive),
                   ),
                 ),

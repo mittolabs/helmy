@@ -344,12 +344,7 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     hue: 330.0,
     group: null,
   ),
-  .preview: (
-    label: 'Preview panel',
-    icon: AshlarIconsRoundedDuotone.appWindow,
-    hue: 190.0,
-    group: null,
-  ),
+  .preview: (label: 'Browser', icon: AshlarIconsRoundedDuotone.appWindow, hue: 190.0, group: null),
   .keyboard: (label: 'Keyboard', icon: AshlarIconsRoundedDuotone.keyboard, hue: 250.0, group: null),
   .agents: (
     label: 'Connections',
@@ -365,14 +360,9 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
   ),
   .skills: (label: 'Skills', icon: AshlarIconsRoundedDuotone.puzzle, hue: 50.0, group: 'Assistant'),
   .tools: (label: 'Tools', icon: AshlarIconsRoundedDuotone.wrench, hue: 25.0, group: 'Assistant'),
-  .learned: (
-    label: 'What Helmy learned',
-    icon: AshlarIconsRoundedDuotone.bulb,
-    hue: 75.0,
-    group: 'Assistant',
-  ),
+  .learned: (label: 'Memory', icon: AshlarIconsRoundedDuotone.bulb, hue: 75.0, group: 'Assistant'),
   .memory: (
-    label: 'Memory files',
+    label: 'Instructions',
     icon: AshlarIconsRoundedDuotone.brain,
     hue: 100.0,
     group: 'Assistant',
@@ -381,27 +371,32 @@ const _sections = <SettingsSection, ({String label, IconData icon, double hue, S
     label: 'Projects',
     icon: AshlarIconsRoundedDuotone.gitBranch,
     hue: 160.0,
-    group: 'Your work',
-  ),
-  .phone: (
-    label: 'Phone',
-    icon: AshlarIconsRoundedDuotone.smartphone,
-    hue: 140.0,
-    group: 'Your work',
-  ),
-  .vault: (label: 'Vault', icon: AshlarIconsRoundedDuotone.lock, hue: 0.0, group: 'Your work'),
-  .data: (label: 'Data', icon: AshlarIconsRoundedDuotone.database, hue: 45.0, group: 'Your work'),
-  .storage: (
-    label: 'Storage',
-    icon: AshlarIconsRoundedDuotone.hardDrive,
-    hue: 200.0,
-    group: 'Your work',
+    group: 'Projects & chats',
   ),
   .archive: (
     label: 'Archive',
     icon: AshlarIconsRoundedDuotone.archive,
     hue: 30.0,
-    group: 'Your work',
+    group: 'Projects & chats',
+  ),
+  .phone: (
+    label: 'Phone',
+    icon: AshlarIconsRoundedDuotone.smartphone,
+    hue: 140.0,
+    group: 'Devices & data',
+  ),
+  .vault: (label: 'Vault', icon: AshlarIconsRoundedDuotone.lock, hue: 0.0, group: 'Devices & data'),
+  .data: (
+    label: 'Import & export',
+    icon: AshlarIconsRoundedDuotone.database,
+    hue: 45.0,
+    group: 'Devices & data',
+  ),
+  .storage: (
+    label: 'Storage',
+    icon: AshlarIconsRoundedDuotone.hardDrive,
+    hue: 200.0,
+    group: 'Devices & data',
   ),
   .about: (label: 'About', icon: AshlarIconsRoundedDuotone.infoCircle, hue: 210.0, group: 'Helmy'),
 };
@@ -528,11 +523,11 @@ class _Block extends StatelessWidget with _Setting {
                 ),
                 if (changed)
                   Tooltip(
-                    message: 'Back to how Helmy has it',
+                    message: 'Reset to default',
                     child: Button(
                       variant: .ghost,
                       size: .iconXs,
-                      semanticLabel: 'Put $title back to how Helmy has it',
+                      semanticLabel: 'Reset $title to default',
                       onPressed: () => settings.save(withDefaults(settings.settings, [title])),
                       child: AshlarIcon(
                         AshlarIconsRoundedStroke.undo2,
@@ -581,11 +576,11 @@ class _Row extends StatelessWidget with _Setting {
                     ),
                     if (changed)
                       Tooltip(
-                        message: 'Back to how Helmy has it',
+                        message: 'Reset to default',
                         child: Button(
                           variant: .ghost,
                           size: .iconXs,
-                          semanticLabel: 'Put $title back to how Helmy has it',
+                          semanticLabel: 'Reset $title to default',
                           onPressed: () => settings.save(withDefaults(settings.settings, [title])),
                           child: AshlarIcon(
                             AshlarIconsRoundedStroke.undo2,
@@ -726,7 +721,7 @@ class _Choice<T> extends StatelessWidget {
   );
 }
 
-/// Every setting chosen put back to how Helmy has it, after saying which:
+/// Every setting chosen reset to its default, after saying which:
 /// connections, projects, rules and the window's layout stay. Pressable
 /// only when something has been changed.
 class _RestoreDefaults extends StatelessWidget {
@@ -740,8 +735,8 @@ class _RestoreDefaults extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).width < 640;
     return Tooltip(
       message: changed.isEmpty
-          ? 'Everything is as Helmy has it'
-          : 'Put what you changed back to how Helmy has it',
+          ? 'All settings are at their defaults'
+          : 'Reset the settings you changed',
       child: Button(
         variant: .ghost,
         size: compact ? .iconSm : .xs,

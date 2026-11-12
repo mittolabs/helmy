@@ -128,7 +128,7 @@ class _Appearance extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'A theme from VS Code',
+          title: 'Import VS Code theme',
           description:
               'A color theme file (.json), as VS Code themes are made: its colors become '
               "Helmy's, for light or dark as the theme is.",
@@ -240,10 +240,10 @@ class _Appearance extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Conversation width',
+          title: 'Chat width',
           control: _Choice<Width>(
             value: s.width,
-            label: 'Conversation width',
+            label: 'Chat width',
             options: {for (final v in Width.values) v: v.label},
             onChanged: (v) => vm.update(s.copyWith(width: v)),
           ),
@@ -258,7 +258,7 @@ class _Appearance extends StatelessWidget {
           ),
         ),
         _Row(
-          title: 'Colors for changes',
+          title: 'Diff colors',
           description:
               'What a thread added and removed in files. Blue and orange read apart for the '
               'commonest kinds of color blindness.',
@@ -267,29 +267,29 @@ class _Appearance extends StatelessWidget {
             child: Select<DiffColors>(
               size: .sm,
               value: s.diffColors,
-              semanticLabel: 'Colors for changes',
+              semanticLabel: 'Diff colors',
               options: [for (final d in DiffColors.values) SelectOption(d, d.label)],
               onChanged: (d) => vm.update(s.copyWith(diffColors: d)),
             ),
           ),
         ),
         _Row(
-          title: 'Hide changes only in spaces',
+          title: 'Ignore whitespace',
           description: 'A line whose only change is its spaces or tabs shows as unchanged.',
           control: Switch(
             value: s.diffHideSpace,
-            semanticLabel: 'Hide changes only in spaces',
+            semanticLabel: 'Ignore whitespace',
             onChanged: (v) => vm.update(s.copyWith(diffHideSpace: v)),
           ),
         ),
         _Row(
-          title: 'Changes in one column',
+          title: 'Unified diff',
           description:
               'Before and after one above the other, always; off, they sit side by side '
               'where there is room.',
           control: Switch(
             value: s.diffStacked,
-            semanticLabel: 'Changes in one column',
+            semanticLabel: 'Unified diff',
             onChanged: (v) => vm.update(s.copyWith(diffStacked: v)),
           ),
         ),

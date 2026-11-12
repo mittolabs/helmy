@@ -45,14 +45,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // Two rows changed, each with its way back; the others without.
-    expect(find.bySemanticsLabel('Put Theme back to how Helmy has it'), findsOneWidget);
-    expect(
-      find.bySemanticsLabel('Put Wrap long code blocks back to how Helmy has it'),
-      findsOneWidget,
-    );
-    expect(find.bySemanticsLabel('Put Text size back to how Helmy has it'), findsNothing);
+    expect(find.bySemanticsLabel('Reset Theme to default'), findsOneWidget);
+    expect(find.bySemanticsLabel('Reset Wrap long code blocks to default'), findsOneWidget);
+    expect(find.bySemanticsLabel('Reset Text size to default'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Put Theme back to how Helmy has it'));
+    await tester.tap(find.bySemanticsLabel('Reset Theme to default'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(settings.settings.theme, ThemeChoice.system);
     expect(settings.settings.wrapCode, isTrue, reason: 'only that one');

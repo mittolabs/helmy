@@ -20,7 +20,7 @@ class _Preview extends StatelessWidget {
           children: [
             const _Heading('Pages in the Preview panel', first: true),
             _Row(
-              title: 'Show pages with',
+              title: 'Browser engine',
               description: s.previewWith == .system
                   ? 'The built-in browser: screen readers, typing in any language and '
                         "zoom all work as in the system's apps."
@@ -29,7 +29,7 @@ class _Preview extends StatelessWidget {
                         'cannot read them.',
               control: _Choice<PreviewEngine>(
                 value: s.previewWith,
-                label: 'Show pages with',
+                label: 'Browser engine',
                 options: const {
                   PreviewEngine.system: 'Built-in browser',
                   PreviewEngine.chromium: 'Chromium',
@@ -187,38 +187,38 @@ class _Preview extends StatelessWidget {
               ),
             ),
             _Row(
-              title: 'Pages appear',
+              title: 'Page appearance',
               description: 'Light or dark, for pages that offer both.',
               control: _Choice<String>(
                 value: s.previewAppearance,
-                label: 'Pages appear',
+                label: 'Page appearance',
                 options: const {'system': 'As the system', 'light': 'Light', 'dark': 'Dark'},
                 onChanged: (v) => vm.update(s.copyWith(previewAppearance: v)),
               ),
             ),
             _Row(
-              title: 'Search with',
+              title: 'Search engine',
               description: 'Words typed in the address that are not an address.',
               control: SizedBox(
                 width: 170,
                 child: Select<SearchEngine>(
                   size: .sm,
                   value: s.searchEngine,
-                  semanticLabel: 'Search with',
+                  semanticLabel: 'Search engine',
                   options: [for (final e in SearchEngine.values) SelectOption(e, e.label)],
                   onChanged: (e) => vm.update(s.copyWith(searchEngine: e)),
                 ),
               ),
             ),
             _Row(
-              title: 'Open links in answers',
+              title: 'Open links in',
               description: 'Web links in what Helmy says. Other links open as they always do.',
               control: SizedBox(
                 width: 190,
                 child: Select<bool>(
                   size: .sm,
                   value: s.linksInHelmy,
-                  semanticLabel: 'Open links in answers',
+                  semanticLabel: 'Open links in',
                   options: const [
                     SelectOption(false, 'Your browser'),
                     SelectOption(true, 'The Preview panel'),

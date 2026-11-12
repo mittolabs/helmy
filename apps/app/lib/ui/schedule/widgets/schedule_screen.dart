@@ -536,7 +536,7 @@ class _TaskEditorState extends State<_TaskEditor> {
               ),
               Switch(
                 value: _ownCopy,
-                semanticLabel: 'Each run in a copy of its own',
+                semanticLabel: 'Each run in its own worktree',
                 onChanged: (v) => setState(() => _ownCopy = v),
               ),
             ],

@@ -230,7 +230,7 @@ class _SessionMenu extends StatelessWidget {
   }
 
   Future<void> _save(BuildContext context) async {
-    final title = (vm.session?.title ?? 'conversation').replaceAll(RegExp(r'[/:\\]'), '-');
+    final title = (vm.session?.title ?? 'chat').replaceAll(RegExp(r'[/:\\]'), '-');
     final where = await getSaveLocation(
       suggestedName: '$title.md',
       initialDirectory: vm.session?.cwd,
@@ -257,7 +257,7 @@ class _SessionMenu extends StatelessWidget {
           context,
           title: others.isEmpty ? 'Delete this chat?' : 'Delete this thread?',
           body: others.isEmpty
-              ? 'The conversation leaves Helmy. Files in the folder stay as they are.'
+              ? 'The chat is deleted. Files in the folder stay as they are.'
               : 'This thread leaves "${vm.chatTitle}"; its other threads stay. Files in the folder stay as they are.',
           action: 'Delete',
           destructive: true,
@@ -288,12 +288,12 @@ class _SessionMenu extends StatelessWidget {
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.copy, size: 16),
         onPressed: () => copyWithToast(context, vm, vm.markdown),
-        child: const Text('Copy conversation'),
+        child: const Text('Copy thread'),
       ),
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.minimize2, size: 16),
         onPressed: vm.busy ? null : vm.compact,
-        child: const Text('Compact conversation'),
+        child: const Text('Compact thread'),
       ),
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.download, size: 16),
@@ -528,11 +528,11 @@ class _FilingChip extends StatelessWidget {
             ),
           ),
           Tooltip(
-            message: 'Put away',
+            message: 'Dismiss',
             child: Button(
               variant: .ghost,
               size: .iconXs,
-              semanticLabel: 'Put away',
+              semanticLabel: 'Dismiss',
               onPressed: vm.dismissFiling,
               child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
             ),

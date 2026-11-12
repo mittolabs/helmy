@@ -774,11 +774,11 @@ class CornerPlayer extends StatelessWidget {
                           ),
                         ),
                         Tooltip(
-                          message: 'Back to the conversation',
+                          message: 'Back to the chat',
                           child: Button(
                             variant: .ghost,
                             size: .iconXs,
-                            semanticLabel: 'Back to the conversation',
+                            semanticLabel: 'Back to the chat',
                             onPressed: corner.giveBack,
                             child: const AshlarIcon(
                               AshlarIconsRoundedStroke.arrowUpLeft,

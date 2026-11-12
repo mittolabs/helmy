@@ -14,9 +14,9 @@ void main() {
       AshlarApp(theme: appTheme, darkTheme: appDarkTheme, home: const MemoryShot()),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('What Helmy has learned'), findsWidgets);
+    expect(find.text('Memory'), findsWidgets);
     expect(find.text('Use the free connection for quick questions.'), findsOneWidget);
-    expect(find.text('Forget'), findsNWidgets(12));
+    expect(find.text('Delete'), findsNWidgets(12));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 10));

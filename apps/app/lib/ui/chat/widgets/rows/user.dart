@@ -60,7 +60,7 @@ class _UserState extends State<_User> {
       title: 'Undo file changes from here?',
       body:
           '${changed.length} file${changed.length == 1 ? '' : 's'} go back to how they were '
-          'before this message: $names${changed.length > 4 ? ', ...' : ''}. The conversation '
+          'before this message: $names${changed.length > 4 ? ', ...' : ''}. The thread '
           'stays as it is.',
       action: 'Undo changes',
       icon: AshlarIconsRoundedStroke.undo2,

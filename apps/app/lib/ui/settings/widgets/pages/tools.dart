@@ -20,7 +20,7 @@ class _Tools extends StatefulWidget {
 const _ownTools = [
   ('Vault', 'Runs what needs your keys and passwords, without the assistant seeing them.'),
   ('Your chats', 'Starts other chats, sends them messages and reads what they did.'),
-  ('Apps in the chat', 'Makes small apps and games that run right in the conversation.'),
+  ('Apps in the chat', 'Makes small apps and games that run right in the chat.'),
   ('Preview', 'Opens pages in the Preview panel, and reads and uses them.'),
   ('Phones and simulators', 'Sees and uses a simulator or emulator in the Device panel.'),
   ('Videos', 'Watches a video and says what happens in it.'),
@@ -245,7 +245,7 @@ class _ToolsState extends State<_Tools> {
               ),
             ),
           _Row(
-            title: 'Add a tool server',
+            title: 'Add MCP server',
             description:
                 'An MCP server, by its address or the command that starts it. Helmy gives its '
                 'tools to every chat.',
@@ -417,7 +417,7 @@ class _ServerDialogState extends State<_ServerDialog> {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     return HelmyDialog(
-      title: 'Add a tool server',
+      title: 'Add MCP server',
       icon: AshlarIconsRoundedStroke.puzzle,
       body: 'Its tools go to every new chat.',
       content: Column(

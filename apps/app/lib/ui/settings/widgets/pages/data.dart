@@ -63,7 +63,7 @@ class _DataState extends State<_Data> {
         context,
         dir,
         files: widget.vm.fileActions,
-        title: '$n conversation${n == 1 ? '' : 's'} exported',
+        title: '$n chat${n == 1 ? '' : 's'} exported',
       );
     }
   }
@@ -95,7 +95,7 @@ class _DataState extends State<_Data> {
         if (widget.storage) ...[
           _Heading(
             vm.places.isEmpty || vm.places.any((p) => p.bytes == null)
-                ? 'Where things are'
+                ? 'Storage locations'
                 : 'Where things are  ·  ${_size(vm.places.fold<int>(0, (a, p) => a + (p.bytes ?? 0)))} in all',
             first: true,
           ),
@@ -133,12 +133,12 @@ class _DataState extends State<_Data> {
               style: t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5),
             ),
           ),
-          const _Heading('What Helmy is running'),
+          const _Heading('Running processes'),
           const _Running(),
         ] else ...[
-          const _Heading('Your conversations', first: true),
+          const _Heading('Export chats', first: true),
           _Row(
-            title: 'Export all conversations',
+            title: 'Export all chats',
             description: 'Each thread as a Markdown file, in a folder you choose.',
             control: Button(
               size: .sm,
@@ -148,9 +148,9 @@ class _DataState extends State<_Data> {
             ),
           ),
           if (_import case final importer?) ...[
-            const _Heading('Bring in conversations'),
+            const _Heading('Import chats'),
             Text(
-              'The conversations you had in Claude Code and Codex on this Mac, by folder. Each '
+              'The chats you had in Claude Code and Codex on this Mac, by folder. Each '
               'comes in as a chat that goes on where it left off; the originals stay as they are.',
               style: muted,
             ),
@@ -320,9 +320,9 @@ class _CleanupState extends State<_Cleanup> {
   Widget build(BuildContext context) {
     final l = _last;
     return _Row(
-      title: 'Tidy old leftovers',
+      title: 'Clean up old files',
       description:
-          'Once a day, pasted pictures, page marks and snapshots over 30 days old that no chat '
+          'Once a day, pasted pictures, page marks and screenshots over 30 days old that no chat '
           'still shows are removed. '
           '${l == null ? 'Not run yet.' : 'Last ${ago(l.at, now: DateTime.now())} ago: '
                     '${l.files == 0 ? 'nothing to remove' : '${l.files} files, ${_size(l.bytes)}'}.'}',

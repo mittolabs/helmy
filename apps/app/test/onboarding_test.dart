@@ -167,7 +167,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Step 2: nothing to bring in here, so it goes straight on.
-    expect(find.text('Bring in your conversations'), findsOneWidget);
+    expect(find.text('Import your chats'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 

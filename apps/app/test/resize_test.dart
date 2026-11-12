@@ -109,7 +109,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(vm.panelExpanded, isTrue, reason: 'the press reached the view model');
     expect(
-      find.bySemanticsLabel('Back beside the conversation'),
+      find.bySemanticsLabel('Back beside the chat'),
       findsOneWidget,
       reason: 'and the panel shows expanded',
     );

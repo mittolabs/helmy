@@ -487,7 +487,7 @@ class _StashChip extends StatelessWidget {
         alignment: AlignmentDirectional.centerStart,
         child: Pressable(
           onPressed: onTake,
-          semanticLabel: 'Bring back what was put aside',
+          semanticLabel: 'Restore draft',
           builder: (context, state) => Container(
             padding: const .symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -507,7 +507,7 @@ class _StashChip extends StatelessWidget {
                   constraints: const BoxConstraints(maxWidth: 360),
                   child: Text(
                     [
-                      'Put aside${latest.from.isEmpty ? '' : ' in ${latest.from}'}: '
+                      'Draft${latest.from.isEmpty ? '' : ' from ${latest.from}'}: '
                           '${words.isEmpty ? '${latest.attachments.length} files' : words}',
                       if (more > 0) '$more more',
                     ].join(' · '),

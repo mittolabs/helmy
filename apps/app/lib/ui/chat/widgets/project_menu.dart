@@ -227,7 +227,7 @@ class _ActionDialogState extends State<_ActionDialog> {
         title: editing ? 'Change the action' : 'Add an action',
         body:
             'A command this project is worked with. It runs in a terminal beside the '
-            'conversation, in the thread\'s folder.',
+            'chat, in the thread\'s folder.',
         icon: AshlarIconsRoundedStroke.play,
         content: ListenableBuilder(
           listenable: Listenable.merge([_name, _command]),

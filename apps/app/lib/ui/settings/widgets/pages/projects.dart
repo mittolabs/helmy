@@ -68,7 +68,7 @@ class _Projects extends StatelessWidget {
               ),
             ),
             _Row(
-              title: 'Start copies from',
+              title: 'Worktree base',
               description: s.copyFromRemote
                   ? "The remote's default branch, fetched first: always the newest."
                   : 'Where the checkout is: its unpushed work too, else the newest from its remote.',
@@ -77,7 +77,7 @@ class _Projects extends StatelessWidget {
                 child: Select<bool>(
                   size: .sm,
                   value: s.copyFromRemote,
-                  semanticLabel: 'Start copies from',
+                  semanticLabel: 'Worktree base',
                   options: const [
                     SelectOption(false, 'Where the checkout is'),
                     SelectOption(true, "The remote's default"),
@@ -87,7 +87,7 @@ class _Projects extends StatelessWidget {
               ),
             ),
             _Row(
-              title: 'Where copies are kept',
+              title: 'Worktree location',
               description: tildePath(s.copyFolder ?? '$homeDir/.helmy/worktrees'),
               control: Row(
                 mainAxisSize: .min,
@@ -106,7 +106,7 @@ class _Projects extends StatelessWidget {
                     onPressed: () async {
                       final dir = await getDirectoryPath(
                         initialDirectory: s.copyFolder ?? homeDir,
-                        confirmButtonText: 'Keep copies here',
+                        confirmButtonText: 'Keep worktrees here',
                       );
                       if (dir != null) await vm.update(s.copyWith(copyFolder: dir));
                     },
@@ -116,7 +116,7 @@ class _Projects extends StatelessWidget {
               ),
             ),
             _Row(
-              title: 'Tidy away copies of settled chats',
+              title: 'Remove worktrees of finished chats',
               description:
                   'Copies go when their chat is archived or its branch merged. On, they go when '
                   'the chat settles too. Never one with work not yet committed; branches stay.',
@@ -141,7 +141,7 @@ class _Projects extends StatelessWidget {
                   ),
                   Switch(
                     value: s.tidySettled,
-                    semanticLabel: 'Tidy away copies of settled chats',
+                    semanticLabel: 'Remove worktrees of finished chats',
                     onChanged: (v) => vm.update(s.copyWith(tidySettled: v)),
                   ),
                 ],
@@ -176,7 +176,7 @@ class _Projects extends StatelessWidget {
                 ),
               ),
               _Row(
-                title: 'Each thread on its own branch',
+                title: 'Worktree for each thread',
                 description: 'Its own branch and copy, so threads here do not collide.',
                 control: _Choice<bool?>(
                   value: s.project(repo).ownCopies,

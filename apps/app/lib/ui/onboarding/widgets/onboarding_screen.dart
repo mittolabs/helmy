@@ -65,7 +65,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (n > 0) {
       showToast(
         context,
-        title: '$n conversation${n == 1 ? '' : 's'} brought in',
+        title: '$n chat${n == 1 ? '' : 's'} brought in',
         description: 'Each is a chat in the sidebar, and goes on where it left off.',
         type: .success,
       );
@@ -104,10 +104,10 @@ const _guide = {
   ),
   OnboardingStep.chats: (
     image: 'assets/helmy/onboarding-chats.png',
-    title: 'Bring in your conversations',
+    title: 'Import your chats',
     say:
-        'I found your Claude Code and Codex conversations on this Mac. Tick the folders to '
-        "bring in, and I'll go on from where each left off. Or skip it; you can do it later.",
+        'I found your Claude Code and Codex chats on this Mac. Tick the folders to '
+        "import, and I'll go on from where each left off. Or skip it; you can do it later.",
   ),
   OnboardingStep.folders: (
     image: 'assets/helmy/onboarding-folders.png',
@@ -1171,8 +1171,8 @@ class _Finished extends StatelessWidget {
       (
         AshlarIconsRoundedStroke.messages,
         imported == 0
-            ? 'No conversations brought in'
-            : '$imported conversation${imported == 1 ? '' : 's'} brought in',
+            ? 'No chats imported'
+            : '$imported chat${imported == 1 ? '' : 's'} brought in',
       ),
       (
         AshlarIconsRoundedStroke.folder,

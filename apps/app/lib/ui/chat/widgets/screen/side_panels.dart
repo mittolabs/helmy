@@ -364,7 +364,7 @@ class _Panel extends StatelessWidget {
                 ),
                 if (active?.kind == .device)
                   tool(
-                    'Float over the conversation',
+                    'Float over the chat',
                     AshlarIconsRoundedStroke.pictureInPicture2,
                     vm.floatDevice,
                   ),
@@ -376,7 +376,7 @@ class _Panel extends StatelessWidget {
                     () => context.read<HelmyWindows>().moveOut(vm, active),
                   ),
                 tool(
-                  expanded ? 'Back beside the conversation' : 'Expand',
+                  expanded ? 'Back beside the chat' : 'Expand',
                   expanded
                       // Two diagonal arrows, out and in, as expanding reads.
                       ? AshlarIconsRoundedStroke.minimize2
