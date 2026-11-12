@@ -5,7 +5,7 @@
 library;
 
 // Server-specific Jaspr import.
-import 'package:jaspr/dom.dart' show Color;
+import 'package:jaspr/dom.dart' show Color, Preload, figcaption, figure, video;
 import 'package:jaspr/server.dart';
 
 import 'dart:io';
@@ -53,12 +53,42 @@ void main() {
         CodeBlock(
           defaultLanguage: 'json',
           grammars: {
-            for (final name in ['json', 'bash'])
-              name: File('grammars/$name.tmLanguage.json').readAsStringSync(),
+            for (final name in ['json', 'bash']) name: File('grammars/$name.tmLanguage.json').readAsStringSync(),
           },
         ),
         // Adds zooming and caption support to images.
         Image(zoom: true),
+        // A tutorial at the top of its page, as BetterStack has them: recorded in
+        // the real app, voiced by Mitto. <Tutorial src="first-task" title="…" />
+        // plays web/videos/first-task.mp4, its first frame web/videos/first-task.jpg.
+        CustomComponent(
+          pattern: 'Tutorial',
+          builder: (_, attrs, _) => figure(
+            classes: 'tutorial',
+            attributes: {'style': 'margin: 1.25rem 0 2rem'},
+            [
+              video(
+                [],
+                src: '/videos/${attrs['src']}.mp4',
+                poster: '/videos/${attrs['src']}.jpg',
+                controls: true,
+                preload: Preload.metadata,
+                attributes: {
+                  'playsinline': '',
+                  'aria-label': attrs['title'] ?? 'Tutorial',
+                  'style':
+                      'display: block; width: 100%; height: auto; border-radius: 12px; '
+                      'border: 1px solid rgba(127, 127, 127, 0.25); background: #000',
+                },
+              ),
+              if (attrs['title'] case final t?)
+                figcaption(
+                  attributes: {'style': 'margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.7'},
+                  [Component.text(t)],
+                ),
+            ],
+          ),
+        ),
       ],
       layouts: [
         // Out-of-the-box layout for documentation sites.

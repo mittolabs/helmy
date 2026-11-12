@@ -3,6 +3,8 @@ title: Approvals
 description: Use Approvals to let Helmy handle routine steps on its own, and ask you only about what can't be undone.
 ---
 
+<Tutorial src="approvals" title="Approvals, in about a minute" />
+
 Most AI tools ask permission for nearly every step, and people end up approving almost all of it unread. Helmy decides routine steps itself, against what you asked for, so you're only asked about the ones that matter.
 
 Why it matters:

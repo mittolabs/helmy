@@ -3,6 +3,8 @@ title: Your First Task
 description: Give Helmy a real task in a folder, and follow the work as it happens.
 ---
 
+<Tutorial src="first-task" title="Your First Task, in about a minute" />
+
 This walkthrough has Helmy tidy a folder: sorting files, finding duplicates, and asking before it removes anything. Any folder with a mix of files works, such as your Downloads.
 
 ## Asking for the Task

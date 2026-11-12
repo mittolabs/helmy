@@ -3,6 +3,8 @@ title: The Vault
 description: Use the Vault to give Helmy API keys and passwords that the AI uses by name and never sees.
 ---
 
+<Tutorial src="vault" title="The Vault, in about a minute" />
+
 The Vault keeps your secrets in your login Keychain, or your HashiCorp Vault, and hands them to commands as they run, so the AI can use a key without ever reading it.
 
 <Info>
@@ -20,7 +22,7 @@ Why it matters:
 When a task needs a key, Helmy asks for it in a private field in the chat:
 
 1. Paste the key into the field.
-2. Click **Save**.
+2. Click **Keep it**.
 
 You can also add keys in **Settings > Vault**.
 
