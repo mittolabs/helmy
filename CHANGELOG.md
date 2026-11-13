@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0](https://github.com/mittolabs/helmy/compare/v0.9.0...v0.10.0) (2026-11-13)
+
+
+### Features
+
+* **design:** edit any element of a screen, with its layers and an inspector ([#50](https://github.com/mittolabs/helmy/issues/50)) ([36ad594](https://github.com/mittolabs/helmy/commit/36ad594ce7707603cf81ede096c4c4c5bbfa1605))
+
+
+### Bug Fixes
+
+* **chat:** a step with a long title ends in "…" instead of running past the chat ([#51](https://github.com/mittolabs/helmy/issues/51)) ([0b552cb](https://github.com/mittolabs/helmy/commit/0b552cb9df808917b08ef6444f9446e5ba3f5108))
+* **design:** present shows the screen in its window, not an error ([#49](https://github.com/mittolabs/helmy/issues/49)) ([e8947a4](https://github.com/mittolabs/helmy/commit/e8947a4f55529d7c4ead2ba86dd52295271efdc6))
+* **site:** the download page offers a release only once its builds are there ([34a5266](https://github.com/mittolabs/helmy/commit/34a5266151c53a2c0028b4e621555402819c08be))
+
+
+### Performance Improvements
+
+* **site:** helmy.ke's pictures load in a tenth of the data ([#47](https://github.com/mittolabs/helmy/issues/47)) ([6cb8b3f](https://github.com/mittolabs/helmy/commit/6cb8b3f40a4ae24a21d4d5d7da59ed4ef8b6db15))
+
 ## [0.9.0](https://github.com/mittolabs/helmy/compare/v0.8.0...v0.9.0) (2026-11-13)
 
 
