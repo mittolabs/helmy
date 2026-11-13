@@ -43,6 +43,16 @@ class DesignServer {
     return Uri.parse('http://127.0.0.1:${server.port}/$_token/canvas.html?d=$id');
   }
 
+  /// FNV-1a, 32 bits, of [bytes], in hex: which version of a file a save
+  /// from the canvas was made over (the canvas hashes the same way).
+  static String fnv(List<int> bytes) {
+    var h = 0x811c9dc5;
+    for (final b in bytes) {
+      h = ((h ^ b) * 0x01000193) & 0xffffffff;
+    }
+    return h.toRadixString(16).padLeft(8, '0');
+  }
+
   /// The file [rel] under [root], or null when it would leave it.
   static File? fileIn(String root, String rel) {
     final parts = rel.split('/');
@@ -76,6 +86,12 @@ class DesignServer {
           }
           final body = await utf8.decoder.bind(r).join();
           if (body.length > 8 << 20) return _status(res, HttpStatus.requestEntityTooLarge);
+          // Over the version the canvas read, or not at all: what the agent
+          // wrote since stands.
+          final over = r.headers.value('x-helmy-base');
+          if (over != null && file.existsSync() && fnv(await file.readAsBytes()) != over) {
+            return _status(res, HttpStatus.conflict);
+          }
           saved[file.path] = DateTime.now();
           final temp = File('${file.path}.helmy-saving');
           await temp.writeAsString(body, flush: true);

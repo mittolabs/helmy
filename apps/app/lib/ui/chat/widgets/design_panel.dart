@@ -23,6 +23,7 @@ import '../../core/ashlar/tooltip.dart';
 import '../../core/window_web_view.dart';
 import '../../core/windows.dart';
 import '../view_models/chat_view_model.dart';
+import 'design_inspector.dart';
 
 /// Where a chat's design lives: `design/` in its folder.
 String designFolderOf(String cwd) => '$cwd/design';
@@ -137,6 +138,41 @@ class _DesignPanelState extends State<DesignPanel> {
     if (_pins.length != before) {
       unawaited(_run('HelmyCanvas.pins(${jsonEncode(_pins.keys.toList())})'));
     }
+  }
+
+  /// The Edit side: the picked screen's layers, and what is picked, to change.
+  bool _editing = false;
+  List<DesignLayer> _layers = const [];
+  String? _layersScreen;
+  DesignPick? _pick;
+
+  late final _inspect = InspectorActions(
+    select: (id) => _call('select', [_pick?.file ?? _layersFile, id]),
+    point: (id) => _call('point', [
+      if (id != null) ...[_layersFile, id],
+    ]),
+    up: () => _call('up', const []),
+    style: (styles) => _call('style', [styles]),
+    sizing: (axis, mode, px) => _call('sizing', [axis, mode, px]),
+    text: (text) => _call('text', [text]),
+    html: (html) => _call('html', [html]),
+  );
+  String? _layersFile;
+
+  /// HelmyCanvas.[name] with [args], each as JSON.
+  void _call(String name, List<Object?> args) =>
+      unawaited(_run('HelmyCanvas.$name(${args.map(jsonEncode).join(', ')})'));
+
+  /// Changes made on a screen its own script builds: asked of Helmy, in the message box.
+  void _askFor(Map<dynamic, dynamic> a) {
+    final changes = [for (final c in (a['changes'] as List? ?? const [])) '- $c'];
+    if (changes.isEmpty) return;
+    widget.vm.comment(
+      '${ChatViewModel.designComment}"${a['screen']}" (design/${a['file']}), changed on the canvas',
+      note:
+          'Make these changes in the screen'
+          's code:\n${changes.join('\n')}',
+    );
   }
 
   /// Move (select, edit, drag) or hand (pan only).
@@ -275,6 +311,21 @@ class _DesignPanelState extends State<DesignPanel> {
     // A screen opened in a browser tab of the panel, from its preview.
     if (m['open'] case final String url) widget.vm.preview(url);
     if (m['comment'] case final Map c) _comment(c);
+    if (m.containsKey('layers')) {
+      final l = m['layers'];
+      setState(() {
+        _layers = l is Map ? DesignLayer.listFrom(l['tree']) : const [];
+        _layersScreen = l is Map ? '${l['screen']}' : null;
+        _layersFile = l is Map ? '${l['file']}' : null;
+      });
+    }
+    if (m.containsKey('selected')) {
+      final p = m['selected'];
+      setState(() => _pick = p is Map ? DesignPick.from(p) : null);
+    }
+    if (m['ask'] case final Map a) _askFor(a);
+    // Saved from the canvas: what converts, checked again (the folder watch leaves these be).
+    if (m['saved'] is String) unawaited(_check());
     if (m['tool'] case final String tool when tool != _tool) setState(() => _tool = tool);
     if (m['typing'] case final bool t) {
       _typing = t;
@@ -306,7 +357,10 @@ class _DesignPanelState extends State<DesignPanel> {
     final mine = ++_checking;
     try {
       final found = await checkDesign(folder);
-      if (mounted && mine == _checking) setState(() => _issues = found);
+      if (mounted && mine == _checking) {
+        setState(() => _issues = found);
+        unawaited(_run('HelmyCanvas.issues(${jsonEncode([for (final i in found) i.toJson()])})'));
+      }
     } on Object {
       // Mid-write: checked again when it settles.
     }
@@ -531,6 +585,16 @@ class _DesignPanelState extends State<DesignPanel> {
                   child: AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: glyph),
                 ),
               ),
+              Tooltip(
+                message: _editing ? 'Hide layers and styles' : 'Edit: layers and styles',
+                child: Button(
+                  variant: _editing ? .secondary : .ghost,
+                  size: button,
+                  semanticLabel: 'Edit: layers and styles',
+                  onPressed: () => setState(() => _editing = !_editing),
+                  child: AshlarIcon(AshlarIconsRoundedStroke.slidersHorizontal, size: glyph),
+                ),
+              ),
               divider,
               tool(
                 AshlarIconsRoundedStroke.undo2,
@@ -644,73 +708,90 @@ class _DesignPanelState extends State<DesignPanel> {
           ),
         Container(height: 1, color: c.border),
         Expanded(
-          child: Stack(
+          child: Row(
+            crossAxisAlignment: .stretch,
             children: [
-              RawMenuAnchor(
-                controller: _screenMenu,
-                onOpen: () => openOverlays.value++,
-                onClose: () => openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30),
-                overlayBuilder: (context, info) => PopoverPanel(
-                  info: info,
-                  child: MenuList(
-                    children: _screenMenuKind == _ScreenMenu.play
-                        ? [
-                            for (final (present, name, what) in [
-                              (false, 'Preview', 'Over the canvas'),
-                              (true, 'Present', 'In a window of its own'),
-                            ])
-                              MenuItem(
-                                onPressed: () {
-                                  _screenMenu.close();
-                                  if (_screenMenuFile case final f?) {
-                                    _choosePlay(f, present: present);
-                                  }
-                                },
-                                shortcut: Text(present == _presents ? '✓' : ''),
-                                child: Text('$name: $what'),
-                              ),
-                          ]
-                        : [
-                            MenuItem(
-                              onPressed: () {
-                                _screenMenu.close();
-                                if (_screenMenuFile case final f?) unawaited(_saveCopy(f));
-                              },
-                              child: const Text('Save the HTML file'),
-                            ),
-                            const MenuSeparator(),
-                            const MenuLabel(child: Text('Export this screen as')),
-                            for (final target in ExportTarget.values)
-                              MenuItem(
-                                onPressed: () {
-                                  _screenMenu.close();
-                                  if (_screenMenuFile case final f?) {
-                                    unawaited(_export(target, screen: f));
-                                  }
-                                },
-                                child: Text('${target.label}: ${target.description}'),
-                              ),
-                          ],
+              Expanded(child: _canvasArea()),
+              if (_editing)
+                SizedBox(
+                  width: roomy ? 300 : 240,
+                  child: DesignInspector(
+                    layers: _layers,
+                    screen: _layersScreen,
+                    pick: _pick,
+                    actions: _inspect,
                   ),
                 ),
-                child: Focus(
-                  focusNode: _keys,
-                  child: WindowWebView(controller: _c),
-                ),
-              ),
-              // A click on the canvas while a menu is open closes the menu.
-              ValueListenableBuilder(
-                valueListenable: openOverlays,
-                builder: (context, open, _) => open > 0
-                    ? const Positioned.fill(child: ColoredBox(color: Color(0x00000000)))
-                    : const SizedBox.shrink(),
-              ),
             ],
           ),
         ),
       ],
     );
   }
+
+  Widget _canvasArea() => Stack(
+    children: [
+      RawMenuAnchor(
+        controller: _screenMenu,
+        onOpen: () => openOverlays.value++,
+        onClose: () => openOverlays.value = (openOverlays.value - 1).clamp(0, 1 << 30),
+        overlayBuilder: (context, info) => PopoverPanel(
+          info: info,
+          child: MenuList(
+            children: _screenMenuKind == _ScreenMenu.play
+                ? [
+                    for (final (present, name, what) in [
+                      (false, 'Preview', 'Over the canvas'),
+                      (true, 'Present', 'In a window of its own'),
+                    ])
+                      MenuItem(
+                        onPressed: () {
+                          _screenMenu.close();
+                          if (_screenMenuFile case final f?) {
+                            _choosePlay(f, present: present);
+                          }
+                        },
+                        shortcut: Text(present == _presents ? '✓' : ''),
+                        child: Text('$name: $what'),
+                      ),
+                  ]
+                : [
+                    MenuItem(
+                      onPressed: () {
+                        _screenMenu.close();
+                        if (_screenMenuFile case final f?) unawaited(_saveCopy(f));
+                      },
+                      child: const Text('Save the HTML file'),
+                    ),
+                    const MenuSeparator(),
+                    const MenuLabel(child: Text('Export this screen as')),
+                    for (final target in ExportTarget.values)
+                      MenuItem(
+                        onPressed: () {
+                          _screenMenu.close();
+                          if (_screenMenuFile case final f?) {
+                            unawaited(_export(target, screen: f));
+                          }
+                        },
+                        child: Text('${target.label}: ${target.description}'),
+                      ),
+                  ],
+          ),
+        ),
+        child: Focus(
+          focusNode: _keys,
+          child: WindowWebView(controller: _c),
+        ),
+      ),
+      // A click on the canvas while a menu is open closes the menu.
+      ValueListenableBuilder(
+        valueListenable: openOverlays,
+        builder: (context, open, _) => open > 0
+            ? const Positioned.fill(child: ColoredBox(color: Color(0x00000000)))
+            : const SizedBox.shrink(),
+      ),
+    ],
+  );
 }
 
 /// Which menu a screen's buttons opened: saving it, or what ▶ plays.
