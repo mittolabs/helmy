@@ -377,6 +377,12 @@
         // A responsive page is as tall as what it holds at its width.
         iframe.addEventListener('load', () => {
           fitHeight(file);
+          // What its file holds, and the element picked before the page came again.
+          learn(file);
+          if (picked?.file === file) {
+            const again = pickedId ? elOf(file, pickedId) : null;
+            pick(again ? { file, el: again } : { file, el: null });
+          }
           // Scrolling over a screen moves the canvas, even while the screen
           // has the pointer (its text being typed into): its page never
           // scrolls by itself, being as tall as it is drawn.
@@ -426,7 +432,9 @@
     try {
       const r = await fetch(base + 'canvas.json', { cache: 'no-store' });
       if (!r.ok) throw new Error('none');
-      canvas = await r.json();
+      const text = await r.text();
+      canvas = JSON.parse(text);
+      bases.set('canvas.json', text);
       empty.style.display = 'none';
       if (presentOnly) {
         if (!presentedOnce) { presentedOnce = true; presentPage(presentOnly); }
@@ -559,9 +567,235 @@
     }
   }
 
+  let pickedId = null;  // where the picked element is in its page, to pick it again after a reload
+  let layersOf = null;  // the screen whose layers Helmy shows
+
   function pick(next) {
+    if (next?.el !== picked?.el || next?.file !== picked?.file) flushEdit();
     picked = next;
+    if (picked?.el) pickedId = idOf(picked.el); else pickedId = null;
     marks();
+    report();
+  }
+
+  // ---- What is picked, told to Helmy's inspector --------------------------------
+
+  /** An element's place in its page: the child at each level below the body, "0.3.1". */
+  function idOf(el) {
+    const parts = [];
+    for (let e = el; e?.parentElement && e.tagName !== 'BODY'; e = e.parentElement) {
+      parts.unshift([...e.parentElement.children].indexOf(e));
+    }
+    return parts.join('.');
+  }
+
+  function elOf(file, id) {
+    let e = docOf(file)?.body;
+    if (!e || id == null || id === '') return null;
+    for (const i of id.split('.').map(Number)) e = e?.children[i];
+    return e ?? null;
+  }
+
+  const unseen = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'BASE']);
+
+  /** What a layer is called, as a design tool names it. */
+  function layerName(el) {
+    const tag = el.tagName.toLowerCase();
+    const words = ownText(el).replace(/\s+/g, ' ');
+    if (tag === 'svg') return 'Graphic';
+    if (tag === 'img') return 'Image' + (el.alt ? ` "${el.alt.slice(0, 30)}"` : '');
+    if (['input', 'textarea', 'select'].includes(tag)) return 'Field' + (el.placeholder ? ` "${el.placeholder.slice(0, 30)}"` : '');
+    if (tag === 'button' || (tag === 'a' && words)) return (tag === 'a' ? 'Link' : 'Button') + (words ? ` "${words.slice(0, 30)}"` : '');
+    if (words) return `Text "${words.slice(0, 30)}"`;
+    return el.children.length ? 'Group' : 'Box';
+  }
+
+  /** A screen's elements, as Helmy's layer list shows them. */
+  function layers(file) {
+    const body = docOf(file)?.body;
+    if (!body) return [];
+    let count = 0;
+    const walk = (el, depth) => {
+      const out = [];
+      [...el.children].forEach((c, i) => {
+        if (unseen.has(c.tagName) || count > 3000) return;
+        count++;
+        const node = { id: idOf(c), name: layerName(c), tag: c.tagName.toLowerCase() };
+        if (depth < 40 && c.tagName !== 'svg' && c.tagName.toLowerCase() !== 'svg') {
+          const kids = walk(c, depth + 1);
+          if (kids.length) node.n = kids;
+        }
+        out.push(node);
+      });
+      return out;
+    };
+    return walk(body, 0);
+  }
+
+  // What the inspector reads and sets, as CSS has them.
+  const inspected = [
+    'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-decoration-line', 'text-align',
+    'line-height', 'letter-spacing', 'text-transform',
+    'width', 'height', 'min-width', 'max-width', 'min-height', 'max-height',
+    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'gap',
+    'background-color', 'border-top-left-radius', 'border-top-width', 'border-top-style', 'border-top-color',
+    'display', 'flex-direction', 'justify-content', 'align-items', 'flex-wrap', 'flex-grow', 'align-self',
+    'position', 'top', 'right', 'bottom', 'left', 'z-index', 'overflow', 'opacity', 'box-shadow', 'transform', 'filter',
+  ];
+
+  let issues = [];  // what won't convert to Flutter: { file, selector, what, why }
+
+  /** How it is sized on [axis] ('width' or 'height'): to its content, a fixed size, or filling its parent. */
+  function sizing(el, axis) {
+    const inline = el.style.getPropertyValue(axis);
+    const cs = el.ownerDocument.defaultView.getComputedStyle(el);
+    const parent = el.parentElement ? el.ownerDocument.defaultView.getComputedStyle(el.parentElement) : null;
+    if (/px$/.test(inline)) return 'fixed';
+    if (/content$/.test(inline)) return 'hug';
+    if (inline === '100%') return 'fill';
+    const flex = parent && /flex/.test(parent.display);
+    if (flex) {
+      const main = parent.flexDirection.startsWith('row') ? 'width' : 'height';
+      if (axis === main) return parseFloat(cs.flexGrow) > 0 ? 'fill' : 'hug';
+      const stretch = cs.alignSelf === 'stretch' || (cs.alignSelf === 'auto' && ['normal', 'stretch'].includes(parent.alignItems));
+      return stretch && !inline ? 'fill' : 'hug';
+    }
+    if (axis === 'width' && ['block', 'flex', 'grid', 'list-item', 'table'].includes(cs.display) && !['absolute', 'fixed'].includes(cs.position)) return 'fill';
+    return 'hug';
+  }
+
+  /** Tells Helmy what is picked: its layers, its styles, and what of it won't convert. */
+  function report() {
+    if (!picked || picked.note || !canvas?.boards?.[picked.file]) {
+      if (layersOf !== null) { layersOf = null; tell({ layers: null }); }
+      tell({ selected: null });
+      return;
+    }
+    const file = picked.file;
+    if (layersOf !== file) { layersOf = file; tell({ layers: { file, screen: canvas.boards[file].title ?? file, tree: layers(file) } }); }
+    const el = picked.el;
+    if (!el) { tell({ selected: { file, screen: true, scripted: scripted.has(file) } }); return; }
+    const cs = el.ownerDocument.defaultView.getComputedStyle(el);
+    const styles = {}, inline = {};
+    for (const p of inspected) {
+      styles[p] = cs.getPropertyValue(p);
+      const v = el.style.getPropertyValue(p);
+      if (v) inline[p] = v;
+    }
+    const parents = [];
+    for (let e = el.parentElement; e && e.tagName !== 'BODY' && e.tagName !== 'HTML'; e = e.parentElement) {
+      parents.unshift({ id: idOf(e), name: layerName(e) });
+    }
+    const doc = el.ownerDocument;
+    const mine = issues.filter((i) => i.file === file && i.selector !== 'style' && (() => {
+      try { return doc.querySelector(i.selector) === el; } catch (_) { return false; }
+    })()).map((i) => ({ what: i.what, why: i.why }));
+    const r = el.getBoundingClientRect();
+    tell({ selected: {
+      file, id: idOf(el), tag: el.tagName.toLowerCase(), name: layerName(el), path: pathOf(el), parents,
+      // Words only where the element holds nothing but them.
+      text: !el.children.length && typeable(el) ? el.textContent : null,
+      html: el.outerHTML.length > 60000 ? null : el.outerHTML,
+      size: { w: Math.round(r.width), h: Math.round(r.height) },
+      sizing: { width: sizing(el, 'width'), height: sizing(el, 'height') },
+      parentFlex: !!(el.parentElement && /flex/.test(doc.defaultView.getComputedStyle(el.parentElement).display)),
+      styles, inline, issues: mine, scripted: scripted.has(file),
+    } });
+  }
+
+  /** The layers again, after what is in a screen changed. */
+  function relayer() { layersOf = null; report(); }
+
+  // ---- The inspector's changes -------------------------------------------------
+
+  let edit = null; // a run of changes to one element, saved once it stops: { file, el, before, timer }
+
+  function flushEdit() {
+    const e = edit;
+    if (!e) return;
+    edit = null;
+    clearTimeout(e.timer);
+    save(e.file, e.before);
+  }
+
+  /** Changes [el] by [change], saved with the rest of the run once the inspector rests. */
+  function editPicked(change) {
+    const el = picked?.el;
+    if (!el) return;
+    if (!edit || edit.el !== el) { flushEdit(); edit = { file: picked.file, el, before: sourceOf(picked.file) }; }
+    change(el);
+    fitHeight(picked.file);
+    marks();
+    report();
+    clearTimeout(edit.timer);
+    const e = edit;
+    e.timer = setTimeout(() => { if (edit === e) flushEdit(); }, 600);
+  }
+
+  function setStyles(map) {
+    editPicked((el) => {
+      for (const [k, v] of Object.entries(map)) {
+        if (v == null || v === '') el.style.removeProperty(k); else el.style.setProperty(k, String(v));
+      }
+      if (!el.getAttribute('style')) el.removeAttribute('style');
+    });
+  }
+
+  /** Sizes the picked element on [axis] to its content ('hug'), [px] ('fixed') or its parent ('fill'). */
+  function setSizing(axis, mode, px) {
+    editPicked((el) => {
+      const doc = el.ownerDocument, parent = el.parentElement ? doc.defaultView.getComputedStyle(el.parentElement) : null;
+      const flex = parent && /flex/.test(parent.display);
+      const main = flex && (parent.flexDirection.startsWith('row') ? 'width' : 'height') === axis;
+      const r = el.getBoundingClientRect();
+      if (mode === 'fixed') {
+        el.style.setProperty(axis, Math.round(px ?? (axis === 'width' ? r.width : r.height)) + 'px');
+        if (main) el.style.setProperty('flex-grow', '0');
+      } else if (mode === 'hug') {
+        el.style.setProperty(axis, 'fit-content');
+        if (main) el.style.setProperty('flex-grow', '0');
+        else if (flex && el.style.getPropertyValue('align-self') === 'stretch') el.style.removeProperty('align-self');
+      } else if (main) {
+        el.style.removeProperty(axis);
+        el.style.setProperty('flex-grow', '1');
+        el.style.setProperty('flex-basis', '0');
+      } else if (flex) {
+        el.style.removeProperty(axis);
+        el.style.setProperty('align-self', 'stretch');
+      } else {
+        el.style.setProperty(axis, '100%');
+      }
+    });
+  }
+
+  function setText(text) {
+    const el = picked?.el;
+    if (!el || el.children.length) return;
+    editPicked((e) => { e.textContent = text; });
+  }
+
+  /** The picked element replaced by [html], as written in the inspector's code. */
+  function setHtml(html) {
+    const el = picked?.el;
+    if (!el) return;
+    const file = picked.file, before = sourceOf(file);
+    flushEdit();
+    const tpl = el.ownerDocument.createElement('template');
+    tpl.innerHTML = String(html).trim();
+    const next = tpl.content.firstElementChild;
+    if (!next || tpl.content.children.length !== 1) {
+      tell({ problem: 'That code has to be one element, as the one it replaces is.' });
+      return;
+    }
+    el.replaceWith(next);
+    fitHeight(file);
+    save(file, before);
+    picked = { file, el: next };
+    pickedId = idOf(next);
+    layersOf = null;
+    marks();
+    report();
   }
 
   // ---- Saving ---------------------------------------------------------
@@ -575,20 +809,117 @@
     return (doc.doctype ? '<!doctype html>\n' : '') + html.outerHTML + '\n';
   }
 
+  /** FNV-1a over the UTF-8 bytes, as DesignServer has it: which version of a file a save is over. */
+  const fnv = (s) => {
+    let h = 0x811c9dc5;
+    for (const b of new TextEncoder().encode(s)) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, '0');
+  };
+
+  /** Each file as last read or written here, by name: a save goes over it or not at all. */
+  const bases = new Map();
+
+  /** Writes [file]; false when it was not written. Refused when the file
+   *  changed since it was read here (the agent wrote it): what the agent
+   *  wrote stands, and shows. */
   async function put(file, text) {
+    const headers = bases.has(file) ? { 'X-Helmy-Base': fnv(bases.get(file)) } : {};
+    let r;
     try {
-      await fetch(base + file, { method: 'PUT', body: text });
+      r = await fetch(base + file, { method: 'PUT', body: text, headers });
     } catch (_) {
       tell({ problem: "That change wasn't saved: Helmy couldn't write " + file + '.' });
+      return false;
     }
+    if (r.status === 409) {
+      const name = canvas?.boards?.[file]?.title ?? file;
+      tell({ problem: `Helmy changed ${name} while you were editing it, so your change wasn't saved. It shows Helmy's version now.` });
+      if (file === 'canvas.json') load(true); else reloadScreen(file);
+      return false;
+    }
+    if (!r.ok) {
+      tell({ problem: "That change wasn't saved: Helmy couldn't write " + file + '.' });
+      return false;
+    }
+    bases.set(file, text);
+    tell({ saved: file });
+    return true;
   }
 
-  /** Saves [file] as it now is; [before] is what an undo puts back. */
+  function reloadScreen(file) {
+    boards.get(file)?.querySelector('iframe').setAttribute('src', base + file + '?v=' + Date.now());
+  }
+
+  /** Saves [file] as it now is; [before] is what an undo puts back. A page
+   *  its own script builds is not written over (that would write what the
+   *  script made into the file, and the script would make it again): its
+   *  changes go to Helmy as a request instead. */
   async function save(file, before) {
+    if (scripted.has(file)) return askForChanges(file);
     const text = sourceOf(file);
     if (text == null || text === before) return;
-    undos.push({ file, text: before });
-    await put(file, text);
+    if (await put(file, text)) undos.push({ file, text: before });
+  }
+
+  // ---- Pages their own script builds ----------------------------------------
+
+  /** Screens whose page is not what their file holds: a script made it. */
+  const scripted = new Set();
+  /** Such a screen's elements as first drawn, their style and words, to tell a change by. */
+  const firstSeen = new Map(); // file -> { all: [el], was: WeakMap(el -> { style, text }) }
+
+  const ownText = (el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+
+  function remember(file) {
+    const body = docOf(file)?.body;
+    if (!body) return;
+    const all = [...body.getElementsByTagName('*')], was = new WeakMap();
+    for (const el of all) was.set(el, { style: el.getAttribute('style') ?? '', text: ownText(el) });
+    firstSeen.set(file, { all, was });
+  }
+
+  /** Reads [file] as it is on disk: the version saves go over, and whether its page is its own. */
+  async function learn(file) {
+    try {
+      const r = await fetch(base + file, { cache: 'no-store' });
+      if (!r.ok) return;
+      const text = await r.text();
+      bases.set(file, text);
+      const body = docOf(file)?.body;
+      const parsed = new DOMParser().parseFromString(text, 'text/html').body;
+      const made = body && parsed && body.getElementsByTagName('*').length !== parsed.getElementsByTagName('*').length;
+      if (made) { scripted.add(file); remember(file); } else { scripted.delete(file); firstSeen.delete(file); }
+      if (picked?.file === file) report();
+    } catch (_) { /* read again on its next load */ }
+  }
+
+  const styleMap = (s) => Object.fromEntries((s ?? '').split(';').map((d) => d.split(':')).filter((p) => p.length >= 2)
+    .map(([k, ...v]) => [k.trim(), v.join(':').trim()]).filter(([k]) => k));
+
+  /** What changed on a scripted screen since it was drawn, in words, sent to Helmy to make. */
+  function askForChanges(file) {
+    const seen = firstSeen.get(file), body = docOf(file)?.body;
+    if (!seen || !body) return;
+    const changes = [];
+    const about = (el) => {
+      const words = (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+      return `the ${el.tagName.toLowerCase()}${words ? ` "${words}"` : ''} at ${pathOf(el)}`;
+    };
+    for (const el of body.getElementsByTagName('*')) {
+      const was = seen.was.get(el);
+      if (!was) continue;
+      const a = styleMap(was.style), b = styleMap(el.getAttribute('style'));
+      const props = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => a[k] !== b[k] && k !== 'contenteditable');
+      if (props.length) changes.push(`${about(el)}: ` + props.map((k) => `${k} ${b[k] ? 'to ' + b[k] : 'removed'}${a[k] ? ` (was ${a[k]})` : ''}`).join(', '));
+      const t = ownText(el);
+      if (t !== was.text) changes.push(`${about(el)}: its text to "${t}" (was "${was.text}")`);
+    }
+    for (const el of seen.all) if (!el.isConnected) changes.push(`remove the ${el.tagName.toLowerCase()} that said "${was(el)}"`);
+    function was(el) { return (seen.was.get(el)?.text ?? '').slice(0, 40); }
+    if (!changes.length) return;
+    const b = canvas.boards[file];
+    tell({ ask: { file, screen: b?.title ?? file, changes } });
+    remember(file); // what is asked for now is the new starting point
   }
 
   const indexText = () => JSON.stringify(canvas, null, 2) + '\n';
@@ -596,19 +927,19 @@
   async function saveIndex(before) {
     const text = indexText();
     if (text === before) return;
-    undos.push({ file: 'canvas.json', text: before });
-    await put('canvas.json', text);
+    if (await put('canvas.json', text)) undos.push({ file: 'canvas.json', text: before });
   }
 
   async function undo() {
+    flushEdit();
     const u = undos.pop();
     if (!u) return;
-    await put(u.file, u.text);
+    if (!(await put(u.file, u.text))) return;
     if (u.file === 'canvas.json') {
       canvas = JSON.parse(u.text);
       draw([]);
     } else {
-      boards.get(u.file)?.querySelector('iframe').setAttribute('src', base + u.file + '?v=' + Date.now());
+      reloadScreen(u.file);
     }
     pick(null);
   }
@@ -831,6 +1162,7 @@
     stage.focus();
     if (keep && t.el.innerHTML !== t.html) save(t.file, t.before);
     marks();
+    report();
   }
 
   // ---- The pointer --------------------------------------------------------
@@ -972,7 +1304,7 @@
     stage.classList.remove('panning');
     if (!d?.moved) return;
     if (d.kind === 'screen' || d.kind === 'note' || d.kind === 'noteSize' || (d.kind === 'size' && !d.el)) saveIndex(d.before);
-    if (d.kind === 'element' || (d.kind === 'size' && d.el)) save(d.file, d.before);
+    if (d.kind === 'element' || (d.kind === 'size' && d.el)) { save(d.file, d.before); report(); }
   };
   stage.addEventListener('pointerup', release);
   stage.addEventListener('pointercancel', release);
@@ -1077,6 +1409,14 @@
 
   let nudge = null; // a run of arrow presses, saved once it stops
 
+  function up() {
+    if (picked?.el) {
+      const p = picked.el.parentElement;
+      pick(p && p.tagName !== 'BODY' && p.tagName !== 'HTML' ? { file: picked.file, el: p } : { file: picked.file, el: null });
+    } else if (picked) pick(null);
+    else fit();
+  }
+
   function setTool(next) {
     tool = next;
     stage.classList.toggle('hand', tool === 'hand' || space);
@@ -1114,14 +1454,15 @@
     if (e.key === 'h' || e.key === 'H') return setTool('hand');
     if (e.key === 'c' || e.key === 'C') return setTool('comment');
     if (e.shiftKey && e.key === '!') return fit();
-    if (e.key === 'Escape') { if (picked) pick(null); else fit(); return; }
+    if (e.key === 'Escape') { up(); return; }
     if (e.key === 'Enter' && picked?.el && typeable(picked.el)) { e.preventDefault(); startTyping(picked.file, picked.el); return; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && picked?.el) {
       e.preventDefault();
       const { file, el } = picked, before = sourceOf(file);
       el.remove();
-      pick(null);
+      pick({ file, el: null });
       save(file, before);
+      relayer();
       return;
     }
     const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -1147,7 +1488,7 @@
       clearTimeout(nudge.timer);
       const n = nudge;
       n.timer = setTimeout(() => {
-        if (n.el) save(n.file, n.before); else saveIndex(n.before);
+        if (n.el) { save(n.file, n.before); report(); } else saveIndex(n.before);
         if (nudge === n) nudge = null;
       }, 400);
     }
@@ -1182,6 +1523,15 @@
     zoomOut: () => zoomAt(0.8, innerWidth / 2, innerHeight / 2),
     zoomTo: (s) => zoomAt(s / view.s, innerWidth / 2, innerHeight / 2),
     tool: (t) => setTool(t),
+    // Helmy's inspector: a layer picked or pointed at, a level up, and changes to what is picked.
+    select: (file, id) => { const el = elOf(file, id); if (el) pick({ file, el }); },
+    point: (file, id) => { const el = file ? elOf(file, id) : null; hover = el ? { file, el } : null; marks(); },
+    up: () => up(),
+    style: (map) => setStyles(map),
+    sizing: (axis, mode, px) => setSizing(axis, mode, px),
+    text: (t) => setText(t),
+    html: (h) => setHtml(h),
+    issues: (list) => { issues = list ?? []; if (picked?.el) report(); },
     undo: () => undo(),
     // The comments still waiting to go, by key: the rest's pins go.
     pins: (keys) => { pins = pins.filter((p) => keys.includes(p.key)); if (!pins.length) pinCount = 0; marks(); },
