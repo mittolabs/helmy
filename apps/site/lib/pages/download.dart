@@ -3,6 +3,7 @@ import 'package:jaspr/jaspr.dart';
 
 import '../components/chrome.dart';
 import '../components/page_title.dart';
+import '../components/picture.dart';
 import '../analytics.dart';
 import '../release.dart';
 
@@ -19,7 +20,14 @@ class Download extends StatelessComponent {
       const Nav(),
       main_(classes: 'download wrap', [
         div(classes: 'download-head reveal', [
-          img(src: '/icon.png', alt: '', width: 64, height: 64),
+          const Picture(
+            'icon',
+            widths: [64, 128],
+            sizes: '64px',
+            width: 64,
+            height: 64,
+            lazy: false,
+          ),
           h1([Component.text('Download Helmy')]),
         ]),
         if (release == null) ...[
@@ -53,7 +61,13 @@ class Download extends StatelessComponent {
                       href: b.url,
                       attributes: track('download', {'system': b.system, 'build': b.name}),
                       [
-                        img(src: '/icon.png', alt: '', width: 32, height: 32),
+                        const Picture(
+                          'icon',
+                          widths: [32, 64],
+                          sizes: '32px',
+                          width: 32,
+                          height: 32,
+                        ),
                         div([
                           p(classes: 'download-name', [Component.text(b.name)]),
                           p(classes: 'download-meta', [
@@ -63,8 +77,8 @@ class Download extends StatelessComponent {
                       ],
                     ),
                 ]),
-                if (release.builds.where((f) => f.system == system && !f.main).toList() case final rest
-                    when rest.isNotEmpty)
+                if (release.builds.where((f) => f.system == system && !f.main).toList()
+                    case final rest when rest.isNotEmpty)
                   p(classes: 'download-other', [
                     Component.text(Release.others[system] ?? 'Also: '),
                     for (final (i, b) in rest.indexed) ...[
@@ -83,7 +97,10 @@ class Download extends StatelessComponent {
           section(classes: 'download-system reveal', [
             h2([Component.text('Terminal')]),
             p(classes: 'download-other', [Component.text('macOS and Linux:')]),
-            _Command(system: 'macOS and Linux', command: 'curl -fsSL https://helmy.ke/install.sh | sh'),
+            _Command(
+              system: 'macOS and Linux',
+              command: 'curl -fsSL https://helmy.ke/install.sh | sh',
+            ),
             p(classes: 'download-other', [Component.text('Windows, in PowerShell:')]),
             _Command(system: 'Windows', command: 'irm https://helmy.ke/install.ps1 | iex'),
           ]),
@@ -128,7 +145,12 @@ class _Command extends StatelessComponent {
       code([Component.text(command)]),
       button(
         classes: 'copy',
-        attributes: {'type': 'button', 'data-copy': command, 'aria-label': 'Copy the command', 'title': 'Copy'},
+        attributes: {
+          'type': 'button',
+          'data-copy': command,
+          'aria-label': 'Copy the command',
+          'title': 'Copy',
+        },
         [
           span(classes: 'copy-icon', [RawText(_copy)]),
           span(classes: 'done-icon', [RawText(_done)]),

@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../analytics.dart';
+import 'picture.dart';
 import 'star.dart';
 
 /// The bar at the top: Helmy, its pages, and the way to get it.
@@ -12,12 +13,14 @@ class Nav extends StatelessComponent {
   Component build(BuildContext context) => header(classes: 'nav', [
     div(classes: 'wrap nav-inner', [
       a(classes: 'brand', href: '/', [
-        img(src: '/icon.png', alt: '', width: 28, height: 28),
+        const Picture('icon', widths: [32, 64], sizes: '28px', width: 28, height: 28, lazy: false),
         span([Component.text('Helmy')]),
       ]),
       nav(classes: 'links', [
         a(href: '/#how', [Component.text('How it works')]),
-        a(href: '/download', attributes: track('get-helmy', {'from': 'nav link'}), [Component.text('Download')]),
+        a(href: '/download', attributes: track('get-helmy', {'from': 'nav link'}), [
+          Component.text('Download'),
+        ]),
         a(href: '/changelog', [Component.text('Changelog')]),
         a(href: '/docs/', [Component.text('Docs')]),
       ]),
@@ -40,7 +43,7 @@ class Footer extends StatelessComponent {
   Component build(BuildContext context) => footer(classes: 'footer', [
     div(classes: 'wrap footer-grid', [
       div(classes: 'footer-brand', [
-        img(src: '/helmy/hello.png', alt: '', width: 44, height: 44),
+        const Picture('hello', widths: [44, 88], sizes: '44px', width: 44, height: 44),
         div([
           p([
             strong([Component.text('Helmy')]),
@@ -76,15 +79,16 @@ class Footer extends StatelessComponent {
     ]),
   ]);
 
-  static Component _column(String title, List<(String, String)> links) => nav(classes: 'footer-col', [
-    p(classes: 'footer-title', [Component.text(title)]),
-    for (final (href, text) in links)
-      a(
-        href: href,
-        attributes: href.startsWith('http') ? {'target': '_blank', 'rel': 'noopener'} : null,
-        [Component.text(text)],
-      ),
-  ]);
+  static Component _column(String title, List<(String, String)> links) =>
+      nav(classes: 'footer-col', [
+        p(classes: 'footer-title', [Component.text(title)]),
+        for (final (href, text) in links)
+          a(
+            href: href,
+            attributes: href.startsWith('http') ? {'target': '_blank', 'rel': 'noopener'} : null,
+            [Component.text(text)],
+          ),
+      ]);
 }
 
 /// A page's heading block, for the pages that are not the home page.

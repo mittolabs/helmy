@@ -9,9 +9,17 @@
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		Cache-Control no-cache
+		?Cache-Control no-cache
 		-Server
 	}
+
+	# A picture's address carries a hash of its bytes (apps/site/lib/components/picture.dart),
+	# so a changed picture gets a new address and the old one can be kept for good.
+	@versioned {
+		path /img/*
+		query v=*
+	}
+	header @versioned Cache-Control "public, max-age=31536000, immutable"
 
 	redir /docs /docs/ 308
 

@@ -43,6 +43,9 @@ body {
 }
 
 img { max-width: 100%; display: block; }
+/* lib/components/picture.dart wraps each image in one; it takes no box, so the rules below reach the image as they would without it. */
+picture { display: contents; }
+picture source { display: none; }
 a { color: inherit; text-decoration: none; }
 p a { color: var(--accent); }
 p a:hover { text-decoration: underline; }
@@ -130,7 +133,7 @@ p { margin: 0; }
    nothing else moves when Helmy blinks. */
 .wave { position: relative; aspect-ratio: 1; }
 .wave img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.wave img:first-child { animation: wave-rest 4.5s linear infinite; }
+.wave .wave-in { animation: wave-rest 4.5s linear infinite; }
 .wave .wave-out { opacity: 0; animation: wave-out 4.5s linear infinite; }
 .wave .wave-blink { opacity: 0; animation: wave-blink 4.5s linear infinite;
   -webkit-mask-image: radial-gradient(ellipse 26% 11% at 47% 32%, #000 80%, transparent 100%);
@@ -142,7 +145,7 @@ p { margin: 0; }
   28%, 100% { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mascot, .wave img:first-child { animation: none; }
+  .mascot, .wave .wave-in { animation: none; }
   .wave .wave-out, .wave .wave-blink { animation: none; opacity: 0; }
 }
 @keyframes float { 50% { transform: translateY(-12px) rotate(-1.5deg); } }
