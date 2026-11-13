@@ -38,9 +38,11 @@
   .box.hover { opacity: .55; }
   .handle { position: absolute; width: 9px; height: 9px; box-sizing: border-box; margin: -4px 0 0 -4px;
     background: #fff; border: 1.5px solid var(--ring); border-radius: 2px; pointer-events: auto; }
-  .handle.se { cursor: nwse-resize; }
-  .handle.e { cursor: ew-resize; }
-  .handle.s { cursor: ns-resize; }
+  .handle.se, .handle.nw { cursor: nwse-resize; }
+  .handle.ne, .handle.sw { cursor: nesw-resize; }
+  .handle.e, .handle.w { cursor: ew-resize; }
+  .handle.s, .handle.n { cursor: ns-resize; }
+  .note { cursor: default; }
   .tag { position: absolute; transform: translateY(-100%); margin-top: -4px; padding: 1px 5px; border-radius: 4px;
     background: var(--ring); color: #fff; font-size: 11px; white-space: nowrap; pointer-events: none; }
   #stage.commenting { cursor: crosshair; }
@@ -134,7 +136,7 @@
   let tool = 'select';
   let space = false;
   let hover = null;           // { file, el }
-  let picked = null;          // { file, el } (el null: the screen itself)
+  let picked = null;          // { file, el } (el null: the screen itself), or { note } (a title's key)
   let typing = null;          // { file, el, before, html }
   const undos = [];           // { file, text }
   let pins = [];              // comments waiting to go: { key, file, x, y, n }
@@ -265,6 +267,20 @@
     return out;
   }
 
+  /**
+   * Title [key] where its note says, at its size: alone, as a screen dragged is
+   * placed alone. Nothing else is moved out of its way while it is dragged.
+   */
+  function placeNote(key) {
+    const n = canvas.notes?.[key];
+    const el = world.querySelector(`.note[data-note="${CSS.escape(key)}"]`);
+    if (!n || !el) return;
+    Object.assign(el.style, {
+      left: n.x + 'px', top: n.y + 'px',
+      width: n.w ? n.w + 'px' : '', height: n.h ? n.h + 'px' : '',
+    });
+  }
+
   function unstack() {
     // A screen's name sits above it: room kept for it, so it can be read
     // zoomed out to about half.
@@ -385,8 +401,9 @@
     }
     for (const [file, el] of boards) if (!seen.has(file)) { el.remove(); boards.delete(file); }
     for (const n of world.querySelectorAll('.note')) n.remove();
-    for (const n of Object.values(canvas.notes ?? {})) {
+    for (const [key, n] of Object.entries(canvas.notes ?? {})) {
       const el = document.createElement('div');
+      el.dataset.note = key;
       el.className = 'note' + (n.kind === 'title' ? '' : ' sticky');
       el.textContent = n.text ?? '';
       el._note = n;
@@ -395,6 +412,8 @@
       Object.assign(el.style, { left: n.x + 'px', top: n.y + 'px' });
       if (n.kind === 'title') el.style.fontSize = (n.size ?? 72) + 'px';
       if (n.w) el.style.width = n.w + 'px';
+      // A fixed size (dragged by its top, bottom or a corner); else as tall as its lines.
+      if (n.h) el.style.height = n.h + 'px';
       world.prepend(el);
     }
     unstack();
@@ -503,6 +522,23 @@
       });
       overlay.append(commentBox.el);
     }
+    if (picked?.note) {
+      // A title, picked: its box, and a handle at each corner and side, as Figma's text.
+      const el = world.querySelector(`.note[data-note="${CSS.escape(picked.note)}"]`);
+      if (!el) { picked = null; return; }
+      const er = el.getBoundingClientRect(), or = overlay.getBoundingClientRect();
+      const r = { x: er.left - or.left, y: er.top - or.top, w: er.width, h: er.height };
+      box(r, 'picked');
+      if (renaming) return;
+      for (const [kind, fx, fy] of [['nw', 0, 0], ['n', .5, 0], ['ne', 1, 0], ['e', 1, .5], ['se', 1, 1], ['s', .5, 1], ['sw', 0, 1], ['w', 0, .5]]) {
+        const h = document.createElement('div');
+        h.className = 'handle ' + kind;
+        h.dataset.kind = kind;
+        Object.assign(h.style, { left: r.x + r.w * fx + 'px', top: r.y + r.h * fy + 'px' });
+        overlay.append(h);
+      }
+      return;
+    }
     if (!picked || !canvas?.boards[picked.file]) return;
     const r = rectOf(picked.file, picked.el);
     if (picked.el) {
@@ -609,6 +645,7 @@
       delete el.dataset.renaming;
       getSelection().removeAllRanges();
       tell({ typing: false });
+      marks(); // and come back after
       const text = el.textContent.trim();
       if (!ok || !text || text === before.trim()) { el.textContent = before; return; }
       keep(text);
@@ -618,6 +655,7 @@
     el.addEventListener('keydown', keys);
     el.addEventListener('blur', blur);
     renaming = { el, done };
+    marks(); // a picked title's handles go while its words are edited
   }
 
   // ---- Previewing a screen on its own --------------------------------------
@@ -818,7 +856,18 @@
     const panning = tool === 'hand' || space || e.button === 1;
     const handle = e.target.closest('.handle');
     const strip = e.target.closest('.strip');
-    if (!panning && handle && picked) {
+    const noteEl = e.target.closest('.note');
+    if (!panning && handle && picked?.note) {
+      // A title's box resized by a handle: its size as drawn, in the canvas's units.
+      const n = canvas.notes[picked.note], el = world.querySelector(`.note[data-note="${CSS.escape(picked.note)}"]`);
+      drag = { kind: 'noteSize', side: handle.dataset.kind, ...start, key: picked.note,
+        x: n.x, y: n.y, w: el.offsetWidth, h: el.offsetHeight, before: indexText() };
+    } else if (!panning && tool === 'select' && noteEl && !renaming) {
+      // A title: picked, and moved when dragged.
+      const key = noteEl.dataset.note, n = canvas.notes[key];
+      pick({ note: key });
+      drag = { kind: 'note', ...start, key, x: n.x, y: n.y, before: indexText() };
+    } else if (!panning && handle && picked) {
       // Resizing what is picked: an element by its inline size, a screen by its frame.
       const r = picked.el ? picked.el.getBoundingClientRect() : canvas.boards[picked.file];
       drag = { kind: 'size', side: handle.dataset.kind, ...start, file: picked.file, el: picked.el,
@@ -879,6 +928,28 @@
         drag.el.style.left = Math.round(drag.left + wx) + 'px';
         drag.el.style.top = Math.round(drag.top + wy) + 'px';
         break;
+      case 'note': {
+        const n = canvas.notes[drag.key];
+        n.x = Math.round(drag.x + wx); n.y = Math.round(drag.y + wy);
+        placeNote(drag.key);
+        break;
+      }
+      case 'noteSize': {
+        // Figma's text box: a side sets the width and the lines wrap to it (its
+        // height follows them); the top, the bottom or a corner fixes both.
+        // The type keeps its size.
+        const n = canvas.notes[drag.key], side = drag.side;
+        let { x, y, w, h } = drag;
+        if (side.includes('e')) w = drag.w + wx;
+        if (side.includes('w')) { w = drag.w - wx; x = drag.x + (drag.w - Math.max(40, w)); }
+        if (side.includes('s')) h = drag.h + wy;
+        if (side.includes('n')) { h = drag.h - wy; y = drag.y + (drag.h - Math.max(20, h)); }
+        n.x = Math.round(x); n.y = Math.round(y);
+        n.w = Math.round(Math.max(40, w));
+        if (side === 'e' || side === 'w') delete n.h; else n.h = Math.round(Math.max(20, h));
+        placeNote(drag.key);
+        break;
+      }
       case 'size': {
         const w = Math.max(drag.el ? 4 : 40, Math.round(drag.w + (drag.side === 's' ? 0 : wx)));
         const h = Math.max(drag.el ? 4 : 40, Math.round(drag.h + (drag.side === 'e' ? 0 : wy)));
@@ -900,7 +971,7 @@
     drag = null;
     stage.classList.remove('panning');
     if (!d?.moved) return;
-    if (d.kind === 'screen' || (d.kind === 'size' && !d.el)) saveIndex(d.before);
+    if (d.kind === 'screen' || d.kind === 'note' || d.kind === 'noteSize' || (d.kind === 'size' && !d.el)) saveIndex(d.before);
     if (d.kind === 'element' || (d.kind === 'size' && d.el)) save(d.file, d.before);
   };
   stage.addEventListener('pointerup', release);
@@ -1057,10 +1128,13 @@
     if (arrows[e.key] && picked) {
       e.preventDefault();
       const step = e.shiftKey ? 10 : 1, [ax, ay] = arrows[e.key];
-      if (!nudge || nudge.file !== picked.file || nudge.el !== picked.el) {
-        nudge = { file: picked.file, el: picked.el, before: picked.el ? sourceOf(picked.file) : indexText() };
+      if (!nudge || nudge.file !== picked.file || nudge.el !== picked.el || nudge.note !== picked.note) {
+        nudge = { file: picked.file, el: picked.el, note: picked.note, before: picked.el ? sourceOf(picked.file) : indexText() };
       }
-      if (picked.el) {
+      if (picked.note) {
+        const n = canvas.notes[picked.note];
+        if (n) { n.x += ax * step; n.y += ay * step; placeNote(picked.note); }
+      } else if (picked.el) {
         const el = picked.el;
         if (el.ownerDocument.defaultView.getComputedStyle(el).position === 'static') el.style.position = 'relative';
         el.style.left = ((parseFloat(el.style.left) || 0) + ax * step) + 'px';
