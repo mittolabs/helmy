@@ -315,7 +315,8 @@ class _PresentWindowAppState extends State<_PresentWindowApp> {
   void initState() {
     super.initState();
     unawaited(_page.setJavaScriptMode(JavaScriptMode.unrestricted));
-    unawaited(_page.setBackgroundColor(const Color(0xFF000000)));
+    // No setBackgroundColor: on macOS the WebKit plugin throws from it (setOpaque is
+    // iOS only), which turned the whole window into an error. The black is drawn below.
     unawaited(_page.loadRequest(widget.window.url));
   }
 
