@@ -47,7 +47,7 @@ class HelmyWindows extends ChangeNotifier {
 
   /// The main window, titled "Helmy": the runner finds it by that title and
   /// gives it Helmy's look (HelmyWindow in MainFlutterWindow.swift).
-  late final main = RegularWindowController(
+  late final main = WindowController(
     size: const Size(1200, 800),
     title: 'Helmy',
     delegate: _MainWindow(),
@@ -60,15 +60,15 @@ class HelmyWindows extends ChangeNotifier {
   /// tab's.
   Widget build(Widget app) => ViewCollection(
     views: [
-      RegularWindow(controller: main, child: app),
+      Window(controller: main, child: app),
       for (final w in tabs)
-        RegularWindow(
+        Window(
           key: ObjectKey(w),
           controller: w.controller,
           child: _TabWindowApp(window: w),
         ),
       for (final w in presents)
-        RegularWindow(
+        Window(
           key: ObjectKey(w),
           controller: w.controller,
           child: _PresentWindowApp(window: w),
@@ -96,11 +96,7 @@ class HelmyWindows extends ChangeNotifier {
       );
     }
     final w = PresentWindow._(url: url, title: title);
-    w.controller = RegularWindowController(
-      size: size,
-      title: title,
-      delegate: _PresentClosed(this, w),
-    );
+    w.controller = WindowController(size: size, title: title, delegate: _PresentClosed(this, w));
     presents.add(w);
     // Once made: a Mac window like any (full screen, Split View, tiling).
     WidgetsBinding.instance.addPostFrameCallback(
@@ -150,7 +146,7 @@ class HelmyWindows extends ChangeNotifier {
     final key = _keyOf(vm);
     if (key != null) holdChat(key, () => vm);
     final w = TabWindow._(vm: vm, tab: tab, chatKey: key);
-    w.controller = RegularWindowController(
+    w.controller = WindowController(
       size: const Size(760, 620),
       title: w.title,
       delegate: _TabWindowClosed(this, w),
@@ -252,7 +248,7 @@ class TabWindow {
 
   /// The hold on [vm] this window has (HelmyWindows.holdChat).
   final String? chatKey;
-  late final RegularWindowController controller;
+  late final WindowController controller;
 
   /// "Terminal 1 · Connect Four": the tab, then its chat.
   String get title {
@@ -265,9 +261,9 @@ class TabWindow {
 /// The main window's close button: hidden while chats keep working (the Dock
 /// icon brings it back), closed (and the app with it) when the setting is
 /// off.
-class _MainWindow with RegularWindowControllerDelegate {
+class _MainWindow with WindowControllerDelegate {
   @override
-  void onWindowCloseRequested(RegularWindowController controller) {
+  void onWindowCloseRequested(WindowController controller) {
     if (DesktopService.keepRunning) {
       DesktopService.hideMainWindow();
     } else {
@@ -283,11 +279,11 @@ class PresentWindow {
 
   /// "Helmy site · Home": the design, then the screen.
   final String title;
-  late final RegularWindowController controller;
+  late final WindowController controller;
 }
 
 /// A presenting window closed: it is gone.
-class _PresentClosed with RegularWindowControllerDelegate {
+class _PresentClosed with WindowControllerDelegate {
   _PresentClosed(this.windows, this.window);
   final HelmyWindows windows;
   final PresentWindow window;
@@ -338,7 +334,7 @@ class _PresentWindowAppState extends State<_PresentWindowApp> {
 }
 
 /// A tab's window closed: the tab goes back to its chat's panel.
-class _TabWindowClosed with RegularWindowControllerDelegate {
+class _TabWindowClosed with WindowControllerDelegate {
   _TabWindowClosed(this.windows, this.window);
   final HelmyWindows windows;
   final TabWindow window;
