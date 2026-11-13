@@ -4,6 +4,7 @@ import 'package:jaspr/jaspr.dart';
 import '../app.dart';
 import '../components/chrome.dart';
 import '../components/page_title.dart';
+import '../components/picture.dart';
 import '../components/sections.dart';
 
 class Home extends StatelessComponent {
@@ -30,7 +31,7 @@ class Home extends StatelessComponent {
           'With Ollama, a model on your Mac answers when you are offline.',
         ],
         media: Pose(
-          src: '/helmy/onboarding-connect.png',
+          'connect',
           alt: 'Helmy holding a plug',
         ),
       ),
@@ -47,8 +48,14 @@ class Home extends StatelessComponent {
           'Leave a comment on any element and send it with your message.',
         ],
         media: MacWindow(
-          src: '/shots/design.jpg',
-          alt: 'A chat asking for a bakery\'s landing page, and the page Helmy made, open beside it',
+          Picture(
+            'design',
+            alt: 'A chat asking for a bakery\'s landing page, and the page Helmy made, open beside it',
+            widths: [700, 1400],
+            sizes: '(max-width: 860px) 92vw, 600px',
+            width: 1400,
+            height: 937,
+          ),
         ),
       ),
       const Feature(
@@ -64,8 +71,14 @@ class Home extends StatelessComponent {
           "Need the Mac itself? Its screen is a tap away.",
         ],
         media: Phone(
-          src: '/shots/phone-chats.jpg',
-          alt: 'Helmy on an iPhone, paired with a Mac: its chats, live, with one waiting for approval',
+          Picture(
+            'phone-chats',
+            alt: 'Helmy on an iPhone, paired with a Mac: its chats, live, with one waiting for approval',
+            widths: [322, 644],
+            sizes: '280px',
+            width: 644,
+            height: 1400,
+          ),
         ),
       ),
       const Approvals(),
@@ -83,7 +96,7 @@ class Home extends StatelessComponent {
           'Use the same keys in your own terminal with helmy run.',
         ],
         media: Pose(
-          src: '/helmy/shield.png',
+          'shield',
           alt: 'Helmy holding a shield',
         ),
       ),

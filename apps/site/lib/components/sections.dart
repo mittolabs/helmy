@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../analytics.dart';
+import 'picture.dart';
 import 'star.dart';
 import '../release.dart';
 
@@ -50,19 +51,51 @@ class Hero extends StatelessComponent {
       // the poses, played by styles.css (.wave). The resting frame alone stands still.
       div(classes: 'hero-art reveal', [
         div(classes: 'mascot wave', [
-          img(src: '/helmy/hello-in.webp', alt: 'Helmy, a small astronaut, waving', width: 320, height: 320),
-          img(classes: 'wave-out', src: '/helmy/hello-out.webp', alt: '', width: 320, height: 320),
-          img(classes: 'wave-blink', src: '/helmy/hello-blink.webp', alt: '', width: 320, height: 320),
+          const Picture(
+            'hello-in',
+            classes: 'wave-in',
+            alt: 'Helmy, a small astronaut, waving',
+            widths: [240, 480],
+            sizes: '230px',
+            width: 320,
+            height: 320,
+            lazy: false,
+          ),
+          const Picture(
+            'hello-out',
+            classes: 'wave-out',
+            widths: [240, 480],
+            sizes: '230px',
+            width: 320,
+            height: 320,
+            lazy: false,
+          ),
+          const Picture(
+            'hello-blink',
+            classes: 'wave-blink',
+            widths: [240, 480],
+            sizes: '230px',
+            width: 320,
+            height: 320,
+            lazy: false,
+          ),
         ]),
       ]),
     ]),
     div(classes: 'wrap shot-wrap reveal', [
       const MacWindow(
-        src: '/shots/chat.jpg',
-        alt:
-            "Helmy on a Mac: asked where November's money went, it totals a spending file by "
-            'category and suggests what to cut',
-        lazy: false,
+        Picture(
+          'chat',
+          widths: [800, 1200, 1800],
+          sizes: '(min-width: 1200px) 1072px, 92vw',
+          width: 1800,
+          height: 1077,
+          lazy: false,
+          first: true,
+          alt:
+              "Helmy on a Mac: asked where November's money went, it totals a spending file by "
+              'category and suggests what to cut',
+        ),
       ),
     ]),
   ]);
@@ -72,27 +105,20 @@ class Hero extends StatelessComponent {
 /// real captures of Helmy's window, chats and all (made 2026-11-11 from real
 /// runs in a sample folder).
 class MacWindow extends StatelessComponent {
-  const MacWindow({super.key, required this.src, required this.alt, this.lazy = true});
-  final String src, alt;
-
-  /// Off for the first screen, which should not wait for a scroll.
-  final bool lazy;
+  const MacWindow(this.shot, {super.key});
+  final Picture shot;
 
   @override
-  Component build(BuildContext context) => figure(classes: 'mac', [
-    img(src: src, alt: alt, loading: lazy ? MediaLoading.lazy : null),
-  ]);
+  Component build(BuildContext context) => figure(classes: 'mac', [shot]);
 }
 
 /// A phone round a screenshot.
 class Phone extends StatelessComponent {
-  const Phone({super.key, required this.src, required this.alt});
-  final String src, alt;
+  const Phone(this.shot, {super.key});
+  final Picture shot;
 
   @override
-  Component build(BuildContext context) => figure(classes: 'phone', [
-    img(src: src, alt: alt, loading: MediaLoading.lazy),
-  ]);
+  Component build(BuildContext context) => figure(classes: 'phone', [shot]);
 }
 
 /// The tools Helmy works through: the ones people already pay for.
@@ -167,13 +193,13 @@ class Feature extends StatelessComponent {
 
 /// Helmy holding something, big, for a feature with no screenshot of its own.
 class Pose extends StatelessComponent {
-  const Pose({super.key, required this.src, required this.alt});
-  final String src, alt;
+  const Pose(this.name, {super.key, required this.alt});
+  final String name, alt;
 
   @override
   Component build(BuildContext context) => div(classes: 'pose', [
     div(classes: 'pose-glow', attributes: {'aria-hidden': 'true'}, []),
-    img(src: src, alt: alt, width: 300, height: 300, loading: MediaLoading.lazy),
+    Picture(name, alt: alt, widths: const [320, 640], sizes: '320px', width: 300, height: 300),
   ]);
 }
 
@@ -206,12 +232,15 @@ class Approvals extends StatelessComponent {
         ),
       ]),
       figure(classes: 'ask-shot reveal', [
-        img(
-          src: '/shots/approval.jpg',
+        const Picture(
+          'approval',
+          widths: [560, 1100],
+          sizes: '(max-width: 860px) 92vw, 560px',
+          width: 1100,
+          height: 306,
           alt:
               'Helmy asking: organize the downloads folder and move the three older duplicate '
               'or superseded files to Trash? Go ahead, or Don\'t.',
-          loading: MediaLoading.lazy,
         ),
       ]),
       p(classes: 'muted small reveal', [
@@ -253,7 +282,7 @@ class OpenSource extends StatelessComponent {
       ]),
     ]),
     div(classes: 'feature-media reveal', [
-      const Pose(src: '/helmy/onboarding-folders.png', alt: 'Helmy holding an open folder'),
+      const Pose('folders', alt: 'Helmy holding an open folder'),
     ]),
   ]);
 }
@@ -266,13 +295,14 @@ class Get extends StatelessComponent {
   Component build(BuildContext context) {
     final out = Release.load()?.builds.isNotEmpty ?? false;
     return section(id: 'get', classes: 'get wrap', [
-      img(
+      const Picture(
+        'done',
         classes: 'get-mascot reveal',
-        src: '/helmy/onboarding-done.png',
         alt: 'Helmy jumping for joy',
+        widths: [180, 360],
+        sizes: '180px',
         width: 200,
         height: 200,
-        loading: MediaLoading.lazy,
       ),
       h2(classes: 'reveal', [Component.text(out ? 'Get Helmy.' : 'Coming soon.')]),
       p(classes: 'lead reveal center', [
