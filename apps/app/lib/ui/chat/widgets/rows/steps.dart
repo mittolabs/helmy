@@ -241,15 +241,22 @@ class _Step extends StatelessWidget {
                         color: c.mutedForeground,
                       ),
               ),
-              Text(
-                denied && !call.declined
-                    ? '$title, stopped'
-                    : failed && !call.declined
-                    ? '$title, failed'
-                    : title,
-                style: muted.copyWith(
-                  color: state.hovered || asking ? c.foreground : c.mutedForeground,
-                  fontWeight: asking ? .w500 : null,
+              // A long title ends in an ellipsis, as a step group's does, rather than
+              // running past the column.
+              Flexible(
+                flex: 2,
+                child: Text(
+                  denied && !call.declined
+                      ? '$title, stopped'
+                      : failed && !call.declined
+                      ? '$title, failed'
+                      : title,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: muted.copyWith(
+                    color: state.hovered || asking ? c.foreground : c.mutedForeground,
+                    fontWeight: asking ? .w500 : null,
+                  ),
                 ),
               ),
               if (call.background case final task?) BackgroundBadge(task),

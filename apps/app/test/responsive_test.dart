@@ -161,6 +161,17 @@ void main() {
         ..loaded = true
         ..items.addAll([
           UserMessage('Find the budget spreadsheet and summarize what changed this quarter.'),
+          // A step titled by its own long description: ends in an ellipsis, not past the column.
+          ToolCall(
+            id: 't2',
+            name: 'Bash',
+            input: {
+              'command': 'sed -i "" "s/ui-monospace/JetBrains Mono/" design/*.html',
+              'description':
+                  'Added JetBrains Mono to the font links and the code snippet font stacks on '
+                  'both the Home and the Download pages',
+            },
+          )..result = '',
           AssistantText(
             'a',
             'Here is what changed.\n\n| Line | Q1 | Q2 | Change |\n|---|---|---|---|\n'
