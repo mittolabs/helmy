@@ -15,7 +15,9 @@ enum ToggleVariant {
 
   /// A filled pill, the secondary colour off and the primary on: a filter among several,
   /// set apart in a row with spacing.
-  @Deprecated("chip: a look for one design, not Ashlar UI's. Draw it in your app on Pressable and the theme, or change your copy. Goes in a later release.")
+  @Deprecated(
+    "chip: a look for one design, not Ashlar UI's. Draw it in your app on Pressable and the theme, or change your copy. Goes in a later release.",
+  )
   chip,
 }
 
@@ -81,13 +83,10 @@ class Toggle extends StatelessWidget {
           (false, false) => state.hovered ? c.mutedForeground : c.foreground,
         };
         final bg = switch ((chip, pressed)) {
-          (true, true) =>
-            state.hovered ? c.primary.withValues(alpha: .9) : c.primary,
-          (true, false) =>
-            state.hovered ? c.secondary.withValues(alpha: .8) : c.secondary,
+          (true, true) => state.hovered ? c.primary.withValues(alpha: .9) : c.primary,
+          (true, false) => state.hovered ? c.secondary.withValues(alpha: .8) : c.secondary,
           (false, true) => c.accent,
-          (false, false) =>
-            state.hovered ? c.muted : c.muted.withValues(alpha: 0),
+          (false, false) => state.hovered ? c.muted : c.muted.withValues(alpha: 0),
         };
         return Opacity(
           opacity: state.enabled ? 1 : .5,
@@ -118,14 +117,13 @@ class Toggle extends StatelessWidget {
             child: Align(
               widthFactor: 1,
               child: DefaultTextStyle.merge(
-                style: (size == ToggleSize.xl ? t.text.base : t.text.sm)
-                    .copyWith(color: fg, fontWeight: FontWeight.w500),
+                style: (size == ToggleSize.xl ? t.text.base : t.text.sm).copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w500,
+                ),
                 maxLines: 1,
                 child: IconTheme.merge(
-                  data: IconThemeData(
-                    color: fg,
-                    size: size == ToggleSize.xl ? 20 : 16,
-                  ),
+                  data: IconThemeData(color: fg, size: size == ToggleSize.xl ? 20 : 16),
                   child: child,
                 ),
               ),

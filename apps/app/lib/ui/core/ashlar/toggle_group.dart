@@ -11,12 +11,7 @@ import 'toggle.dart';
 /// One choice in a [ToggleGroup].
 @immutable
 class ToggleGroupItem<T> {
-  const ToggleGroupItem(
-    this.value,
-    this.child, {
-    this.semanticLabel,
-    this.enabled = true,
-  });
+  const ToggleGroupItem(this.value, this.child, {this.semanticLabel, this.enabled = true});
 
   /// The value it stands for, given back when it is pressed.
   final T value;
@@ -142,22 +137,18 @@ class ToggleGroup<T> extends StatelessWidget {
         SingleActivator(LogicalKeyboardKey.arrowRight): isRtl(context)
             ? const PreviousFocusIntent()
             : const NextFocusIntent(),
-        const SingleActivator(LogicalKeyboardKey.arrowDown):
-            const NextFocusIntent(),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): const NextFocusIntent(),
         SingleActivator(LogicalKeyboardKey.arrowLeft): isRtl(context)
             ? const NextFocusIntent()
             : const PreviousFocusIntent(),
-        const SingleActivator(LogicalKeyboardKey.arrowUp):
-            const PreviousFocusIntent(),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): const PreviousFocusIntent(),
       },
       child: FocusTraversalGroup(
         child: _layout([
           for (final item in items)
             Toggle(
               pressed: values.contains(item.value),
-              onChanged: onChanged == null || !item.enabled
-                  ? null
-                  : (on) => _press(item.value, on),
+              onChanged: onChanged == null || !item.enabled ? null : (on) => _press(item.value, on),
               variant: variant,
               size: size,
               semanticLabel: item.semanticLabel,

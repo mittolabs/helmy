@@ -72,9 +72,7 @@ class ColorPicker extends StatefulWidget {
 class _ColorPickerState extends State<ColorPicker> {
   // Kept apart from the colour, so the hue holds while the colour is grey.
   late HSVColor _hsv = HSVColor.fromColor(widget.value);
-  late final _hex = TextEditingController(
-    text: colorHex(widget.value, alpha: widget.alpha),
-  );
+  late final _hex = TextEditingController(text: colorHex(widget.value, alpha: widget.alpha));
   final _hexFocus = FocusNode();
 
   @override
@@ -124,8 +122,7 @@ class _ColorPickerState extends State<ColorPicker> {
               hsv: _hsv,
               hue: hue,
               label: 'Saturation and brightness',
-              describe: (sat, val) =>
-                  'saturation ${percent(sat)}, brightness ${percent(val)}',
+              describe: (sat, val) => 'saturation ${percent(sat)}, brightness ${percent(val)}',
               onChanged: _set,
             ),
             const SizedBox(height: 12),
@@ -164,8 +161,7 @@ class _ColorPickerState extends State<ColorPicker> {
                   for (var x = rect.left; x < rect.right; x += cell) {
                     for (var y = rect.top; y < rect.bottom; y += cell) {
                       final odd =
-                          (((x - rect.left) / cell).floor() +
-                                  ((y - rect.top) / cell).floor())
+                          (((x - rect.left) / cell).floor() + ((y - rect.top) / cell).floor())
                               .isOdd;
                       canvas.drawRect(
                         Rect.fromLTWH(
@@ -182,9 +178,8 @@ class _ColorPickerState extends State<ColorPicker> {
                   canvas.drawRect(
                     rect,
                     Paint()
-                      ..shader = LinearGradient(
-                        colors: [solid.withValues(alpha: 0), solid],
-                      ).createShader(rect),
+                      ..shader = LinearGradient(colors: [solid.withValues(alpha: 0), solid])
+                          .createShader(rect),
                   );
                 },
                 thumb: _hsv.toColor(),
@@ -209,10 +204,7 @@ class _ColorPickerState extends State<ColorPicker> {
                     controller: _hex,
                     focusNode: _hexFocus,
                     semanticLabel: 'Hex',
-                    leading: Text(
-                      '#',
-                      style: t.text.sm.copyWith(color: c.mutedForeground),
-                    ),
+                    leading: Text('#', style: t.text.sm.copyWith(color: c.mutedForeground)),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F#]')),
                       LengthLimitingTextInputFormatter(widget.alpha ? 9 : 7),
@@ -223,23 +215,15 @@ class _ColorPickerState extends State<ColorPicker> {
                       final next = HSVColor.fromColor(
                         widget.alpha ? parsed : parsed.withValues(alpha: 1),
                       );
-                      setState(
-                        () => _hsv = next.saturation == 0
-                            ? next.withHue(_hsv.hue)
-                            : next,
-                      );
+                      setState(() => _hsv = next.saturation == 0 ? next.withHue(_hsv.hue) : next);
                       widget.onChanged(next.toColor());
                     },
-                    onSubmitted: (_) => _hex.text = colorHex(
-                      _hsv.toColor(),
-                      alpha: widget.alpha,
-                    ),
+                    onSubmitted: (_) => _hex.text = colorHex(_hsv.toColor(), alpha: widget.alpha),
                   ),
                 ),
               ],
             ),
-            if (widget.swatches case final swatches?
-                when swatches.isNotEmpty) ...[
+            if (widget.swatches case final swatches? when swatches.isNotEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
@@ -249,9 +233,7 @@ class _ColorPickerState extends State<ColorPicker> {
                     Pressable(
                       onPressed: () {
                         final next = HSVColor.fromColor(s);
-                        _set(
-                          next.saturation == 0 ? next.withHue(_hsv.hue) : next,
-                        );
+                        _set(next.saturation == 0 ? next.withHue(_hsv.hue) : next);
                       },
                       semanticLabel: '#${colorHex(s, alpha: widget.alpha)}',
                       selected: s == _hsv.toColor(),
@@ -262,9 +244,7 @@ class _ColorPickerState extends State<ColorPicker> {
                           color: s,
                           borderRadius: BorderRadius.circular(t.radiusSm),
                           border: Border.all(
-                            color: state.focused || s == _hsv.toColor()
-                                ? c.ring
-                                : c.border,
+                            color: state.focused || s == _hsv.toColor() ? c.ring : c.border,
                             width: state.focused || s == _hsv.toColor() ? 2 : 1,
                           ),
                         ),
@@ -332,14 +312,8 @@ class _PlaneState extends State<_Plane> {
       slider: true,
       label: widget.label,
       value: widget.describe(widget.hsv.saturation, widget.hsv.value),
-      increasedValue: widget.describe(
-        widget.hsv.saturation,
-        (widget.hsv.value + step).clamp(0, 1),
-      ),
-      decreasedValue: widget.describe(
-        widget.hsv.saturation,
-        (widget.hsv.value - step).clamp(0, 1),
-      ),
+      increasedValue: widget.describe(widget.hsv.saturation, (widget.hsv.value + step).clamp(0, 1)),
+      decreasedValue: widget.describe(widget.hsv.saturation, (widget.hsv.value - step).clamp(0, 1)),
       onIncrease: () => _move(0, step),
       onDecrease: () => _move(0, -step),
       child: FocusableActionDetector(
@@ -350,22 +324,12 @@ class _PlaneState extends State<_Plane> {
           SingleActivator(LogicalKeyboardKey.arrowLeft): _MoveIntent(-step, 0),
           SingleActivator(LogicalKeyboardKey.arrowUp): _MoveIntent(0, step),
           SingleActivator(LogicalKeyboardKey.arrowDown): _MoveIntent(0, -step),
-          SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
-              _MoveIntent(big, 0),
-          SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
-              _MoveIntent(-big, 0),
-          SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): _MoveIntent(
-            0,
-            big,
-          ),
-          SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
-              _MoveIntent(0, -big),
+          SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): _MoveIntent(big, 0),
+          SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): _MoveIntent(-big, 0),
+          SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): _MoveIntent(0, big),
+          SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): _MoveIntent(0, -big),
         },
-        actions: {
-          _MoveIntent: CallbackAction<_MoveIntent>(
-            onInvoke: (i) => _move(i.dx, i.dy),
-          ),
-        },
+        actions: {_MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => _move(i.dx, i.dy))},
         child: LayoutBuilder(
           builder: (context, box) {
             final size = Size(box.maxWidth, box.maxWidth * .66);
@@ -392,12 +356,7 @@ class _PlaneState extends State<_Plane> {
 }
 
 class _PlanePainter extends CustomPainter {
-  _PlanePainter({
-    required this.hsv,
-    required this.hue,
-    required this.radius,
-    this.ring,
-  });
+  _PlanePainter({required this.hsv, required this.hue, required this.radius, this.ring});
 
   final HSVColor hsv;
   final Color hue;
@@ -413,9 +372,7 @@ class _PlanePainter extends CustomPainter {
     // White to the hue along it, then clear to black down it.
     canvas.drawRect(
       rect,
-      Paint()
-        ..shader = LinearGradient(colors: [const Color(0xFFFFFFFF), hue])
-            .createShader(rect),
+      Paint()..shader = LinearGradient(colors: [const Color(0xFFFFFFFF), hue]).createShader(rect),
     );
     canvas.drawRect(
       rect,
@@ -427,10 +384,7 @@ class _PlanePainter extends CustomPainter {
         ).createShader(rect),
     );
     canvas.restore();
-    final at = Offset(
-      hsv.saturation * size.width,
-      (1 - hsv.value) * size.height,
-    );
+    final at = Offset(hsv.saturation * size.width, (1 - hsv.value) * size.height);
     canvas.drawCircle(
       at,
       7,
@@ -512,39 +466,16 @@ class _StripState extends State<_Strip> {
         mouseCursor: SystemMouseCursors.click,
         onShowFocusHighlight: (v) => setState(() => _focused = v),
         shortcuts: {
-          const SingleActivator(LogicalKeyboardKey.arrowRight): _MoveIntent(
-            s,
-            0,
-          ),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): _MoveIntent(s, 0),
           const SingleActivator(LogicalKeyboardKey.arrowUp): _MoveIntent(s, 0),
-          const SingleActivator(LogicalKeyboardKey.arrowLeft): _MoveIntent(
-            -s,
-            0,
-          ),
-          const SingleActivator(LogicalKeyboardKey.arrowDown): _MoveIntent(
-            -s,
-            0,
-          ),
-          const SingleActivator(LogicalKeyboardKey.pageUp): _MoveIntent(
-            s * 10,
-            0,
-          ),
-          const SingleActivator(LogicalKeyboardKey.pageDown): _MoveIntent(
-            -s * 10,
-            0,
-          ),
-          const SingleActivator(LogicalKeyboardKey.home): const _MoveIntent(
-            -1,
-            0,
-          ),
-          const SingleActivator(LogicalKeyboardKey.end): const _MoveIntent(
-            1,
-            0,
-          ),
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): _MoveIntent(-s, 0),
+          const SingleActivator(LogicalKeyboardKey.arrowDown): _MoveIntent(-s, 0),
+          const SingleActivator(LogicalKeyboardKey.pageUp): _MoveIntent(s * 10, 0),
+          const SingleActivator(LogicalKeyboardKey.pageDown): _MoveIntent(-s * 10, 0),
+          const SingleActivator(LogicalKeyboardKey.home): const _MoveIntent(-1, 0),
+          const SingleActivator(LogicalKeyboardKey.end): const _MoveIntent(1, 0),
         },
-        actions: {
-          _MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => move(i.dx)),
-        },
+        actions: {_MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => move(i.dx))},
         child: LayoutBuilder(
           builder: (context, box) {
             final w = box.maxWidth;
@@ -591,10 +522,7 @@ class _StripPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 3, size.width, size.height - 6);
-    final shape = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(rect.height / 2),
-    );
+    final shape = RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2));
     canvas.save();
     canvas.clipRRect(shape);
     paintStrip(canvas, rect);
@@ -604,11 +532,7 @@ class _StripPainter extends CustomPainter {
       size.height / 2,
     );
     canvas.drawCircle(at, size.height / 2, Paint()..color = edge);
-    canvas.drawCircle(
-      at,
-      size.height / 2 - 2.5,
-      Paint()..color = thumb.withValues(alpha: 1),
-    );
+    canvas.drawCircle(at, size.height / 2 - 2.5, Paint()..color = thumb.withValues(alpha: 1));
     canvas.drawCircle(
       at,
       size.height / 2,
@@ -664,8 +588,7 @@ class ColorPickerButton extends StatelessWidget {
         ),
       ),
       builder: (context, controller) => Pressable(
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
         semanticLabel: label == null ? 'Colour $hex' : '$label, $hex',
         expanded: controller.isOpen,
         builder: (context, state) => AnimatedContainer(

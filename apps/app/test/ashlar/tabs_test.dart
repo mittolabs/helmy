@@ -10,11 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget app(Widget child, {AshlarThemeMode mode = AshlarThemeMode.light}) =>
-    AshlarApp(
-      themeMode: mode,
-      home: Center(child: child),
-    );
+Widget app(Widget child, {AshlarThemeMode mode = AshlarThemeMode.light}) => AshlarApp(
+  themeMode: mode,
+  home: Center(child: child),
+);
 
 /// These tests measure how controls look, so without the room a finger's press area
 /// takes on a phone (tap_target_test.dart covers that).
@@ -28,11 +27,7 @@ void main() {
     final tabs = [
       const TabItem(label: Text('Account'), content: Text('Account form')),
       const TabItem(label: Text('Password'), content: Text('Password form')),
-      const TabItem(
-        label: Text('Billing'),
-        content: Text('Billing form'),
-        enabled: false,
-      ),
+      const TabItem(label: Text('Billing'), content: Text('Billing form'), enabled: false),
       const TabItem(label: Text('Team'), content: Text('Team form')),
     ];
 
@@ -45,27 +40,22 @@ void main() {
       expect(find.text('Account form'), findsNothing);
     });
 
-    testWidgets(
-      'the arrow keys move along, skipping a disabled tab and wrapping',
-      (tester) async {
-        final seen = <int>[];
-        await tester.pumpWidget(app(Tabs(tabs: tabs, onChanged: seen.add)));
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    testWidgets('the arrow keys move along, skipping a disabled tab and wrapping', (tester) async {
+      final seen = <int>[];
+      await tester.pumpWidget(app(Tabs(tabs: tabs, onChanged: seen.add)));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
         await tester.pump();
-        for (var i = 0; i < 3; i++) {
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-          await tester.pump();
-        }
-        expect(seen, [1, 3, 0]);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-        await tester.pump();
-        expect(find.text('Team form'), findsOneWidget);
-      },
-    );
+      }
+      expect(seen, [1, 3, 0]);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(find.text('Team form'), findsOneWidget);
+    });
 
-    testWidgets('Tab reaches only the chosen tab, then leaves the row', (
-      tester,
-    ) async {
+    testWidgets('Tab reaches only the chosen tab, then leaves the row', (tester) async {
       await tester.pumpWidget(
         app(
           Column(
@@ -94,9 +84,7 @@ void main() {
       );
     });
 
-    testWidgets('a screen reader hears tabs, and which is selected', (
-      tester,
-    ) async {
+    testWidgets('a screen reader hears tabs, and which is selected', (tester) async {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(app(Tabs(tabs: tabs)));
       final node = tester.getSemantics(find.text('Account'));
@@ -117,17 +105,12 @@ void main() {
     ];
 
     testWidgets('the line variant underlines the chosen tab', (tester) async {
-      await tester.pumpWidget(
-        app2(const Tabs(variant: TabsVariant.line, tabs: tabs)),
-      );
+      await tester.pumpWidget(app2(const Tabs(variant: TabsVariant.line, tabs: tabs)));
       BoxDecoration deco(String label) =>
           tester
                   .widget<AnimatedContainer>(
                     find
-                        .ancestor(
-                          of: find.text(label),
-                          matching: find.byType(AnimatedContainer),
-                        )
+                        .ancestor(of: find.text(label), matching: find.byType(AnimatedContainer))
                         .first,
                   )
                   .decoration!
@@ -137,30 +120,29 @@ void main() {
       expect((deco('Two').border! as Border).bottom.color.a, 0);
     });
 
-    testWidgets(
-      'vertical tabs sit beside the panel and move with the up and down arrows',
-      (tester) async {
-        await tester.pumpWidget(
-          app2(
-            const SizedBox(
-              width: 400,
-              child: Tabs(axis: Axis.vertical, tabs: tabs),
-            ),
+    testWidgets('vertical tabs sit beside the panel and move with the up and down arrows', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        app2(
+          const SizedBox(
+            width: 400,
+            child: Tabs(axis: Axis.vertical, tabs: tabs),
           ),
-        );
-        expect(
-          tester.getTopLeft(find.text('Two')).dy,
-          greaterThan(tester.getTopLeft(find.text('One')).dy),
-        );
-        expect(
-          tester.getTopLeft(find.text('First')).dx,
-          greaterThan(tester.getTopRight(find.text('One')).dx),
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.pump();
-        expect(find.text('Second'), findsOneWidget);
-      },
-    );
+        ),
+      );
+      expect(
+        tester.getTopLeft(find.text('Two')).dy,
+        greaterThan(tester.getTopLeft(find.text('One')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('First')).dx,
+        greaterThan(tester.getTopRight(find.text('One')).dx),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(find.text('Second'), findsOneWidget);
+    });
   });
 }

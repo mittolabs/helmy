@@ -11,12 +11,7 @@ import 'theme.dart';
 /// One tab: its [label] in the list and the [content] shown when it is chosen.
 @immutable
 class TabItem {
-  const TabItem({
-    required this.label,
-    required this.content,
-    this.icon,
-    this.enabled = true,
-  });
+  const TabItem({required this.label, required this.content, this.icon, this.enabled = true});
 
   /// The tab's name.
   final Widget label;
@@ -139,15 +134,11 @@ class _TabsState extends State<Tabs> {
             final active = i == _index;
             final line = widget.variant == TabsVariant.line;
             final across = widget.axis == Axis.horizontal;
-            final fg = active || (!dark && !line)
-                ? c.foreground
-                : c.mutedForeground;
+            final fg = active || (!dark && !line) ? c.foreground : c.mutedForeground;
             if (line) {
               // A word, underlined when chosen: along the bottom, or down the start side.
               final mark = BorderSide(
-                color: active
-                    ? c.foreground
-                    : c.foreground.withValues(alpha: 0),
+                color: active ? c.foreground : c.foreground.withValues(alpha: 0),
                 width: 2,
               );
               return Opacity(
@@ -157,13 +148,9 @@ class _TabsState extends State<Tabs> {
                   // As tall as it is drawn, or taller when larger text needs it.
                   height: grownHeight(context, t.control(36)),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  alignment: across
-                      ? Alignment.center
-                      : AlignmentDirectional.centerStart,
+                  alignment: across ? Alignment.center : AlignmentDirectional.centerStart,
                   decoration: BoxDecoration(
-                    border: across
-                        ? Border(bottom: mark)
-                        : BorderDirectional(start: mark),
+                    border: across ? Border(bottom: mark) : BorderDirectional(start: mark),
                     boxShadow: [if (state.focused) ...t.focusRing],
                   ),
                   child: DefaultTextStyle.merge(
@@ -177,10 +164,7 @@ class _TabsState extends State<Tabs> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (tab.icon != null) ...[
-                            tab.icon!,
-                            const SizedBox(width: 6),
-                          ],
+                          if (tab.icon != null) ...[tab.icon!, const SizedBox(width: 6)],
                           Flexible(child: tab.label),
                         ],
                       ),
@@ -196,41 +180,26 @@ class _TabsState extends State<Tabs> {
                 // As tall as it is drawn, or taller when larger text needs it.
                 height: grownHeight(context, 29),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                alignment: across
-                    ? Alignment.center
-                    : AlignmentDirectional.centerStart,
+                alignment: across ? Alignment.center : AlignmentDirectional.centerStart,
                 decoration: BoxDecoration(
                   color: active
-                      ? (dark
-                            ? c.input.withValues(alpha: c.input.a * .3)
-                            : c.background)
+                      ? (dark ? c.input.withValues(alpha: c.input.a * .3) : c.background)
                       : (dark ? c.input : c.background).withValues(alpha: 0),
                   borderRadius: BorderRadius.circular(t.radiusMd),
                   border: Border.all(
-                    color: active && dark
-                        ? c.input
-                        : c.input.withValues(alpha: 0),
+                    color: active && dark ? c.input : c.input.withValues(alpha: 0),
                   ),
-                  boxShadow: [
-                    if (state.focused) ...t.focusRing,
-                    if (active) ...t.shadowSm,
-                  ],
+                  boxShadow: [if (state.focused) ...t.focusRing, if (active) ...t.shadowSm],
                 ),
                 child: DefaultTextStyle.merge(
-                  style: t.text.sm.copyWith(
-                    color: fg,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: t.text.sm.copyWith(color: fg, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   child: IconTheme.merge(
                     data: IconThemeData(color: fg, size: 16),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (tab.icon != null) ...[
-                          tab.icon!,
-                          const SizedBox(width: 6),
-                        ],
+                        if (tab.icon != null) ...[tab.icon!, const SizedBox(width: 6)],
                         Flexible(child: tab.label),
                       ],
                     ),
@@ -241,8 +210,7 @@ class _TabsState extends State<Tabs> {
           },
         ),
     ];
-    final across = widget.axis == Axis.horizontal,
-        line = widget.variant == TabsVariant.line;
+    final across = widget.axis == Axis.horizontal, line = widget.variant == TabsVariant.line;
     Widget bar(Widget child) => Semantics(
       role: SemanticsRole.tabBar,
       container: true,
@@ -261,11 +229,7 @@ class _TabsState extends State<Tabs> {
               SingleActivator(LogicalKeyboardKey.arrowUp): _MoveIntent(-1),
             },
       child: Actions(
-        actions: {
-          _MoveIntent: CallbackAction<_MoveIntent>(
-            onInvoke: (i) => _move(i.step),
-          ),
-        },
+        actions: {_MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => _move(i.step))},
         child: Container(
           constraints: across ? BoxConstraints(minHeight: t.control(36)) : null,
           padding: line ? EdgeInsets.zero : const EdgeInsets.all(3),
@@ -275,27 +239,17 @@ class _TabsState extends State<Tabs> {
                       ? Border(bottom: BorderSide(color: c.border))
                       : BorderDirectional(start: BorderSide(color: c.border)),
                 )
-              : BoxDecoration(
-                  color: c.muted,
-                  borderRadius: BorderRadius.circular(t.radiusLg),
-                ),
+              : BoxDecoration(color: c.muted, borderRadius: BorderRadius.circular(t.radiusLg)),
           // Tabs wider than the room scroll sideways, on a phone say; the tab bar sits
           // inside the scrolling, so its tabs stay its own children.
           child: across && !widget.expand
               ? SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: bar(
-                    Row(mainAxisSize: MainAxisSize.min, children: triggers),
-                  ),
+                  child: bar(Row(mainAxisSize: MainAxisSize.min, children: triggers)),
                 )
               : bar(
                   across
-                      ? Row(
-                          children: [
-                            for (final trigger in triggers)
-                              Expanded(child: trigger),
-                          ],
-                        )
+                      ? Row(children: [for (final trigger in triggers) Expanded(child: trigger)])
                       : IntrinsicWidth(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -315,10 +269,7 @@ class _TabsState extends State<Tabs> {
     final panel = Semantics(
       role: SemanticsRole.tabPanel,
       container: true,
-      child: KeyedSubtree(
-        key: ValueKey(_index),
-        child: widget.tabs[_index].content,
-      ),
+      child: KeyedSubtree(key: ValueKey(_index), child: widget.tabs[_index].content),
     );
     if (!across) {
       return Row(
@@ -332,9 +283,7 @@ class _TabsState extends State<Tabs> {
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: widget.expand
-          ? CrossAxisAlignment.stretch
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: widget.expand ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
       children: [list, const SizedBox(height: 8), panel],
     );
   }

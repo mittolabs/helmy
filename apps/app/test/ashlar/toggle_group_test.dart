@@ -21,9 +21,7 @@ Widget app2(Widget child) => AshlarApp(
 
 void main() {
   group('Toggle', () {
-    testWidgets('a chip is a filled pill, the primary colour once chosen', (
-      tester,
-    ) async {
+    testWidgets('a chip is a filled pill, the primary colour once chosen', (tester) async {
       await tester.pumpWidget(
         app2(
           ToggleGroup<String>(
@@ -32,10 +30,7 @@ void main() {
             spacing: 8,
             values: const {'all'},
             onChanged: (_) {},
-            items: const [
-              ToggleGroupItem('all', Text('All')),
-              ToggleGroupItem('new', Text('New')),
-            ],
+            items: const [ToggleGroupItem('all', Text('All')), ToggleGroupItem('new', Text('New'))],
           ),
         ),
       );
@@ -43,10 +38,7 @@ void main() {
       BoxDecoration of(String label) =>
           tester
                   .widget<AnimatedContainer>(
-                    find.ancestor(
-                      of: find.text(label),
-                      matching: find.byType(AnimatedContainer),
-                    ),
+                    find.ancestor(of: find.text(label), matching: find.byType(AnimatedContainer)),
                   )
                   .decoration!
               as BoxDecoration;
@@ -81,72 +73,67 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets(
-      'a group presses one at a time, or several; the arrows move between them',
-      (tester) async {
-        var values = <String>{};
-        var multiple = false;
-        await tester.pumpWidget(
-          app(
-            StatefulBuilder(
-              builder: (context, set) => ToggleGroup<String>(
-                values: values,
-                multiple: multiple,
-                onChanged: (v) => set(() => values = v),
-                items: const [
-                  ToggleGroupItem('a', Text('A')),
-                  ToggleGroupItem('b', Text('B')),
-                  ToggleGroupItem('c', Text('C')),
-                ],
-              ),
-            ),
-          ),
-        );
-        await tester.tap(find.text('A'));
-        await tester.pump();
-        await tester.tap(find.text('B'));
-        await tester.pump();
-        expect(values, {'b'});
-        await tester.tap(find.text('B'));
-        await tester.pump();
-        expect(values, isEmpty);
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pump();
-        expect(values, {'c'});
-        multiple = true;
-        tester.element(find.byType(StatefulBuilder)).markNeedsBuild();
-        await tester.pump();
-        await tester.tap(find.text('A'));
-        await tester.pump();
-        expect(values, {'a', 'c'});
-      },
-    );
-  });
-
-  testWidgets(
-    'a spaced toggle group stands its toggles apart, and can stand upright',
-    (tester) async {
+    testWidgets('a group presses one at a time, or several; the arrows move between them', (
+      tester,
+    ) async {
+      var values = <String>{};
+      var multiple = false;
       await tester.pumpWidget(
-        app2(
-          ToggleGroup<int>(
-            values: const {1},
-            spacing: 8,
-            axis: Axis.vertical,
-            onChanged: (_) {},
-            items: const [
-              ToggleGroupItem(1, Text('A')),
-              ToggleGroupItem(2, Text('B')),
-            ],
+        app(
+          StatefulBuilder(
+            builder: (context, set) => ToggleGroup<String>(
+              values: values,
+              multiple: multiple,
+              onChanged: (v) => set(() => values = v),
+              items: const [
+                ToggleGroupItem('a', Text('A')),
+                ToggleGroupItem('b', Text('B')),
+                ToggleGroupItem('c', Text('C')),
+              ],
+            ),
           ),
         ),
       );
-      final a = tester.getRect(find.byType(Toggle).first),
-          b = tester.getRect(find.byType(Toggle).last);
-      expect(b.top - a.bottom, 8);
-      expect(a.left, b.left);
-    },
-  );
+      await tester.tap(find.text('A'));
+      await tester.pump();
+      await tester.tap(find.text('B'));
+      await tester.pump();
+      expect(values, {'b'});
+      await tester.tap(find.text('B'));
+      await tester.pump();
+      expect(values, isEmpty);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(values, {'c'});
+      multiple = true;
+      tester.element(find.byType(StatefulBuilder)).markNeedsBuild();
+      await tester.pump();
+      await tester.tap(find.text('A'));
+      await tester.pump();
+      expect(values, {'a', 'c'});
+    });
+  });
+
+  testWidgets('a spaced toggle group stands its toggles apart, and can stand upright', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app2(
+        ToggleGroup<int>(
+          values: const {1},
+          spacing: 8,
+          axis: Axis.vertical,
+          onChanged: (_) {},
+          items: const [ToggleGroupItem(1, Text('A')), ToggleGroupItem(2, Text('B'))],
+        ),
+      ),
+    );
+    final a = tester.getRect(find.byType(Toggle).first),
+        b = tester.getRect(find.byType(Toggle).last);
+    expect(b.top - a.bottom, 8);
+    expect(a.left, b.left);
+  });
 }
