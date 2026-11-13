@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/mittolabs/helmy/compare/v0.8.0...v0.9.0) (2026-11-13)
+
+
+### Features
+
+* **design:** titles on the canvas are picked, moved and resized as in Figma ([7e9ddb7](https://github.com/mittolabs/helmy/commit/7e9ddb7056147ab379e20ec1ff3423188512f1b4))
+
 ## [0.8.0](https://github.com/mittolabs/helmy/compare/v0.7.0...v0.8.0) (2026-11-12)
 
 
