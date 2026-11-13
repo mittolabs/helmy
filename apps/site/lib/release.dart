@@ -6,9 +6,10 @@ import 'dart:io';
 /// named by [name].
 typedef Build = ({String system, String name, String kind, String url, int bytes, bool main});
 
-/// The latest stable release, as GitHub has it: `make site` fetches it into
-/// `.release.json` before building. Null when there is none yet, or it
-/// could not be fetched; the site then says so rather than offering a link.
+/// A stable release, as GitHub has it: `make site` fetches the recent ones
+/// into `.release.json` before building, and [load] picks the one to offer.
+/// Null when there is none yet, or it could not be fetched; the site then
+/// says so rather than offering a link.
 /// [builds] is empty while a release's files are still being made.
 class Release {
   Release._(this.tag, this.url, this.published, this.builds);
@@ -20,27 +21,39 @@ class Release {
   /// The systems in the order a reader looks for them.
   static const systems = ['macOS', 'Windows', 'Linux', 'Android'];
 
+  /// The release the download page offers: of the recent ones `make site` fetched
+  /// into `.release.json` (newest first), the newest whose builds are all there.
+  /// A release just tagged has none until its builds are attached, and a page
+  /// built then would offer a version with nothing to download; the one before
+  /// is offered until they are. With none complete, the newest, its builds
+  /// still being made.
   static Release? load() {
     final f = File('.release.json');
     if (!f.existsSync()) return null;
     try {
       final j = jsonDecode(f.readAsStringSync());
-      if (j is! Map || j['tag_name'] is! String || j['draft'] == true || j['prerelease'] == true) {
-        return null;
-      }
-      final builds = <Build>[
-        for (final a in (j['assets'] as List? ?? const []).whereType<Map>())
-          ?_build('${a['name']}', '${a['browser_download_url']}', (a['size'] as num?)?.toInt() ?? 0),
+      final all = [
+        for (final r in j is List ? j : [j])
+          if (r is Map) ?_parse(r),
       ];
-      return Release._(
-        j['tag_name'] as String,
-        '${j['html_url']}',
-        DateTime.tryParse('${j['published_at']}'),
-        builds,
-      );
+      return all.where((r) => r.builds.length == _files.length).firstOrNull ?? all.firstOrNull;
     } on FormatException {
       return null;
     }
+  }
+
+  static Release? _parse(Map j) {
+    if (j['tag_name'] is! String || j['draft'] == true || j['prerelease'] == true) return null;
+    final builds = <Build>[
+      for (final a in (j['assets'] as List? ?? const []).whereType<Map>())
+        ?_build('${a['name']}', '${a['browser_download_url']}', (a['size'] as num?)?.toInt() ?? 0),
+    ];
+    return Release._(
+      j['tag_name'] as String,
+      '${j['html_url']}',
+      DateTime.tryParse('${j['published_at']}'),
+      builds,
+    );
   }
 
   /// What build.yml names each file: `Helmy-<tag>-<this>`. The usual machine's build

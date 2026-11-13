@@ -78,7 +78,7 @@ site-dev:
 	cd $(SITE) && $(JASPR) serve
 
 site:
-	curl -fsS https://api.github.com/repos/mittolabs/helmy/releases/latest > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
+	curl -fsS 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=5' > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
 	cd $(SITE) && $(JASPR) build
 
 docs-dev:
