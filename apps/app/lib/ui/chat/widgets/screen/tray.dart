@@ -47,6 +47,19 @@ class _Tray extends StatelessWidget {
               words: words,
               onPressed: onSkills,
             ),
+            Tooltip(
+              message: vm.away
+                  ? "Away: I decide what I'd ask you, and keep what I still must ask "
+                        'for when you are back. Press when you are back.'
+                  : "Going away? I'll decide what I'd ask you and keep working.",
+              child: _TrayButton(
+                icon: AshlarIconsRoundedStroke.moon,
+                label: 'Away',
+                words: words,
+                on: vm.away,
+                onPressed: () => unawaited(vm.setAway(!vm.away)),
+              ),
+            ),
             if (vm.developerMode) _ModelPicker(vm: vm, words: words),
           ],
         );
@@ -61,40 +74,48 @@ class _TrayButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.words = true,
+    this.on,
   });
   final IconData icon;
   final String label;
   final bool words;
   final VoidCallback onPressed;
 
+  /// A switch's state; null for a plain button.
+  final bool? on;
+
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final c = t.colors;
-    return Pressable(
-      onPressed: onPressed,
-      semanticLabel: label,
-      builder: (context, state) => Container(
-        padding: const .symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: state.hovered ? c.foreground.withValues(alpha: .06) : null,
-          borderRadius: .circular(t.radiusMd),
-        ),
-        child: Row(
-          mainAxisSize: .min,
-          spacing: 5,
-          children: [
-            AshlarIcon(icon, size: 13, color: state.hovered ? c.foreground : c.mutedForeground),
-            if (words)
-              Text(
-                label,
-                style: t.text.xs.copyWith(
-                  color: state.hovered ? c.foreground : c.mutedForeground,
-                  height: 1,
-                ),
-              ),
-          ],
-        ),
+    final lit = on ?? false;
+    return Semantics(
+      toggled: on,
+      child: Pressable(
+        onPressed: onPressed,
+        semanticLabel: label,
+        builder: (context, state) {
+          final ink = state.hovered || lit ? c.foreground : c.mutedForeground;
+          return Container(
+            padding: const .symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: lit
+                  ? c.foreground.withValues(alpha: state.hovered ? .14 : .1)
+                  : state.hovered
+                  ? c.foreground.withValues(alpha: .06)
+                  : null,
+              borderRadius: .circular(t.radiusMd),
+            ),
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 5,
+              children: [
+                AshlarIcon(icon, size: 13, color: ink),
+                if (words) Text(label, style: t.text.xs.copyWith(color: ink, height: 1)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

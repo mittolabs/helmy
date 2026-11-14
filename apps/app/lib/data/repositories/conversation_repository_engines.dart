@@ -923,7 +923,23 @@ class ConversationRepositoryEngines extends ConversationRepository {
     for (final p in c.items.whereType<PermissionPrompt>()) {
       if (p.decision != .pending || p.judged) continue;
       p.judged = true;
-      if (p.isQuestion || p.toolName == 'ExitPlanMode') continue;
+      if (p.toolName == 'ExitPlanMode') continue;
+      // The agent's own question: the person's to answer, but the work does
+      // not stand still for it while they are away or slow to.
+      if (p.isQuestion) {
+        _holdFor(sessionId, run, p, away: session.away);
+        continue;
+      }
+      // Said yes to while it waited for them: the same step goes through.
+      if (_granted[sessionId]?.remove(heldSignature(p)) ?? false) {
+        try {
+          run.answer(p, .allow);
+          p.decision = .allowed;
+        } on Object {
+          p.decision = .cancelled;
+        }
+        continue;
+      }
       if (rules.any((r) => r.allows(p))) {
         run.answer(p, .allow);
         p.decision = .allowedByRule;
@@ -966,7 +982,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       ];
       unawaited(
         _approvals
-            .judge(p, asked: asked, folder: folder)
+            .judge(p, asked: asked, folder: folder, away: session.away)
             .then((j) => _settleApproval(sessionId, run, p, j)),
       );
     }
@@ -1005,6 +1021,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
           p.decision = .blockedByHelmy;
         case .ask:
           p.decision = .pending;
+          _holdFor(sessionId, run, p, away: _sessions.byId(sessionId)?.away ?? false);
       }
     } on Object {
       // The run that asked has ended.
@@ -1012,6 +1029,126 @@ class ConversationRepositoryEngines extends ConversationRepository {
     }
     notifyListeners();
   }
+
+  /// How long a question waits for the person before the agent is told to
+  /// carry on without it. The question stays, for them to answer later.
+  static const answerWait = Duration(minutes: 2);
+
+  /// Questions waiting out [answerWait].
+  final _answerWaits = <PermissionPrompt, Timer>{};
+
+  /// Steps the person said yes to after they were held: each lets the same
+  /// step through once, when the agent takes it again.
+  final _granted = <String, Set<String>>{};
+
+  /// Leaves [p] to the person for [answerWait] (not at all when they are
+  /// [away]), then tells the agent to carry on without it.
+  void _holdFor(String sessionId, EngineRun run, PermissionPrompt p, {required bool away}) {
+    if (away) return _holdForPerson(sessionId, run, p);
+    _answerWaits[p]?.cancel();
+    _answerWaits[p] = Timer(answerWait, () {
+      _answerWaits.remove(p);
+      if (!_disposed) _holdForPerson(sessionId, run, p);
+    });
+  }
+
+  /// Holds [p] for the person and tells the agent to carry on without it:
+  /// one question never stops all the work.
+  void _holdForPerson(String sessionId, EngineRun run, PermissionPrompt p) {
+    _answerWaits.remove(p)?.cancel();
+    if (p.decision != .pending) return;
+    try {
+      if (p.isQuestion) {
+        for (final q in p.questions) {
+          p.answers['${q['question'] ?? ''}'] = heldQuestionNote;
+        }
+        run.answerQuestion(p);
+        p.answers.clear();
+      } else {
+        run.answer(p, .deny, why: heldStepNote(p.why));
+      }
+      p
+        ..decision = .waiting
+        ..held = true;
+    } on Object {
+      // The run that asked has ended.
+      p.decision = .cancelled;
+    }
+    unawaited(_persist(sessionId));
+    notifyListeners();
+  }
+
+  @override
+  void carryOn(String sessionId) {
+    final run = _active(sessionId);
+    if (run == null) return;
+    for (final p in [...of(sessionId).items.whereType<PermissionPrompt>()]) {
+      if (p.decision == .pending && p.toolName != 'ExitPlanMode') _holdForPerson(sessionId, run, p);
+    }
+  }
+
+  /// What the agent is told of a step held for the person.
+  static String heldStepNote(String? question) =>
+      'Helmy is keeping this for the person to decide'
+      '${(question ?? '').isEmpty ? '' : ' ("$question")'}, and they are not here now. '
+      "Don't wait for them, and don't find a way round it: carry on with everything that "
+      "doesn't depend on it, and when you finish, say what is still waiting on them. If they "
+      "say go ahead, you'll be told, and this same step will then go through.";
+
+  /// What the agent is given for each of its questions held for the person.
+  static const heldQuestionNote =
+      "Not answered yet: the person isn't here. Choose what you would recommend, say what you "
+      "chose and why, and carry on. Their own answer comes later; if it differs, you'll be told.";
+
+  /// What identifies a held step when the agent takes it again: the tool
+  /// and what it acts on, not the words describing it.
+  static String heldSignature(PermissionPrompt p) {
+    final keys = p.input.keys.where((k) => !const {'description', 'timeout'}.contains(k)).toList()
+      ..sort();
+    return [p.toolName, for (final k in keys) '$k=${p.input[k]}'].join('\n');
+  }
+
+  /// The person answered a held step: the agent hears it, and on a yes, the
+  /// same step goes through when it takes it again.
+  void _answerHeld(String sessionId, PermissionPrompt p, {required bool yes}) {
+    p.decision = yes ? .allowed : .denied;
+    if (yes) (_granted[sessionId] ??= {}).add(heldSignature(p));
+    final what = (p.why ?? '').isNotEmpty ? p.why! : heldWhat(p);
+    unawaited(
+      _tell(
+        sessionId,
+        yes
+            ? 'Yes to what you held for me: "$what" Go ahead and do it now.'
+            : 'No to what you held for me: "$what" Don\'t do it; finish without it, or find '
+                  "another way that doesn't need it.",
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// A held step in a few words, when Helmy put no question to it.
+  static String heldWhat(PermissionPrompt p) {
+    final command = PermissionRule.plainCommand('${p.input['command'] ?? ''}');
+    if (command.isNotEmpty) return 'Run $command';
+    final path = p.input['file_path'] ?? p.input['notebook_path'] ?? p.input['path'];
+    if (path is String && path.isNotEmpty) return 'Change $path';
+    return p.toolName;
+  }
+
+  /// The person's late answer, to the agent: at its next step when it is
+  /// working, as the next message when it is not.
+  Future<void> _tell(String sessionId, String text) async {
+    final session = _sessions.byId(sessionId);
+    if (session == null) return;
+    await send(session, text, from: heldFrom);
+    final c = of(sessionId);
+    if (c.busy && c.queue.isNotEmpty && c.queue.last.text == text) {
+      steer(sessionId, c.queue.length - 1);
+    }
+  }
+
+  /// Where a late answer came from, as its message says.
+  static const heldFrom = 'your answer to what Helmy held for you';
 
   /// `!command`: run in the session's folder by Helmy itself, no agent.
   /// It goes in the conversation, so the next agent hears what ran and what
@@ -1218,6 +1355,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   @override
   void answerPermission(String sessionId, PermissionPrompt prompt, PermissionAnswer answer) {
+    if (prompt.decision == .waiting) return _answerHeld(sessionId, prompt, yes: answer != .deny);
+    _answerWaits.remove(prompt)?.cancel();
     final run = _active(sessionId);
     if (run == null || prompt.decision != .pending) return;
     run.answer(prompt, answer);
@@ -1231,6 +1370,20 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   @override
   void answerQuestion(String sessionId, PermissionPrompt prompt) {
+    if (prompt.decision == .waiting) {
+      prompt.decision = .allowed;
+      final answers = [for (final e in prompt.answers.entries) '- ${e.key} ${e.value}'];
+      unawaited(
+        _tell(
+          sessionId,
+          'My answers to what you asked earlier:\n${answers.join('\n')}\n'
+          'Where they differ from what you chose, change course to match.',
+        ),
+      );
+      notifyListeners();
+      return;
+    }
+    _answerWaits.remove(prompt)?.cancel();
     final run = _active(sessionId);
     if (run == null || prompt.decision != .pending) return;
     run.answerQuestion(prompt);
@@ -1355,7 +1508,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
   @override
   void dispose() {
     _disposed = true;
-    for (final t in _held.values) {
+    for (final t in [..._held.values, ..._answerWaits.values]) {
       t.cancel();
     }
     // Processes outlive this object by a moment; nothing they say may reach it.

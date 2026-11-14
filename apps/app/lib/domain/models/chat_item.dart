@@ -295,6 +295,11 @@ enum PermissionDecision {
 
   /// Stopped by Helmy, which told the agent why.
   blockedByHelmy,
+
+  /// Put to the person, who did not answer in time or is away: the agent was
+  /// told to carry on without it, and their answer goes to it when it comes.
+  /// Not tied to the run that asked, so it is kept across a restart.
+  waiting,
 }
 
 /// A connection's tool that acts on one of the person's accounts (Codex's
@@ -326,10 +331,17 @@ class PermissionPrompt extends ChatItem {
   /// Already looked at by Helmy (not saved: a restart ends the run that asked).
   bool judged = false;
 
+  /// Held for the person while the agent carried on ([PermissionDecision.waiting]),
+  /// whether or not they have answered since.
+  bool held = false;
+
   /// Answers chosen so far, when this is an AskUserQuestion.
   final Map<String, String> answers = {};
 
   bool get isQuestion => toolName == 'AskUserQuestion';
+
+  /// For the person to answer: now, or when they are back ([PermissionDecision.waiting]).
+  bool get needsAnswer => decision == .pending || decision == .waiting;
 
   List<Map<String, Object?>> get questions => ((input['questions'] as List?) ?? const [])
       .whereType<Map>()
@@ -348,6 +360,7 @@ class PermissionPrompt extends ChatItem {
         (decision == .pending || decision == .checking ? PermissionDecision.cancelled : decision)
             .name,
     'why': ?why,
+    if (held) 'held': true,
   };
 
   static PermissionPrompt fromJson(Map<String, Object?> json) =>
@@ -363,7 +376,8 @@ class PermissionPrompt extends ChatItem {
         ..decision =
             PermissionDecision.values.asNameMap()['${json['decision']}'] ??
             PermissionDecision.cancelled
-        ..why = json['why'] as String?;
+        ..why = json['why'] as String?
+        ..held = json['held'] == true;
 }
 
 /// The end of a turn, with what the CLI reported it cost.

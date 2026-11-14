@@ -307,6 +307,12 @@ class _SessionMenu extends StatelessWidget {
           child: const Text('Open its chat'),
         ),
       MenuItem(
+        leading: const AshlarIcon(AshlarIconsRoundedStroke.moon, size: 16),
+        onPressed: () => unawaited(vm.setAway(!vm.away)),
+        trailing: vm.away ? const AshlarIcon(AshlarIconsRoundedStroke.check, size: 14) : null,
+        child: const Text("Work while I'm away"),
+      ),
+      MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.webhook, size: 16),
         onPressed: () => showWebhook(context, vm),
         child: Text(vm.session?.hasWebhook ?? false ? 'Webhook (on)...' : 'Webhook...'),
