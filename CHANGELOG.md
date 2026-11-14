@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/mittolabs/helmy/compare/v0.15.0...v0.16.0) (2026-11-14)
+
+
+### Features
+
+* **chat:** see a working chat's tokens, written and in all ([#68](https://github.com/mittolabs/helmy/issues/68)) ([9299a0f](https://github.com/mittolabs/helmy/commit/9299a0fe17ce25661adc30a8bdcd4ca6c9420303))
+
 ## [0.15.0](https://github.com/mittolabs/helmy/compare/v0.14.0...v0.15.0) (2026-11-14)
 
 
