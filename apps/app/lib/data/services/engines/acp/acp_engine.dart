@@ -281,19 +281,30 @@ class AcpEngine implements AgentEngine {
 
   static String _quote(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
-  /// A session in a folder of its own, read-only, its answer collected.
+  Future<List<ModelChoice>>? _askModels;
+
+  /// A session in a folder of its own, read-only, its answer collected, on
+  /// its smallest model at its least effort where it offers a choice. The
+  /// protocol has no way to replace the agent's own system prompt.
   @override
-  Future<String?> ask(String instructions, String question) async {
+  Future<Answer?> ask(String instructions, String question) async {
     final dir = await Directory.systemTemp.createTemp('helmy-ask');
     final items = <ChatItem>[];
     EngineRun? run;
     try {
-      run = await start(EngineLaunch(cwd: dir.path, level: .readOnly), items);
+      // The models a session last offered; else asked once, by opening one.
+      final small = smallestModel(_models.isNotEmpty ? _models : await (_askModels ??= models()));
+      run = await start(
+        EngineLaunch(cwd: dir.path, level: .readOnly, model: small?.id, effort: leastEffort(small)),
+        items,
+      );
       final done = run.changes.firstWhere((ended) => ended);
       run.send('$instructions\n\n$question');
       await done.timeout(const Duration(seconds: 120));
       final text = items.whereType<AssistantText>().map((t) => t.text).join('\n').trim();
-      return text.isEmpty ? null : text;
+      return text.isEmpty
+          ? null
+          : Answer(text: text, model: run.status.model, tokens: run.status.tokens);
     } on Object {
       return null;
     } finally {

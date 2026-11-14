@@ -328,7 +328,9 @@ List<SingleChildWidget> providers(Loaded loaded) => [
             context.read(),
             context.read(),
             (e) => loaded.settings.settings.uses(e),
-          ).judge(p, asked: asked, folder: s.cwd);
+            meter: loaded.meter,
+            log: context.read(),
+          ).judge(p, asked: asked, folder: s.cwd, thread: id, chat: s.chatId);
           return switch (j.verdict) {
             Verdict.allow => (stop: null, ask: null),
             Verdict.block => (stop: j.why, ask: null),

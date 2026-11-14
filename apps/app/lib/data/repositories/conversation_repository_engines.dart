@@ -904,7 +904,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     unawaited(send(session, q.text, attachments: q.attachments, needs: q.needs, from: q.from));
   }
 
-  late final _approvals = Approvals(_engines, _router, _enabled);
+  late final _approvals = Approvals(_engines, _router, _enabled, meter: _meter, log: _log);
 
   /// Helmy's blocks in a session: in a row, and in all. Past a few, the
   /// person is asked rather than the agent stopped again.
@@ -982,7 +982,14 @@ class ConversationRepositoryEngines extends ConversationRepository {
       ];
       unawaited(
         _approvals
-            .judge(p, asked: asked, folder: folder, away: session.away)
+            .judge(
+              p,
+              asked: asked,
+              folder: folder,
+              away: session.away,
+              thread: sessionId,
+              chat: session.chatId,
+            )
             .then((j) => _settleApproval(sessionId, run, p, j)),
       );
     }

@@ -67,7 +67,7 @@ class Learner {
     ]) {
       final answer = await e.ask(_instructions, request);
       if (answer == null) continue;
-      final found = parse(answer);
+      final found = parse(answer.text);
       if (found != null) return found;
     }
     return const [];

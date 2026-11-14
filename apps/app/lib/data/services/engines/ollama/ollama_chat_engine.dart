@@ -94,7 +94,7 @@ class OllamaChatEngine implements AgentEngine {
   Future<Set<Capability>> connected() async => const {};
 
   @override
-  Future<String?> ask(String instructions, String question) async => null;
+  Future<Answer?> ask(String instructions, String question) async => null;
 
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {

@@ -51,6 +51,53 @@ class EngineStatus {
   String? model;
 }
 
+/// What [AgentEngine.ask] got back: the text, the model that wrote it, and
+/// its tokens as the connection reported them. What it did not report is
+/// null: unknown, never estimated.
+class const Answer({required final String text, final String? model, final TurnTokens? tokens});
+
+/// Effort levels by how hard they think, least first, as connections name them.
+const _efforts = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+/// What a model's id or name says when it is a connection's small one.
+final _smallName = RegExp(
+  r'\b(mini|nano|small|lite|tiny|haiku|flash|luna)\b',
+  caseSensitive: false,
+);
+
+/// What its description says when it is.
+final _smallWords = RegExp(
+  r'\b(affordable|cheap|cheaper|cheapest|lightweight|efficient|smaller|smallest|easier tasks|'
+  r'simple tasks)\b',
+  caseSensitive: false,
+);
+
+/// A model the connection itself calls old.
+final _oldWords = RegExp(r'\b(older|previous|legacy|deprecated)\b', caseSensitive: false);
+
+/// The model in [models] to ask a short question of: the first, newest
+/// first as connections list them, whose id, name or description says it
+/// is small, fast or cheap, preferring one the connection does not call
+/// old. Chosen from what the account offers, never a name assumed to exist.
+/// Null when none says so, and the connection's default answers.
+ModelChoice? smallestModel(List<ModelChoice> models) {
+  final small = [
+    for (final m in models)
+      if (_smallName.hasMatch('${m.id} ${m.name}') || _smallWords.hasMatch(m.description)) m,
+  ];
+  return small.where((m) => !_oldWords.hasMatch(m.description)).firstOrNull ?? small.firstOrNull;
+}
+
+/// The least effort [model] takes; null when it lists none, and the
+/// connection's own default applies.
+String? leastEffort(ModelChoice? model) {
+  final efforts = model?.efforts ?? const <String>[];
+  if (efforts.isEmpty) return null;
+  final known = efforts.where(_efforts.contains).toList()
+    ..sort((a, b) => _efforts.indexOf(a).compareTo(_efforts.indexOf(b)));
+  return known.firstOrNull ?? efforts.first;
+}
+
 /// How the user answered a [PermissionPrompt].
 enum PermissionAnswer { allow, allowForSession, deny }
 
@@ -87,8 +134,11 @@ abstract class AgentEngine {
   Future<Set<Capability>> connected();
 
   /// One short answer to [question] under [instructions]: no tools, no
-  /// conversation, nothing kept. Null when it cannot answer.
-  Future<String?> ask(String instructions, String question);
+  /// conversation, nothing kept, on the connection's smallest model at its
+  /// least effort ([smallestModel], [leastEffort]), since what asks is
+  /// Helmy's upkeep and its judge, many times a chat. Null when it cannot
+  /// answer.
+  Future<Answer?> ask(String instructions, String question);
 
   /// Memory it keeps somewhere Helmy should not edit, described.
   Future<List<MemoryNote>> memoryNotes() async => const [];

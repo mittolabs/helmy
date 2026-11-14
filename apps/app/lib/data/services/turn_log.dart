@@ -16,9 +16,18 @@ class TurnLog {
   /// The folder the monthly files are in.
   Future<Directory> folder() async => Directory('${(await _appData()).path}/logs');
 
-  Future<void> _write(String kind, Map<String, Object?> fields) async {
+  /// The write under way: each waits for the one before it, since appends
+  /// made at once interleave and break a line (found 2026-11-14, judging
+  /// on two connections in a row without waiting for the log).
+  Future<void> _writing = Future.value();
+
+  Future<void> _write(String kind, Map<String, Object?> fields) {
+    final at = _now();
+    return _writing = _writing.then((_) => _append(at, kind, fields));
+  }
+
+  Future<void> _append(DateTime at, String kind, Map<String, Object?> fields) async {
     try {
-      final at = _now();
       final dir = await folder();
       await dir.create(recursive: true);
       final month = '${at.year}-${at.month.toString().padLeft(2, '0')}';
@@ -87,7 +96,9 @@ class TurnLog {
     'runnerUpScore': runnerUpScore,
   });
 
-  /// Helmy's own upkeep (a summary, a brief): which model, its tokens.
+  /// Helmy's own upkeep (a summary, a brief, a judged approval): which
+  /// model, its tokens. [connection] and [tokens] (fresh, cached, output)
+  /// where the upkeep ran on a connection, with how long it took.
   Future<void> upkeep({
     required String what,
     required String thread,
@@ -96,15 +107,21 @@ class TurnLog {
     int? promptTokens,
     int? outputTokens,
     bool kept = true,
+    String? connection,
+    TurnTokens? tokens,
+    Duration? took,
   }) => _write('upkeep', {
     'what': what,
     'thread': thread,
     'chat': chat,
     'model': model,
-    'local': model != null,
+    'local': model != null && connection == null,
     'promptTokens': promptTokens,
     'outputTokens': outputTokens,
     'kept': kept,
+    'connection': ?connection,
+    if (connection != null) 'tokens': tokens?.toJson(),
+    if (took != null) 'ms': took.inMilliseconds,
   });
 
   /// The agent looked into another thread of its chat: which rung of the

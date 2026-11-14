@@ -30,9 +30,9 @@ class _Engine implements AgentEngine {
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async => run = _Run(items);
 
   @override
-  Future<String?> ask(String instructions, String question) async {
+  Future<Answer?> ask(String instructions, String question) async {
     judged.add(instructions);
-    return '{"verdict": "ask", "why": "Push your branch to GitHub?"}';
+    return const Answer(text: '{"verdict": "ask", "why": "Push your branch to GitHub?"}');
   }
 
   @override

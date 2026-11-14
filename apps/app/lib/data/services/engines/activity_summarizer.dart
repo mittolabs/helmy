@@ -95,7 +95,7 @@ class ActivitySummarizer {
             .ask(instructions, jsonEncode({'purpose': context, 'actions': records}))
             .timeout(timeout);
         if (answer == null) continue;
-        final clean = answer
+        final clean = answer.text
             .trim()
             .replaceFirst(RegExp(r'^```(?:json)?\s*'), '')
             .replaceFirst(RegExp(r'\s*```$'), '');
