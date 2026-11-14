@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0](https://github.com/mittolabs/helmy/compare/v0.12.0...v0.13.0) (2026-11-14)
+
+
+### Features
+
+* **chat:** long work goes on in parts, each from a fresh start ([#59](https://github.com/mittolabs/helmy/issues/59)) ([544f5c2](https://github.com/mittolabs/helmy/commit/544f5c2869cd6c744325e6bdf361f664ef2062ee))
+* **connections:** carry on elsewhere before and at a usage limit ([#61](https://github.com/mittolabs/helmy/issues/61)) ([d2e19cb](https://github.com/mittolabs/helmy/commit/d2e19cbced42df5943eb138f9cbe0fbf8fe685dd))
+
+
+### Bug Fixes
+
+* **approvals:** judging an approval uses a fraction of your plan ([#58](https://github.com/mittolabs/helmy/issues/58)) ([f0f0fcc](https://github.com/mittolabs/helmy/commit/f0f0fcc29993a2dc4707c0d98c4ba82d4312b1c9))
+
 ## [0.12.0](https://github.com/mittolabs/helmy/compare/v0.11.0...v0.12.0) (2026-11-14)
 
 
