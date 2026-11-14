@@ -97,7 +97,7 @@ List<ChatRow> buildRows(ChatViewModel vm) {
     if (item is UserMessage) inApp = fromApp(item.from);
     if (inApp) {
       final needed = switch (item) {
-        PermissionPrompt(decision: .pending) => true,
+        PermissionPrompt(needsAnswer: true) => true,
         TurnSummary(ok: false) => true,
         _ => false,
       };
@@ -126,7 +126,7 @@ List<ChatRow> buildRows(ChatViewModel vm) {
     }
     final p = item is ToolCall ? promptsByTool[item.id] : null;
     final quiet =
-        (item is ToolCall && p?.decision != PermissionDecision.pending) ||
+        (item is ToolCall && !(p?.needsAnswer ?? false)) ||
         (item is AssistantText && item.text.isEmpty) ||
         (item is PermissionPrompt &&
             !item.isQuestion &&

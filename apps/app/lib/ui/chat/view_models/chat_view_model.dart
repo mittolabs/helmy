@@ -1829,6 +1829,20 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
 
   void submitAnswers(PermissionPrompt p) => _conversations.answerQuestion(sessionId, p);
 
+  /// The person is away and wants the work to go on: Helmy decides what it
+  /// would otherwise ask, and what it still must ask waits for them while
+  /// the agent carries on.
+  bool get away => session?.away ?? false;
+
+  Future<void> setAway(bool on) async {
+    final s = session;
+    if (s == null || s.away == on) return;
+    await _sessions.save(s.copyWith(away: on));
+    // Gone now: what waits for them stops holding the work up.
+    if (on) _conversations.carryOn(sessionId);
+    notifyListeners();
+  }
+
   Future<void> setLevel(PermissionLevel level) async {
     final s = session;
     if (s == null || s.level == level) return;

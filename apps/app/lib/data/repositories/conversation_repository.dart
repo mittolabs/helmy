@@ -31,8 +31,7 @@ class Conversation {
   /// The last turn ended because you stopped it: nothing to tell you of.
   bool stoppedByYou = false;
 
-  int get pendingPrompts =>
-      items.whereType<PermissionPrompt>().where((p) => p.decision == .pending).length;
+  int get pendingPrompts => items.whereType<PermissionPrompt>().where((p) => p.needsAnswer).length;
 }
 
 /// Live conversations. Each message goes to whichever engine the router picks,
@@ -119,6 +118,10 @@ abstract class ConversationRepository extends ChangeNotifier {
   void answerPermission(String sessionId, PermissionPrompt prompt, PermissionAnswer answer);
 
   void answerQuestion(String sessionId, PermissionPrompt prompt);
+
+  /// Tells the agent to carry on without what it is waiting for the person
+  /// on, which waits for them instead: for when they have gone away.
+  void carryOn(String sessionId) {}
 
   /// Applies a new permission level to whatever runs this session.
   Future<void> setLevel(String sessionId, PermissionLevel level);

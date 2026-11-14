@@ -206,9 +206,11 @@ class _Step extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final p = prompt;
-    final asking = p != null && p.decision == .pending;
+    final asking = p != null && p.needsAnswer;
     final denied = p?.decision == .denied || p?.decision == .blockedByHelmy;
-    final failed = call.isError || denied;
+    // Held for the person, the agent was told to carry on: not a failure.
+    final held = p?.held ?? false;
+    final failed = (call.isError && !held) || denied;
     final running = !call.done && !asking && !denied && vm.busy;
     final muted = t.text.sm.copyWith(color: c.mutedForeground);
     final shell = call.input['command'] is String;
@@ -246,7 +248,7 @@ class _Step extends StatelessWidget {
               Flexible(
                 flex: 2,
                 child: Text(
-                  denied && !call.declined
+                  denied && !call.declined && !held
                       ? '$title, stopped'
                       : failed && !call.declined
                       ? '$title, failed'
@@ -310,6 +312,13 @@ class _Step extends StatelessWidget {
               _MarkdownResult(md)
             else if (call.result != null && call.result!.isNotEmpty && diffsOf(call).isEmpty)
               _Code(stepResult(call.result!), error: call.isError),
+            // Held for the person and answered since: what came of it.
+            if (p != null && held && !asking)
+              Text(switch (p.decision) {
+                PermissionDecision.allowed => 'You said go ahead later, and it was told to.',
+                PermissionDecision.denied => 'You said no later, and it was told.',
+                _ => 'Not answered.',
+              }, style: t.text.xs.copyWith(color: c.mutedForeground)),
             // What Helmy decided about it, on its own, and why.
             if (p != null && (p.decision == .allowedByHelmy || p.decision == .blockedByHelmy))
               Text(
@@ -345,6 +354,11 @@ class _Step extends StatelessWidget {
                 : 'Let this go ahead?',
             style: t.text.sm.copyWith(fontWeight: .w500),
           ),
+          if (p.decision == .waiting)
+            Text(
+              "I kept this for you and the work went on without it. Say go ahead and it's done.",
+              style: t.text.xs.copyWith(color: c.mutedForeground),
+            ),
           step,
           Wrap(
             spacing: 8,

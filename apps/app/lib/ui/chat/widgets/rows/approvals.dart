@@ -64,14 +64,14 @@ class _Question extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
-    if (prompt.decision != .pending) {
+    if (!prompt.needsAnswer) {
       final answered = prompt.answers.entries.map((e) => '${e.key}: ${e.value}').join('\n');
       return Text(
         answered.isEmpty ? 'A question that was not answered' : answered,
         style: t.text.sm.copyWith(color: t.colors.mutedForeground),
       );
     }
-    return Questionnaire(
+    final questionnaire = Questionnaire(
       shortcuts: .numbers,
       questions: [
         for (final q in prompt.questions)
@@ -98,6 +98,18 @@ class _Question extends StatelessWidget {
         }
         vm.submitAnswers(prompt);
       },
+    );
+    if (prompt.decision != .waiting) return questionnaire;
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 8,
+      children: [
+        Text(
+          'You were away, so it went on with its own choice. Your answer still reaches it.',
+          style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+        ),
+        questionnaire,
+      ],
     );
   }
 }

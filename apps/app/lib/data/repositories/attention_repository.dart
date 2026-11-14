@@ -238,10 +238,7 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   Future<void> _waiting(String sessionId, String title) async {
     if (await _inSightNow(sessionId)) return;
     final c = _conversations.of(sessionId);
-    final prompt = c.items
-        .whereType<PermissionPrompt>()
-        .where((p) => p.decision == .pending)
-        .lastOrNull;
+    final prompt = c.items.whereType<PermissionPrompt>().where((p) => p.needsAnswer).lastOrNull;
     if (prompt == null) return;
     _send(
       sessionId,
