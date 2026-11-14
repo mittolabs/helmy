@@ -5,34 +5,34 @@
 
 ### Features
 
-* **chat:** long work goes on in parts, each from a fresh start ([#59](https://github.com/mittolabs/helmy/issues/59)) ([544f5c2](https://github.com/mittolabs/helmy/commit/544f5c2869cd6c744325e6bdf361f664ef2062ee))
-* **connections:** carry on elsewhere before and at a usage limit ([#61](https://github.com/mittolabs/helmy/issues/61)) ([d2e19cb](https://github.com/mittolabs/helmy/commit/d2e19cbced42df5943eb138f9cbe0fbf8fe685dd))
+* **chat:** long tasks use far less of your plan ([#59](https://github.com/mittolabs/helmy/issues/59)) ([544f5c2](https://github.com/mittolabs/helmy/commit/544f5c2869cd6c744325e6bdf361f664ef2062ee))
+* **connections:** when one connection nears its usage limit, Helmy carries on with another, and the limit message has a Continue button ([#61](https://github.com/mittolabs/helmy/issues/61)) ([d2e19cb](https://github.com/mittolabs/helmy/commit/d2e19cbced42df5943eb138f9cbe0fbf8fe685dd))
 
 
 ### Bug Fixes
 
-* **approvals:** judging an approval uses a fraction of your plan ([#58](https://github.com/mittolabs/helmy/issues/58)) ([f0f0fcc](https://github.com/mittolabs/helmy/commit/f0f0fcc29993a2dc4707c0d98c4ba82d4312b1c9))
+* **approvals:** checking what Helmy is about to do uses far less of your plan ([#58](https://github.com/mittolabs/helmy/issues/58)) ([f0f0fcc](https://github.com/mittolabs/helmy/commit/f0f0fcc29993a2dc4707c0d98c4ba82d4312b1c9))
 
 ## [0.12.0](https://github.com/mittolabs/helmy/compare/v0.11.0...v0.12.0) (2026-11-14)
 
 
 ### Features
 
-* **chat:** under the message box, where the chat stands ([#56](https://github.com/mittolabs/helmy/issues/56)) ([70ef348](https://github.com/mittolabs/helmy/commit/70ef348bc0bcdbc432c006d21de3c6ffda9e0786))
+* **chat:** the bar under the message box shows the chat's branch, the lines it changed and what is waiting for you ([#56](https://github.com/mittolabs/helmy/issues/56)) ([70ef348](https://github.com/mittolabs/helmy/commit/70ef348bc0bcdbc432c006d21de3c6ffda9e0786))
 
 ## [0.11.0](https://github.com/mittolabs/helmy/compare/v0.10.1...v0.11.0) (2026-11-14)
 
 
 ### Features
 
-* **approvals:** work goes on while you are away, and no question stops it ([#54](https://github.com/mittolabs/helmy/issues/54)) ([a73c83e](https://github.com/mittolabs/helmy/commit/a73c83e79e22291d758c298d9340f40a792d8e02))
+* **approvals:** turn on Away and Helmy keeps working while you're gone, and a question you leave unanswered no longer stops the work ([#54](https://github.com/mittolabs/helmy/issues/54)) ([a73c83e](https://github.com/mittolabs/helmy/commit/a73c83e79e22291d758c298d9340f40a792d8e02))
 
 ## [0.10.1](https://github.com/mittolabs/helmy/compare/v0.10.0...v0.10.1) (2026-11-13)
 
 
 ### Bug Fixes
 
-* **android:** the phone app builds again on Flutter 3.50 ([#52](https://github.com/mittolabs/helmy/issues/52)) ([2826f1b](https://github.com/mittolabs/helmy/commit/2826f1b1a9697e21fd551e6cd0b5ba2884ed4763))
+* **android:** the Android app can be downloaded again ([#52](https://github.com/mittolabs/helmy/issues/52)) ([2826f1b](https://github.com/mittolabs/helmy/commit/2826f1b1a9697e21fd551e6cd0b5ba2884ed4763))
 
 ## [0.10.0](https://github.com/mittolabs/helmy/compare/v0.9.0...v0.10.0) (2026-11-13)
 
