@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/mittolabs/helmy/compare/v0.13.0...v0.14.0) (2026-11-14)
+
+
+### Features
+
+* **chrome:** use Helmy from Chrome, beside any page ([#64](https://github.com/mittolabs/helmy/issues/64)) ([b8229c7](https://github.com/mittolabs/helmy/commit/b8229c7376720f9a3b6c50df5cf8d21daa986ceb))
+
+
+### Bug Fixes
+
+* **chat:** messaging a chat from your phone no longer erases its history ([#63](https://github.com/mittolabs/helmy/issues/63)) ([015b4a6](https://github.com/mittolabs/helmy/commit/015b4a6cf2d2ff09ca9eaaf17c9660fc9e1c0c56))
+
 ## [0.13.0](https://github.com/mittolabs/helmy/compare/v0.12.0...v0.13.0) (2026-11-14)
 
 
