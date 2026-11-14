@@ -223,7 +223,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     final cwd = session?.cwd;
     if (cwd == null || cwd == _askedFor) return;
     // Its own copy, tidied away (archived, merged): back on its branch.
-    if (session case final s? when s.ownCopy && !Directory(cwd).existsSync()) {
+    if (session case final s? when !kIsWeb && s.ownCopy && !Directory(cwd).existsSync()) {
       await _projects?.restoreCopy(s);
     }
     // The session moved into its own copy while open here (its first
@@ -973,7 +973,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     if (cwd == null || cwd.isEmpty) return false;
     return actions.isNotEmpty ||
         session?.repo != null ||
-        FileSystemEntity.typeSync('$cwd/.git') != FileSystemEntityType.notFound;
+        (!kIsWeb && FileSystemEntity.typeSync('$cwd/.git') != FileSystemEntityType.notFound);
   }
 
   // The panel as it was left in this chat, kept with the chat: its tabs,
@@ -2133,6 +2133,8 @@ String? localServerIn(List<ChatItem> items) {
 /// Flutter or React Native app's ios/ and android/ folders, or Gradle's
 /// Android app module.
 bool isMobileProject(String folder) {
+  // In a browser the folder is on the computer Helmy runs on: nothing to look at here.
+  if (kIsWeb) return false;
   final dir = Directory(folder);
   if (!dir.existsSync()) return false;
   if (Directory('$folder/ios').existsSync() || Directory('$folder/android').existsSync()) {

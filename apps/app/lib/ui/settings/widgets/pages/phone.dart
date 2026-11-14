@@ -73,7 +73,27 @@ class _Phone extends StatelessWidget {
                       style: muted,
                     ),
                     Text(
-                      'Reached at ${pairing.hosts.join(', ')}, port ${pairing.port}.',
+                      'In Chrome, with the Helmy extension: copy the link instead and paste it '
+                      'there. It is the same code, so treat it the same way.',
+                      style: muted,
+                    ),
+                    Button(
+                      variant: .outline,
+                      size: .sm,
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: pairing.link));
+                        if (!context.mounted) return;
+                        showToast(
+                          context,
+                          title: 'Link copied',
+                          description: 'Paste it in Helmy in Chrome to pair.',
+                        );
+                      },
+                      child: const Text('Copy the link for Chrome'),
+                    ),
+                    Text(
+                      'Reached at ${pairing.hosts.where((h) => h != '127.0.0.1').join(', ')}, '
+                      'port ${pairing.port}.',
                       style: t.text.xs.copyWith(color: t.colors.mutedForeground),
                     ),
                     Button(

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
@@ -10,6 +9,7 @@ import '../../services/engines/agent_engine.dart';
 import '../../services/chat_apps.dart';
 import '../../services/remote/remote_link.dart';
 import '../conversation_repository.dart';
+import 'fetched/fetched.dart';
 import '../session_repository.dart';
 
 /// The Mac's threads, as the phone has them over [RemoteLink]: what the
@@ -111,11 +111,7 @@ class RemoteConversations extends ConversationRepository {
       _asked.remove(path);
       return;
     }
-    final dir = Directory('${Directory.systemTemp.path}/helmy-files');
-    await dir.create(recursive: true);
-    final f = File('${dir.path}/${path.hashCode.toUnsigned(32)}-${path.split('/').last}');
-    await f.writeAsBytes(bytes);
-    _here[path] = f.path;
+    _here[path] = await keepFetched(path, bytes);
     _sync();
   }
 

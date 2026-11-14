@@ -1,3 +1,5 @@
+import 'package:helmy/utils/picture.dart';
+
 import '../../core/window_web_view.dart';
 
 import 'dart:async';
@@ -265,7 +267,7 @@ class _Picture extends StatelessWidget {
       label: words,
       child: _Frame(
         child: path != null
-            ? Image.file(File(path!), fit: .contain, errorBuilder: broken)
+            ? Image(image: pictureOf(path!), fit: .contain, errorBuilder: broken)
             : Image.network('$web', fit: .contain, errorBuilder: broken),
       ),
     );

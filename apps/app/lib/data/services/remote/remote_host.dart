@@ -127,7 +127,7 @@ class RemoteHost extends ChangeNotifier {
       if (_runningWith == key && _server.running && pairing?.device == pending.id) return;
       if (_runningWith == key && _server.running) {
         pairing = Pairing(
-          hosts: pairing?.hosts ?? await RemoteServer.addresses(),
+          hosts: pairing?.hosts ?? await _hosts(),
           port: _server.port,
           key: pending.key,
           name: Platform.localHostname.replaceAll(RegExp(r'\.local$'), ''),
@@ -141,7 +141,7 @@ class RemoteHost extends ChangeNotifier {
         _runningWith = key;
         trouble = null;
         pairing = Pairing(
-          hosts: await RemoteServer.addresses(),
+          hosts: await _hosts(),
           port: _server.port,
           key: pending.key,
           name: Platform.localHostname.replaceAll(RegExp(r'\.local$'), ''),
@@ -180,4 +180,8 @@ class RemoteHost extends ChangeNotifier {
     unawaited(_server.stop());
     super.dispose();
   }
+
+  /// Where a paired device looks for this computer: its addresses, then
+  /// this computer itself, for Chrome running here (with no network, too).
+  static Future<List<String>> _hosts() async => [...await RemoteServer.addresses(), '127.0.0.1'];
 }

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../../domain/models/chat.dart';
 import '../../../domain/models/chat_item.dart';
@@ -39,6 +40,15 @@ enum LinkState { connecting, connected, unreachable }
 /// What this phone is called, for the Mac's list of paired phones:
 /// "Mittos-iPhone" as "Mittos iPhone".
 String phoneName() {
+  // A browser has no name of its own to give: what it is, and where.
+  if (kIsWeb) {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS => 'Chrome on a Mac',
+      TargetPlatform.windows => 'Chrome on Windows',
+      TargetPlatform.linux => 'Chrome on Linux',
+      _ => 'Chrome',
+    };
+  }
   final n = Platform.localHostname.replaceAll(RegExp(r'\.local$'), '').replaceAll('-', ' ').trim();
   // iOS gives apps "localhost", not the phone's name.
   if (n.isEmpty || n == 'localhost') return Platform.isIOS ? 'iPhone' : 'Phone';
@@ -62,7 +72,7 @@ class RemoteLink extends ChangeNotifier {
   List<RemoteChat> chats = const [];
   final _conversations = <String, RemoteConversation>{};
 
-  WebSocket? _ws;
+  WebSocketChannel? _ws;
   Timer? _retry;
   var _attempt = 0;
   bool _closed = false;
@@ -91,12 +101,18 @@ class RemoteLink extends ChangeNotifier {
     for (final host in pairing.hosts) {
       try {
         final device = pairing.device;
-        final ws = await WebSocket.connect(
-          'ws://$host:${pairing.port}/ws${device == null ? '' : '?d=$device'}',
-        ).timeout(const Duration(seconds: 4));
+        final ws = WebSocketChannel.connect(
+          Uri.parse('ws://$host:${pairing.port}/ws${device == null ? '' : '?d=$device'}'),
+        );
+        try {
+          await ws.ready.timeout(const Duration(seconds: 4));
+        } on Object {
+          unawaited(ws.sink.close());
+          rethrow;
+        }
         _ws = ws;
         _attempt = 0;
-        ws.listen(
+        ws.stream.listen(
           (data) => unawaited(_receive(data)),
           onDone: _lost,
           onError: (_) => _lost(),
@@ -134,7 +150,7 @@ class RemoteLink extends ChangeNotifier {
   Future<void> _send(Map<String, Object?> m) async {
     final ws = _ws;
     if (ws == null) return;
-    ws.add(await _sealer.seal(m));
+    ws.sink.add(await _sealer.seal(m));
   }
 
   Future<void> _receive(Object? data) async {
@@ -367,7 +383,7 @@ class RemoteLink extends ChangeNotifier {
     _closed = true;
     frame.dispose();
     _retry?.cancel();
-    unawaited(_ws?.close());
+    unawaited(_ws?.sink.close());
     made.dispose();
     unawaited(_appChanges.close());
     unawaited(_designChanges.close());

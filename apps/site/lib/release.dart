@@ -19,7 +19,7 @@ class Release {
   final List<Build> builds;
 
   /// The systems in the order a reader looks for them.
-  static const systems = ['macOS', 'Windows', 'Linux', 'Android'];
+  static const systems = ['macOS', 'Windows', 'Linux', 'Android', 'Chrome'];
 
   /// The release the download page offers: of the recent ones `make site` fetched
   /// into `.release.json` (newest first), the newest whose builds are all there.
@@ -68,6 +68,7 @@ class Release {
     '-linux-arm64.deb': (system: 'Linux', name: '.deb', kind: '.deb', main: false),
     '-linux-arm64.AppImage': (system: 'Linux', name: 'AppImage', kind: 'AppImage', main: false),
     '-android.apk': (system: 'Android', name: 'Phone app, pairs with Helmy', kind: '.apk', main: true),
+    '-chrome.zip': (system: 'Chrome', name: 'Extension, pairs with Helmy', kind: '.zip · unzip, then Load unpacked in chrome://extensions', main: true),
   };
 
   /// What the link under a system's cards opens with, for another architecture.

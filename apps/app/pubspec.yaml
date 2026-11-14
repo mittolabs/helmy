@@ -60,6 +60,8 @@ dependencies:
   flutter_svg: ^2.3.2
   html: ^0.15.7
   dart_style: ^3.1.14
+  web_socket_channel: ^3.0.3
+  web: ^1.1.2
 dev_dependencies:
   integration_test:
     sdk: flutter

@@ -40,8 +40,8 @@ class _Image extends StatelessWidget {
       child: Padding(
         padding: const .all(40),
         child: Center(
-          child: Image.file(
-            File(image.path),
+          child: Image(
+            image: pictureOf(image.path),
             fit: BoxFit.contain,
             semanticLabel: image.prompt ?? 'Generated image',
           ),
@@ -54,8 +54,7 @@ class _Image extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
-    final file = File(image.path);
-    if (!file.existsSync()) {
+    if (!pictureThere(image.path)) {
       return Container(
         padding: const .all(16),
         decoration: BoxDecoration(color: t.colors.muted, borderRadius: .circular(t.radiusLg)),
@@ -74,7 +73,7 @@ class _Image extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 420, maxHeight: 420),
             child: ClipRRect(
               borderRadius: .circular(t.radiusLg),
-              child: Image.file(file, fit: BoxFit.contain),
+              child: Image(image: pictureOf(image.path), fit: BoxFit.contain),
             ),
           ),
         ),
