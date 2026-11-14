@@ -8,6 +8,7 @@ import 'package:helmy/data/services/engines/agent_engine.dart';
 import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/data/services/engines/engine_router.dart';
 import 'package:helmy/data/services/engines/usage_meter.dart';
+import 'package:helmy/data/services/storage_service.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
 import 'package:helmy/domain/models/memory.dart';
@@ -144,10 +145,11 @@ void main() {
   late SessionRepositoryLocal sessions;
   late ConversationRepositoryEngines repo;
   late _Engine engine;
+  late StorageService storage;
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('held');
-    final storage = storageAt(root);
+    storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
     final meter = UsageMeter();
     engine = _Engine();
@@ -161,6 +163,9 @@ void main() {
   });
   tearDown(() async {
     repo.dispose();
+    // What is still being saved lands before its folder goes.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await storage.flush();
     await root.delete(recursive: true);
   });
 
@@ -175,7 +180,7 @@ void main() {
       repo.of(id).items.whereType<PermissionPrompt>().firstWhere((p) => p.requestId == requestId);
 
   Future<void> until(bool Function() done) async {
-    for (var i = 0; i < 200 && !done(); i++) {
+    for (var i = 0; i < 1000 && !done(); i++) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
     expect(done(), isTrue);

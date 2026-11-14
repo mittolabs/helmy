@@ -322,7 +322,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
           final asked = [
             for (final m
                 in context.read<ConversationRepository>().of(id).items.whereType<UserMessage>())
-              if (m.text.trim().isNotEmpty && !(m.from ?? '').startsWith('app:')) m.text.trim(),
+              if (Approvals.byThePerson(m)) m.text.trim(),
           ];
           final j = await Approvals(
             context.read(),

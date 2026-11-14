@@ -8,6 +8,7 @@ import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
 import '../../domain/folder_move.dart';
+import '../../domain/next_part.dart';
 import '../../domain/routing.dart';
 import '../services/engines/explainer.dart';
 import '../services/engines/activity_summarizer.dart';
@@ -305,6 +306,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
     String? from,
   }) async {
     final c = of(session.id);
+    // The person's own word: parts started by themselves count again from none.
+    if (from == null) _parts.remove(session.id);
     // Written while the agent works: it waits, and goes when the turn ends.
     if (c.busy) {
       c.queue.add((text: text, attachments: attachments, needs: needs, from: from));
@@ -821,6 +824,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
       );
     }
     final moveTo = turn == null ? null : _takeFolderMove(c, turn.start, session?.cwd);
+    final next = turn == null || turn.unasked ? null : _takeNextPart(c, turn);
     if (session != null) {
       final thread = EngineThread(resumeId: run.status.resumeId, seen: c.items.length);
       // A detour for a capability leaves the session on its own engine, which
@@ -871,10 +875,95 @@ class ConversationRepositoryEngines extends ConversationRepository {
         unawaited(stop(sessionId).then((_) => _next(sessionId)));
         return;
       }
+      if (next != null) {
+        _startNextPart(sessionId, saved, next);
+        return;
+      }
       _sessions.save(saved);
+      // A conversation grown large is compacted now, between turns: every
+      // step after reads the short version instead of all of it.
+      if (turn != null && turn.text != '/compact' && c.queue.isEmpty) {
+        if (run.status.context case final ctx? when ctx.used >= compactAt) {
+          unawaited(compact(saved));
+        }
+      }
     }
     _persist(sessionId);
     _next(sessionId);
+  }
+
+  /// Tokens of conversation past which it is compacted between turns. Each
+  /// step of a turn reads all of it again, so a large one costs on every step.
+  static const compactAt = 150000;
+
+  /// Parts Helmy started by itself in a row, by session, since the person
+  /// last wrote: past [partsInARow], it waits for them.
+  final _parts = <String, int>{};
+
+  /// How many parts go on by themselves before the person has a say.
+  static const partsInARow = 20;
+
+  /// The note this turn's answer ends a part with, taken out of the answer;
+  /// null when it ends none, or the next part should not start by itself
+  /// (the turn failed, the person has written, or [partsInARow] went by).
+  String? _takeNextPart(Conversation c, _Turn turn) {
+    String? note;
+    for (final a in c.items.skip(turn.start).whereType<AssistantText>()) {
+      final n = nextPartIn(a.text);
+      if (n == null) continue;
+      note = n;
+      a.text = withoutNextPart(a.text);
+    }
+    if (note == null) return null;
+    final ended = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+    if (ended != null && !ended.ok) return null;
+    if (c.queue.isNotEmpty) return null;
+    return note;
+  }
+
+  /// Starts the next part of long work from [note], in a fresh context: every
+  /// connection's thread starts over, having seen the whole conversation, so
+  /// nothing of it is handed over again. The note is all the next part reads.
+  void _startNextPart(String sessionId, Session session, String note) {
+    final c = of(sessionId);
+    final done = (_parts[sessionId] ?? 0) + 1;
+    final fresh = session.copyWith(
+      threads: {
+        for (final id in {...session.threads.keys, ?session.lastEngineId})
+          id: EngineThread(seen: c.items.length),
+      },
+    );
+    _sessions.save(fresh);
+    if (done > partsInARow) {
+      // Many parts gone by with nobody looking: the person decides on more.
+      _parts.remove(sessionId);
+      c.items.add(
+        Notice(
+          'I worked through $partsInARow parts in a row. Say carry on and I will start '
+          'the next.',
+        ),
+      );
+      _persist(sessionId);
+      notifyListeners();
+      return;
+    }
+    _parts[sessionId] = done;
+    final end = c.items.lastIndexWhere((i) => i is TurnSummary);
+    c.items.insert(
+      end < 0 ? c.items.length : end,
+      Notice('Part done. The next part starts from a short note, which keeps long work quick.'),
+    );
+    _persist(sessionId);
+    unawaited(
+      stop(sessionId).then(
+        (_) => send(
+          fresh,
+          'Carry on with the next part of the work. Where things stand, as you left it at '
+          'the end of the part before:\n\n$note',
+          from: nextPartFrom,
+        ),
+      ),
+    );
   }
 
   /// The folder this turn's answer moves the session to, its line taken out
@@ -978,7 +1067,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
         // The person's own words: not a chat app's turns, which a page
         // could have written.
         for (final m in c.items.whereType<UserMessage>())
-          if (m.text.trim().isNotEmpty && !(m.from ?? '').startsWith('app:')) m.text.trim(),
+          if (Approvals.byThePerson(m)) m.text.trim(),
       ];
       unawaited(
         _approvals

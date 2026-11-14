@@ -39,9 +39,11 @@ Widget? _pastRow(ChatItem item, ChatViewModel vm) => switch (item) {
     align: .end,
     child: Bubble(variant: .muted, child: Text(text)),
   ),
-  AssistantText(:final text) when withoutFolderLines(text).trim().isNotEmpty => Builder(
-    builder: (context) =>
-        Markdown(withoutFolderLines(text), onLink: (url) => openAnswerLink(context, url, vm)),
+  AssistantText(:final text) when withoutNextPart(withoutFolderLines(text)).isNotEmpty => Builder(
+    builder: (context) => Markdown(
+      withoutNextPart(withoutFolderLines(text)),
+      onLink: (url) => openAnswerLink(context, url, vm),
+    ),
   ),
   _ => null,
 };
