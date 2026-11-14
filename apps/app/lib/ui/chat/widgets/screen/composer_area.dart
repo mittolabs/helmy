@@ -536,5 +536,8 @@ String? tokensLabel(TurnTokens? t) {
   final all = t?.inAll;
   if (t == null || all == null || all == 0) return null;
   final written = t.output;
-  return [if (written != null) '${shortCount(written)} written', '${shortCount(all)} in all'].join(' · ');
+  return [
+    if (written != null) '${shortCount(written)} written',
+    '${shortCount(all)} in all',
+  ].join(' · ');
 }
