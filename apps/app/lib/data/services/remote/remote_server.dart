@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../domain/browser_page.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/session.dart';
 import '../../repositories/chat_repository.dart';
@@ -12,6 +13,7 @@ import '../engines/agent_engine.dart';
 import '../../../utils/result.dart';
 import '../chat_apps.dart';
 import '../design_bundle.dart';
+import '../engines/attachments.dart';
 import 'remote_crypto.dart';
 import 'screen_source.dart';
 
@@ -29,7 +31,8 @@ class RemoteServer {
     this.port = defaultPort,
     this._screen,
     this._apps,
-  }) {
+    Directory? pages,
+  }) : _pagesAt = pages {
     _screen?.onFrame = _onFrame;
     _apps?.changes.listen(_onApp);
     _screen?.onStopped = _onScreenStopped;
@@ -71,6 +74,23 @@ class RemoteServer {
 
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
+
+  /// Where pages sent from a browser are kept, each in a folder of its own;
+  /// with the other attachments unless a test says otherwise.
+  final Directory? _pagesAt;
+
+  /// [page] (from Helmy in Chrome) kept as a file for the agent to read; its
+  /// path, or null with none.
+  Future<String?> _keep(BrowserPage? page) async {
+    if (page == null) return null;
+    final root = _pagesAt ?? Directory('${attachmentsDir().path}/pages');
+    final dir = Directory('${root.path}/${DateTime.now().microsecondsSinceEpoch}');
+    await dir.create(recursive: true);
+    final file = File('${dir.path}/${page.fileName}');
+    await file.writeAsString(page.markdown);
+    return file.path;
+  }
+
   final ChatRepository? _chats;
   final int port;
 
@@ -195,7 +215,14 @@ class RemoteServer {
       case 'send':
         final s = _sessions.byId(id);
         final text = '${m['text'] ?? ''}'.trim();
-        if (s != null && text.isNotEmpty) await _conversations.send(s, text);
+        final page = BrowserPage.fromJson(m['page']);
+        if (s != null && (text.isNotEmpty || page != null)) {
+          await _conversations.send(
+            s,
+            text.isEmpty ? BrowserPage.bare : text,
+            attachments: [?await _keep(page)],
+          );
+        }
       case 'answer':
         final p = _conversations
             .of(id)
@@ -264,11 +291,22 @@ class RemoteServer {
         if (wrong != null) await _send(c, {'type': 'screen', 'on': true, 'trouble': _says(wrong)});
       case 'new':
         final cwd = _sessions.sessions.where((s) => s.sideOf == null).firstOrNull?.cwd;
-        final made = await _sessions.create(cwd: '${m['cwd'] ?? cwd ?? Directory.current.path}');
+        final text = '${m['text'] ?? ''}'.trim();
+        final page = BrowserPage.fromJson(m['page']);
+        final made = await _sessions.create(
+          cwd: '${m['cwd'] ?? cwd ?? Directory.current.path}',
+          // A page sent without words: the chat is named after it.
+          title: text.isEmpty && page != null ? page.name : null,
+        );
         if (made case Ok(value: final s)) {
           await _send(c, {'type': 'made', 'id': s.id, 'ask': m['ask']});
-          final text = '${m['text'] ?? ''}'.trim();
-          if (text.isNotEmpty) await _conversations.send(s, text);
+          if (text.isNotEmpty || page != null) {
+            await _conversations.send(
+              s,
+              text.isEmpty ? BrowserPage.bare : text,
+              attachments: [?await _keep(page)],
+            );
+          }
         }
     }
   }

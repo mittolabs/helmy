@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../../domain/browser_page.dart';
 import '../../../domain/models/chat.dart';
 import '../../../domain/models/chat_item.dart';
 import '../chat_apps.dart';
@@ -263,7 +264,10 @@ class RemoteLink extends ChangeNotifier {
     await _send({'type': 'close', 'id': id});
   }
 
-  Future<void> send(String id, String text) => _send({'type': 'send', 'id': id, 'text': text});
+  /// Sends [text] in [id], with the [page] the browser is on when it was
+  /// taken (Helmy in Chrome).
+  Future<void> send(String id, String text, {BrowserPage? page}) =>
+      _send({'type': 'send', 'id': id, 'text': text, 'page': ?page?.toJson()});
 
   /// Answers [prompt] in [id]: 'allow', 'allowForSession' or 'deny'.
   Future<void> answer(String id, PermissionPrompt prompt, String answer) =>
@@ -276,7 +280,8 @@ class RemoteLink extends ChangeNotifier {
   Future<void> interrupt(String id) => _send({'type': 'interrupt', 'id': id});
 
   /// A new chat on the Mac, starting with [text]; [made] says its id.
-  Future<void> newChat(String text) => _send({'type': 'new', 'text': text});
+  Future<void> newChat(String text, {BrowserPage? page}) =>
+      _send({'type': 'new', 'text': text, 'page': ?page?.toJson()});
 
   final _files = <String, Completer<Uint8List?>>{};
 
