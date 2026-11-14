@@ -630,6 +630,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   bool get onlyThisMac => _conversations.onlyThisMac ?? false;
   bool get thinking => _c.thinking;
 
+  /// The working turn's tokens, as measured; null until its connection says.
+  TurnTokens? get turnTokens => _c.tokens;
+
   /// Every connection is at its limit: the message waits until then.
   DateTime? get heldUntil => _c.heldUntil;
 

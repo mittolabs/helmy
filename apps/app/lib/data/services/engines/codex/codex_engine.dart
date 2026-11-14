@@ -699,7 +699,7 @@ class _CodexRun implements EngineRun {
       ..thinking = _reducer.thinking
       ..usage = _reducer.usage ?? status.usage
       ..context = _reducer.context ?? status.context
-      ..tokens = _reducer.tokens ?? status.tokens;
+      ..tokens = _reducer.tokens;
     _changes.add(ended);
   }
 
@@ -711,8 +711,12 @@ class _CodexRun implements EngineRun {
   };
 
   @override
-  void send(String text, {List<String> attachments = const []}) =>
-      unawaited(_send(text, attachments));
+  void send(String text, {List<String> attachments = const []}) {
+    // A new turn: nothing of the last one's count stays.
+    _reducer.tokens = null;
+    status.tokens = null;
+    unawaited(_send(text, attachments));
+  }
 
   Future<void> _send(String text, List<String> attachments) async {
     final images = [
