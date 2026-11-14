@@ -8,6 +8,9 @@ import 'package:provider/provider.dart';
 import '../../data/repositories/remote/remote_repositories.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/services/remote/remote_link.dart';
+import '../../domain/browser_page.dart';
+import '../core/ashlar/attachment.dart';
+import 'page/this_page.dart';
 import 'design_view.dart';
 import '../../domain/models/settings.dart';
 import '../../utils/format.dart';
@@ -96,10 +99,10 @@ class _PhoneShellState extends State<PhoneShell> {
     }
   }
 
-  void _start(String text) {
-    if (text.trim().isEmpty) return;
-    setState(() => _starting = text.trim());
-    unawaited(link.newChat(text.trim()));
+  void _start(String text, BrowserPage? page) {
+    if (text.trim().isEmpty && page == null) return;
+    setState(() => _starting = text.trim().isEmpty ? BrowserPage.bare : text.trim());
+    unawaited(link.newChat(text.trim(), page: page));
   }
 
   void _openThread(String? id) {
@@ -295,21 +298,22 @@ class _Home extends StatefulWidget {
   const _Home({required this.link, required this.starting, required this.onSend});
   final RemoteLink link;
   final String? starting;
-  final ValueChanged<String> onSend;
+  final void Function(String text, BrowserPage? page) onSend;
 
   @override
   State<_Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<_Home> {
+class _HomeState extends State<_Home> with _TakesPage {
   final _text = TextEditingController();
   late final _focus = _enterSends(_submit);
 
   void _submit() {
     final text = _text.text;
-    if (text.trim().isEmpty) return;
-    widget.onSend(text);
+    if (text.trim().isEmpty && page == null) return;
+    widget.onSend(text, page);
     _text.clear();
+    setState(() => page = null);
   }
 
   @override
@@ -370,6 +374,8 @@ class _HomeState extends State<_Home> {
               controller: _text,
               focusNode: _focus,
               placeholder: 'Ask Helmy',
+              actions: [?pageButton()],
+              attachments: [?pageChip()],
               onSubmit: (_) => _submit(),
             ),
           ),
@@ -399,7 +405,7 @@ class _Chat extends StatefulWidget {
   State<_Chat> createState() => _ChatState();
 }
 
-class _ChatState extends State<_Chat> {
+class _ChatState extends State<_Chat> with _TakesPage {
   late final vm = ChatViewModel(
     sessionId: widget.sessionId,
     sessions: widget.sessions,
@@ -411,8 +417,14 @@ class _ChatState extends State<_Chat> {
 
   void _submit() {
     final text = _text.text;
-    if (text.trim().isEmpty) return;
-    unawaited(vm.send.execute(text));
+    if (text.trim().isEmpty && page == null) return;
+    // With a page, straight to the Mac, which keeps it as a file for the agent.
+    if (page case final p?) {
+      unawaited(widget.link.send(widget.sessionId, text.trim(), page: p));
+      setState(() => page = null);
+    } else {
+      unawaited(vm.send.execute(text));
+    }
     _text.clear();
   }
 
@@ -501,6 +513,8 @@ class _ChatState extends State<_Chat> {
                   placeholder: vm.busy
                       ? 'Helmy is working. Say more, or stop it'
                       : 'Reply to Helmy',
+                  actions: [?pageButton()],
+                  attachments: [?pageChip()],
                   trailing: [
                     if (vm.busy)
                       ComposerButton(
@@ -906,3 +920,76 @@ class _Settings extends StatelessWidget {
 /// starts a new line and the button sends.
 FocusNode _enterSends(VoidCallback send) =>
     FocusNode(onKeyEvent: kIsWeb ? (_, e) => Composer.handleEnter(e, send) : null);
+
+/// "This page", in Chrome: a button by the message box that takes the tab
+/// the panel is beside, shown as a chip until the message goes with it.
+mixin _TakesPage<W extends StatefulWidget> on State<W> {
+  BrowserPage? page;
+  bool _taking = false;
+  String? _pageTrouble;
+
+  Future<void> _take() async {
+    setState(() {
+      _taking = true;
+      _pageTrouble = null;
+    });
+    BrowserPage? got;
+    String? trouble;
+    try {
+      got = await thisPage();
+      if (got == null) trouble = 'No page to send: open one in a tab, then try again.';
+    } on PageTrouble catch (e) {
+      trouble = e.why;
+    } on Object {
+      trouble = "The page couldn't be read. Try again, or reload it first.";
+    }
+    if (!mounted) return;
+    setState(() {
+      _taking = false;
+      page = got;
+      _pageTrouble = trouble;
+    });
+  }
+
+  /// The button, where there is a page to take; null elsewhere (a phone).
+  Widget? pageButton() => !pageHere
+      ? null
+      : ComposerButton(
+          icon: AshlarIconsRoundedStroke.browser,
+          label: page == null ? 'Send this page' : 'Take this page again',
+          onPressed: _taking ? null : () => unawaited(_take()),
+        );
+
+  /// The page taken, to send with the message; null with none.
+  Widget? pageChip() {
+    if (_pageTrouble case final why?) {
+      return Attachment(
+        title: why,
+        icon: AshlarIconsRoundedStroke.browserOff,
+        size: .sm,
+        actions: [
+          AttachmentAction(
+            icon: AshlarIconsRoundedStroke.x,
+            label: 'Dismiss',
+            onPressed: () => setState(() => _pageTrouble = null),
+          ),
+        ],
+      );
+    }
+    final p = page;
+    if (p == null) return null;
+    return Attachment(
+      title: p.title.isEmpty ? p.site : p.title,
+      description: p.readable ? p.site : '${p.site}, its address only',
+      icon: AshlarIconsRoundedStroke.browser,
+      size: .sm,
+      actions: [
+        AttachmentAction(
+          icon: AshlarIconsRoundedStroke.x,
+          label: 'Remove the page',
+          onPressed: () => setState(() => page = null),
+        ),
+      ],
+    );
+  }
+}

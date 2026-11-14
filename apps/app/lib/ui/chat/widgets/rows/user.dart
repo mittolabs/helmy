@@ -248,7 +248,10 @@ class _UserState extends State<_User> {
                     Attachment(
                       title: path.split('/').last,
                       size: .sm,
-                      onPressed: () => showFilePopup(context, path, vm, editors: vm.editorChoice),
+                      // In a browser the file is on the computer Helmy runs on.
+                      onPressed: kIsWeb
+                          ? null
+                          : () => showFilePopup(context, path, vm, editors: vm.editorChoice),
                       image:
                           imageTypes.containsKey(path.split('.').last.toLowerCase()) &&
                               pictureThere(path)

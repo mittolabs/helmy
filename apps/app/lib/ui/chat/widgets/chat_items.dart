@@ -15,7 +15,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapSlop, kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
