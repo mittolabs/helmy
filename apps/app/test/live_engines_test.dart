@@ -497,6 +497,7 @@ class _Scripted implements EngineRouter {
     Set<Capability> needs = const {},
     WorkKind? kind,
     bool warm = false,
+    Set<String>? alike,
   }) {
     final ids = [for (final c in candidates) c.id];
     while (_next < order.length) {

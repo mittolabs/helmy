@@ -227,6 +227,9 @@ List<ChatRow> buildRows(ChatViewModel vm) {
               text,
               Fix.values.firstWhere((f) => f.link == fix),
               details: (items[i] as Notice).details,
+              // A held chat whose connection is at its limit, with nowhere to
+              // carry on by itself: the card offers the way forward there is.
+              limit: fix == Fix.chooseForMe.link && isUsageLimit(text),
             ),
             vm: vm,
             last: i == items.length - 1,

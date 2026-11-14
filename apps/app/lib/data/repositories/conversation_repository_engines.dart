@@ -15,6 +15,7 @@ import '../services/engines/activity_summarizer.dart';
 import '../../domain/activity_words.dart';
 import '../services/shell_service.dart';
 import '../../domain/problem.dart';
+import '../../domain/model_names.dart';
 import '../../utils/format.dart';
 import '../services/engines/engine_registry.dart';
 import '../services/engines/ollama/ollama_chat_engine.dart';
@@ -70,6 +71,11 @@ class _Turn {
   /// said once the answer is in, so a change in voice has its reason.
   bool limitSwitched = false;
   String? lastEngine;
+
+  /// In a held chat, the line that says it carried on elsewhere (or came
+  /// back), naming both: said once the answer is in, in place of the line
+  /// above.
+  String? said;
 
   /// Why the connection answering was chosen, for the answer's label.
   String? why;
@@ -228,6 +234,19 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   /// How each run was started (its pin), to start it afresh when that changes.
   final Map<String, EnginePin?> _launchedWith = {};
+
+  /// The model Helmy chose when it carried a chat over to a connection, by
+  /// `sessionId/engineId`: the same class as the one it left, kept for as
+  /// long as the chat stays there.
+  final Map<String, EnginePin> _carry = {};
+
+  /// Held chats carried on elsewhere while their own connection has no room,
+  /// by session: where to. Gone once the chat is back.
+  final Map<String, String> _away = {};
+
+  /// Sessions whose next message, sent from a limit's "Continue", may go to
+  /// any connection with room (the model on this Mac included), held or not.
+  final Set<String> _anywhereOnce = {};
 
   final EngineRegistry _engines;
 
@@ -467,8 +486,25 @@ class ConversationRepositoryEngines extends ConversationRepository {
       }
       final ended = _lastTurnEnd[session.id];
       final pin = _pinOf(session);
-      final String? id;
-      if (pin != null) {
+      final anywhere = _anywhereOnce.remove(sessionId);
+      String? id;
+      // Held, but its connection is out or nearly out (or the person asked to
+      // go on elsewhere): carried on with the closest model that has room.
+      final out = pin != null && (_meter.isDown(pin.engineId) || anywhere);
+      final gave = pin == null || !(out || _meter.nearlyOut(pin.engineId))
+          ? null
+          : await _giveWay(session, pin, turn, candidates, out: out, anywhere: anywhere);
+      if (pin != null && gave != null) {
+        id = gave.engineId;
+        if (gave.model case final model?) {
+          _carry[_key(sessionId, gave.engineId)] = EnginePin(engineId: gave.engineId, model: model);
+        }
+        if (_away[sessionId] != id) turn.said = gave.said;
+        _away[sessionId] = id;
+        turn.why = out
+            ? 'carried on: the one you chose was at its limit'
+            : 'carried on: the one you chose was nearly at its limit';
+      } else if (pin != null) {
         // Held to one connection (Developer mode): there, or said why not.
         if (await _pinnedUnavailable(pin) case final why?) {
           c
@@ -482,16 +518,30 @@ class ConversationRepositoryEngines extends ConversationRepository {
         }
         id = turn.tried.contains(pin.engineId) ? null : pin.engineId;
         turn.why = 'chosen by you';
+        // Back from carrying on elsewhere: said, once.
+        if (id != null && _away.remove(sessionId) != null) {
+          turn.said = '${_named(pin.engineId, pin.model)} has room again, so I went back to it.';
+        }
       } else {
+        // Nearly out or out, the chat keeps its class of model where it goes.
+        final current = session.lastEngineId;
+        final alike = current != null && (_meter.nearlyOut(current) || _meter.isDown(current))
+            ? await _alike(session.id, current, null, candidates)
+            : null;
         id = _router.choose(
           candidates: eligible(candidates, turn.needs),
-          current: session.lastEngineId,
+          current: current,
           needs: turn.needs,
           kind: turn.kind,
           // Its connection still holds it in cache: within minutes of its last turn.
           warm: ended != null && DateTime.now().difference(ended) < cacheLife,
+          alike: alike?.keys.toSet(),
         );
         turn.why = _router.why;
+        final carried = id == null || id == current ? null : alike?[id];
+        if (id != null && carried != null) {
+          _carry[_key(sessionId, id)] = EnginePin(engineId: id, model: carried);
+        }
       }
       if (id == null) {
         if (await _hold(sessionId, turn)) return;
@@ -617,6 +667,102 @@ class ConversationRepositoryEngines extends ConversationRepository {
     return true;
   }
 
+  /// The connection a limit stopped [sessionId] at: the failed turn's, when
+  /// the chat ends on one, else the one it is held to, else the one it was on.
+  String? _stoppedAt(String sessionId) {
+    final session = _sessions.byId(sessionId);
+    final last = of(sessionId).items.lastOrNull;
+    final failed = last is TurnSummary && !last.ok ? last.engineId : null;
+    return failed ?? (session == null ? null : _pinOf(session)?.engineId) ?? session?.lastEngineId;
+  }
+
+  @override
+  Future<LimitWay?> limitWay(String sessionId) async {
+    final session = _sessions.byId(sessionId);
+    if (session == null) return null;
+    final stopped = _stoppedAt(sessionId);
+    final now = DateTime.now();
+    // Its reset only when it reported one: a guess is not a time to wait for.
+    final reset = stopped == null ? null : _meter.usageOf(stopped)?.resetsAt;
+    final waitUntil = reset != null && reset.isAfter(now) ? reset : null;
+    final online = <EngineInfo>[], local = <EngineInfo>[];
+    DateTime? firstFree;
+    for (final e in _engines.engines) {
+      final id = e.info.id;
+      if (id == stopped || !_enabled(id) || await e.unavailableReason() != null) continue;
+      if (_meter.downUntil(id) case final until?) {
+        if (_meter.usageOf(id)?.resetsAt == until &&
+            (firstFree == null || until.isBefore(firstFree))) {
+          firstFree = until;
+        }
+        continue;
+      }
+      (e.info.localOnly ? local : online).add(e.info);
+    }
+    if (stopped != null && waitUntil != null) {
+      if (firstFree == null || waitUntil.isBefore(firstFree)) firstFree = waitUntil;
+    }
+    final pin = _pinOf(session);
+    String? carryOnWith;
+    if (pin != null && online.isNotEmpty) {
+      final turn = _Turn(_lastAsked(sessionId) ?? '', of(sessionId).items.length);
+      final gave = await _giveWay(session, pin, turn, online, out: true);
+      if (gave != null) carryOnWith = _named(gave.engineId, gave.model, modelName: gave.name);
+    }
+    return LimitWay(
+      waitUntil: waitUntil,
+      elsewhere: online.isNotEmpty,
+      onThisMac: online.isEmpty && local.isNotEmpty,
+      carryOnWith: carryOnWith,
+      firstFree: online.isEmpty && local.isEmpty ? firstFree : null,
+    );
+  }
+
+  String? _lastAsked(String sessionId) =>
+      of(sessionId).items.reversed.whereType<UserMessage>().firstOrNull?.text;
+
+  @override
+  Future<Result<void>> continueElsewhere(Session session, int index, String text) async {
+    // The one that stopped is out of room until it resets, whatever the
+    // turn managed first.
+    if (_stoppedAt(session.id) case final stopped? when !_meter.isDown(stopped)) {
+      _meter.markDown(stopped);
+    }
+    _anywhereOnce.add(session.id);
+    final sent = await rewind(session, index, text);
+    if (sent is Error) _anywhereOnce.remove(session.id);
+    return sent;
+  }
+
+  @override
+  Future<Result<void>> retryAt(Session session, int index, String text, DateTime until) async {
+    final c = of(session.id);
+    if (c.busy) return .error(Exception('Still working on the last message.'));
+    c
+      ..busy = true
+      ..thinking = false
+      ..heldUntil = until;
+    c.items.add(
+      Notice(
+        'This message goes again by itself ${atTime(until, null)}, when there is room.',
+        fix: Fix.wait.link,
+      ),
+    );
+    await _persist(session.id);
+    _held[session.id]?.cancel();
+    _held[session.id] = Timer(until.difference(DateTime.now()) + holdMargin, () {
+      _held.remove(session.id);
+      if (_disposed || c.heldUntil == null) return;
+      c
+        ..heldUntil = null
+        ..busy = false;
+      final s = _sessions.byId(session.id);
+      if (s != null) unawaited(rewind(s, index, text));
+    });
+    notifyListeners();
+    return const .ok(null);
+  }
+
   /// Why the connection [pin] holds a chat to cannot answer now, in words
   /// that name it (the person chose it); null when it can.
   Future<String?> _pinnedUnavailable(EnginePin pin) async {
@@ -641,9 +787,111 @@ class ConversationRepositoryEngines extends ConversationRepository {
               'connection for this chat.';
   }
 
+  /// A connection and model by name, as a held chat may say them:
+  /// "Codex (GPT-6-Astra)".
+  String _named(String engineId, String? model, {String? modelName}) {
+    final name = _engines.byId(engineId)?.info.name ?? 'The connection';
+    final label = modelName ?? (model == null ? null : modelLabel(model));
+    return label == null ? name : '$name ($label)';
+  }
+
+  /// The model that last answered in [sessionId] on [engineId], as it said.
+  String? _lastModel(String sessionId, String engineId) {
+    for (final i in of(sessionId).items.reversed) {
+      if (i is TurnSummary && i.engineId == engineId && i.model != null) return i.model;
+    }
+    return null;
+  }
+
+  /// The candidates other than [from] that can answer with a model of the
+  /// class the chat was on there ([model], or the one it last answered with),
+  /// each with that model: the same model on another account of the same
+  /// connection, the closest of its class elsewhere. Null when the class is
+  /// not known. The model on this Mac is never one of them.
+  Future<Map<String, String?>?> _alike(
+    String sessionId,
+    String from,
+    String? model,
+    List<EngineInfo> candidates,
+  ) async {
+    final was = model ?? _lastModel(sessionId, from);
+    if (was == null || (classOf(was) == null && candidates.every((e) => !_kin(e.id, from)))) {
+      return null;
+    }
+    final alike = <String, String?>{};
+    for (final e in candidates) {
+      if (e.id == from || e.localOnly) continue;
+      final offered = await _engines.byId(e.id)?.models() ?? const <ModelChoice>[];
+      final m = closestModel(was, offered);
+      if (m != null) {
+        alike[e.id] = m.id;
+      } else if (_kin(e.id, from) && offered.isEmpty) {
+        // Another account of the same connection, offering no choice: its
+        // default is the same as the one left.
+        alike[e.id] = model;
+      }
+    }
+    return alike;
+  }
+
+  static bool _kin(String a, String b) => HeadroomRouter.familyOf(a) == HeadroomRouter.familyOf(b);
+
+  /// Where a chat held to [pin] carries on while the held connection is out
+  /// ([out]) or nearly out: the router's choice among the others, keeping
+  /// the held model's class. Out, anything with room will do when nothing of
+  /// that class has it; nearly out, the chat stays where it is. [anywhere]
+  /// (the person pressed "Continue") lets the model on this Mac answer too.
+  /// Null when it stays, or nothing has room. Said in a line that names both,
+  /// which a held chat may, since the person chose the hold.
+  Future<({String engineId, String? model, String? name, String said})?> _giveWay(
+    Session session,
+    EnginePin pin,
+    _Turn turn,
+    List<EngineInfo> candidates, {
+    required bool out,
+    bool anywhere = false,
+  }) async {
+    final others = [
+      for (final e in candidates)
+        if (e.id != pin.engineId && (anywhere || !e.localOnly)) e,
+    ];
+    if (others.isEmpty) return null;
+    final alike = await _alike(session.id, pin.engineId, pin.model, others) ?? {};
+    final pool = [...others, if (!out) ...candidates.where((e) => e.id == pin.engineId)];
+    final id = _router.choose(
+      candidates: eligible(pool, turn.needs),
+      current: pin.engineId,
+      needs: turn.needs,
+      kind: turn.kind,
+      alike: alike.keys.toSet(),
+    );
+    if (id == null || id == pin.engineId) return null;
+    final model = alike[id];
+    String? modelName;
+    if (model != null) {
+      final offered = await _engines.byId(id)?.models() ?? const <ModelChoice>[];
+      modelName = offered.where((m) => m.id == model).firstOrNull?.name;
+    }
+    final held = _named(pin.engineId, pin.model);
+    final until = _meter.downUntil(pin.engineId);
+    // A time only when the connection said it; a guess is not said as fact.
+    final reported = until != null && _meter.usageOf(pin.engineId)?.resetsAt == until;
+    final state = !out
+        ? 'is nearly at its usage limit'
+        : reported
+        ? 'is out until ${clockAt(until, null)}'
+        : 'is at its usage limit';
+    return (
+      engineId: id,
+      model: model,
+      name: modelName,
+      said: '$held $state, so I carried on with ${_named(id, model, modelName: modelName)}.',
+    );
+  }
+
   Future<EngineRun?> _runFor(Session session, String engineId) async {
     final key = _key(session.id, engineId);
-    final pin = _pinOf(session)?.engineId == engineId ? _pinOf(session) : null;
+    final pin = (_pinOf(session)?.engineId == engineId ? _pinOf(session) : null) ?? _carry[key];
     // Another model, effort or speed chosen since it started: started afresh,
     // picking up its own thread.
     if (_runs.containsKey(key) && '${_launchedWith[key]?.toJson()}' != '${pin?.toJson()}') {
@@ -778,7 +1026,14 @@ class ConversationRepositoryEngines extends ConversationRepository {
         return;
       }
       // Which connection it ended on, for a fix that needs it (signing in).
-      c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull?.engineId = engineId;
+      final summary = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+      summary?.engineId = engineId;
+      // Stopped partway at its limit: out of room all the same, so the next
+      // message (or "Continue") goes elsewhere. Only the turn's own failure
+      // says so; an answer that talks about limits does not.
+      if (summary != null && !summary.ok && isUsageLimit(summary.error ?? '')) {
+        if (!_meter.isDown(engineId)) _meter.markDown(engineId);
+      }
       _finish(sessionId, engineId, run);
     }
     notifyListeners();
@@ -812,14 +1067,15 @@ class ConversationRepositoryEngines extends ConversationRepository {
         ..effort = pin?.engineId == engineId ? pin?.effort : null
         ..why = turn.why;
     }
-    if (turn != null && turn.limitSwitched) {
+    if (turn != null && (turn.said != null || turn.limitSwitched)) {
       // Before the turn's summary, so the turn still reads as done.
       final end = c.items.lastIndexWhere((i) => i is TurnSummary);
       c.items.insert(
         end < turn.start ? c.items.length : end,
         Notice(
-          'One of my connections reached its usage limit, so another answered this. '
-          'Nothing for you to do.',
+          turn.said ??
+              'One of my connections reached its usage limit, so another answered this. '
+                  'Nothing for you to do.',
         ),
       );
     }

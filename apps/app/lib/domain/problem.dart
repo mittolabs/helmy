@@ -77,7 +77,7 @@ enum Fix {
 /// its own words, and the one action that fixes it. [details] is the raw
 /// account, with the names of the connections taken out.
 class Problem {
-  const Problem(this.what, this.fix, {this.details, this.engineId, this.until});
+  const Problem(this.what, this.fix, {this.details, this.engineId, this.until, this.limit = false});
 
   final String what;
   final Fix fix;
@@ -88,6 +88,55 @@ class Problem {
 
   /// When it fixes itself (a usage limit resetting), when known.
   final DateTime? until;
+
+  /// A connection reached its usage limit: the card offers a way forward
+  /// ([LimitWay]) rather than only waiting.
+  final bool limit;
+}
+
+/// The way forward from a usage limit, as things stand: whether another
+/// connection has room, whether only the model on this Mac does, or when the
+/// first frees up. Times are only ones a connection reported, never guessed.
+class const LimitWay({
+  /// When the connection that stopped frees up, as it reported.
+  final DateTime? waitUntil,
+
+  /// Another connection online has room.
+  final bool elsewhere = false,
+
+  /// Only the model on this Mac has room.
+  final bool onThisMac = false,
+
+  /// In a held chat (Developer mode) only: the connection and model it would
+  /// carry on with, by name. Never set in an ordinary chat, where Helmy
+  /// chooses and names nothing.
+  final String? carryOnWith,
+
+  /// Nothing has room: when the first connection frees up, as reported.
+  final DateTime? firstFree,
+}) {
+  /// Nothing anywhere has room.
+  bool get stuck => !elsewhere && !onThisMac;
+
+  /// What to wait for: the one that stopped, or with nothing else left, the
+  /// first to free up.
+  DateTime? get waitFor => waitUntil ?? (stuck ? firstFree : null);
+
+  /// The line said under the problem, when the buttons alone do not say it.
+  String? line(DateTime? now) {
+    if (onThisMac) return 'Nothing online has room right now, but the model on this Mac can go on.';
+    if (!stuck) return null;
+    return firstFree == null
+        ? 'Nothing else I can use has room either, and none said when it frees up.'
+        : 'Nothing else I can use has room either; the first frees up ${atTime(firstFree!, now)}.';
+  }
+
+  /// The button that goes on now, or null when nothing can.
+  String? get goLabel => elsewhere
+      ? (carryOnWith == null ? 'Continue now' : 'Continue with $carryOnWith')
+      : onThisMac
+      ? 'Continue on this Mac'
+      : null;
 }
 
 /// Whether a connection reports exhausted usage, including conversational errors.
@@ -103,8 +152,8 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
   final text = raw ?? '';
   final e = text.toLowerCase();
   final details = text.trim().isEmpty ? null : withoutNames(text.trim());
-  Problem p(String what, Fix fix, {DateTime? until}) =>
-      Problem(what, fix, details: details, engineId: engineId, until: until);
+  Problem p(String what, Fix fix, {DateTime? until, bool limit = false}) =>
+      Problem(what, fix, details: details, engineId: engineId, until: until, limit: limit);
 
   if (RegExp(r'ollama is not running|11434|connection refused.*11434|11434.*refused').hasMatch(e)) {
     return p('The model on this computer is not running.', .startLocal);
@@ -114,8 +163,13 @@ Problem diagnose(String? raw, {String? engineId, DateTime? now}) {
     final stamp = int.tryParse(RegExp(r'\|(\d{9,})').firstMatch(text)?[1] ?? '');
     final until = stamp == null ? null : DateTime.fromMillisecondsSinceEpoch(stamp * 1000);
     return until == null
-        ? p("I've reached a usage limit. It frees up again soon; try again in a while.", .retry)
-        : p("I've reached a usage limit. It frees up ${atTime(until, now)}.", .wait, until: until);
+        ? p("I've reached a usage limit, and wasn't told when it frees up.", .retry, limit: true)
+        : p(
+            "I've reached a usage limit. It frees up ${atTime(until, now)}.",
+            .wait,
+            until: until,
+            limit: true,
+          );
   }
   if (RegExp(r'overloaded|\b529\b|\b503\b|capacity|unavailable').hasMatch(e)) {
     return p(

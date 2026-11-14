@@ -25,6 +25,32 @@ class UsageMeter extends ChangeNotifier {
 
   Usage? usageOf(String engineId) => _usage[engineId];
 
+  /// How full a connection may get before the next message goes elsewhere:
+  /// between turns, never in the middle of one.
+  static const switchAt = .9;
+
+  /// How much of [engineId]'s current window is used, as measured: the
+  /// fullest window that has not reset since it was read. Null when nothing
+  /// was measured, or every window it read has reset since: a number from
+  /// before a reset says nothing about now.
+  double? usedNow(String engineId, {DateTime? now}) {
+    final u = _usage[engineId];
+    if (u == null) return null;
+    final at = now ?? DateTime.now();
+    bool open(DateTime? reset) => reset == null || reset.isAfter(at);
+    if (u.windows.isEmpty) return open(u.resetsAt) ? u.used : null;
+    final live = [
+      for (final w in u.windows)
+        if (open(w.resetsAt)) w.used,
+    ];
+    return live.isEmpty ? null : live.reduce((a, b) => a > b ? a : b);
+  }
+
+  /// Whether [engineId] has measurably reached [switchAt] in its current
+  /// window. A connection that has measured nothing is never nearly out.
+  bool nearlyOut(String engineId, {DateTime? now}) =>
+      (usedNow(engineId, now: now) ?? 0) >= switchAt;
+
   DateTime? _saved;
 
   /// Takes a reading. The time it was taken is kept even when the number is the
