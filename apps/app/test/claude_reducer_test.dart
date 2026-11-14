@@ -289,4 +289,48 @@ void main() {
     expect(back.background!.status, BackgroundStatus.unknown);
     expect(BackgroundStatus.of("killed"), BackgroundStatus.stopped);
   });
+
+  test('a turn\'s tokens count up as it works, and its own total ends it', () {
+    final items = <ChatItem>[];
+    Map<String, Object?> said(String id, int output) => {
+      'type': 'assistant',
+      'parent_tool_use_id': null,
+      'message': {
+        'id': id,
+        'content': const <Object?>[],
+        'usage': {
+          'input_tokens': 10,
+          'cache_read_input_tokens': 1000,
+          'cache_creation_input_tokens': 50,
+          'output_tokens': output,
+        },
+      },
+    };
+    final r = ClaudeReducer(items)..startTurn();
+    expect(r.tokens, isNull);
+    // A message repeats its usage as it streams: counted once, at its latest.
+    r
+      ..apply(said('m1', 5))
+      ..apply(said('m1', 40))
+      ..apply(said('m2', 60));
+    expect(r.tokens!.output, 100);
+    expect(r.tokens!.cacheRead, 2000);
+    expect(r.tokens!.inAll, 20 + 2000 + 100 + 100);
+    r.apply({
+      'type': 'result',
+      'subtype': 'success',
+      'usage': {
+        'input_tokens': 25,
+        'cache_read_input_tokens': 2000,
+        'cache_creation_input_tokens': 100,
+        'output_tokens': 120,
+      },
+    });
+    expect(r.tokens!.output, 120, reason: 'the turn\'s own total, at its end');
+    // The next turn starts from nothing.
+    r.startTurn();
+    expect(r.tokens, isNull);
+    r.apply(said('m3', 7));
+    expect(r.tokens!.output, 7);
+  });
 }

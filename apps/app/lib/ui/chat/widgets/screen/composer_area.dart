@@ -450,7 +450,7 @@ class _WorkingState extends State<_Working> {
         : waiting
         ? 'Waiting for you'
         : took != null && took >= _countAfter
-        ? '$doing · ${tookLabel(took)}'
+        ? ['$doing · ${tookLabel(took)}', ?tokensLabel(vm.busy ? vm.turnTokens : null)].join(' · ')
         : doing;
     return Align(
       alignment: AlignmentDirectional.centerStart,
@@ -527,4 +527,17 @@ class _StashChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The working turn's tokens, short: what the model wrote, and every token
+/// it went through (written, new and the conversation read again at each
+/// step, which is what uses up a plan). Null until measured.
+String? tokensLabel(TurnTokens? t) {
+  final all = t?.inAll;
+  if (t == null || all == null || all == 0) return null;
+  final written = t.output;
+  return [
+    if (written != null) '${shortCount(written)} written',
+    '${shortCount(all)} in all',
+  ].join(' · ');
 }

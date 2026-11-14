@@ -18,8 +18,36 @@ class ClaudeReducer {
   /// What the last request sent against the model's window.
   ContextUse? context;
 
-  /// The last turn's tokens, as Claude Code reported them.
+  /// This turn's tokens: while it works, each request's usage added up as
+  /// it comes; at its end, Claude Code's own count for the whole turn.
   TurnTokens? tokens;
+
+  /// Each request's usage this turn, by message id (a message repeats it,
+  /// growing, as it streams).
+  final _requests = <String, Map>{};
+
+  /// A new turn: nothing of the last one's count stays.
+  void startTurn() {
+    _requests.clear();
+    tokens = null;
+  }
+
+  void _countRequest(Map<String, Object?> message) {
+    final id = message['id'], usage = message['usage'];
+    if (id is! String || usage is! Map) return;
+    _requests[id] = usage;
+    int? sum(String k) {
+      final all = _requests.values.map((u) => u[k]).whereType<num>();
+      return all.isEmpty ? null : all.fold<num>(0, (a, b) => a + b).toInt();
+    }
+
+    tokens = TurnTokens(
+      fresh: sum('input_tokens'),
+      cacheRead: sum('cache_read_input_tokens'),
+      cacheWrite: sum('cache_creation_input_tokens'),
+      output: sum('output_tokens'),
+    );
+  }
 
   String? _messageId;
   final Map<String, int> _textBlocksSeen = {};
@@ -252,6 +280,7 @@ class ClaudeReducer {
       items.whereType<AssistantText>().where((t) => t.key.startsWith('$messageId:'));
 
   void _assistant(Map<String, Object?> message) {
+    _countRequest(message);
     final id = message['id'] as String?;
     for (final raw in (message['content'] as List?) ?? const []) {
       final block = (raw as Map).cast<String, Object?>();

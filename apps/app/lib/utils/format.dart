@@ -63,3 +63,17 @@ String clock(DateTime t, {bool seconds = false}) {
   final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
   return '$h:${two(t.minute)}$s ${t.hour < 12 ? 'AM' : 'PM'}';
 }
+
+/// A count, short: 950, 1.2k, 182k, 52.4M.
+String shortCount(int n) {
+  String one(double x) {
+    final s = x.toStringAsFixed(1);
+    return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+  }
+
+  if (n < 1000) return '$n';
+  if (n < 10000) return '${one(n / 1000)}k';
+  if (n < 999500) return '${(n / 1000).round()}k';
+  if (n < 10000000) return '${one(n / 1000000)}M';
+  return '${(n / 1000000).round()}M';
+}

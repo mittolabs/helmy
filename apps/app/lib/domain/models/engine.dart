@@ -215,6 +215,13 @@ class const TurnTokens({
   final int? cacheWrite,
   final int? output,
 }) {
+  /// Every token the turn went through: new, read again, cached and
+  /// written. What uses up a plan; null when nothing was reported.
+  int? get inAll {
+    final parts = [fresh, cacheRead, cacheWrite, output].nonNulls;
+    return parts.isEmpty ? null : parts.fold<int>(0, (a, b) => a + b);
+  }
+
   Map<String, Object?> toJson() => {
     'fresh': fresh,
     'cacheRead': cacheRead,

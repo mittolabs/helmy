@@ -22,6 +22,10 @@ class Conversation {
   /// How full the context of the engine that answered last is.
   ContextUse? context;
 
+  /// The tokens of the turn working now, as its connection reports them;
+  /// null until it has.
+  TurnTokens? tokens;
+
   /// Messages waiting for the turn to end, oldest first.
   final List<Queued> queue = [];
 

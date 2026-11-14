@@ -407,7 +407,7 @@ class _ClaudeRun implements EngineRun {
       ..resumeId = _reducer.sessionId ?? status.resumeId
       ..usage = _reducer.usage ?? status.usage
       ..context = _reducer.context ?? status.context
-      ..tokens = _reducer.tokens ?? status.tokens
+      ..tokens = _reducer.tokens
       ..model = _reducer.model ?? status.model;
     _changes.add(ended);
   }
@@ -424,6 +424,8 @@ class _ClaudeRun implements EngineRun {
   @override
   void send(String text, {List<String> attachments = const []}) {
     _inTurn = true;
+    _reducer.startTurn();
+    status.tokens = null;
     if (attachments.isEmpty) return _process.sendUser(text);
     final images = [
       for (final a in attachments)

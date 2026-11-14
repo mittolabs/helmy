@@ -991,6 +991,7 @@ class ConversationRepositoryEngines extends ConversationRepository {
     }
     c.thinking = run.status.thinking;
     c.context = run.status.context ?? c.context;
+    c.tokens = run.status.tokens;
     _judgeApprovals(sessionId, run);
     _meter.report(engineId, run.status.usage);
     final turn = _turns[sessionId];
