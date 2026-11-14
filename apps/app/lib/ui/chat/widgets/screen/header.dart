@@ -87,31 +87,6 @@ class _Header extends StatelessWidget {
                           overflow: .ellipsis,
                         ),
                       ),
-                      if (session.branch case final branch?)
-                        Flexible(
-                          child: Tooltip(
-                            message: 'Its own branch, in its own copy: other threads here are not disturbed',
-                            child: Row(
-                              mainAxisSize: .min,
-                              spacing: 4,
-                              children: [
-                                AshlarIcon(
-                                  AshlarIconsRoundedStroke.gitBranch,
-                                  size: 12,
-                                  color: muted.color,
-                                ),
-                                Flexible(
-                                  child: Text(
-                                    branch,
-                                    maxLines: 1,
-                                    overflow: .ellipsis,
-                                    style: muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),

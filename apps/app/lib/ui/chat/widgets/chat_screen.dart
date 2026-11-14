@@ -257,18 +257,6 @@ class _ChatScreenState extends State<ChatScreen> {
     vm.send.execute(prompt);
   }
 
-  /// The skills list, in the message box: a / before what is there, and the
-  /// list it brings up.
-  void _pickSkill() {
-    final text = _text.text;
-    final rest = text.startsWith('/') ? text.replaceFirst(RegExp(r'^/[\w:.-]*\s*'), '') : text;
-    _text.value = TextEditingValue(
-      text: '/$rest',
-      selection: const TextSelection.collapsed(offset: 1),
-    );
-    _composer.requestFocus();
-  }
-
   /// Puts [s] in place of the word being typed.
   void _take(_Suggestion s) {
     final text = _text.text;
@@ -929,7 +917,15 @@ class _ChatScreenState extends State<ChatScreen> {
                             ],
                             // The project, files and tools, under the box; talk instead of typing.
                             tray: widget.bar == null
-                                ? _Tray(vm: vm, session: session, onSkills: _pickSkill)
+                                ? _Tray(
+                                    vm: vm,
+                                    session: session,
+                                    onWaiting: () {
+                                      if (vm.firstWaitingRow case final row?) {
+                                        _scroller.scrollToMessage(row);
+                                      }
+                                    },
+                                  )
                                 : null,
                             onVoice: widget.bar == null && Platform.isMacOS
                                 ? () => unawaited(

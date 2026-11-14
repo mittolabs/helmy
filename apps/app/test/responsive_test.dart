@@ -32,6 +32,7 @@ import 'package:helmy/ui/shell/widgets/shell_screen.dart';
 import 'package:helmy/utils/result.dart';
 import 'package:provider/provider.dart';
 
+import '../testing/fake_repositories.dart';
 import 'support/storage.dart';
 
 /// An engine that is only a name in settings: nothing runs.
@@ -183,10 +184,40 @@ void main() {
             name: 'Bash',
             input: {'command': 'find ~/Documents -name "*budget*" ${'-o -name "*.xlsx" ' * 6}'},
           )..result = 'Documents/Finance/2026/Budget.xlsx',
+          // A change the agent made, and a step held for the person: the
+          // tray's chips, with the branch, at every width.
+          ToolCall(
+            id: 't3',
+            name: 'Edit',
+            input: {
+              'file_path': '/Users/someone/Projects/a-folder-with-a-long-name/notes.md',
+              'old_string': 'one',
+              'new_string': 'two',
+            },
+          )..result = 'ok',
+          ToolCall(id: 't4', name: 'Bash', input: {'command': 'git push origin main'}),
+          PermissionPrompt(
+              requestId: 'r4',
+              toolName: 'Bash',
+              input: {'command': 'git push origin main'},
+              suggestions: const [],
+              toolUseId: 't4',
+            )
+            ..decision = PermissionDecision.waiting
+            ..held = true
+            ..why = 'Push your branch to GitHub?',
         ]);
     });
+    final projects = FakeProjectRepository()
+      ..repos[session.cwd] = session.cwd
+      ..branches[session.cwd] = 'feature/a-branch-name-long-enough-to-crowd-the-tray';
     final sidebar = SidebarViewModel(sessions: sessions, conversations: repo, settings: settings);
-    final chat = ChatViewModel(sessionId: session.id, sessions: sessions, conversations: repo);
+    final chat = ChatViewModel(
+      sessionId: session.id,
+      sessions: sessions,
+      conversations: repo,
+      projects: projects,
+    );
 
     Future<void> show(Widget page) async {
       // Fresh each time: an overflow is reported once per widget, so a reused
@@ -221,6 +252,19 @@ void main() {
             '${size.width.toInt()}x${size.height.toInt()} sidebar ${open ? 'open' : 'closed'}';
         _now = '$where, conversation';
         await show(ChatScreen(viewModel: chat));
+        // The tray says where the chat stands, at any width.
+        for (final chip in [
+          // Room for every word only in a wide window.
+          if (size.width >= 1280) ...[
+            '1 waiting',
+            'feature/a-branch-name-long-enough-to-crowd-the-tray',
+          ],
+          '+1 −1',
+        ]) {
+          if (find.text(chip).evaluate().isEmpty) {
+            overflows.add('$_now: no "$chip" in the tray');
+          }
+        }
         // Narrow: the sidebar's button slides it in over the page.
         if (size.width < narrowWindow) {
           _now = '$where, sidebar slid in';

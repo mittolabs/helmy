@@ -247,6 +247,40 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
       inRepo = found;
       notifyListeners();
     }
+    await _findBranch();
+  }
+
+  /// The branch the chat works on: its own copy's, or the one its folder's
+  /// checkout is on. Null outside git.
+  String? branch;
+
+  /// Looks again at [branch]: when the folder changes, and after each turn
+  /// (the agent may have moved to another).
+  Future<void> _findBranch() async {
+    final s = session;
+    final found = s == null || !inRepo ? null : s.branch ?? await _projects?.branchOf(s.cwd);
+    if (found != branch) {
+      branch = found;
+      notifyListeners();
+    }
+  }
+
+  /// What waits for the person to answer: asked now, or held for them while
+  /// the work went on.
+  List<PermissionPrompt> get waiting => [
+    for (final i in items)
+      if (i is PermissionPrompt && i.needsAnswer) i,
+  ];
+
+  /// The conversation row of the first thing [waiting], to go to: its step
+  /// when it has one shown, else the question itself.
+  int? get firstWaitingRow {
+    final p = waiting.firstOrNull;
+    if (p == null) return null;
+    final step = p.toolUseId == null
+        ? -1
+        : items.indexWhere((i) => i is ToolCall && i.id == p.toolUseId);
+    return step >= 0 ? step : items.indexOf(p);
   }
 
   final String sessionId;
@@ -1104,6 +1138,9 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   /// How many files the session has changed, once counted: again whenever a
   /// turn ends.
   int? changedFiles;
+
+  /// The lines those files gained and lost, counted with them.
+  ({int added, int removed}) changedLines = (added: 0, removed: 0);
   bool _wasBusy = false;
 
   Future<void> countChanges({bool turnEnded = false}) async {
@@ -1114,7 +1151,28 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
           for (final c in reportedIn(null))
             for (final d in diffsOf(c)) d.path,
         }.length;
-    final lines = git?.fold<int>(0, (sum, c) => sum + c.added + c.removed) ?? 0;
+    var counted = (
+      added: git?.fold<int>(0, (sum, c) => sum + c.added) ?? 0,
+      removed: git?.fold<int>(0, (sum, c) => sum + c.removed) ?? 0,
+    );
+    if (git == null) {
+      // Outside git, what the agents reported: each file at its latest change.
+      final seen = <String>{};
+      var added = 0, removed = 0;
+      for (final c in reportedIn(null).reversed) {
+        for (final d in diffsOf(c)) {
+          if (!seen.add(d.path)) continue;
+          added += d.added;
+          removed += d.removed;
+        }
+      }
+      counted = (added: added, removed: removed);
+    }
+    final lines = counted.added + counted.removed;
+    if (counted != changedLines) {
+      changedLines = counted;
+      notifyListeners();
+    }
 
     if (n != changedFiles) {
       changedFiles = n;
@@ -1136,7 +1194,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   bool _changesClosed = false;
 
   void _onConversation() {
-    if (_wasBusy && !busy) countChanges(turnEnded: true);
+    if (_wasBusy && !busy) {
+      countChanges(turnEnded: true);
+      unawaited(_findBranch());
+    }
     _wasBusy = busy;
     _findServer();
     _lookForDesign();
@@ -1401,12 +1462,11 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
 
   /// What wants the user while the panel is hidden, for the header to say:
   /// changes made, work running in the background.
+  /// What the chat changed is not among them: it is under the message box,
+  /// panel open or not.
   List<SidePanel> get notices => panelOpen
       ? const []
-      : [
-          if ((changedFiles ?? 0) > 0) .changes,
-          if (backgroundSteps.any((c) => c.background!.status == .running)) .background,
-        ];
+      : [if (backgroundSteps.any((c) => c.background!.status == .running)) .background];
 
   /// What the Changes panel shows: the whole session (null), or the turn
   /// that the message at this index started.

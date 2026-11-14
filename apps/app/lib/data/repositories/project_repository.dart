@@ -11,6 +11,9 @@ abstract class ProjectRepository {
   /// The top folder of the repository [folder] is in; null when none.
   Future<String?> repoOf(String folder);
 
+  /// The branch [folder]'s checkout is on; null outside git or detached.
+  Future<String?> branchOf(String folder);
+
   /// The level a new chat in [folder] starts at: always the one where Helmy
   /// judges each action. A level saved before approvals were Helmy's (a
   /// project's, or the default) has no setting left to change it, so it no
@@ -44,6 +47,9 @@ class ProjectRepositoryGit implements ProjectRepository {
 
   @override
   Future<String?> repoOf(String folder) => _git.repoOf(folder);
+
+  @override
+  Future<String?> branchOf(String folder) => _git.currentBranch(folder);
 
   @override
   Future<PermissionLevel> levelFor(String folder) async => .ask;

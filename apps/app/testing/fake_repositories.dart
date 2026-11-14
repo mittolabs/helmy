@@ -186,6 +186,12 @@ class FakeProjectRepository implements ProjectRepository {
   @override
   Future<String?> repoOf(String folder) async => repos[folder];
 
+  /// Folder → the branch it is on.
+  final Map<String, String> branches = {};
+
+  @override
+  Future<String?> branchOf(String folder) async => branches[folder];
+
   @override
   Future<PermissionLevel> levelFor(String folder) async => level;
 
