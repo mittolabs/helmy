@@ -1,4 +1,5 @@
 import '../../domain/identity.dart';
+import '../../domain/models/engine.dart';
 import 'engines/engine_registry.dart';
 import 'engines/engine_router.dart';
 import 'local_writer.dart';
@@ -34,12 +35,26 @@ class CloudWriter {
       ...online.where((e) => e.info.id == first),
       ...online.where((e) => e.info.id != first),
     ]) {
-      final text = await e.ask(_instructions, prompt);
-      // Tokens are not reported this way: unknown, never estimated.
-      if (text != null) {
-        return (text: text, model: 'cloud:${e.info.id}', promptTokens: null, outputTokens: null);
+      final answer = await e.ask(_instructions, prompt);
+      if (answer != null) {
+        final t = answer.tokens;
+        return (
+          text: answer.text,
+          model: 'cloud:${e.info.id}',
+          promptTokens: promptTokensOf(t),
+          outputTokens: t?.output,
+        );
       }
     }
     return null;
   }
+}
+
+/// All the input [tokens] reported, fresh and cached; null when the fresh or
+/// cached part was not reported: unknown, never estimated. A connection that
+/// reports no cache writes (Codex) has none to add.
+int? promptTokensOf(TurnTokens? tokens) {
+  final fresh = tokens?.fresh, cached = tokens?.cacheRead;
+  if (fresh == null || cached == null) return null;
+  return fresh + cached + (tokens?.cacheWrite ?? 0);
 }

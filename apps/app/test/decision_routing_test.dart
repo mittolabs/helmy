@@ -60,7 +60,7 @@ class _Engine implements AgentEngine {
   @override
   Future<Set<Capability>> connected() async => const {};
   @override
-  Future<String?> ask(String instructions, String question) async => null;
+  Future<Answer?> ask(String instructions, String question) async => null;
 }
 
 class _Run implements EngineRun {

@@ -15,9 +15,9 @@ class _Engine implements AgentEngine {
   @override
   final info = const EngineInfo(id: 'test', name: 'Test');
   @override
-  Future<String?> ask(String instructions, String question) async {
+  Future<Answer?> ask(String instructions, String question) async {
     questions.add(question);
-    return answer;
+    return answer == null ? null : Answer(text: answer!);
   }
 
   @override

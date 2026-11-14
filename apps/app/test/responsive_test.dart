@@ -56,7 +56,7 @@ class _Named implements AgentEngine {
   @override
   Future<Set<Capability>> connected() async => const {};
   @override
-  Future<String?> ask(String instructions, String question) async => null;
+  Future<Answer?> ask(String instructions, String question) async => null;
   @override
   Future<List<MemoryNote>> memoryNotes() async => const [];
   @override

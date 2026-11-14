@@ -39,7 +39,7 @@ class CommandExplainer {
     ];
     for (final e in order) {
       final answer = await e.ask(_instructions, 'Explain this command:\n\n$command');
-      if (answer != null) return answer;
+      if (answer != null) return answer.text;
     }
     return null;
   }

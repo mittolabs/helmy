@@ -289,41 +289,189 @@ class CodexEngine implements AgentEngine {
     }
   }
 
-  /// `codex exec`, read-only and kept nowhere; on the local model too.
+  /// Codex's features that give its agent tools, turned off for a one-shot
+  /// question. A name a Codex does not know is ignored with a warning, not
+  /// refused, so the list can hold names older and newer ones lack.
+  static const _toolFeatures = [
+    'apps', 'plugins', 'multi_agent', 'image_generation', 'browser_use', 'computer_use', //
+    'in_app_browser', 'goals', 'view_image', 'tool_suggest', 'skill_search', 'sleep_tool',
+    'hooks', 'shell_tool', 'unified_exec', 'memories',
+  ];
+
+  /// What `codex exec` is given for a one-shot question, read-only and kept
+  /// nowhere. Lean (the usual): [model] at [effort] (the account's smallest
+  /// and least, or the local model), the instructions in [instructionsFile]
+  /// in place of Codex's own system prompt, and none of its tools, servers,
+  /// skills, project files or the person's config; events printed as JSON
+  /// for its tokens. Not [lean]: the plain call, on the person's default
+  /// model, for a Codex that refuses the lean one.
+  static List<String> askArgs({
+    required String instructions,
+    required String question,
+    required String out,
+    required String instructionsFile,
+    String? model,
+    String? effort,
+    bool local = false,
+    bool lean = true,
+  }) => [
+    'exec',
+    '--ephemeral',
+    '--skip-git-repo-check',
+    '-s',
+    'read-only',
+    '-o',
+    out,
+    if (local && model != null) ...['-c', 'model_provider="ollama"', '-m', model],
+    if (!lean) '$instructions\n\n$question',
+    if (lean) ...[
+      '--ignore-user-config',
+      '--ignore-rules',
+      '--json',
+      if (!local && model != null) ...['-m', model],
+      if (effort != null) ...['-c', 'model_reasoning_effort=${jsonEncode(effort)}'],
+      '-c',
+      'model_reasoning_summary="none"',
+      '-c',
+      'model_instructions_file=${jsonEncode(instructionsFile)}',
+      for (final key in const [
+        'include_permissions_instructions',
+        'include_apps_instructions',
+        'include_collaboration_mode_instructions',
+        'include_environment_context',
+      ]) ...['-c', '$key=false'],
+      '-c',
+      'project_doc_max_bytes=0',
+      '-c',
+      'web_search="disabled"',
+      for (final f in _toolFeatures) ...['-c', 'features.$f=false'],
+      question,
+    ],
+  ];
+
+  /// The tokens `codex exec --json` reported in [stdout] (its last
+  /// `turn.completed`); null when it reported none.
+  static TurnTokens? tokensOf(String stdout) {
+    TurnTokens? tokens;
+    for (final line in const LineSplitter().convert(stdout)) {
+      if (!line.startsWith('{')) continue;
+      try {
+        final event = jsonDecode(line);
+        if (event is! Map || event['type'] != 'turn.completed') continue;
+        final u = event['usage'];
+        if (u is! Map) continue;
+        int? n(String k) => u[k] is num ? (u[k] as num).toInt() : null;
+        final input = n('input_tokens'), cached = n('cached_input_tokens');
+        tokens = TurnTokens(
+          fresh: input == null || cached == null ? null : input - cached,
+          cacheRead: cached,
+          output: n('output_tokens'),
+        );
+      } on FormatException {
+        continue;
+      }
+    }
+    return tokens;
+  }
+
+  /// Whether a lean call that wrote no answer was refused for how it asked
+  /// (a flag this Codex lacks, before any turn began; or the small model),
+  /// so asking plainly could answer. Not when the turn failed otherwise:
+  /// at the account's limit (measured 2026-11-14), the plain call fails the
+  /// same way.
+  static bool leanRefused(String stdout, int exitCode) {
+    if (exitCode == 0) return false;
+    var started = false;
+    String? failure;
+    for (final line in const LineSplitter().convert(stdout)) {
+      if (!line.startsWith('{')) continue;
+      try {
+        final event = jsonDecode(line);
+        if (event is! Map) continue;
+        if (event['type'] == 'turn.started') started = true;
+        if (event['type'] == 'turn.failed') failure = '${(event['error'] as Map?)?['message']}';
+      } on FormatException {
+        continue;
+      }
+    }
+    return !started ||
+        (failure != null && RegExp(r'\bmodel\b', caseSensitive: false).hasMatch(failure));
+  }
+
+  /// Set once this Codex refused the lean call and answered the plain one:
+  /// from then on it is asked plainly, without trying again.
+  bool _leanRefused = false;
+
+  Future<ModelChoice?>? _askModel;
+
+  /// The account's smallest model, from those it lists; null when none says
+  /// it is small, and the default answers. Asked once, at no cost.
+  Future<ModelChoice?> _small() => _askModel ??= () async {
+    final small = smallestModel(await models());
+    // An empty list is a failure to ask: ask again next time.
+    if (small == null) _askModel = null;
+    return small;
+  }();
+
   @override
-  Future<String?> ask(String instructions, String question) async {
+  Future<Answer?> ask(String instructions, String question) async {
     final binary = await _locator.find('codex');
     if (binary == null) return null;
     final local = _local == null ? null : await _localModel();
     if (_local != null && local == null) return null;
+    final small = local == null ? await _small() : null;
+    final model = local ?? small?.id;
     final dir = await Directory.systemTemp.createTemp('helmy-ask');
     try {
       final out = '${dir.path}/answer.txt';
-      await Process.run(
-        binary,
-        [
-          'exec',
-          '--ephemeral',
-          '--skip-git-repo-check',
-          '-s',
-          'read-only',
-          '-o',
-          out,
-          if (local != null) ...['-c', 'model_provider="ollama"', '-m', local],
-          '$instructions\n\n$question',
-        ],
-        workingDirectory: dir.path,
-        environment: {...await _locator.environment(), 'CODEX_HOME': ?home},
-        includeParentEnvironment: false,
-      ).timeout(const Duration(seconds: 120));
-      final file = File(out);
-      final text = file.existsSync() ? file.readAsStringSync().trim() : '';
-      return text.isEmpty ? null : text;
+      final instructionsFile = '${dir.path}/instructions.md';
+      await File(instructionsFile).writeAsString(instructions);
+      final environment = {...await _locator.environment(), 'CODEX_HOME': ?home};
+      Future<Answer?> run({required bool lean}) async {
+        final r = await Process.run(
+          binary,
+          askArgs(
+            instructions: instructions,
+            question: question,
+            out: out,
+            instructionsFile: instructionsFile,
+            model: lean ? model : local,
+            effort: lean ? leastEffort(small) : null,
+            local: local != null,
+            lean: lean,
+          ),
+          workingDirectory: dir.path,
+          environment: environment,
+          includeParentEnvironment: false,
+        ).timeout(const Duration(seconds: 120));
+        final file = File(out);
+        final text = file.existsSync() ? file.readAsStringSync().trim() : '';
+        if (text.isEmpty) {
+          return lean && leanRefused('${r.stdout}', r.exitCode) ? _plainAfterRefusal(run) : null;
+        }
+        return Answer(
+          text: text,
+          // The model asked for by name; the default's name is not reported.
+          model: lean ? model : local,
+          tokens: lean ? tokensOf('${r.stdout}') : null,
+        );
+      }
+
+      return await run(lean: !_leanRefused);
     } on Object {
       return null;
     } finally {
       dir.delete(recursive: true).ignore();
     }
+  }
+
+  /// The lean call failed outright (an older Codex without one of its flags,
+  /// or a model it will not run): asks plainly, and keeps asking plainly once
+  /// that answers.
+  Future<Answer?> _plainAfterRefusal(Future<Answer?> Function({required bool lean}) run) async {
+    final answer = await run(lean: false);
+    if (answer != null) _leanRefused = true;
+    return answer;
   }
 
   @override

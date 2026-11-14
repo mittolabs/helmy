@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../domain/helmy_voice.dart';
 import '../../domain/models/chat_item.dart';
 import '../../domain/models/permission_rule.dart';
+import 'cloud_writer.dart';
+import 'engines/agent_engine.dart';
 import 'engines/engine_registry.dart';
 import 'engines/engine_router.dart';
+import 'engines/usage_meter.dart';
+import 'turn_log.dart';
 import '../../domain/models/work.dart';
 
 /// What Helmy decided about an action a connection wanted to take.
@@ -37,10 +42,16 @@ String accountQuestion(String tool) {
 /// actually asked for; only what cannot be undone, or leaves the Mac, is put
 /// to them.
 class Approvals {
-  Approvals(this._engines, this._router, this._enabled);
+  Approvals(this._engines, this._router, this._enabled, {this._meter, this._log});
   final EngineRegistry _engines;
   final EngineRouter _router;
   final bool Function(String engineId) _enabled;
+
+  /// Which connections are at their limit; none known without it.
+  final UsageMeter? _meter;
+
+  /// Where each judgment's connection, model and tokens are logged.
+  final TurnLog? _log;
 
   /// Tools that only look: never asked about.
   static const _looking = {
@@ -275,14 +286,40 @@ class Approvals {
       'spending, changing accounts online, deleting files outside the chat\'s folder), unless '
       'the person\'s own words plainly asked for that very thing; then "allow".';
 
+  /// The connections to judge on, cheapest first: Claude Code (its smallest
+  /// model, measured at about 700 tokens in a question) while an account of
+  /// it is not at its limit, then the others online, the one with the most
+  /// room first; those at their limit last, in case the limit has passed.
+  List<AgentEngine> judges() {
+    final online = [
+      for (final e in _engines.engines)
+        if (_enabled(e.info.id) && !e.info.localOnly) e,
+    ];
+    bool down(AgentEngine e) => _meter?.isDown(e.info.id) ?? false;
+    final up = online.where((e) => !down(e)).toList();
+    final first = up.isEmpty
+        ? null
+        : _router.choose(
+            candidates: [for (final e in up) e.info],
+            current: null,
+            kind: WorkKind.quick,
+          );
+    final ranked = [...up.where((e) => e.info.id == first), ...up.where((e) => e.info.id != first)];
+    bool claude(AgentEngine e) => HeadroomRouter.familyOf(e.info.id) == 'claude';
+    return [...ranked.where(claude), ...ranked.where((e) => !claude(e)), ...online.where(down)];
+  }
+
   /// Judges [p] against [asked] (the person's messages in the chat, oldest
-  /// first), for the chat in [folder]. Asks a connection online with room,
-  /// then the others; when none answers, the person is asked.
+  /// first), for the chat in [folder], on the cheapest connection that
+  /// answers ([judges]); when none does, the person is asked. Each judge
+  /// asked is logged to [thread]'s turn log, as upkeep.
   Future<Judgment> judge(
     PermissionPrompt p, {
     required List<String> asked,
     required String folder,
     bool away = false,
+    String? thread,
+    String? chat,
   }) async {
     final action = jsonEncode({
       'tool': p.toolName,
@@ -303,24 +340,26 @@ class Approvals {
       '',
       'The action: $action',
     ].join('\n');
-    final online = [
-      for (final e in _engines.engines)
-        if (_enabled(e.info.id) && !e.info.localOnly) e,
-    ];
-    final first = online.isEmpty
-        ? null
-        : _router.choose(
-            candidates: [for (final e in online) e.info],
-            current: null,
-            kind: WorkKind.quick,
-          );
-    for (final e in [
-      ...online.where((e) => e.info.id == first),
-      ...online.where((e) => e.info.id != first),
-    ]) {
+    for (final e in judges()) {
+      final started = DateTime.now();
       final answer = await e.ask(away ? '$_instructions\n\n$_away' : _instructions, request);
-      if (answer == null) continue;
-      final j = parse(answer);
+      final j = answer == null ? null : parse(answer.text);
+      if (thread != null) {
+        unawaited(
+          _log?.upkeep(
+            what: 'judge',
+            thread: thread,
+            chat: chat,
+            connection: e.info.id,
+            model: answer?.model,
+            tokens: answer?.tokens,
+            promptTokens: promptTokensOf(answer?.tokens),
+            outputTokens: answer?.tokens?.output,
+            took: DateTime.now().difference(started),
+            kept: j != null,
+          ),
+        );
+      }
       if (j != null) return j;
     }
     return (verdict: Verdict.ask, why: _fallbackQuestion(p));

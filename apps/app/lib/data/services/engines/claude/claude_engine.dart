@@ -246,39 +246,85 @@ class ClaudeEngine implements AgentEngine {
     return Directory(path).existsSync() ? walk(path, last + 1) : null;
   }
 
-  /// A fast model with the instructions as its whole system prompt and no
-  /// tools or servers: measured at about 700 tokens in for a command.
+  /// What `claude -p` is given for a one-shot question: its smallest model
+  /// (`haiku`, an alias every Claude Code keeps), at [effort] where that
+  /// model takes one, with the instructions as its whole system prompt and no
+  /// tools, servers, skills, settings or session kept. Measured at about 700
+  /// tokens in for a command.
+  static List<String> askArgs(String instructions, String question, {String? effort}) => [
+    '-p',
+    question,
+    '--output-format',
+    'json',
+    '--model',
+    askModel,
+    if (effort != null) ...['--effort', effort],
+    '--tools',
+    '',
+    '--system-prompt',
+    instructions,
+    '--strict-mcp-config',
+    '--disable-slash-commands',
+    '--no-session-persistence',
+    '--setting-sources',
+    '',
+  ];
+
+  /// The model a one-shot question is asked of.
+  static const askModel = 'haiku';
+
+  /// The text, model and tokens in what `claude -p --output-format json`
+  /// printed; null when it holds no answer. The model is the one it reports
+  /// using, else the one asked for; tokens are its own counts, or null.
+  static Answer? answerOf(String stdout) {
+    try {
+      final json = jsonDecode(stdout);
+      if (json is! Map || json['is_error'] == true) return null;
+      final text = '${json['result'] ?? ''}'.trim();
+      if (text.isEmpty) return null;
+      final usage = json['usage'];
+      int? count(String key) =>
+          usage is Map && usage[key] is num ? (usage[key] as num).toInt() : null;
+      final models = json['modelUsage'];
+      return Answer(
+        text: text,
+        model: models is Map && models.length == 1 ? '${models.keys.single}' : askModel,
+        tokens: usage is Map
+            ? TurnTokens(
+                fresh: count('input_tokens'),
+                cacheRead: count('cache_read_input_tokens'),
+                cacheWrite: count('cache_creation_input_tokens'),
+                output: count('output_tokens'),
+              )
+            : null,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+
+  Future<String?>? _askEffort;
+
+  /// The least effort the small model takes, as Claude Code lists it; null
+  /// when it lists none. Asked once, without sending a message.
+  Future<String?> _effort() => _askEffort ??= () async {
+    final small = (await models()).where((m) => m.id == askModel).firstOrNull;
+    return leastEffort(small);
+  }();
+
   @override
-  Future<String?> ask(String instructions, String question) async {
+  Future<Answer?> ask(String instructions, String question) async {
     final binary = await _locator.find('claude');
     if (binary == null) return null;
     try {
       final r = await Process.run(
         binary,
-        [
-          '-p',
-          question,
-          '--output-format',
-          'json',
-          '--model',
-          'haiku',
-          '--tools',
-          '',
-          '--system-prompt',
-          instructions,
-          '--strict-mcp-config',
-          '--no-session-persistence',
-          '--setting-sources',
-          '',
-        ],
+        askArgs(instructions, question, effort: await _effort()),
         workingDirectory: Directory.systemTemp.path,
         environment: {...await _locator.environment(), 'CLAUDE_CONFIG_DIR': ?configDir},
         includeParentEnvironment: false,
       ).timeout(const Duration(seconds: 60));
-      final json = jsonDecode('${r.stdout}') as Map;
-      if (json['is_error'] == true) return null;
-      final text = '${json['result'] ?? ''}'.trim();
-      return text.isEmpty ? null : text;
+      return answerOf('${r.stdout}');
     } on Object {
       return null;
     }
