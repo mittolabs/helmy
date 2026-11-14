@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/mittolabs/helmy/compare/v0.10.1...v0.11.0) (2026-11-14)
+
+
+### Features
+
+* **approvals:** work goes on while you are away, and no question stops it ([#54](https://github.com/mittolabs/helmy/issues/54)) ([a73c83e](https://github.com/mittolabs/helmy/commit/a73c83e79e22291d758c298d9340f40a792d8e02))
+
 ## [0.10.1](https://github.com/mittolabs/helmy/compare/v0.10.0...v0.10.1) (2026-11-13)
 
 
