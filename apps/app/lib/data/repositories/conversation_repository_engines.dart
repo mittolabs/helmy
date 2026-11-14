@@ -336,6 +336,10 @@ class ConversationRepositoryEngines extends ConversationRepository {
     // Busy from here, before anything is awaited: a message sent meanwhile waits.
     c.busy = true;
     notifyListeners();
+    // What was said before, first: a chat sent to from elsewhere (a phone,
+    // a schedule) before it was opened here would otherwise begin again,
+    // and its saved conversation, read later, would come in twice.
+    await load(session.id);
     // A session's first message, in a repository that gives each session its
     // own copy: the copy is made now, on a branch named from the message.
     String? copied;
