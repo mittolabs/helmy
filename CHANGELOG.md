@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/mittolabs/helmy/compare/v0.14.0...v0.15.0) (2026-11-14)
+
+
+### Features
+
+* **chrome:** send Helmy the page you're on, with what you selected ([#66](https://github.com/mittolabs/helmy/issues/66)) ([7579946](https://github.com/mittolabs/helmy/commit/75799463aaa250da742d8e4b3e059322d7af9245))
+
 ## [0.14.0](https://github.com/mittolabs/helmy/compare/v0.13.0...v0.14.0) (2026-11-14)
 
 
