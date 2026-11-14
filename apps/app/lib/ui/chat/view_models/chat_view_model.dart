@@ -1988,6 +1988,24 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     return resend(i, (items[i] as UserMessage).text);
   }
 
+  /// The way forward from the usage limit this chat stopped at.
+  Future<LimitWay?> limitWay() => _conversations.limitWay(sessionId);
+
+  /// Sends the message a usage limit stopped again now, to where there is room.
+  Future<Result<void>> continueElsewhere() async {
+    final i = lastAsk, s = session;
+    if (i == null || s == null) return .error(Exception('Nothing to continue'));
+    editing = null;
+    return _conversations.continueElsewhere(s, i, (items[i] as UserMessage).text);
+  }
+
+  /// Sends the message a usage limit stopped again by itself at [until].
+  Future<Result<void>> retryAt(DateTime until) async {
+    final i = lastAsk, s = session;
+    if (i == null || s == null) return .error(Exception('Nothing to send again'));
+    return _conversations.retryAt(s, i, (items[i] as UserMessage).text, until);
+  }
+
   // Copying, saving and the session itself.
 
   String answerAfter(int index) => answerText(items, index);

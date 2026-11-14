@@ -14,6 +14,7 @@ abstract class EngineRouter {
     Set<Capability> needs = const {},
     WorkKind? kind,
     bool warm = false,
+    Set<String>? alike,
   });
 
   /// Why the last [choose] chose what it did, in a few words for the person
@@ -30,11 +31,19 @@ abstract class EngineRouter {
 /// more room. A forced move keeps the same kind of engine (another Claude
 /// Code account) where one has room. Engines that have reported nothing yet
 /// count as half used: unknown, not empty.
+///
+/// A move off a connection that is nearly out (measured at
+/// [UsageMeter.switchAt] in its current window) or out keeps the chat's
+/// class of model: [alike] are the candidates that can answer with a model of
+/// the same class as the one the chat was on (flagship to flagship). Where
+/// none of them has room, a connection still short of its limit keeps the
+/// chat rather than drop to another class; null [alike] means the class is
+/// not known, and any connection with more room will do.
 class HeadroomRouter implements EngineRouter {
   new(
     this._meter, {
     double Function()? margin,
-    this.nearlyOut = .95,
+    this.nearlyOut = UsageMeter.switchAt,
     DateTime Function()? now,
     String? Function(WorkKind)? bestAt,
   }) : _margin = margin ?? (() => .15),
@@ -69,7 +78,9 @@ class HeadroomRouter implements EngineRouter {
   final double Function() _margin;
   final double nearlyOut;
 
-  double _used(String id) => _meter.usageOf(id)?.used ?? .5;
+  /// Measured use in the current window; unknown (never read, or read before
+  /// a reset) counts as half.
+  double _used(String id) => _meter.usedNow(id, now: _now()) ?? .5;
 
   @override
   String? why;
@@ -81,6 +92,7 @@ class HeadroomRouter implements EngineRouter {
     Set<Capability> needs = const {},
     WorkKind? kind,
     bool warm = false,
+    Set<String>? alike,
   }) {
     why = null;
     final best = kind == null ? null : _bestAt(kind);
@@ -122,24 +134,49 @@ class HeadroomRouter implements EngineRouter {
         if (!_tight(id)) id,
     ];
     final roomiest = roomiestOf(open.isEmpty ? pool : open);
+    // Where a chat goes from a connection nearly out or out: another account
+    // of the same connection, then the same class of model elsewhere.
+    String? kept() {
+      bool roomy(String id) => id != current && _used(id) < nearlyOut;
+      final kin = [
+        for (final id in pool)
+          if (roomy(id) && _family(id) == _family(current!)) id,
+      ];
+      if (kin.isNotEmpty) return roomiestOf(kin);
+      final same = [
+        for (final id in pool)
+          if (roomy(id) && (alike?.contains(id) ?? false)) id,
+      ];
+      return same.isEmpty ? null : roomiestOf(same);
+    }
+
+    if (current != null && alike != null && !pool.contains(current)) {
+      // Out: the same class where one has room, anything with room otherwise.
+      why = because('moved: the other was at its limit');
+      return kept() ?? roomiest;
+    }
     if (current == null || !pool.contains(current)) {
       why = because(pool.length == 1 ? 'the only one free' : 'most room left');
       return roomiest;
     }
-    final mine = _meter.usageOf(current)?.used;
+    final mine = _meter.usedNow(current, now: _now());
     if (mine == null) {
       why = because('already has this chat');
       return current;
     }
     if (mine >= nearlyOut) {
-      // Forced: the same kind of engine first, so the thread reads the same.
-      final kin = [
-        for (final id in pool)
-          if (id != current && _family(id) == _family(current) && _used(id) < nearlyOut) id,
-      ];
-      why = because('the last one was nearly out of room');
-      if (kin.isNotEmpty) return roomiestOf(kin);
-      return roomiest != current ? roomiest : current;
+      // Forced, between turns: the same kind of engine first, then the same
+      // class of model, so the thread reads the same.
+      if (kept() case final to?) {
+        why = because('moved: the other was nearly at its limit');
+        return to;
+      }
+      if (alike != null || roomiest == current) {
+        why = because('already has this chat');
+        return current;
+      }
+      why = because('moved: the other was nearly at its limit');
+      return roomiest;
     }
     // Warm, it stays: moving would throw its cache away.
     if (warm) {

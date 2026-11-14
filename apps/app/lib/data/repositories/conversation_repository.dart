@@ -4,6 +4,7 @@ import '../../domain/models/chat_item.dart';
 import '../../domain/activity_words.dart';
 import '../../domain/models/engine.dart';
 import '../../domain/models/session.dart';
+import '../../domain/problem.dart';
 import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 
@@ -128,6 +129,22 @@ abstract class ConversationRepository extends ChangeNotifier {
 
   /// Ends every process of the session; the next message resumes in new ones.
   Future<void> stop(String sessionId);
+
+  /// The way forward from the usage limit [sessionId] stopped at, as things
+  /// stand now; null where it cannot be told.
+  Future<LimitWay?> limitWay(String sessionId) async => null;
+
+  /// Sends the message at [index] again, now, to where there is room: the
+  /// connection that stopped at its limit is set aside, and a held chat
+  /// carries on elsewhere (the model on this Mac included).
+  Future<Result<void>> continueElsewhere(Session session, int index, String text) =>
+      rewind(session, index, text);
+
+  /// Sends the message at [index] again by itself at [until], when the limit
+  /// that stopped it has reset. It waits in the thread, as a message held for
+  /// room does, and stopping lets it go.
+  Future<Result<void>> retryAt(Session session, int index, String text, DateTime until) async =>
+      .error(Exception('Not here'));
 
   Future<void> forget(String sessionId);
 

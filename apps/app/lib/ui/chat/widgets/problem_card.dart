@@ -16,7 +16,9 @@ import '../../core/ashlar/theme.dart';
 import '../view_models/chat_view_model.dart';
 
 /// A problem, where it happened: what went wrong and why, the one action
-/// that fixes it, and the raw details a press away.
+/// that fixes it, and the raw details a press away. A usage limit, the latest
+/// thing in the chat, offers a way forward instead: go on now where there is
+/// room, or wait until the limit resets, or says when the first frees up.
 class ProblemCard extends StatefulWidget {
   const ProblemCard({super.key, required this.problem, required this.vm, this.last = true});
   final Problem problem;
@@ -34,6 +36,36 @@ class _ProblemCardState extends State<ProblemCard> {
   bool _working = false;
   String? _after;
 
+  /// The way forward from a usage limit, once known.
+  LimitWay? _way;
+
+  @override
+  void initState() {
+    super.initState();
+    _lookAhead();
+  }
+
+  @override
+  void didUpdateWidget(ProblemCard old) {
+    super.didUpdateWidget(old);
+    if (old.problem != widget.problem || old.last != widget.last) _lookAhead();
+  }
+
+  Future<void> _lookAhead() async {
+    if (!widget.problem.limit || !widget.last) {
+      _way = null;
+      return;
+    }
+    final way = await widget.vm.limitWay();
+    if (mounted) setState(() => _way = way);
+  }
+
+  Future<void> _go(Future<Object?> Function() action) async {
+    setState(() => _working = true);
+    await action();
+    if (mounted) setState(() => _working = false);
+  }
+
   Future<void> _act() async {
     final p = widget.problem;
     setState(() {
@@ -48,7 +80,15 @@ class _ProblemCardState extends State<ProblemCard> {
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
     final p = widget.problem;
-    final act = widget.last && p.fix != .wait && !widget.vm.busy;
+    final now = DateTime.now();
+    final way = p.limit && widget.last ? _way : null;
+    final free = !widget.vm.busy && widget.last;
+    // Waiting is offered only for a time a connection said.
+    final waitAt = way?.waitFor ?? (p.until != null && p.until!.isAfter(now) ? p.until : null);
+    final go = way?.goLabel;
+    final wait = way == null || waitAt == null ? null : 'Wait until ${clockAt(waitAt, now)}';
+    final act = free && p.fix != .wait && (way == null || (go == null && wait == null));
+    final line = way?.line(now);
     return Container(
       padding: const .all(12),
       decoration: BoxDecoration(
@@ -74,6 +114,35 @@ class _ProblemCardState extends State<ProblemCard> {
               Expanded(child: Text(p.what, style: t.text.sm)),
             ],
           ),
+          if (line != null)
+            Padding(
+              padding: const .only(left: 24),
+              child: Text(line, style: t.text.sm.copyWith(color: t.colors.mutedForeground)),
+            ),
+          if (free && (go != null || wait != null))
+            Padding(
+              padding: const .only(left: 24),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                children: [
+                  if (go != null)
+                    Button(
+                      size: .sm,
+                      onPressed: _working ? null : () => _go(widget.vm.continueElsewhere),
+                      leading: _working ? const Spinner(size: 12) : null,
+                      child: Text(go),
+                    ),
+                  if (wait != null)
+                    Button(
+                      variant: go == null ? .primary : .outline,
+                      size: .sm,
+                      onPressed: _working ? null : () => _go(() => widget.vm.retryAt(waitAt!)),
+                      child: Text(wait),
+                    ),
+                ],
+              ),
+            ),
           if (act || _after != null)
             Padding(
               padding: const .only(left: 24),
