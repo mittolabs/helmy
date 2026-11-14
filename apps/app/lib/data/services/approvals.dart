@@ -11,6 +11,7 @@ import 'engines/engine_router.dart';
 import 'engines/usage_meter.dart';
 import 'turn_log.dart';
 import '../../domain/models/work.dart';
+import '../../domain/next_part.dart';
 
 /// What Helmy decided about an action a connection wanted to take.
 enum Verdict {
@@ -52,6 +53,12 @@ class Approvals {
 
   /// Where each judgment's connection, model and tokens are logged.
   final TurnLog? _log;
+
+  /// Whether [m] holds the person's own words, the only asking that counts:
+  /// not a chat app's turn, which a page could have written, and not a next
+  /// part's message, which carries the agent's own note.
+  static bool byThePerson(UserMessage m) =>
+      m.text.trim().isNotEmpty && !(m.from ?? '').startsWith('app:') && m.from != nextPartFrom;
 
   /// Tools that only look: never asked about.
   static const _looking = {
