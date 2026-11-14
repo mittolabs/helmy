@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/mittolabs/helmy/compare/v0.11.0...v0.12.0) (2026-11-14)
+
+
+### Features
+
+* **chat:** under the message box, where the chat stands ([#56](https://github.com/mittolabs/helmy/issues/56)) ([70ef348](https://github.com/mittolabs/helmy/commit/70ef348bc0bcdbc432c006d21de3c6ffda9e0786))
+
 ## [0.11.0](https://github.com/mittolabs/helmy/compare/v0.10.1...v0.11.0) (2026-11-14)
 
 
