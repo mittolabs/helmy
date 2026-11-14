@@ -251,8 +251,8 @@ class _UserState extends State<_User> {
                       onPressed: () => showFilePopup(context, path, vm, editors: vm.editorChoice),
                       image:
                           imageTypes.containsKey(path.split('.').last.toLowerCase()) &&
-                              File(path).existsSync()
-                          ? FileImage(File(path))
+                              pictureThere(path)
+                          ? pictureOf(path)
                           : null,
                     ),
                 ],

@@ -67,6 +67,10 @@ jobs:
           - name: android
             os: ubuntu-24.04
             platform: apk
+          # Helmy in Chrome: the phone's remote, built for the web, as an extension.
+          - name: chrome
+            os: ubuntu-24.04
+            platform: chrome
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -111,10 +115,11 @@ jobs:
           else
             echo "::warning::No HELMY_ANDROID_KEYSTORE_BASE64: the APK is signed with a debug key and will not install over an earlier release."
           fi
-      - run: flutter config --no-analytics && flutter precache --${{ matrix.platform == 'apk' && 'android' || matrix.platform }}
+      - run: flutter config --no-analytics && flutter precache --${{ matrix.platform == 'apk' && 'android' || matrix.platform == 'chrome' && 'web' || matrix.platform }}
       - run: flutter pub get
 
       - name: Build
+        if: matrix.platform != 'chrome'
         env:
           HELMY_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.HELMY_ANDROID_KEYSTORE_PASSWORD }}
           HELMY_ANDROID_KEY_ALIAS: ${{ secrets.HELMY_ANDROID_KEY_ALIAS }}
@@ -159,6 +164,11 @@ jobs:
       - name: Package (Android)
         if: matrix.platform == 'apk'
         run: cp build/app/outputs/flutter-apk/app-release.apk "Helmy-$TAG-android.apk"
+      - name: Build and package (Chrome)
+        if: matrix.platform == 'chrome'
+        env:
+          FLUTTER: flutter
+        run: node tool/chrome.mjs && cp build/helmy-chrome-*.zip "Helmy-$TAG-chrome.zip"
 
       # It opens: still running after 25 seconds, and what it showed.
       - name: Opens (macOS)
@@ -191,7 +201,7 @@ jobs:
             import -window root "opens-${{ matrix.name }}.png" || true
             if kill -0 $p 2>/dev/null; then kill $p; else tail -30 opens.log; echo "::error::Helmy did not stay open"; exit 1; fi'
       - name: Keep what it showed
-        if: always() && matrix.platform != 'apk'
+        if: always() && matrix.platform != 'apk' && matrix.platform != 'chrome'
         uses: actions/upload-artifact@v4
         with:
           name: opens-${{ matrix.name }}

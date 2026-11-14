@@ -197,6 +197,8 @@ void main() {
     await until(() => host.pairing?.device != null);
     final first = host.pairing!;
     expect(host.phones, isEmpty, reason: 'shown, not yet scanned');
+    // Chrome on this computer reaches it here, network or not.
+    expect(first.hosts.last, '127.0.0.1');
     final link = RemoteLink(
       Pairing(
         hosts: const ['127.0.0.1'],

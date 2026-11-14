@@ -1,11 +1,10 @@
 import 'phone_shell.dart';
 
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../data/services/remote/remote_crypto.dart';
 import '../../data/services/remote/remote_link.dart';
@@ -14,6 +13,7 @@ import '../core/ashlar/app_theme.dart';
 import '../core/ashlar/button.dart';
 import '../core/ashlar/input.dart';
 import '../core/ashlar/theme.dart';
+import 'store/kept.dart';
 
 /// Helmy on a phone: a remote for Helmy on a Mac. The chats there, each
 /// conversation as it goes, and sending, approving and stopping. The work
@@ -25,46 +25,22 @@ Future<void> runPhone() async {
   runApp(_PhoneApp(saved: saved, look: look));
 }
 
-/// The pairing, kept in the app's own folder so the phone stays paired.
+/// The pairing and the look, kept so the remote stays paired.
 abstract final class _PairingFile {
-  static Future<File> _file() async =>
-      File('${(await getApplicationSupportDirectory()).path}/pairing.txt');
-
-  static Future<Pairing?> read() async {
-    try {
-      return Pairing.parse(await (await _file()).readAsString());
-    } on Object {
-      return null;
-    }
-  }
-
-  static Future<File> _lookFile() async =>
-      File('${(await getApplicationSupportDirectory()).path}/look.txt');
+  static Future<Pairing?> read() async => Pairing.parse(await keptRead('pairing') ?? '');
 
   /// How the phone looks, as chosen in its settings.
   static Future<PhoneLook> look() async {
     try {
-      return PhoneLook.values.byName((await (await _lookFile()).readAsString()).trim());
+      return PhoneLook.values.byName((await keptRead('look') ?? '').trim());
     } on Object {
       return PhoneLook.system;
     }
   }
 
-  static Future<void> keepLook(PhoneLook l) async {
-    final f = await _lookFile();
-    await f.create(recursive: true);
-    await f.writeAsString(l.name);
-  }
+  static Future<void> keepLook(PhoneLook l) => keptWrite('look', l.name);
 
-  static Future<void> write(Pairing? p) async {
-    final f = await _file();
-    if (p == null) {
-      if (f.existsSync()) await f.delete();
-      return;
-    }
-    await f.create(recursive: true);
-    await f.writeAsString(p.link);
-  }
+  static Future<void> write(Pairing? p) => keptWrite('pairing', p?.link);
 }
 
 class _PhoneApp extends StatefulWidget {
@@ -194,12 +170,15 @@ class _PairScreenState extends State<_PairScreen> {
                 height: 56,
               ),
               Text(
-                'Pair with Helmy on your Mac',
+                kIsWeb ? 'Pair with Helmy' : 'Pair with Helmy on your Mac',
                 style: t.text.xl.copyWith(fontWeight: .w600),
                 textAlign: .center,
               ),
               Text(
-                'On the Mac, open Settings, then Phone, and turn it on. Scan the code it shows.',
+                kIsWeb
+                    ? 'On the computer Helmy runs on, open Settings, then Phone, and turn it on. '
+                          'Copy the link under the code it shows and paste it here.'
+                    : 'On the Mac, open Settings, then Phone, and turn it on. Scan the code it shows.',
                 style: muted,
                 textAlign: .center,
               ),
@@ -219,7 +198,10 @@ class _PairScreenState extends State<_PairScreen> {
                     ),
                   ),
                 )
-              else ...[
+              else if (kIsWeb) ...[
+                Input(controller: _pasted, placeholder: 'helmy-pair:v2?…'),
+                Button(onPressed: () => _try(_pasted.text), child: const Text('Pair')),
+              ] else ...[
                 Button(
                   onPressed: () => setState(() => _scanning = true),
                   child: const Text('Scan the code'),

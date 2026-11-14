@@ -28,7 +28,15 @@ String? _read(String path) {
   }
 }
 
-bool _has(String path) => FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+/// Whether [path] is there; not, where it cannot be looked for (in a browser,
+/// the folder is on the computer Helmy runs on).
+bool _has(String path) {
+  try {
+    return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+  } on Object {
+    return false;
+  }
+}
 
 /// The scripts people run most, first, in this order; then the rest as the
 /// file lists them.

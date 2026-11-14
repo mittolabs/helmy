@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show SingleActivator;
 
@@ -12,7 +13,14 @@ enum Desktop {
   linux;
 
   /// The one running now. Set [current] in a test to see another.
-  static Desktop current = Platform.isWindows
+  /// In a browser (Helmy in Chrome), the computer the browser runs on.
+  static Desktop current = kIsWeb
+      ? switch (defaultTargetPlatform) {
+          TargetPlatform.windows => windows,
+          TargetPlatform.linux => linux,
+          _ => mac,
+        }
+      : Platform.isWindows
       ? windows
       : Platform.isLinux
       ? linux
@@ -70,11 +78,13 @@ enum Desktop {
 /// Whether this platform has the embedded web view (WebKit on Apple's
 /// systems, Android's own): pages and PDFs open inside Helmy. Elsewhere they
 /// open in their own app.
-bool get webViewHere => Desktop.current == Desktop.mac || Platform.isIOS || Platform.isAndroid;
+/// Not in a browser, where a page opens in a tab of its own.
+bool get webViewHere =>
+    !kIsWeb && (Desktop.current == Desktop.mac || Platform.isIOS || Platform.isAndroid);
 
 /// Whether video and sound play inside Helmy here. Elsewhere they open in
 /// their own app.
-bool get playerHere => Platform.isMacOS || Platform.isIOS || Platform.isAndroid;
+bool get playerHere => !kIsWeb && (Platform.isMacOS || Platform.isIOS || Platform.isAndroid);
 
 /// Fixed-width fonts, the platform's first: Menlo on a Mac, Consolas on
 /// Windows, Roboto Mono or the system's own elsewhere. With

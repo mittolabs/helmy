@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ashlar_icons/ashlar_icons.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -302,7 +303,14 @@ class _Home extends StatefulWidget {
 
 class _HomeState extends State<_Home> {
   final _text = TextEditingController();
-  final _focus = FocusNode();
+  late final _focus = _enterSends(_submit);
+
+  void _submit() {
+    final text = _text.text;
+    if (text.trim().isEmpty) return;
+    widget.onSend(text);
+    _text.clear();
+  }
 
   @override
   void dispose() {
@@ -362,10 +370,7 @@ class _HomeState extends State<_Home> {
               controller: _text,
               focusNode: _focus,
               placeholder: 'Ask Helmy',
-              onSubmit: (text) {
-                widget.onSend(text);
-                _text.clear();
-              },
+              onSubmit: (_) => _submit(),
             ),
           ),
         ),
@@ -401,8 +406,15 @@ class _ChatState extends State<_Chat> {
     conversations: widget.conversations,
   );
   final _text = TextEditingController();
-  final _focus = FocusNode();
+  late final _focus = _enterSends(_submit);
   final _scroller = MessageScrollerController();
+
+  void _submit() {
+    final text = _text.text;
+    if (text.trim().isEmpty) return;
+    unawaited(vm.send.execute(text));
+    _text.clear();
+  }
 
   @override
   void dispose() {
@@ -497,11 +509,7 @@ class _ChatState extends State<_Chat> {
                         onPressed: vm.interrupt,
                       ),
                   ],
-                  onSubmit: (text) {
-                    if (text.trim().isEmpty) return;
-                    unawaited(vm.send.execute(text));
-                    _text.clear();
-                  },
+                  onSubmit: (_) => _submit(),
                 ),
               ),
             ),
@@ -853,7 +861,9 @@ class _Settings extends StatelessWidget {
               ],
             ),
             Text(
-              'The work happens on this Mac. The phone shows it and says what to do.',
+              kIsWeb
+                  ? 'The work happens on this computer. Chrome shows it and says what to do.'
+                  : 'The work happens on this Mac. The phone shows it and says what to do.',
               style: muted,
             ),
             Button(
@@ -890,3 +900,9 @@ class _Settings extends StatelessWidget {
     );
   }
 }
+
+/// The message box's focus. In a browser, with a keyboard, Enter sends and
+/// Shift+Enter starts a new line, as on the computer; on a phone, Return
+/// starts a new line and the button sends.
+FocusNode _enterSends(VoidCallback send) =>
+    FocusNode(onKeyEvent: kIsWeb ? (_, e) => Composer.handleEnter(e, send) : null);
