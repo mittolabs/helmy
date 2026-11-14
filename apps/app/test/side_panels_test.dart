@@ -44,16 +44,18 @@ void main() {
         );
     await vm.countChanges();
     expect(vm.changedFiles, 1);
-    expect(vm.notices, [SidePanel.changes]);
+    expect(vm.changedLines, (added: 1, removed: 1));
+    // Said under the message box, not as a notice.
+    expect(vm.notices, isEmpty);
 
     // Work goes to the background: offered while it runs.
     final bg = ToolCall(id: 'b', name: 'Bash', input: {'command': 'sleep 60'})
       ..result = 'running'
       ..background = BackgroundTask('t1');
     repo.of(created.id).items.add(bg);
-    expect(vm.notices, [SidePanel.changes, SidePanel.background]);
+    expect(vm.notices, [SidePanel.background]);
     bg.background!.status = .completed;
-    expect(vm.notices, [SidePanel.changes]);
+    expect(vm.notices, isEmpty);
 
     // A notice opens its tab; tabs gather, one showing at a time.
     vm.show(.changes);

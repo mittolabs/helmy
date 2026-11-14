@@ -1,14 +1,17 @@
 part of '../chat_screen.dart';
 
-/// The strip under the message box: the chat's project (choose one, or none),
-/// its files, and Helmy's skills to pick from.
+/// The strip under the message box: what this chat is, where it stands,
+/// and whether the person is away. Its project (choose one, or none); then,
+/// only while there is something to show, its branch, the lines it changed
+/// and what waits for the person; then Away. The chat's files are in the
+/// panel's +, and skills a / away.
 class _Tray extends StatelessWidget {
-  const _Tray({required this.vm, required this.session, required this.onSkills});
+  const _Tray({required this.vm, required this.session, required this.onWaiting});
   final ChatViewModel vm;
   final Session session;
 
-  /// Opens the skills list in the message box, as typing / does.
-  final VoidCallback onSkills;
+  /// Goes to the first thing waiting for the person.
+  final VoidCallback onWaiting;
 
   @override
   Widget build(BuildContext context) {
@@ -35,18 +38,55 @@ class _Tray extends StatelessWidget {
                 ),
               ),
             ),
-            _TrayButton(
-              icon: AshlarIconsRoundedStroke.files,
-              label: 'Files',
-              words: words,
-              onPressed: () => vm.show(.files),
-            ),
-            _TrayButton(
-              icon: AshlarIconsRoundedStroke.puzzle,
-              label: 'Skills',
-              words: words,
-              onPressed: onSkills,
-            ),
+            if (vm.branch case final branch?)
+              Flexible(
+                child: Tooltip(
+                  message: session.ownCopy
+                      ? 'On $branch, its own branch, in its own copy: other threads here are '
+                            'not disturbed'
+                      : 'On $branch. Press for its pull request.',
+                  child: _TrayButton(
+                    icon: AshlarIconsRoundedStroke.gitBranch,
+                    label: branch,
+                    words: words,
+                    shrinks: true,
+                    onPressed: () => vm.show(.ship),
+                  ),
+                ),
+              ),
+            if (vm.changedLines case (:final added, :final removed)
+                when added + removed > 0 || (vm.changedFiles ?? 0) > 0)
+              Tooltip(
+                message: 'What this chat changed. Press to review or undo.',
+                child: added + removed > 0
+                    ? _TrayButton(
+                        label: '+$added −$removed',
+                        semanticLabel: '$added lines added, $removed removed. Review changes',
+                        mono: true,
+                        onPressed: vm.showChanges,
+                      )
+                    // Only files whose lines are not counted (pictures, moves).
+                    : _TrayButton(
+                        icon: AshlarIconsRoundedStroke.fileDiff,
+                        label: '${vm.changedFiles} changed',
+                        words: words,
+                        onPressed: vm.showChanges,
+                      ),
+              ),
+            if (vm.waiting.length case final n when n > 0)
+              Tooltip(
+                message: n == 1
+                    ? 'Something is waiting for your answer. Press to go to it.'
+                    : '$n things are waiting for your answer. Press to go to the first.',
+                child: _TrayButton(
+                  icon: AshlarIconsRoundedStroke.messageCircleQuestionMark,
+                  // Narrow, the count alone.
+                  label: words ? '$n waiting' : '$n',
+                  semanticLabel: '$n waiting for you. Go to it',
+                  on: true,
+                  onPressed: onWaiting,
+                ),
+              ),
             Tooltip(
               message: vm.away
                   ? "Away: I decide what I'd ask you, and keep what I still must ask "
@@ -70,16 +110,29 @@ class _Tray extends StatelessWidget {
 
 class _TrayButton extends StatelessWidget {
   const _TrayButton({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.onPressed,
     this.words = true,
     this.on,
+    this.mono = false,
+    this.semanticLabel,
+    this.shrinks = false,
   });
-  final IconData icon;
+
+  /// Its label gives way, ending in an ellipsis, when the tray runs short:
+  /// only for a button in a [Flexible].
+  final bool shrinks;
+  final IconData? icon;
   final String label;
   final bool words;
   final VoidCallback onPressed;
+
+  /// The label in the code font: figures that line up.
+  final bool mono;
+
+  /// What a screen reader says, when [label] alone does not.
+  final String? semanticLabel;
 
   /// A switch's state; null for a plain button.
   final bool? on;
@@ -89,13 +142,25 @@ class _TrayButton extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final lit = on ?? false;
+    Widget caption(Color ink) => Text(
+      label,
+      maxLines: 1,
+      overflow: .ellipsis,
+      style: t.text.xs.copyWith(
+        color: ink,
+        height: 1,
+        fontFamily: mono ? 'monospace' : null,
+        fontFamilyFallback: mono ? monoFonts : null,
+      ),
+    );
     return Semantics(
       toggled: on,
       child: Pressable(
         onPressed: onPressed,
-        semanticLabel: label,
+        semanticLabel: semanticLabel ?? label,
         builder: (context, state) {
           final ink = state.hovered || lit ? c.foreground : c.mutedForeground;
+          final text = caption(ink);
           return Container(
             padding: const .symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -110,8 +175,9 @@ class _TrayButton extends StatelessWidget {
               mainAxisSize: .min,
               spacing: 5,
               children: [
-                AshlarIcon(icon, size: 13, color: ink),
-                if (words) Text(label, style: t.text.xs.copyWith(color: ink, height: 1)),
+                if (icon case final icon?) AshlarIcon(icon, size: 13, color: ink),
+                if (words || icon == null)
+                  if (shrinks) Flexible(child: text) else text,
               ],
             ),
           );
