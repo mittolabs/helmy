@@ -16,6 +16,8 @@ import '../../../data/services/engines/agent_engine.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
 import '../../../data/services/engines/attachments.dart';
+import '../../../domain/goal.dart';
+import '../../../domain/opens.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/command.dart';
 import '../../../utils/starters.dart';
@@ -185,6 +187,13 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices, mac: mac, session: sessionId) {
     _attention?.viewing = sessionId;
+    // Counted for search, which puts the chats opened most lately first.
+    if (!embedded) {
+      if (_sessions.byId(sessionId) case final s? when s.sideOf == null) {
+        final o = opened(s.opens, s.openedAt, DateTime.now());
+        unawaited(_sessions.save(s.copyWith(opens: o.score, openedAt: o.at)));
+      }
+    }
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
     // The agent's device tools show the device here: in the Device panel,
@@ -1606,6 +1615,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     if (s == null || (text.trim().isEmpty && !hasExtras)) {
       return .error(Exception('Nothing to send'));
     }
+    // `/goal`: the chat's standing goal, kept by Helmy.
+    if (!hasExtras) {
+      if (goalCommand(text) case final command?) return _goal(s, command);
+    }
     if (comments.isNotEmpty) {
       text = '${commentsText(comments)}${text.trim().isEmpty ? '' : '\n\n${text.trim()}'}';
       comments.clear();
@@ -1686,6 +1699,55 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     if (on) _conversations.carryOn(sessionId);
     notifyListeners();
   }
+
+  /// The chat's standing goal, and whether it is paused.
+  String? get goal => session?.goal;
+  bool get goalPaused => session?.goalPaused ?? false;
+
+  Future<Result<void>> _goal(Session s, GoalCommand command) async {
+    switch (command) {
+      case GoalSet(:final objective):
+        await _sessions.save(s.copyWith(goal: objective, goalPaused: false));
+        // The person's own words: the agent starts on it now.
+        final sent = await _conversations.send(_sessions.byId(sessionId) ?? s, 'Goal: $objective');
+        notifyListeners();
+        return sent;
+      case GoalPause():
+        if (s.goal != null) await _sessions.save(s.copyWith(goalPaused: true));
+      case GoalResume():
+        if (s.goal case final goal?) {
+          await _sessions.save(s.copyWith(goalPaused: false));
+          if (!busy) {
+            await _conversations.send(
+              _sessions.byId(sessionId) ?? s,
+              goalNext(goal),
+              from: goalFrom,
+            );
+          }
+        }
+      case GoalClear():
+        await _sessions.save(s.copyWith(clearGoal: true));
+      case GoalShow():
+        break;
+    }
+    _conversations.note(sessionId, switch ((
+      _sessions.byId(sessionId)?.goal,
+      _sessions.byId(sessionId)?.goalPaused ?? false,
+    )) {
+      (null, _) =>
+        command is GoalClear
+            ? 'Goal cleared.'
+            : 'No goal set. /goal and what you want done sets one.',
+      (final g?, true) => 'Goal paused: $g',
+      (final g?, false) => 'Goal: $g',
+    });
+    notifyListeners();
+    return const .ok(null);
+  }
+
+  Future<void> setGoalPaused(bool paused) =>
+      _goal(session!, paused ? const GoalPause() : const GoalResume());
+  Future<void> clearGoal() => _goal(session!, const GoalClear());
 
   Future<void> setLevel(PermissionLevel level) async {
     final s = session;

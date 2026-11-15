@@ -87,6 +87,10 @@ class _Tray extends StatelessWidget {
                   onPressed: onWaiting,
                 ),
               ),
+            if (vm.goal != null)
+              Flexible(
+                child: _GoalChip(vm: vm, words: words),
+              ),
             if (vm.agents.isNotEmpty)
               Flexible(
                 child: _AgentsChip(vm: vm, words: words),
@@ -437,6 +441,52 @@ class _AgentsChip extends StatelessWidget {
           semanticLabel: 'Background agents: $label',
           shrinks: true,
           on: needs > 0,
+          onPressed: menu.open,
+        ),
+      ),
+    );
+  }
+}
+
+/// The chat's standing goal (`/goal`): what it is, and pause, resume or clear.
+class _GoalChip extends StatelessWidget {
+  const _GoalChip({required this.vm, required this.words});
+  final ChatViewModel vm;
+  final bool words;
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = vm.goal!;
+    final paused = vm.goalPaused;
+    return DropdownMenu(
+      side: .top,
+      items: [
+        MenuLabel(child: Text(goal, maxLines: 3, overflow: .ellipsis)),
+        MenuItem(
+          leading: AshlarIcon(
+            paused ? AshlarIconsRoundedStroke.playerPlay : AshlarIconsRoundedStroke.playerPause,
+            size: 16,
+          ),
+          onPressed: () => unawaited(vm.setGoalPaused(!paused)),
+          child: Text(paused ? 'Resume' : 'Pause'),
+        ),
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 16),
+          onPressed: () => unawaited(vm.clearGoal()),
+          child: const Text('Clear the goal'),
+        ),
+      ],
+      builder: (context, menu) => Tooltip(
+        message: paused
+            ? 'Goal, paused: $goal'
+            : 'Goal: $goal. I keep working toward it until it is met.',
+        child: _TrayButton(
+          icon: AshlarIconsRoundedStroke.flag,
+          label: paused ? 'Goal paused' : 'Goal',
+          words: words,
+          shrinks: true,
+          on: !paused,
+          semanticLabel: paused ? 'Goal paused: $goal' : 'Goal: $goal',
           onPressed: menu.open,
         ),
       ),

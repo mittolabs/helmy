@@ -4,6 +4,7 @@ import '../../../data/repositories/attention_repository.dart';
 import '../../../data/repositories/conversation_repository.dart';
 import '../../../data/repositories/session_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../domain/opens.dart';
 import '../../../domain/models/session.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/command.dart';
@@ -252,9 +253,16 @@ class SidebarViewModel extends ChangeNotifier {
   }
 
   /// Every session with its conversation as text, for the search palette.
-  Future<List<(Session, String)>> searchIndex() async => [
-    for (final s in sessions) (s, await _conversations.searchText(s.id)),
-  ];
+  /// Every chat with its words, the ones opened most lately first (as T3
+  /// Code ranks its search); the list's order where none has been opened.
+  Future<List<(Session, String)>> searchIndex() async {
+    final now = DateTime.now();
+    final ranked = [
+      for (final (i, s) in sessions.indexed)
+        (i: i, s: s, score: openScore(s.opens, s.openedAt, now)),
+    ]..sort((a, b) => b.score == a.score ? a.i.compareTo(b.i) : b.score.compareTo(a.score));
+    return [for (final r in ranked) (r.s, await _conversations.searchText(r.s.id))];
+  }
 
   /// Wants you or is working: back in the list even while snoozed.
   bool _calling(String id) =>

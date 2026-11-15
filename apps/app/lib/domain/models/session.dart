@@ -63,6 +63,22 @@ class const Session({
   /// the one the chat that started it is on. Null for any.
   final String? avoid,
 
+  /// How many tokens its conversation held at its last turn's end, as the
+  /// connection measured; null before one has.
+  final int? size,
+
+  /// Its standing goal (`/goal`): Helmy keeps the agent going toward it, turn
+  /// after turn, until the agent says it is met. Null for none.
+  final String? goal,
+
+  /// The goal is kept but not worked toward until resumed.
+  final bool goalPaused = false,
+
+  /// How often it has been opened, halving every two weeks (`openScore`),
+  /// as of [openedAt]: search puts the chats opened most lately first.
+  final double opens = 0,
+  final DateTime? openedAt,
+
   /// The chat this thread is part of (decision `0014`).
   final String? chatId,
 
@@ -143,6 +159,14 @@ class const Session({
     bool? away,
     bool? agent,
     String? avoid,
+    int? size,
+    String? goal,
+    bool? goalPaused,
+    double? opens,
+    DateTime? openedAt,
+
+    /// Drops [goal]: met, or cleared.
+    bool clearGoal = false,
 
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
@@ -174,6 +198,11 @@ class const Session({
     away: away ?? this.away,
     agent: agent ?? this.agent,
     avoid: avoid ?? this.avoid,
+    size: size ?? this.size,
+    goal: clearGoal ? null : goal ?? this.goal,
+    goalPaused: clearGoal ? false : goalPaused ?? this.goalPaused,
+    opens: opens ?? this.opens,
+    openedAt: openedAt ?? this.openedAt,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -206,6 +235,11 @@ class const Session({
     if (away) 'away': true,
     if (agent) 'agent': true,
     'avoid': ?avoid,
+    'size': ?size,
+    'goal': ?goal,
+    if (goalPaused) 'goalPaused': true,
+    if (opens > 0) 'opens': opens,
+    if (openedAt != null) 'openedAt': openedAt!.toIso8601String(),
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -248,6 +282,11 @@ class const Session({
       away: json['away'] == true,
       agent: json['agent'] == true,
       avoid: json['avoid'] as String?,
+      size: (json['size'] as num?)?.toInt(),
+      goal: json['goal'] as String?,
+      goalPaused: json['goalPaused'] == true,
+      opens: (json['opens'] as num?)?.toDouble() ?? 0,
+      openedAt: DateTime.tryParse('${json['openedAt'] ?? ''}'),
     );
   }
 }

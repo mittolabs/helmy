@@ -686,6 +686,17 @@ class _UsagePage extends StatelessWidget {
             title: ConnectionsSetup.shownName(row.info.id, row.info.name, s.connectionNames),
             child: _UsageOf(row: row),
           ),
+        const _Heading('This month'),
+        _ThisMonth(
+          names: {
+            for (final row in vm.used)
+              row.info.id: ConnectionsSetup.shownName(
+                row.info.id,
+                row.info.name,
+                s.connectionNames,
+              ),
+          },
+        ),
         const _Heading('Routing'),
         _Row(
           title: 'Switch connections at limits',
@@ -749,6 +760,90 @@ class _UsageOf extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// This month's tokens, per connection, from the turn log: read from the
+/// cache (the conversation again at each step, at a fraction of the price),
+/// read afresh, and written. Only what the connections reported.
+class _ThisMonth extends StatefulWidget {
+  const _ThisMonth({required this.names});
+  final Map<String, String> names;
+
+  @override
+  State<_ThisMonth> createState() => _ThisMonthState();
+}
+
+class _ThisMonthState extends State<_ThisMonth> {
+  late final Future<TurnTotals> _totals = _read();
+
+  Future<TurnTotals> _read() async {
+    final TurnLog log;
+    try {
+      log = context.read<TurnLog>();
+    } on ProviderNotFoundException {
+      return TurnTotals.of(const []);
+    }
+    final now = DateTime.now();
+    final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    return TurnTotals.of(await log.read(month));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5);
+    return FutureBuilder(
+      future: _totals,
+      builder: (context, snap) {
+        final totals = snap.data;
+        if (totals == null) return const SizedBox.shrink();
+        if (totals.isEmpty) {
+          return Text('Nothing measured yet this month.', style: muted);
+        }
+        Widget figures(ConnectionTotals c) => c.reported == 0
+            ? Text(
+                '${c.turns} ${c.turns == 1 ? 'turn' : 'turns'}. It reports no token counts, so none '
+                'are shown.',
+                style: muted,
+              )
+            : Column(
+                crossAxisAlignment: .start,
+                spacing: 4,
+                children: [
+                  Text(
+                    '${shortCount(c.all)} tokens over ${c.turns} ${c.turns == 1 ? 'turn' : 'turns'}',
+                    style: t.text.sm,
+                  ),
+                  Text(
+                    [
+                      '${shortCount(c.cached)} cached input'
+                          '${c.cachedShare == null ? '' : ' (${(c.cachedShare! * 100).floor()}% of input)'}',
+                      '${shortCount(c.uncached)} uncached input',
+                      if (c.cacheWrites > 0) '${shortCount(c.cacheWrites)} written to the cache',
+                      '${shortCount(c.output)} output',
+                    ].join(' · '),
+                    style: muted,
+                  ),
+                ],
+              );
+        return Column(
+          crossAxisAlignment: .stretch,
+          spacing: 8,
+          children: [
+            Text(
+              'Each step of a turn reads the conversation again; cached input is that reading '
+              'from the connection\'s cache, which costs a fraction of input read afresh.',
+              style: muted,
+            ),
+            for (final e in totals.byConnection.entries)
+              _Block(title: widget.names[e.key] ?? e.key, child: figures(e.value)),
+            if (totals.upkeep.turns > 0)
+              _Block(title: "Helmy's own upkeep", child: figures(totals.upkeep)),
+          ],
+        );
+      },
     );
   }
 }

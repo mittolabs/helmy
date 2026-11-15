@@ -47,6 +47,16 @@ class ClaudeReducer {
       cacheWrite: sum('cache_creation_input_tokens'),
       output: sum('output_tokens'),
     );
+    // How full the conversation is now: this request's input, all of it. Its
+    // window is the model's, known once a turn has ended.
+    final window = context?.window;
+    int n(String k) => (usage[k] as num?)?.toInt() ?? 0;
+    if (window != null && window > 0) {
+      context = ContextUse(
+        used: n('input_tokens') + n('cache_read_input_tokens') + n('cache_creation_input_tokens'),
+        window: window,
+      );
+    }
   }
 
   String? _messageId;

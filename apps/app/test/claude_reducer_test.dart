@@ -333,4 +333,39 @@ void main() {
     r.apply(said('m3', 7));
     expect(r.tokens!.output, 7);
   });
+
+  test('how full the conversation is moves with each request, once its window is known', () {
+    final r = ClaudeReducer(<ChatItem>[])
+      ..apply({
+        'type': 'result',
+        'subtype': 'success',
+        'usage': {
+          'input_tokens': 5,
+          'iterations': [
+            {'input_tokens': 5, 'cache_read_input_tokens': 40000, 'cache_creation_input_tokens': 0},
+          ],
+        },
+        'modelUsage': {
+          'claude-opus-5-5': {'contextWindow': 200000},
+        },
+      });
+    expect(r.context!.used, 40005);
+    r
+      ..startTurn()
+      ..apply({
+        'type': 'assistant',
+        'parent_tool_use_id': null,
+        'message': {
+          'id': 'm9',
+          'content': const <Object?>[],
+          'usage': {
+            'input_tokens': 3,
+            'cache_read_input_tokens': 90000,
+            'cache_creation_input_tokens': 2000,
+          },
+        },
+      });
+    expect(r.context!.used, 92003);
+    expect(r.context!.window, 200000);
+  });
 }
