@@ -9,7 +9,17 @@ class ActivitySummary {
   final Map<String, String> steps;
 }
 
+/// How much of a command its words are read from. What says what a
+/// command does is at its start; past it can be megabytes (a picture
+/// pasted in as base64), which no title needs and every pattern would
+/// spend long on, on the screen's own thread.
+const commandRead = 4000;
+
+String _head(String command) =>
+    command.length > commandRead ? command.substring(0, commandRead) : command;
+
 ActivityWords commandActivity(String command) {
+  command = _head(command);
   final text = command.toLowerCase();
   final executableText = StringBuffer();
   String? quote;
@@ -173,6 +183,7 @@ ActivityWords commandActivity(String command) {
 /// step an agent takes, and "Ran a script" says nothing to the person. Null when
 /// the command is not a script, or does nothing recognized.
 ActivityWords? scriptActivity(String command) {
+  command = _head(command);
   final text = command.toLowerCase();
   // Finder asked to delete a file puts it in the Trash.
   if (RegExp(r'finder.{0,8}to delete').hasMatch(text)) {
@@ -280,7 +291,7 @@ List<String> namedFiles(String command) => {
   // Escaped quotes (a script inside a shell command) are quotes too.
   for (final m in RegExp(
     r'''(['"])([^'"\n]*?\.([A-Za-z0-9]{2,5}))\1''',
-  ).allMatches(command.replaceAll(r'\"', '"')))
+  ).allMatches(_head(command).replaceAll(r'\"', '"')))
     if (_fileExtensions.contains(m[3]!.toLowerCase()) && !m[2]!.contains('*'))
       m[2]!.split('/').last,
 }.where((n) => n.isNotEmpty && !n.startsWith('.')).take(5).toList();
@@ -339,7 +350,7 @@ const _baseOf = {
 List<String> _bareFiles(String command) => {
   for (final m in RegExp(
     r'(?:^|\s)/?(?:[\w~.@+-]+/)*([\w@+-][\w.@+-]*?\.([A-Za-z0-9]{2,5}))(?=[\s;&|)]|$)',
-  ).allMatches(command))
+  ).allMatches(_head(command)))
     if (_fileExtensions.contains(m[2]!.toLowerCase())) m[1]!,
 }.take(5).toList();
 
@@ -421,9 +432,14 @@ String? actionsLabel(List<Object?> actions, {required bool done}) {
 /// A factual label with the subject included, even when a generated account
 /// is unavailable. Source text quoted in a reading command is not executed.
 String specificCommandLabel(String command, {required bool done, String? result}) {
+  command = _head(command);
   final words = commandActivity(command);
+  // From the start of a word only, then folder by folder to its name: a
+  // pattern free to start anywhere tries every position of a long word
+  // again, and takes time by the square of its length (a 3 MB command held
+  // the screen for half an hour).
   final paths = RegExp(
-    r'(?:[\w.-]+/)*([\w.-]+)\.(?:dart|py|js|ts|tsx|jsx|swift|rs|go|java|kt|md|json|yaml)\b',
+    r'(?<![\w./-])(?:[\w.-]*/)*([\w.-]+)\.(?:dart|py|js|ts|tsx|jsx|swift|rs|go|java|kt|md|json|yaml)\b',
   ).allMatches(command).map((m) => m[1]!).toSet().take(3).toList();
   String friendly(String name) =>
       name.replaceAll(RegExp(r'(^test[_-]|[_-]test$)'), '').replaceAll(RegExp(r'[_-]'), ' ');
