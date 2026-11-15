@@ -9,13 +9,14 @@ import 'package:helmy/domain/models/memory.dart';
 /// last one again once they run out), reporting [contextUsed] tokens of
 /// conversation, and records how each run was started.
 class EchoEngine implements AgentEngine {
-  EchoEngine(this.replies);
+  EchoEngine(this.replies, {String id = 'claude'})
+    : info = EngineInfo(id: id, name: 'agent', capabilities: const {Capability.tools});
   final List<String> replies;
   var contextUsed = 1000;
   var failNext = false;
 
   @override
-  final info = const EngineInfo(id: 'claude', name: 'agent', capabilities: {Capability.tools});
+  final EngineInfo info;
 
   final launches = <EngineLaunch>[];
   final sent = <String>[];

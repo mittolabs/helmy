@@ -10,11 +10,10 @@ import 'chat_repository.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
 
-/// Keeps chats current (decision `0014`): when a thread has gone quiet, its
-/// one-line summary is written and its chat's brief brought up to date, on
-/// the model on this Mac, costing no cloud tokens. Without one, the summary
-/// is the thread's own first words and the brief is left to the person. A
-/// brief the person wrote is never rewritten.
+/// Keeps chats current: when one has gone quiet, its one-line summary is
+/// written (what a move to another connection hands over), on the model on
+/// this Mac, costing no cloud tokens; without one, its own first words. And
+/// it is named: its title, topic word and icon.
 class ChatKeeper {
   ChatKeeper({
     required this._sessions,
@@ -95,18 +94,6 @@ class ChatKeeper {
     var text = lines.join('\n');
     if (text.length > all) text = '...${text.substring(text.length - all)}';
     return text;
-  }
-
-  /// A brief as the model wrote it, kept only in its shape: lines saying
-  /// what was decided or is open, at most eight. Null when nothing fits.
-  static String? briefFrom(String written) {
-    final lines = [
-      for (final l in written.split('\n'))
-        if (RegExp(r'^\s*[-*]?\s*(Decided|Open):', caseSensitive: false).hasMatch(l))
-          l.replaceFirst(RegExp(r'^\s*[-*]?\s*'), '').trim(),
-    ];
-    if (lines.isEmpty) return null;
-    return lines.take(8).join('\n');
   }
 
   /// A summary as the model wrote it: one line, no quotes, not too long.
@@ -280,8 +267,8 @@ class ChatKeeper {
     }
   }
 
-  /// Keeps thread [id] and its chat current now: its summary and the
-  /// chat's brief, then what the chat is about, said again as it stands.
+  /// Keeps chat [id] current now: its summary (what a move to another
+  /// connection hands over), then what it is about, said again as it stands.
   Future<void> keep(String id) async {
     await _keep(id);
     await describe(id);
@@ -319,34 +306,6 @@ class ChatKeeper {
     if (summary != null && now != null && now.summary != summary) {
       if (_disposed) return;
       await _sessions.save(now.copyWith(summary: summary));
-    }
-
-    // Its chat's brief, unless the person wrote it, or no model runs here.
-    final chat = s.chatId == null ? null : _chats.byId(s.chatId!);
-    if (chat == null || chat.briefByPerson || said == null) return;
-    final wrote = await _writer.write(
-      "You keep a chat's brief: what has been decided and what is still open, about one "
-      'topic, across conversations.\n\n'
-      'Current brief:\n<brief>\n${chat.brief.isEmpty ? '(empty)' : chat.brief}\n</brief>\n\n'
-      'A conversation in this chat just went quiet:\n<conversation>\n$text\n</conversation>\n\n'
-      "Write the updated brief: lines starting 'Decided:' or 'Open:', at most 8 lines, each "
-      'under 25 words. Keep what still holds from the current brief, add what this '
-      'conversation decided or left open, drop what it settled. Only facts from the text. '
-      'Output only the lines.',
-    );
-    final brief = wrote == null ? null : briefFrom(wrote.text);
-    await _log?.upkeep(
-      what: 'brief',
-      thread: id,
-      chat: chat.id,
-      model: wrote?.model,
-      promptTokens: wrote?.promptTokens,
-      outputTokens: wrote?.outputTokens,
-      kept: brief != null,
-    );
-    if (brief != null && brief != chat.brief) {
-      if (_disposed) return;
-      await _chats.setBrief(chat.id, brief, byPerson: false);
     }
   }
 

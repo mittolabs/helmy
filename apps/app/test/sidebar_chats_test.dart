@@ -52,48 +52,16 @@ void main() {
     await root.delete(recursive: true);
   });
 
-  test("every row is a chat: its threads together, where its newest was", () async {
+  test('every row is one conversation: one put in a chat with another gets its own', () async {
     final budget = await thread('November budget');
     final trip = await thread('Lisbon trip');
     final car = await thread('Car loan', chatId: sessions.byId(budget.id)!.chatId);
     final entries = vm.entriesOf(vm.shown);
-    expect(entries.length, 2);
-    expect(
-      entries.first.chat?.id,
-      sessions.byId(budget.id)!.chatId,
-      reason: 'its newest thread is the newest',
-    );
-    expect([for (final t in entries.first.threads) t.id], [car.id, budget.id]);
-    expect(
-      (entries.last.chat?.id, entries.last.threads.single.id),
-      (sessions.byId(trip.id)!.chatId, trip.id),
-      reason: 'a chat of one thread is a chat all the same',
-    );
-    expect(vm.titleOf(entries.last), 'Lisbon trip');
-  });
-
-  test('earlier threads that belong together are suggested, moved only when chosen', () async {
-    final money = await thread('Monthly budget for November');
-    await thread('Paying off the car loan', chatId: sessions.byId(money.id)!.chatId);
-    final loose = await thread('Car loan and budget for December');
-    await thread('A haiku about rain');
-    final found = vm.suggestions;
-    expect([for (final f in found) f.thread.id], [loose.id]);
-    expect(found.single.into.id, sessions.byId(money.id)!.chatId);
-
-    await vm.applySuggestions(found);
-    expect(sessions.byId(loose.id)!.chatId, sessions.byId(money.id)!.chatId);
-    expect(settings.settings.groupingReviewed, isTrue);
-    expect(vm.suggestions, isEmpty, reason: 'offered once');
-  });
-
-  test('dismissed, nothing moves and it is not offered again', () async {
-    final money = await thread('Monthly budget for November');
-    await thread('Paying off the car loan', chatId: sessions.byId(money.id)!.chatId);
-    final loose = await thread('Car loan and budget for December');
-    final before = sessions.byId(loose.id)!.chatId;
-    await vm.applySuggestions(const []);
-    expect(sessions.byId(loose.id)!.chatId, before);
-    expect(vm.suggestions, isEmpty);
+    expect(entries.length, 3);
+    for (final e in entries) {
+      expect(e.threads, hasLength(1), reason: 'a chat is one conversation');
+    }
+    expect(sessions.byId(car.id)!.chatId, isNot(sessions.byId(budget.id)!.chatId));
+    expect(vm.titleOf(entries.firstWhere((e) => e.threads.single.id == trip.id)), 'Lisbon trip');
   });
 }

@@ -8,17 +8,17 @@ void main() {
 
   test("the repository's own way adds nothing; a chosen one is said", () {
     expect(writingStyleFor('repository', 'ignored'), isEmpty);
-    expect(identityWith(null), helmyIdentity);
+    expect(identityWith(), helmyIdentity);
     writingStyle = writingStyleFor('conventional', '');
-    expect(identityWith(null), contains('Conventional Commits: type(scope): subject'));
+    expect(identityWith(), contains('Conventional Commits: type(scope): subject'));
     writingStyle = writingStyleFor('custom', '  Subjects under 50 characters. ');
     expect(
-      identityWith('Decided: ship Friday'),
+      identityWith(),
       allOf(
         contains(
           'How the user wants commit messages and pull requests written: Subjects under 50 characters.',
         ),
-        endsWith('Decided: ship Friday'),
+        isNot(contains('Decided:')),
       ),
     );
     expect(helmyIdentity, contains('pull request template, fill it in'));

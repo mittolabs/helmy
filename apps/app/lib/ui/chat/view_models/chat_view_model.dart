@@ -34,8 +34,6 @@ import '../../../data/services/editors.dart';
 import '../widgets/file_popup.dart' show EditorChoice;
 import '../../../data/services/window_snapshots.dart';
 import '../../../data/repositories/chat_repository.dart';
-import '../../../data/services/turn_log.dart';
-import '../../../domain/filing.dart';
 import '../../../domain/activity_words.dart';
 import '../../../data/services/project_actions.dart';
 import '../../../domain/models/project_action.dart';
@@ -184,7 +182,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     this._editors,
     this._snaps,
     this._chats,
-    this._log,
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices, mac: mac, session: sessionId) {
     _attention?.viewing = sessionId;
@@ -303,215 +300,12 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   final EditorService? _editors;
   final WindowSnapshots? _snaps;
   final ChatRepository? _chats;
-  final TurnLog? _log;
 
-  // Filing (decision 0014): a new thread, after its first message, goes
-  // into the chat it belongs to, said on screen with Move and Undo.
-
-  /// What filing decided for this thread, to show; null when nothing to say.
-  Filing? filing;
-
-  /// The chat this thread is in, and its title.
+  /// The chat this conversation is, by its title.
   String? get chatTitle {
     final id = session?.chatId;
     return id == null ? null : _chats?.byId(id)?.title;
   }
-
-  Future<void> _file(String message) async {
-    final chats = _chats, s = session;
-    if (chats == null || s == null || s.sideOf != null || s.chatId == null || embedded) return;
-    final own = chats.byId(s.chatId!);
-    // Only a thread alone in a chat nobody named: one started in a chat stays.
-    if (own == null || own.named || chats.threadsOf(own.id).length != 1) return;
-    final f = file(message, chats.cards(except: own.id));
-    unawaited(
-      _log?.filing(
-        thread: s.id,
-        kind: f.kind.name,
-        chat: f.best,
-        score: f.bestScore,
-        runnerUp: f.runnerUp,
-        runnerUpScore: f.runnerUpScore,
-      ),
-    );
-    if (f.kind == .own) return;
-    if (f.kind == .file) {
-      await chats.move(s, f.best);
-    }
-    filing = f;
-    notifyListeners();
-  }
-
-  /// Gives this thread its chat's brief as it stands now, to keep for good.
-  Future<void> _freezeBrief([Session? thread]) async {
-    final s = thread ?? session, chats = _chats;
-    if (s == null || chats == null || s.chatId == null) return;
-    var brief = chats.byId(s.chatId!)?.brief ?? '';
-    // Other threads but no brief yet: still said, so the agent knows they
-    // are there to look into.
-    if (brief.isEmpty && chats.threadsOf(s.chatId!).any((t) => t.id != s.id)) {
-      brief = '(No brief yet.)';
-    }
-    if ((s.brief ?? '') == brief) return;
-    await _sessions.save(s.copyWith(brief: brief));
-  }
-
-  /// A thread moved while it is new (one message in) takes its new chat's
-  /// brief; later it keeps the one it began with, which its cache is of.
-  Future<void> _rebrief() async {
-    if (items.whereType<UserMessage>().length <= 1) await _freezeBrief();
-  }
-
-  /// Files this thread into [chatId] (an answer to Helmy's question, or a
-  /// move): a correction, logged.
-  Future<void> fileInto(String? chatId) async {
-    final chats = _chats, s = session;
-    if (chats == null || s == null) return;
-    final from = s.chatId;
-    final to = await chats.move(s, chatId);
-    await _rebrief();
-    await _log?.correction(
-      what: filing?.kind == .ask ? 'answer' : 'move',
-      thread: s.id,
-      from: from,
-      to: to,
-    );
-    filing = (kind: FilingKind.file, best: to, bestScore: 1, runnerUp: null, runnerUpScore: 0);
-    notifyListeners();
-  }
-
-  /// Takes the filing back: the thread goes back into a chat of its own.
-  Future<void> undoFiling() async {
-    final chats = _chats, s = session;
-    if (chats == null || s == null) return;
-    final from = s.chatId;
-    final to = await chats.move(s, null);
-    await _rebrief();
-    await _log?.correction(what: 'undo', thread: s.id, from: from, to: to);
-    filing = null;
-    notifyListeners();
-  }
-
-  /// The chip put away, the filing kept.
-  void dismissFiling() {
-    filing = null;
-    notifyListeners();
-  }
-
-  // A chat's threads, in its conversation (decision 0014): the others above
-  // this one, oldest worked in first, each folded to what it came to.
-
-  /// The other threads of this thread's chat, oldest worked in first.
-  List<Session> get earlierThreads {
-    final s = session, chats = _chats;
-    if (s == null || chats == null || s.chatId == null || s.sideOf != null || embedded) {
-      return const [];
-    }
-    final list = chats.threadsOf(s.chatId!).where((t) => t.id != s.id).toList()
-      ..sort((a, b) => lastWorked(a).compareTo(lastWorked(b)));
-    // Read in the background, for their summaries and to open them.
-    for (final t in list) {
-      if (!_conversations.of(t.id).loaded && _reading.add(t.id)) {
-        unawaited(_conversations.load(t.id).then((_) => notifyListeners()));
-      }
-    }
-    return list;
-  }
-
-  final _reading = <String>{};
-
-  /// When [t] was last worked in: its last message or answer.
-  DateTime lastWorked(Session t) {
-    final ended = _conversations.of(t.id).items.whereType<TurnSummary>().lastOrNull?.endedAt;
-    return ended != null && ended.isAfter(t.updatedAt) ? ended : t.updatedAt;
-  }
-
-  /// [id]'s conversation, to show folded or open.
-  List<ChatItem> itemsOf(String id) => _conversations.of(id).items;
-
-  /// What [t] came to, in a line: Helmy's summary of it, else how it began.
-  String gistOf(Session t) {
-    final summary = t.summary?.trim() ?? '';
-    if (summary.isNotEmpty) return summary;
-    final first = itemsOf(t.id).whereType<UserMessage>().firstOrNull?.text.trim() ?? '';
-    return first.split('\n').first;
-  }
-
-  /// The earlier threads shown open.
-  final unfolded = <String>{};
-
-  void toggleThread(String id) {
-    if (!unfolded.remove(id)) unfolded.add(id);
-    notifyListeners();
-  }
-
-  /// A new thread in this chat, in this thread's folder and at its level:
-  /// it starts with the chat's brief, not this thread's history. Its id.
-  Future<String?> newThread() async {
-    final s = session;
-    if (s == null) return null;
-    final made = await _sessions.create(
-      cwd: s.cwd,
-      level: s.level,
-      chatId: s.chatId,
-      title: 'New thread',
-    );
-    return switch (made) {
-      Ok(:final value) => value.id,
-      Error() => null,
-    };
-  }
-
-  /// After this long without a word, a message starts a new thread.
-  static const quietGap = Duration(hours: 6);
-
-  /// Threads started on their own, by the thread they followed, for
-  /// "keep going in the last one".
-  static final startedAfter = <String, String>{};
-
-  /// Where the screen should go: a thread started by sending here.
-  final openThread = ValueNotifier<String?>(null);
-
-  /// Whether [text] goes to a new thread rather than this one: this thread
-  /// has gone quiet, and nothing ties the message to it (its own working
-  /// copy, a scheduled run, a command, something waiting).
-  bool _startsAfresh(Session s, String text, DateTime now) =>
-      !embedded &&
-      s.sideOf == null &&
-      s.chatId != null &&
-      !s.ownCopy &&
-      s.taskId == null &&
-      !text.trim().startsWith('!') &&
-      !busy &&
-      queue.isEmpty &&
-      items.any((i) => i is UserMessage) &&
-      now.difference(lastWorked(s)) >= quietGap;
-
-  /// Takes a thread started on its own back: its message goes to the thread
-  /// before it instead, and it is gone. The thread to open.
-  Future<String?> keepGoingInLast() async {
-    final s = session;
-    final last = startedAfter.remove(sessionId);
-    if (s == null || last == null) return null;
-    final before = _sessions.byId(last);
-    if (before == null) return null;
-    final first = items.whereType<UserMessage>().firstOrNull;
-    await _conversations.stop(sessionId);
-    await _conversations.forget(sessionId);
-    await _sessions.delete(sessionId);
-    if (first != null) {
-      await _conversations.send(before, first.text, attachments: first.attachments);
-    }
-    return last;
-  }
-
-  /// Every other chat, for Move.
-  List<({String id, String title})> get otherChats => [
-    for (final c in _chats?.chats ?? const [])
-      if (c.id != session?.chatId) (id: c.id, title: c.title),
-  ];
-
-  String? chatTitleOf(String? id) => id == null ? null : _chats?.byId(id)?.title;
 
   /// Snapshots [window] into the message being written: its picture, and its
   /// text where macOS gives it. What came of it, to say so when it did not.
@@ -544,8 +338,24 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   /// This session's side chats, newest first.
   List<Session> get sideChats => [
     for (final s in _sessions.sessions)
-      if (s.sideOf == sessionId) s,
+      if (s.sideOf == sessionId && !s.agent) s,
   ];
+
+  /// This chat's background agents, oldest first.
+  List<Session> get agents => [
+    for (final s in _sessions.sessions)
+      if (s.sideOf == sessionId && s.agent) s,
+  ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+  /// How background agent [id] stands.
+  AgentState agentState(String id) {
+    final c = _conversations.of(id);
+    if (c.pendingPrompts > 0) return .needsYou;
+    if (c.busy) return .working;
+    final last = c.items.whereType<TurnSummary>().lastOrNull;
+    if (last == null) return .working;
+    return last.ok ? .done : .stopped;
+  }
 
   /// A side chat's name: its title once its first question named it.
   String sideTitle(String id) {
@@ -1419,13 +1229,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   Future<String?> fork(int upTo) async {
     final s = session;
     if (s == null) return null;
-    // A thread of the same chat.
-    final made = await _sessions.create(
-      cwd: s.cwd,
-      level: s.level,
-      title: '${s.title} fork',
-      chatId: s.chatId,
-    );
+    // A chat of its own.
+    final made = await _sessions.create(cwd: s.cwd, level: s.level, title: '${s.title} fork');
     if (made case Ok(:final value)) {
       await _conversations.copy(s.id, value.id, upTo: upTo, note: 'Forked from "${s.title}"');
       return value.id;
@@ -1812,30 +1617,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     final needs = {...pendingNeeds};
     attachments.clear();
     pendingNeeds.clear();
-    // Back after a quiet gap: a new thread in this chat, which starts with
-    // the chat's brief rather than this thread's whole history.
-    if (_startsAfresh(s, text, DateTime.now())) {
-      final id = await newThread();
-      final fresh = id == null ? null : _sessions.byId(id);
-      if (fresh != null) {
-        startedAfter[fresh.id] = s.id;
-        await _freezeBrief(fresh);
-        final sent = await _conversations.send(
-          _sessions.byId(fresh.id) ?? fresh,
-          text.trim(),
-          attachments: files,
-          needs: needs,
-        );
-        openThread.value = fresh.id;
-        return sent;
-      }
-    }
-    // A thread's first message: filed first (local, at once), so it starts
-    // in its chat knowing the chat's brief, frozen for the thread.
-    if (!items.any((i) => i is UserMessage)) {
-      await _file(text);
-      await _freezeBrief();
-    }
     return _conversations.send(session ?? s, text.trim(), attachments: files, needs: needs);
   }
 
@@ -2063,8 +1844,8 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
         // Already gone.
       }
     }
-    // Its side chats go with it.
-    for (final side in sideChats) {
+    // Its side chats and background agents go with it.
+    for (final side in [...sideChats, ...agents]) {
       await _conversations.forget(side.id);
       await _sessions.delete(side.id);
     }
@@ -2097,7 +1878,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     device?.dispose();
     focusRequests.dispose();
     draftInserts.dispose();
-    openThread.dispose();
     _sessions.removeListener(notifyListeners);
     _sessions.removeListener(_findRepoLater);
     _conversations.removeListener(notifyListeners);
@@ -2152,3 +1932,6 @@ bool isMobileProject(String folder) {
     return false;
   }
 }
+
+/// How a background agent stands.
+enum AgentState { working, needsYou, done, stopped }

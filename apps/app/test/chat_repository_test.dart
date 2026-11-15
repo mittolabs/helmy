@@ -57,32 +57,41 @@ void main() {
     ], reason: 'side chats are not threads of the list');
   });
 
-  test('threads moved together make one chat; the one left empty goes', () async {
-    await chats.load();
-    final a = await thread('Budget for November');
-    final b = await thread('Taxes', cwd: '/w/money');
-    final side = await thread('A question', sideOf: b.id);
-    final ca = sessions.byId(a.id)!.chatId!, cb = sessions.byId(b.id)!.chatId!;
-    await chats.move(sessions.byId(b.id)!, ca);
-    expect(chats.threadsOf(ca).map((s) => s.id).toSet(), {a.id, b.id});
-    expect(sessions.byId(side.id)!.chatId, ca, reason: 'side chats move with their thread');
-    expect(chats.byId(cb), isNull);
-    expect(chats.placesOf(ca).toSet(), {'/w/site', '/w/money'});
-    // Two threads: the chat keeps its title rather than following one.
-    await sessions.save(sessions.byId(a.id)!.copyWith(title: 'Renamed thread'));
-    expect(chats.byId(ca)!.title, 'Budget for November');
+  test('a chat that held two conversations becomes two, each with its side chats', () async {
+    // As a chat was before: one topic, two conversations in it.
+    await storage.write('chats.json', [
+      {
+        'id': 'c1',
+        'title': 'Dust Run game',
+        'createdAt': '2026-11-01T10:00:00.000',
+        'topic': 'Code',
+        'icon': 'gamepad',
+      },
+    ]);
+    final first = await thread('Plan the game');
+    final second = await thread('Draw the bikes');
+    final side = await thread('Which colors?', sideOf: second.id);
+    await sessions.save(sessions.byId(first.id)!.copyWith(chatId: 'c1'));
+    await sessions.save(sessions.byId(second.id)!.copyWith(chatId: 'c1'));
+    await sessions.save(sessions.byId(side.id)!.copyWith(chatId: 'c1'));
 
-    // Out again, into a chat of its own.
-    final own = await chats.move(sessions.byId(b.id)!, null);
-    expect(chats.threadsOf(own).single.id, b.id);
+    await chats.load();
+    expect(sessions.byId(first.id)!.chatId, 'c1', reason: 'the first stays in its chat');
+    final own = sessions.byId(second.id)!.chatId!;
+    expect(own, isNot('c1'));
+    expect(chats.threadsOf('c1').map((t) => t.id), [first.id]);
+    expect(chats.threadsOf(own).map((t) => t.id), [second.id]);
+    expect(sessions.byId(side.id)!.chatId, own, reason: 'its side chat goes with it');
+    expect(chats.byId(own)!.title, 'Draw the bikes');
+    expect(chats.byId(own)!.topic, 'Code');
+    expect(chats.byId(own)!.icon, 'gamepad');
   });
 
-  test('a name and a brief the person wrote hold, and are kept on disk', () async {
+  test('a name the person gave holds, and is kept on disk', () async {
     await chats.load();
     final a = await thread('Budget');
     final id = sessions.byId(a.id)!.chatId!;
     await chats.rename(id, 'Finances');
-    await chats.setBrief(id, 'Decided: a budget per month. Open: the car.');
     await sessions.save(sessions.byId(a.id)!.copyWith(title: 'Budget for December'));
     expect(chats.byId(id)!.title, 'Finances', reason: 'named by the person');
 
@@ -90,6 +99,5 @@ void main() {
     addTearDown(again.dispose);
     await again.load();
     expect(again.byId(id)!.title, 'Finances');
-    expect(again.byId(id)!.brief, startsWith('Decided'));
   });
 }

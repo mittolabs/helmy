@@ -23,7 +23,6 @@ void main() {
 
   test("Helmy's own keys, and a saved choice read back", () {
     expect(AppCommand.newChat.standard.label, '⌘N');
-    expect(AppCommand.newThread.standard.label, '⇧⌘N');
     expect(AppCommand.settings.standard.label, '⌘,');
     const mine = KeyBinding(key: LogicalKeyboardKey.keyJ, command: true, alt: true);
     expect(KeyBinding.parse(mine.saved), mine);

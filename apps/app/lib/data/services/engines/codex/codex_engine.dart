@@ -653,7 +653,7 @@ class _CodexRun implements EngineRun {
         'approvalPolicy': approval,
         'sandbox': sandbox,
         // Added to Codex's own instructions: it answers as Helmy.
-        'developerInstructions': identityWith(launch.brief, lessons: launch.lessons),
+        'developerInstructions': identityWith(lessons: launch.lessons),
         ..._provider,
         'model': ?launch.model,
       };

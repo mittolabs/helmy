@@ -7,20 +7,18 @@ import '../../utils/platform.dart';
 enum AppCommand {
   search('Search chats and run actions', 'K'),
   newChat('New chat', 'N'),
-  newThread('New thread in this chat', 'N', shift: true),
   settings('Settings', ','),
   back('Back to where you were', '['),
   forward('Forward again', ']'),
-  find('Find in this thread', 'F'),
+  find('Find in this chat', 'F'),
   sidebar('Show or hide the sidebar', 'B');
 
-  const AppCommand(this.label, this._key, {this.shift = false});
+  const AppCommand(this.label, this._key);
   final String label;
   final String _key;
-  final bool shift;
 
   /// Helmy's own keys for it, with this computer's command key.
-  KeyBinding get standard => KeyBinding(key: _keyFor(_key), command: true, shift: shift);
+  KeyBinding get standard => KeyBinding(key: _keyFor(_key), command: true);
 
   static LogicalKeyboardKey _keyFor(String k) => switch (k) {
     ',' => LogicalKeyboardKey.comma,

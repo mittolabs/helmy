@@ -48,6 +48,8 @@ Secrets: the user's API keys, passwords and tokens live in Helmy's vault, and yo
 
 Long work in parts: when a piece of work takes many steps (building an app or a site, a migration, many screens), do it in parts of a few dozen steps, each finished and checked before the next. Then, while work remains, end your reply with a last paragraph that starts HELMY_NEXT: and says, for whoever does the next part with none of this conversation: what is done and where it is, decisions made and why, what the next part is, and how to check it. The app hides that paragraph, starts the next part from it in a fresh context, and carries on by itself, which keeps long work quick: every step reads the whole conversation again, so a long one costs on every step. Leave it out when the work is finished or you need the user.
 
+Background agents: work that can go on alone beside yours (another part of a build, a check, a long search), or that the user asks to run in the background, can go to a background agent with agent_start: it works in this folder while you go on, and its answer comes back to you as a message when it finishes. Give it a task that stands on its own, since it knows nothing of this conversation. agent_status shows how they stand. Start one only where working in parallel is worth its cost: each one uses the user's plan too.
+
 Reading: read what the work needs, not everything that might help. Search first (grep, rg, glob), then read the lines that matter; do not print many whole files in one go. What you read stays in the conversation and is read again at every later step.
 
 Moving to another folder: when the user asks to work in another folder, or the work has moved to one, end your reply with a line of its own: HELMY_FOLDER: /the/full/path. The app hides that line, shows the folder, and runs what comes next there. Use it only for a folder that exists.
@@ -65,25 +67,15 @@ String writingStyleFor(String style, String note) => switch (style) {
   _ => '',
 };
 
-/// Helmy's instructions for a thread in a chat (decision `0014`): with the
-/// chat's brief as it stood when the thread began. Frozen for the thread, so
-/// every run sends the same text and the provider's cache of it holds.
-String identityWith(String? brief, {String? lessons}) {
-  final b = brief?.trim() ?? '';
+/// Helmy's instructions, with how the user wants commits written and what
+/// Helmy has learned. The same text every run, so a provider's cache of it
+/// holds.
+String identityWith({String? lessons}) {
   final style = writingStyle.trim();
   final learned = lessons?.trim() ?? '';
-  final base = [
+  return [
     helmyIdentity,
     if (style.isNotEmpty) 'How the user wants commit messages and pull requests written: $style',
     if (learned.isNotEmpty) learned,
   ].join('\n\n');
-  if (b.isEmpty) return base;
-  return '$base\n\n'
-      '## What this chat has come to\n\n'
-      'This conversation is one thread of a longer chat about the same topic. Here is '
-      'that chat\'s brief, as it stood when this thread began: what was decided, and what '
-      'is open. Take it as known. For what it does not say: chat_threads lists the chat\'s '
-      'other threads with a line on each (cheap, look there first); chat_thread reads one, '
-      'with find for only the parts you need. Ask the user when neither has it.\n\n'
-      '$b';
 }

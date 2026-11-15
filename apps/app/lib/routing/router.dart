@@ -10,8 +10,7 @@ import '../ui/chat/widgets/chat_screen.dart';
 import '../ui/schedule/view_models/schedule_view_model.dart';
 import '../ui/schedule/widgets/schedule_screen.dart';
 import '../ui/pull_requests/pull_requests_screen.dart';
-import '../ui/chats/chat_page_screen.dart';
-import '../ui/chats/chat_page_view_model.dart';
+import '../data/repositories/chat_repository.dart';
 import '../ui/pull_requests/pull_requests_view_model.dart';
 import '../ui/settings/view_models/settings_view_model.dart';
 import '../ui/settings/widgets/settings_screen.dart';
@@ -39,7 +38,6 @@ GoRouter router(String initialLocation) => GoRouter(
           projects: context.read(),
           fixes: context.read(),
           chats: context.read(),
-          log: context.read(),
           ship: context.read<ShipRepository>(),
           prs: context.read<PullRequests>(),
         ),
@@ -64,19 +62,15 @@ GoRouter router(String initialLocation) => GoRouter(
             builder: (vm) => ScheduleScreen(viewModel: vm),
           ),
         ),
+        // A chat's own page, from before a chat was one conversation: its
+        // conversation now.
         GoRoute(
           path: '/c/:id',
-          builder: (context, state) => _Kept(
-            key: ValueKey(state.uri.toString()),
-            create: (context) => ChatPageViewModel(
-              chatId: state.pathParameters['id']!,
-              chats: context.read(),
-              sessions: context.read(),
-              log: context.read(),
-              writer: context.read(),
-            ),
-            builder: (vm) => ChatPageScreen(viewModel: vm),
-          ),
+          redirect: (context, state) {
+            final id = state.pathParameters['id']!;
+            final s = context.read<ChatRepository>().threadsOf(id).firstOrNull;
+            return s == null ? '/' : '/s/${s.id}';
+          },
         ),
         GoRoute(
           path: '/pulls',
@@ -113,7 +107,6 @@ GoRouter router(String initialLocation) => GoRouter(
               editors: context.read(),
               snaps: context.read(),
               chats: context.read(),
-              log: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),

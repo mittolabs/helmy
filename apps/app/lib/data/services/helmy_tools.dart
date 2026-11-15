@@ -7,7 +7,7 @@ import '../../utils/platform.dart';
 import 'browser/browser_tools.dart';
 import 'chat_app_tools.dart';
 import 'vault_tools.dart';
-import 'chat_tools.dart';
+import 'agent_tools.dart';
 import 'devices.dart';
 import 'mac/mac_tools.dart';
 import '../../utils/image_size.dart';
@@ -28,8 +28,8 @@ class HelmyTools {
   final DeviceService? _devices;
   final BrowserTools? _browser;
 
-  /// The rest of a session's chat, for its agent: set once chats are ready.
-  ChatTools? chats;
+  /// Background agents, for a chat's agent: set once conversations are ready.
+  AgentTools? agents;
 
   /// Chat apps (games and things to use in the chat): set once
   /// conversations are ready.
@@ -80,7 +80,7 @@ class HelmyTools {
     'mcp__helmy__watch_video',
     for (final t in deviceTools) 'mcp__helmy__$t',
     for (final t in BrowserTools.names) 'mcp__helmy__$t',
-    for (final t in ChatTools.names) 'mcp__helmy__$t',
+    for (final t in AgentTools.names) 'mcp__helmy__$t',
     for (final t in ChatAppTools.names) 'mcp__helmy__$t',
     for (final t in VaultTools.names) 'mcp__helmy__$t',
     for (final t in MacTools.free) 'mcp__helmy__$t',
@@ -179,7 +179,7 @@ class HelmyTools {
               },
               if (_devices != null && devicesAllowed()) ..._deviceToolList,
               if (_browser != null && browserAllowed(session)) ...BrowserTools.list,
-              if (chats != null) ...ChatTools.list,
+              if (agents != null) ...AgentTools.list,
               if (apps != null) ...ChatAppTools.list,
               if (vault != null) ...VaultTools.list,
               if (mac != null) ...MacTools.list,
@@ -211,8 +211,8 @@ class HelmyTools {
       }
       return _browser.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
-    if (ChatTools.names.contains(name) && chats != null) {
-      return chats!.call(name, (params['arguments'] as Map?) ?? const {}, session);
+    if (AgentTools.names.contains(name) && agents != null) {
+      return agents!.call(name, (params['arguments'] as Map?) ?? const {}, session);
     }
     if (ChatAppTools.names.contains(name) && apps != null) {
       return apps!.call(name, (params['arguments'] as Map?) ?? const {}, session);

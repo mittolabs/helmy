@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/domain/models/settings.dart';
-import 'package:helmy/ui/chat/widgets/chat_items.dart';
 import 'package:helmy/ui/core/ashlar/app_theme.dart';
 import 'package:helmy/utils/format.dart';
 import 'package:helmy/utils/platform.dart';
@@ -19,7 +18,6 @@ void main() {
     expect(clock(t, seconds: true), '1:05:09 PM');
     use24Hour = true;
     expect(clock(t), '13:05');
-    expect(threadStamp(DateTime(2026, 11, 2, 17, 40), DateTime(2026, 11, 5)), 'Nov 2, 17:40');
   });
 
   test('the chosen code font comes first, the usual ones after', () {

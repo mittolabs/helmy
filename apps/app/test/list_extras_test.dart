@@ -124,18 +124,6 @@ void main() {
     },
   );
 
-  test('a chat dragged into another joins it, and undo puts it back on its own', () async {
-    final a = await thread('Budget');
-    final b = await thread('Groceries');
-    final target = sessions.byId(a.id)!.chatId!;
-    await list.mergeInto(list.chatOf(b), target);
-    expect(sessions.byId(b.id)!.chatId, target);
-    expect(list.entriesOf(list.shown), hasLength(1));
-    await list.undo();
-    expect(sessions.byId(b.id)!.chatId, isNot(target));
-    expect(list.entriesOf(list.shown), hasLength(2));
-  });
-
   test('a draft put aside comes back, latest first, after a restart too', () async {
     final stash = StashRepository(storageAt(root));
     await stash.load();
