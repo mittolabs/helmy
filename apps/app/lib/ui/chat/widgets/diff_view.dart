@@ -55,6 +55,8 @@ class DiffView extends StatelessWidget {
               )
             : const SizedBox.shrink();
         Widget cell(String? text, DiffKind kind, {required bool before, String? other}) {
+          text = _shorter(text);
+          other = _shorter(other);
           final tone = switch (kind) {
             .added => ink.added,
             .removed => ink.removed,
@@ -241,3 +243,12 @@ class _Ink {
     };
   }
 }
+
+/// A line of a diff as far as it is shown: a line can be megabytes (a
+/// picture written as base64), more than anyone reads and longer than the
+/// screen can lay out quickly.
+const diffLineShown = 2000;
+
+String? _shorter(String? line) => line == null || line.length <= diffLineShown
+    ? line
+    : '${line.substring(0, diffLineShown)}… ${line.length - diffLineShown} more characters';

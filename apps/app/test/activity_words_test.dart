@@ -52,4 +52,21 @@ void main() {
     expect(localServerInText('Listening on http://0.0.0.0:5173/'), 'http://localhost:5173/');
     expect(isInternalConnectionUrl('https://example.com/mcp/docs'), isFalse);
   });
+
+  test('a command megabytes long (a picture as base64) is named at once', () {
+    // Base64 is long words full of slashes: a path pattern free to start
+    // anywhere took half an hour on 3 MB, on the screen's own thread.
+    final chunk =
+        'iVBORw0KGgoAAAANSUhEUgAAA/AAAA+gCAYAAAB/kd/Q7Q2Y3h0dHA6Ly9ucy5hZG9iZS5j/b20veGFwLzEu';
+    final picture = List.filled(3000000 ~/ chunk.length, chunk).join();
+    final command =
+        'node -e \'require("fs").writeFileSync("assets/art/bikes.png", '
+        'Buffer.from(process.argv[1], "base64"))\' $picture';
+    final watch = Stopwatch()..start();
+    final label = specificCommandLabel(command, done: true);
+    commandActivity(command);
+    namedFiles(command);
+    expect(watch.elapsedMilliseconds, lessThan(500));
+    expect(label, isNotEmpty);
+  });
 }
