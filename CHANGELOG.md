@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.18.0](https://github.com/mittolabs/helmy/compare/v0.17.0...v0.18.0) (2026-11-15)
+
+
+### Features
+
+* **chat:** see how full a working chat's conversation is ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+* **chat:** set a goal with /goal, and Helmy keeps going until it's met ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+* **search:** the chats you open most come first in search ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+* **usage:** see this month's tokens per connection, cached and not ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+
+
+### Bug Fixes
+
+* **download:** downloads stay available while a release is being built ([#75](https://github.com/mittolabs/helmy/issues/75)) ([01b338d](https://github.com/mittolabs/helmy/commit/01b338d375e89a1156def735ce441395159a5fbc))
+
+
+### Performance Improvements
+
+* **chat:** a long conversation you come back to is compacted first ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+* **chat:** a long turn ends its part early, so each step reads less ([1cb5412](https://github.com/mittolabs/helmy/commit/1cb54125204d717fd363d527972205e1c0b2d58e))
+
 ## [0.17.0](https://github.com/mittolabs/helmy/compare/v0.16.1...v0.17.0) (2026-11-15)
 
 
