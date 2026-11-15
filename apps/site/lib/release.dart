@@ -21,25 +21,49 @@ class Release {
   /// The systems in the order a reader looks for them.
   static const systems = ['macOS', 'Windows', 'Linux', 'Android', 'Chrome'];
 
-  /// The release the download page offers: of the recent ones `make site` fetched
-  /// into `.release.json` (newest first), the newest whose builds are all there.
-  /// A release just tagged has none until its builds are attached, and a page
-  /// built then would offer a version with nothing to download; the one before
-  /// is offered until they are. With none complete, the newest, its builds
-  /// still being made.
-  static Release? load() {
+  /// The desktop systems every release is built for: a release is ready to offer
+  /// once it has a build for each. One just tagged has none until its builds are
+  /// attached, a few minutes later; until then the one before is offered, so there
+  /// is always something to download. (Android and Chrome come along when they are
+  /// there, and a release from before them is no less ready.)
+  static const _desktop = ['macOS', 'Windows', 'Linux'];
+
+  bool get ready => _desktop.every((s) => builds.any((b) => b.system == s && b.main));
+
+  /// The recent releases `make site` fetched into `.release.json`, newest first.
+  static List<Release> loadAll() {
     final f = File('.release.json');
-    if (!f.existsSync()) return null;
+    if (!f.existsSync()) return const [];
     try {
       final j = jsonDecode(f.readAsStringSync());
-      final all = [
+      return [
         for (final r in j is List ? j : [j])
           if (r is Map) ?_parse(r),
       ];
-      return all.where((r) => r.builds.length == _files.length).firstOrNull ?? all.firstOrNull;
     } on FormatException {
-      return null;
+      return const [];
     }
+  }
+
+  /// The release the download page offers: the newest that is [ready]; with
+  /// none ready, the newest, its builds still being made.
+  static Release? load() {
+    final all = loadAll();
+    return all.where((r) => r.ready).firstOrNull ?? all.firstOrNull;
+  }
+
+  /// A release newer than [shown] whose builds are still being made, to say so.
+  static Release? coming(Release shown) {
+    final all = loadAll();
+    final newest = all.firstOrNull;
+    return newest == null || newest.tag == shown.tag || newest.ready ? null : newest;
+  }
+
+  /// The releases before [shown], newest first: each still downloadable.
+  static List<Release> earlier(Release shown) {
+    final all = loadAll();
+    final at = all.indexWhere((r) => r.tag == shown.tag);
+    return at < 0 ? const [] : all.skip(at + 1).where((r) => r.builds.isNotEmpty).toList();
   }
 
   static Release? _parse(Map j) {
@@ -85,6 +109,12 @@ class Release {
       }
     }
     return null;
+  }
+
+  /// A release's date, as the page writes it: "Nov 15, 2026".
+  static String date(DateTime at) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[at.month - 1]} ${at.day}, ${at.year}';
   }
 
   static String size(int bytes) =>

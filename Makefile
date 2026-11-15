@@ -87,7 +87,7 @@ site-dev:
 # yet; with RELEASES=required (the release image), the build fails instead, so
 # a live page never loses its downloads.
 site:
-	curl -fsS $(if $(GITHUB_TOKEN),-H "Authorization: Bearer $(GITHUB_TOKEN)") 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=5' > $(SITE)/.release.json \
+	curl -fsS $(if $(GITHUB_TOKEN),-H "Authorization: Bearer $(GITHUB_TOKEN)") 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=20' > $(SITE)/.release.json \
 		|| { [ "$(RELEASES)" = required ] && echo "Could not read the releases from GitHub" >&2 && exit 1; echo '{}' > $(SITE)/.release.json; }
 	cd $(SITE) && $(JASPR) build
 
