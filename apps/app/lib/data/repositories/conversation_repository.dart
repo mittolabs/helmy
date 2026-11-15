@@ -50,6 +50,14 @@ abstract class ConversationRepository extends ChangeNotifier {
   }) async => null;
   Conversation of(String sessionId);
 
+  /// Says [text] in [sessionId]'s conversation, as Helmy: a line for the
+  /// person, never sent to a connection. Kept with the conversation when it
+  /// is next saved.
+  void note(String sessionId, String text) {
+    of(sessionId).items.add(Notice(text));
+    notifyListeners();
+  }
+
   Future<void> load(String sessionId);
 
   /// What was said in a session, as plain text to search, without loading it

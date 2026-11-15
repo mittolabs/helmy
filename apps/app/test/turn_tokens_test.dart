@@ -16,16 +16,20 @@ void main() {
     expect(shortCount(5240000), '5.2M');
   });
 
-  test('written, and in all; nothing unmeasured', () {
-    expect(tokensLabel(null), isNull);
-    expect(tokensLabel(const TurnTokens()), isNull);
+  test('written, and how full the conversation is; nothing unmeasured', () {
+    expect(tokensLabel(null, null), isNull);
+    expect(tokensLabel(const TurnTokens(), null), isNull);
     expect(
       tokensLabel(
         const TurnTokens(fresh: 210000, cacheRead: 52000000, cacheWrite: 8000, output: 182000),
+        const ContextUse(used: 168000, window: 200000),
       ),
-      '182k written · 52M in all',
+      '182k written · conversation 168k of 200k',
     );
-    // A connection that gives no written count: only the total.
-    expect(tokensLabel(const TurnTokens(fresh: 900, cacheRead: 100)), '1k in all');
+    // Before its first answer: how full it is, not a count of nothing.
+    expect(
+      tokensLabel(null, const ContextUse(used: 41000, window: 1000000)),
+      'conversation 41k of 1M',
+    );
   });
 }

@@ -15,6 +15,13 @@ class EchoEngine implements AgentEngine {
   var contextUsed = 1000;
   var failNext = false;
 
+  /// Takes a message mid-turn, as Claude Code does; what it took.
+  var steerable = false;
+  final steered = <String>[];
+
+  /// Each answer comes this much later: a turn long enough to steer into.
+  Duration answerAfter = Duration.zero;
+
   @override
   final EngineInfo info;
 
@@ -65,7 +72,13 @@ class _EchoRun implements EngineRun {
   void send(String text, {List<String> attachments = const []}) {
     engine.sent.add(text);
     final reply = engine.replies[(engine.sent.length - 1).clamp(0, engine.replies.length - 1)];
-    scheduleMicrotask(() {
+    if (engine.answerAfter > Duration.zero) {
+      // Working a while first, its conversation already as large as it says.
+      status.context = ContextUse(used: engine.contextUsed, window: 1000000);
+      _changes.add(false);
+    }
+    Future<void>.delayed(engine.answerAfter, () {
+      if (_changes.isClosed) return;
       status
         ..resumeId = 'thread-${engine.launches.length}'
         ..context = ContextUse(used: engine.contextUsed, window: 1000000);
@@ -88,7 +101,12 @@ class _EchoRun implements EngineRun {
   }
 
   @override
-  Future<bool> steer(String text, {List<String> attachments = const []}) async => false;
+  Future<bool> steer(String text, {List<String> attachments = const []}) async {
+    if (!engine.steerable) return false;
+    engine.steered.add(text);
+    return true;
+  }
+
   @override
   void interrupt() {}
   @override

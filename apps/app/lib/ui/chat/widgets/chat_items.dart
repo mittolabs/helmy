@@ -6,6 +6,7 @@ import 'dart:async';
 import '../../../domain/helmy_voice.dart';
 import '../../../domain/activity_words.dart';
 import '../../../domain/folder_move.dart';
+import '../../../domain/goal.dart';
 import '../../../domain/next_part.dart';
 
 import 'dart:io';
@@ -154,9 +155,8 @@ List<ChatRow> buildRows(ChatViewModel vm) {
         final streaming = vm.busy && i == items.length - 1;
         // A folder move, or a note for the next part, is Helmy's to act on,
         // not the user's to read.
-        final shown = withoutNextPart(
-          withoutFolderLines(text, streaming: streaming),
-          streaming: streaming,
+        final shown = withoutGoalMarker(
+          withoutNextPart(withoutFolderLines(text, streaming: streaming), streaming: streaming),
         );
         if (shown.isEmpty) continue;
         rows.add((

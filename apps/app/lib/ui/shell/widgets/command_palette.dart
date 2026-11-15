@@ -108,7 +108,7 @@ Future<void> showPalette(BuildContext context, SidebarViewModel vm) async {
           onSelected: () => openSettings(router, SettingsSection.usage),
         ),
       ]),
-      CommandGroup(heading: 'Threads', [
+      CommandGroup(heading: 'Chats', [
         for (final (s, text) in index)
           CommandItem(
             s.archived ? '${s.title} (archived)' : s.title,

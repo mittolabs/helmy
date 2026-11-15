@@ -139,21 +139,83 @@ void main() {
       expect(engine.sent, hasLength(ConversationRepositoryEngines.partsInARow + 1));
     });
 
-    test('a conversation grown large is compacted between turns', () async {
-      final engine = EchoEngine(['Done.'])..contextUsed = ConversationRepositoryEngines.compactAt;
+    test('a large conversation gone cold is compacted before the message goes', () async {
+      final engine = EchoEngine(['Done.']);
       repo = make(engine);
       final s = await chat();
-      await repo.send(s, 'Build it');
-      await until(() => engine.compacted == 1 && !repo.of(s.id).busy);
+      // Last worked in two hours ago, 160K tokens: its cache has gone cold.
+      await sessions.save(
+        sessions
+            .byId(s.id)!
+            .copyWith(
+              size: 160000,
+              lastEngineId: 'claude',
+              updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+            ),
+      );
+      await repo.send(sessions.byId(s.id)!, 'Carry on');
+      await until(() => !repo.of(s.id).busy && engine.sent.length == 1);
+      expect(engine.compacted, 1, reason: 'compacted first');
+      expect(engine.sent, ['Carry on'], reason: 'then the message, after it');
+    });
 
-      final small = EchoEngine(['Done.']);
-      repo.dispose();
-      repo = make(small);
-      final t = await chat();
-      await repo.send(t, 'A small thing');
-      await until(() => !repo.of(t.id).busy && small.sent.length == 1);
+    test('a large conversation still in cache, or a small one, is left as it is', () async {
+      final engine = EchoEngine(['Done.']);
+      repo = make(engine);
+      final warm = await chat();
+      await sessions.save(
+        sessions
+            .byId(warm.id)!
+            .copyWith(
+              size: 160000,
+              lastEngineId: 'claude',
+              updatedAt: DateTime.now().subtract(const Duration(minutes: 20)),
+            ),
+      );
+      await repo.send(sessions.byId(warm.id)!, 'Carry on');
+      final small = await chat();
+      await sessions.save(
+        sessions
+            .byId(small.id)!
+            .copyWith(
+              size: 20000,
+              lastEngineId: 'claude',
+              updatedAt: DateTime.now().subtract(const Duration(hours: 5)),
+            ),
+      );
+      await repo.send(sessions.byId(small.id)!, 'And this');
+      await until(
+        () => !repo.of(warm.id).busy && !repo.of(small.id).busy && engine.sent.length == 2,
+      );
+      expect(engine.compacted, 0);
+    });
+
+    test('a turn grown long is asked, once, to end its part', () async {
+      final engine = EchoEngine(['Done.'])
+        ..steerable = true
+        ..contextUsed = ConversationRepositoryEngines.wrapUpAt + 5000
+        ..answerAfter = const Duration(milliseconds: 100);
+      repo = make(engine);
+      final s = await chat();
+      await repo.send(s, 'Build the whole app');
+      await until(() => !repo.of(s.id).busy && engine.sent.length == 1);
+      expect(engine.steered, [ConversationRepositoryEngines.wrapUpNote], reason: 'once');
+      final note = repo.of(s.id).items.whereType<UserMessage>().last;
+      expect(note.from, ConversationRepositoryEngines.wrapUpFrom);
+      expect(Approvals.byThePerson(note), isFalse);
+    });
+
+    test('a connection that takes nothing mid-turn is not asked, nor sent it later', () async {
+      final engine = EchoEngine(['Done.'])
+        ..contextUsed = ConversationRepositoryEngines.wrapUpAt + 5000
+        ..answerAfter = const Duration(milliseconds: 100);
+      repo = make(engine);
+      final s = await chat();
+      await repo.send(s, 'Build the whole app');
+      await until(() => !repo.of(s.id).busy && engine.sent.length == 1);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(small.compacted, 0);
+      expect(engine.sent, ['Build the whole app']);
+      expect(repo.of(s.id).queue, isEmpty);
     });
   });
 }

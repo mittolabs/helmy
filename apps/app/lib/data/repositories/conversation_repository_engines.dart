@@ -8,6 +8,7 @@ import '../../utils/result.dart';
 import '../services/engines/agent_engine.dart';
 import '../services/engines/decider.dart';
 import '../../domain/folder_move.dart';
+import '../../domain/goal.dart';
 import '../../domain/next_part.dart';
 import '../../domain/routing.dart';
 import '../services/engines/explainer.dart';
@@ -59,6 +60,9 @@ class _Turn {
 
   /// Begun by the agent itself, not by a message: it is never sent elsewhere.
   bool unasked = false;
+
+  /// The agent was asked to end its part: once a turn.
+  bool wrappingUp = false;
 
   /// Whether the model on this Mac has been asked about it yet.
   bool decided = false;
@@ -325,13 +329,26 @@ class ConversationRepositoryEngines extends ConversationRepository {
     String? from,
   }) async {
     final c = of(session.id);
-    // The person's own word: parts started by themselves count again from none.
-    if (from == null) _parts.remove(session.id);
+    // The person's own word: parts and goal turns started by themselves count
+    // again from none.
+    if (from == null) {
+      _parts.remove(session.id);
+      _goalTurns.remove(session.id);
+    }
     // Written while the agent works: it waits, and goes when the turn ends.
     if (c.busy) {
       c.queue.add((text: text, attachments: attachments, needs: needs, from: from));
       notifyListeners();
       return const .ok(null);
+    }
+    // Back to a large conversation gone cold: compacted first, the message
+    // waiting for it.
+    if (from == null && coldAndLarge(session, DateTime.now())) {
+      if (await compact(session) case Ok()) {
+        c.queue.add((text: text, attachments: attachments, needs: needs, from: from));
+        notifyListeners();
+        return const .ok(null);
+      }
     }
     // Busy from here, before anything is awaited: a message sent meanwhile waits.
     c.busy = true;
@@ -998,6 +1015,17 @@ class ConversationRepositoryEngines extends ConversationRepository {
     c.thinking = run.status.thinking;
     c.context = run.status.context ?? c.context;
     c.tokens = run.status.tokens;
+    // Grown long mid-turn: the agent is asked, once, to end the part where it is.
+    final working = _turns[sessionId];
+    if (!ended &&
+        c.busy &&
+        working != null &&
+        !working.wrappingUp &&
+        working.text != '/compact' &&
+        (c.context?.used ?? 0) >= wrapUpAt) {
+      working.wrappingUp = true;
+      unawaited(_wrapUp(sessionId));
+    }
     _judgeApprovals(sessionId, run);
     _meter.report(engineId, run.status.usage);
     final turn = _turns[sessionId];
@@ -1100,9 +1128,13 @@ class ConversationRepositoryEngines extends ConversationRepository {
           turn != null &&
           (turn.needs.any((n) => n != Capability.tools) || turn.unasked) &&
           session.lastEngineId != null;
-      final saved = detour
+      final kept = detour
           ? session.withThread(engineId, thread)
           : session.withThread(engineId, thread).copyWith(lastEngineId: engineId);
+      // How large the conversation is now, kept for when it is next written in.
+      final saved = run.status.context == null
+          ? kept
+          : kept.copyWith(size: run.status.context!.used);
       // Measured, not assumed: where it ran and what it cost.
       if (turn != null) {
         final moved = session.lastEngineId != null && session.lastEngineId != engineId;
@@ -1146,22 +1178,60 @@ class ConversationRepositoryEngines extends ConversationRepository {
         _startNextPart(sessionId, saved, next);
         return;
       }
+      if (turn != null && !turn.unasked && _goalGoesOn(sessionId, saved, turn)) return;
       _sessions.save(saved);
-      // A conversation grown large is compacted now, between turns: every
-      // step after reads the short version instead of all of it.
-      if (turn != null && turn.text != '/compact' && c.queue.isEmpty) {
-        if (run.status.context case final ctx? when ctx.used >= compactAt) {
-          unawaited(compact(saved));
-        }
-      }
     }
     _persist(sessionId);
     _next(sessionId);
   }
 
-  /// Tokens of conversation past which it is compacted between turns. Each
-  /// step of a turn reads all of it again, so a large one costs on every step.
+  /// Tokens of conversation past which it is compacted when the person comes
+  /// back to it cold. Each step of a turn reads all of it again, so a large
+  /// one costs on every step.
   static const compactAt = 150000;
+
+  /// How long a connection keeps a conversation in its prompt cache: an hour
+  /// on a subscription (Claude's writes say so). Within it, reading the
+  /// conversation again costs a tenth; past it, it costs in full.
+  static const promptCacheLife = Duration(hours: 1);
+
+  /// Back to a large conversation its connection no longer holds in cache:
+  /// the next message would read all of it afresh at every step, so it is
+  /// compacted first (as T3 Code does by default, "when you return"). A
+  /// conversation still in cache is left as it is: reading it is cheap, and a
+  /// compaction would cost a read of its own.
+  bool coldAndLarge(Session session, DateTime now) {
+    final used = of(session.id).context?.used ?? session.size ?? 0;
+    final last = _lastTurnEnd[session.id] ?? session.updatedAt;
+    return used >= compactAt && now.difference(last) >= promptCacheLife;
+  }
+
+  /// Tokens of conversation past which, during a turn, the agent is asked to
+  /// end the part it is on: the next part starts fresh from its note, which
+  /// costs nothing more than the answer it was writing.
+  static const wrapUpAt = 120000;
+
+  /// What asking the agent to end its part says, and who it is from.
+  static const wrapUpNote =
+      'The conversation has grown long, and every step reads all of it again. If the work is '
+      'not finished, finish the step you are on, then end this part with your HELMY_NEXT note, '
+      'so the next part starts fresh from it. If it is finished, just answer.';
+  static const wrapUpFrom = 'Helmy, keeping the conversation short';
+
+  /// Asks the agent working in [sessionId], mid-turn, to end its part: only
+  /// where the connection takes a message mid-turn. Never queued for later.
+  Future<void> _wrapUp(String sessionId) async {
+    final run = _active(sessionId);
+    if (run == null || !await run.steer(wrapUpNote)) return;
+    final c = of(sessionId);
+    c.items.add(
+      UserMessage(wrapUpNote)
+        ..from = wrapUpFrom
+        ..sentAt = DateTime.now(),
+    );
+    await _persist(sessionId);
+    if (!_disposed) notifyListeners();
+  }
 
   /// Parts Helmy started by itself in a row, by session, since the person
   /// last wrote: past [partsInARow], it waits for them.
@@ -1186,6 +1256,66 @@ class ConversationRepositoryEngines extends ConversationRepository {
     if (ended != null && !ended.ok) return null;
     if (c.queue.isNotEmpty) return null;
     return note;
+  }
+
+  /// Goal turns Helmy started by itself in a row, by session, since the person
+  /// last wrote: past [partsInARow], it waits for them.
+  final _goalTurns = <String, int>{};
+
+  /// A turn of a chat with a goal has ended: the goal is met (said, and
+  /// dropped), or Helmy asks the agent to keep going. True when it took the
+  /// turn's end in hand.
+  bool _goalGoesOn(String sessionId, Session saved, _Turn turn) {
+    final goal = saved.goal;
+    if (goal == null) return false;
+    final c = of(sessionId);
+    var met = false;
+    for (final a in c.items.skip(turn.start).whereType<AssistantText>()) {
+      if (goalMetIn(a.text)) {
+        met = true;
+        a.text = withoutGoalMarker(a.text);
+      }
+    }
+    if (met) {
+      _goalTurns.remove(sessionId);
+      _sessions.save(saved.copyWith(clearGoal: true));
+      c.items.add(Notice('Goal met: $goal'));
+      _persist(sessionId);
+      notifyListeners();
+      _next(sessionId);
+      return true;
+    }
+    if (saved.goalPaused || turn.text == '/compact') return false;
+    final ended = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+    // Stopped for the person: a failed turn, their stop, something waiting
+    // on them, or a message of theirs to come.
+    if (ended == null ||
+        !ended.ok ||
+        c.stoppedByYou ||
+        c.pendingPrompts > 0 ||
+        c.queue.isNotEmpty) {
+      return false;
+    }
+    final done = (_goalTurns[sessionId] ?? 0) + 1;
+    if (done > partsInARow) {
+      _goalTurns.remove(sessionId);
+      c.items.add(
+        Notice(
+          'I worked toward the goal for $partsInARow turns in a row. Say carry on and I will '
+          'keep going.',
+        ),
+      );
+      _sessions.save(saved);
+      _persist(sessionId);
+      notifyListeners();
+      _next(sessionId);
+      return true;
+    }
+    _goalTurns[sessionId] = done;
+    _sessions.save(saved);
+    _persist(sessionId);
+    unawaited(send(saved, goalNext(goal), from: goalFrom));
+    return true;
   }
 
   /// Starts the next part of long work from [note], in a fresh context: every
@@ -1226,7 +1356,8 @@ class ConversationRepositoryEngines extends ConversationRepository {
         (_) => send(
           fresh,
           'Carry on with the next part of the work. Where things stand, as you left it at '
-          'the end of the part before:\n\n$note',
+          'the end of the part before:\n\n$note'
+          '${fresh.goal == null || fresh.goalPaused ? '' : '\n\nThe standing goal of this work: ${fresh.goal}'}',
           from: nextPartFrom,
         ),
       ),
