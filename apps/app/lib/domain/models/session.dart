@@ -79,6 +79,10 @@ class const Session({
   final double opens = 0,
   final DateTime? openedAt,
 
+  /// Shared as a read-only link: where, and the gist's id to stop with.
+  final String? shareUrl,
+  final String? shareId,
+
   /// The chat this thread is part of (decision `0014`).
   final String? chatId,
 
@@ -164,6 +168,11 @@ class const Session({
     bool? goalPaused,
     double? opens,
     DateTime? openedAt,
+    String? shareUrl,
+    String? shareId,
+
+    /// No longer shared.
+    bool unshare = false,
 
     /// Drops [goal]: met, or cleared.
     bool clearGoal = false,
@@ -203,6 +212,8 @@ class const Session({
     goalPaused: clearGoal ? false : goalPaused ?? this.goalPaused,
     opens: opens ?? this.opens,
     openedAt: openedAt ?? this.openedAt,
+    shareUrl: unshare ? null : shareUrl ?? this.shareUrl,
+    shareId: unshare ? null : shareId ?? this.shareId,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -240,6 +251,8 @@ class const Session({
     if (goalPaused) 'goalPaused': true,
     if (opens > 0) 'opens': opens,
     if (openedAt != null) 'openedAt': openedAt!.toIso8601String(),
+    'shareUrl': ?shareUrl,
+    'shareId': ?shareId,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -287,6 +300,8 @@ class const Session({
       goalPaused: json['goalPaused'] == true,
       opens: (json['opens'] as num?)?.toDouble() ?? 0,
       openedAt: DateTime.tryParse('${json['openedAt'] ?? ''}'),
+      shareUrl: json['shareUrl'] as String?,
+      shareId: json['shareId'] as String?,
     );
   }
 }

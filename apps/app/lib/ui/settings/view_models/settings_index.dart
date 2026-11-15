@@ -229,6 +229,11 @@ const List<SettingEntry> settingsIndex = [
   (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key'),
   (title: 'Paired phones', section: .phone, keywords: 'unpair revoke remove phone devices'),
   (
+    title: 'Other computers',
+    section: .phone,
+    keywords: 'background agents another computer mac pc windows linux pair chrome extension link',
+  ),
+  (
     title: 'Keys and passwords',
     section: .vault,
     keywords: 'vault secrets api keys passwords tokens keychain env',

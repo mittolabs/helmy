@@ -41,6 +41,8 @@ import '../data/services/local_writer.dart';
 import '../data/services/chat_app_tools.dart';
 import '../data/services/chat_apps.dart';
 import '../data/services/agent_tools.dart';
+import '../data/services/remote/remote_crypto.dart';
+import '../data/services/chat_share.dart';
 import '../data/services/history_import.dart';
 import '../data/services/turn_log.dart';
 import '../data/services/pull_requests.dart';
@@ -149,6 +151,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   Provider(create: (context) => DeviceService(context.read(), input: context.read())),
   // Open pull requests across every project, through GitHub's command.
   Provider(create: (context) => PullRequests(context.read())),
+  Provider(create: (context) => ChatShare(context.read())),
   // What each turn cost, measured (decision 0014), on this Mac only.
   Provider(create: (_) => TurnLog(appData: getApplicationSupportDirectory)),
   // Conversations from Claude Code and Codex on this Mac, to bring in.
@@ -338,7 +341,13 @@ List<SingleChildWidget> providers(Loaded loaded) => [
           };
         },
       );
-      return tools.agents = AgentTools(sessions: context.read(), conversations: context.read());
+      return tools.agents = AgentTools(
+        sessions: context.read(),
+        conversations: context.read(),
+        computers: () => [
+          for (final link in loaded.settings.settings.computers) ?Pairing.parse(link),
+        ],
+      );
     },
   ),
   // Events from outside, into the threads given an address.

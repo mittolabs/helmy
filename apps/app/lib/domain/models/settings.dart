@@ -409,6 +409,10 @@ class const AppSettings({
   /// Phones paired by their own keys, and the one whose code is showing.
   final List<PairedPhone> phones = const [],
 
+  /// The person's other computers with Helmy, paired by the link each one's
+  /// Settings > Phone gives: where a background agent can work too.
+  final List<String> computers = const [],
+
   /// The user's choice of which kind of connection is best at a kind of
   /// work, by the kind's name: 'claude', 'codex', or 'any'. Kinds not here
   /// keep Mittolabs's choice ([defaultBestAt]).
@@ -549,6 +553,7 @@ class const AppSettings({
     List<ConnectionAccount>? accounts,
     List<ToolServer>? toolServers,
     List<PairedPhone>? phones,
+    List<String>? computers,
     String? interfaceFont,
     String? codeFont,
     String? promptFont,
@@ -633,6 +638,7 @@ class const AppSettings({
     accounts: accounts ?? this.accounts,
     toolServers: toolServers ?? this.toolServers,
     phones: phones ?? this.phones,
+    computers: computers ?? this.computers,
     interfaceFont: interfaceFont == '' ? null : interfaceFont ?? this.interfaceFont,
     codeFont: codeFont == '' ? null : codeFont ?? this.codeFont,
     promptFont: promptFont == '' ? null : promptFont ?? this.promptFont,
@@ -719,6 +725,7 @@ class const AppSettings({
     if (accounts.isNotEmpty) 'accounts': [for (final a in accounts) a.toJson()],
     if (toolServers.isNotEmpty) 'toolServers': [for (final t in toolServers) t.toJson()],
     if (phones.isNotEmpty) 'phones': [for (final p in phones) p.toJson()],
+    if (computers.isNotEmpty) 'computers': computers,
     'bestAt': bestAt,
     'interfaceFont': interfaceFont,
     'codeFont': codeFont,
@@ -853,6 +860,10 @@ class const AppSettings({
     phones: [
       for (final p in (json['phones'] as List?) ?? const [])
         if (p is Map) PairedPhone.fromJson(p.cast<String, Object?>()),
+    ],
+    computers: [
+      for (final c in (json['computers'] as List?) ?? const [])
+        if (c is String) c,
     ],
     accounts: [
       for (final a in (json['accounts'] as List?) ?? const [])

@@ -223,6 +223,46 @@ class _SessionMenu extends StatelessWidget {
     );
   }
 
+  /// Shares this chat as a read-only link, once the person has read what that means.
+  Future<void> _share(BuildContext context) async {
+    final ok = await confirm(
+      context,
+      title: 'Share this chat as a link?',
+      body:
+          'The conversation goes into a secret gist on your GitHub account: anyone with the link '
+          'can read it, no one else finds it, and no one can change it. Your files are not '
+          'shared, only what was said here. Stop sharing deletes it.',
+      action: 'Share',
+    );
+    if (!ok) return;
+    final r = await vm.share();
+    if (!context.mounted) return;
+    switch (r) {
+      case Ok(:final value):
+        showToast(context, title: 'Link copied', description: value);
+      case Error(:final error):
+        showToast(
+          context,
+          title: "This chat couldn't be shared",
+          description: '$error'.replaceFirst('Exception: ', ''),
+          type: .error,
+        );
+    }
+  }
+
+  Future<void> _stopSharing(BuildContext context) async {
+    final r = await vm.stopSharing();
+    if (!context.mounted) return;
+    showToast(
+      context,
+      title: r is Ok ? 'No longer shared' : "Sharing couldn't be stopped",
+      description: r is Ok
+          ? 'The link reads nothing from now on.'
+          : '${(r as Error).error}'.replaceFirst('Exception: ', ''),
+      type: r is Ok ? .info : .error,
+    );
+  }
+
   /// Deletes this chat.
   Future<void> _delete(BuildContext context) async {
     final ok =
@@ -263,6 +303,27 @@ class _SessionMenu extends StatelessWidget {
         onPressed: () => _save(context),
         child: const Text('Save as Markdown...'),
       ),
+      if (vm.canShare && vm.shareUrl == null)
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.link, size: 16),
+          onPressed: () => _share(context),
+          child: const Text('Share a link...'),
+        ),
+      if (vm.shareUrl case final url?) ...[
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.link, size: 16),
+          onPressed: () async {
+            await vm.copy(url);
+            if (context.mounted) showToast(context, title: 'Share link copied', description: url);
+          },
+          child: const Text('Copy the share link'),
+        ),
+        MenuItem(
+          leading: const AshlarIcon(AshlarIconsRoundedStroke.linkOff, size: 16),
+          onPressed: () => _stopSharing(context),
+          child: const Text('Stop sharing'),
+        ),
+      ],
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.moon, size: 16),
         onPressed: () => unawaited(vm.setAway(!vm.away)),

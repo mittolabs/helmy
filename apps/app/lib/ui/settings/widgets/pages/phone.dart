@@ -89,7 +89,7 @@ class _Phone extends StatelessWidget {
                           description: 'Paste it in Helmy in Chrome to pair.',
                         );
                       },
-                      child: const Text('Copy the link for Chrome'),
+                      child: const Text('Copy the link for Chrome or another computer'),
                     ),
                     Text(
                       'Reached at ${pairing.hosts.where((h) => h != '127.0.0.1').join(', ')}, '
@@ -154,6 +154,109 @@ class _Phone extends StatelessWidget {
               style: muted,
             ),
         ],
+        const _Heading('Other computers'),
+        _Computers(vm: vm),
+      ],
+    );
+  }
+}
+
+/// The person's other computers with Helmy: a background agent can work on
+/// them too. Paired with the link each one's Phone page copies.
+class _Computers extends StatefulWidget {
+  const _Computers({required this.vm});
+  final SettingsViewModel vm;
+
+  @override
+  State<_Computers> createState() => _ComputersState();
+}
+
+class _ComputersState extends State<_Computers> {
+  final _link = TextEditingController();
+  String? _wrong;
+
+  @override
+  void dispose() {
+    _link.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final s = widget.vm.settings;
+    final p = Pairing.parse(_link.text);
+    if (p == null) {
+      setState(() => _wrong = "That isn't a Helmy pairing link.");
+      return;
+    }
+    await widget.vm.update(
+      s.copyWith(
+        computers: [
+          for (final c in s.computers)
+            if (Pairing.parse(c)?.name != p.name) c,
+          p.link,
+        ],
+      ),
+    );
+    _link.clear();
+    setState(() => _wrong = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.sm.copyWith(color: t.colors.mutedForeground, height: 1.5);
+    final s = widget.vm.settings;
+    final paired = [for (final c in s.computers) (link: c, pairing: Pairing.parse(c))];
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        Text(
+          'A background agent can work on another of your computers with Helmy: say so in a chat '
+          '("check the Windows build on my PC"). On that computer, open Settings, then Phone, turn it '
+          'on, and copy its link; paste it here. What goes between them is sealed with that '
+          "link's key.",
+          style: muted,
+        ),
+        for (final c in paired)
+          _Row(
+            title: c.pairing?.name ?? 'A computer',
+            description: c.pairing == null ? 'Its link no longer reads.' : 'Paired.',
+            control: Button(
+              variant: .ghost,
+              size: .sm,
+              semanticLabel: 'Remove ${c.pairing?.name ?? 'this computer'}',
+              onPressed: () => widget.vm.update(
+                s.copyWith(
+                  computers: [
+                    for (final x in s.computers)
+                      if (x != c.link) x,
+                  ],
+                ),
+              ),
+              child: const Text('Remove'),
+            ),
+          ),
+        Row(
+          spacing: 8,
+          children: [
+            Expanded(
+              child: Input(
+                controller: _link,
+                placeholder: 'helmy-pair:v2?...',
+                semanticLabel: "Another computer's pairing link",
+                onSubmitted: (_) => unawaited(_add()),
+              ),
+            ),
+            Button(
+              variant: .outline,
+              size: .sm,
+              onPressed: () => unawaited(_add()),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+        if (_wrong case final w?) Text(w, style: t.text.sm.copyWith(color: t.colors.destructive)),
       ],
     );
   }
