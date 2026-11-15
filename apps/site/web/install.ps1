@@ -6,13 +6,25 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $repo = 'https://github.com/mittolabs/helmy'
 
-# The latest release's tag, from where GitHub's "latest" link leads.
-$latest = Invoke-WebRequest -UseBasicParsing -Uri "$repo/releases/latest" -MaximumRedirection 5
-$url = if ($latest.BaseResponse.ResponseUri) { $latest.BaseResponse.ResponseUri.AbsoluteUri } else { $latest.BaseResponse.RequestMessage.RequestUri.AbsoluteUri }
-$tag = $url -replace '.*/tag/', ''
-if ($tag -notlike 'v*') { throw "helmy: couldn't find the latest release. See $repo/releases" }
-
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { 'arm64' } else { 'x64' }
+
+# The newest release that has this build: a release just made has none until its builds
+# are attached, so GitHub's "latest" can point at one with nothing to download yet. From
+# the recent releases, newest first; if GitHub's API can't be read here, its "latest".
+$tag = $null
+try {
+  $releases = Invoke-RestMethod -UseBasicParsing -Uri 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=10'
+  foreach ($r in $releases) {
+    if ($r.draft -or $r.prerelease) { continue }
+    if ($r.assets | Where-Object { $_.name -eq "Helmy-$($r.tag_name)-windows-$arch.exe" }) { $tag = $r.tag_name; break }
+  }
+} catch { }
+if (-not $tag) {
+  $latest = Invoke-WebRequest -UseBasicParsing -Uri "$repo/releases/latest" -MaximumRedirection 5
+  $url = if ($latest.BaseResponse.ResponseUri) { $latest.BaseResponse.ResponseUri.AbsoluteUri } else { $latest.BaseResponse.RequestMessage.RequestUri.AbsoluteUri }
+  $tag = $url -replace '.*/tag/', ''
+}
+if ($tag -notlike 'v*') { throw "helmy: couldn't find a release to download. See $repo/releases" }
 $file = "Helmy-$tag-windows-$arch.exe"
 $path = Join-Path $env:TEMP $file
 

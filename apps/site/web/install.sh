@@ -10,9 +10,23 @@ say() { printf '%s\n' "$*"; }
 fail() { say "helmy: $*" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || fail "curl is needed to download Helmy."
 
-# The latest release's tag, from where GitHub's "latest" link leads.
-tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$repo/releases/latest" | sed 's#.*/tag/##')
-case $tag in v*) ;; *) fail "couldn't find the latest release. See $repo/releases" ;; esac
+# The newest release that has this build: a release just made has none until its builds
+# are attached, so GitHub's "latest" can point at one with nothing to download yet. From
+# the recent releases, newest first; if GitHub's API can't be read here, its "latest".
+# Sets $tag and $file for the build named by $1 ("macos-arm64.dmg").
+find_build() {
+  url=$(curl -fsSL "https://api.github.com/repos/mittolabs/helmy/releases?per_page=10" 2>/dev/null |
+    grep -o "$repo/releases/download/v[^/\"]*/Helmy-v[^\"]*-$1" | head -n 1) || url=
+  if [ -n "$url" ]; then
+    file=${url##*/}
+    tag=${url%/*}
+    tag=${tag##*/}
+  else
+    tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$repo/releases/latest" | sed 's#.*/tag/##')
+    file="Helmy-$tag-$1"
+  fi
+  case $tag in v*) ;; *) fail "couldn't find a release to download. See $repo/releases" ;; esac
+}
 
 arch=$(uname -m)
 tmp=$(mktemp -d)
@@ -23,7 +37,7 @@ Darwin)
   case $arch in arm64) build=arm64 ;; x86_64) build=x64 ;; *) fail "no macOS build for $arch." ;; esac
   # Under Rosetta, a terminal says x86_64 on Apple silicon: the chip decides.
   [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = 1 ] && build=arm64
-  file="Helmy-$tag-macos-$build.dmg"
+  find_build "macos-$build.dmg"
   say "Downloading Helmy $tag for $([ "$build" = arm64 ] && echo 'Apple silicon' || echo Intel)..."
   curl -fSL --progress-bar -o "$tmp/$file" "$repo/releases/download/$tag/$file"
   hdiutil attach -nobrowse -readonly -quiet -mountpoint "$tmp/mnt" "$tmp/$file"
@@ -38,7 +52,7 @@ Darwin)
   ;;
 Linux)
   case $arch in x86_64 | amd64) build=x64 ;; aarch64 | arm64) build=arm64 ;; *) fail "no Linux build for $arch." ;; esac
-  file="Helmy-$tag-linux-$build.AppImage"
+  find_build "linux-$build.AppImage"
   home="${XDG_DATA_HOME:-$HOME/.local/share}"
   dir="$home/helmy"
   mkdir -p "$dir" "$home/applications" "$home/icons/hicolor/256x256/apps"

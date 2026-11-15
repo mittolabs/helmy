@@ -50,6 +50,12 @@ class Download extends StatelessComponent {
           p(classes: 'download-version reveal', [
             a(href: release.url, [Component.text('${release.tag} ↗')]),
           ]),
+          if (Release.coming(release) case final next?)
+            p(classes: 'download-other center reveal', [
+              Component.text('${next.tag} is being built: its downloads appear here in a few minutes. '),
+              a(href: next.url, [Component.text('See it on GitHub')]),
+              Component.text('.'),
+            ]),
           for (final system in Release.systems)
             if (release.builds.any((f) => f.system == system))
               section(classes: 'download-system reveal', [
@@ -109,6 +115,24 @@ class Download extends StatelessComponent {
             a(href: release.url, [Component.text('GitHub release page ↗')]),
             Component.text('.'),
           ]),
+          // Every version before, still there to download.
+          if (Release.earlier(release) case final older when older.isNotEmpty)
+            section(classes: 'download-system download-earlier reveal', [
+              h2([Component.text('Earlier versions')]),
+              ul([
+                for (final r in older)
+                  li([
+                    a(href: r.url, [Component.text(r.tag)]),
+                    if (r.published case final at?)
+                      span(classes: 'muted', [Component.text(' · ${Release.date(at)}')]),
+                  ]),
+              ]),
+              p(classes: 'download-other', [
+                a(href: 'https://github.com/mittolabs/helmy/releases', [
+                  Component.text('Every release on GitHub ↗'),
+                ]),
+              ]),
+            ]),
           p(classes: 'muted small reveal', [
             Component.text(
               'Helmy connects to Claude Code, Codex, Cursor, Grok, Antigravity, OpenCode or Ollama on first run. ',
