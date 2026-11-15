@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/mittolabs/helmy/compare/v0.18.0...v0.19.0) (2026-11-15)
+
+
+### Features
+
+* **chat:** background agents can work on your other computers ([a08896d](https://github.com/mittolabs/helmy/commit/a08896d0495beeb311a26d4da8309c25012ed82c))
+* **chat:** share a chat as a read-only link ([a08896d](https://github.com/mittolabs/helmy/commit/a08896d0495beeb311a26d4da8309c25012ed82c))
+
 ## [0.18.0](https://github.com/mittolabs/helmy/compare/v0.17.0...v0.18.0) (2026-11-15)
 
 
