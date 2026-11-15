@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/mittolabs/helmy/compare/v0.16.1...v0.17.0) (2026-11-15)
+
+
+### Features
+
+* **chat:** every chat is one conversation, with no threads to manage ([233bd48](https://github.com/mittolabs/helmy/commit/233bd48fb006f885cd96256fac9e8f6e80b6e111))
+* **chat:** hand work to background agents, on any connection ([233bd48](https://github.com/mittolabs/helmy/commit/233bd48fb006f885cd96256fac9e8f6e80b6e111))
+
+
+### Bug Fixes
+
+* **chat:** a message after hours away goes on in the same conversation ([233bd48](https://github.com/mittolabs/helmy/commit/233bd48fb006f885cd96256fac9e8f6e80b6e111))
+
 ## [0.16.1](https://github.com/mittolabs/helmy/compare/v0.16.0...v0.16.1) (2026-11-15)
 
 
