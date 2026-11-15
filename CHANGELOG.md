@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/mittolabs/helmy/compare/v0.16.0...v0.16.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **chat:** a step with a huge command no longer freezes Helmy ([#70](https://github.com/mittolabs/helmy/issues/70)) ([ecb384e](https://github.com/mittolabs/helmy/commit/ecb384e6b0f9a6c82dad975775e772a8b7c681cb))
+
 ## [0.16.0](https://github.com/mittolabs/helmy/compare/v0.15.0...v0.16.0) (2026-11-14)
 
 
