@@ -69,6 +69,10 @@ jobs:
           push: true
           no-cache: true
           build-args: RELEASE=${{ steps.sha.outputs.sha }}
+          # The token to read the releases with, so the download page is never built
+          # without them.
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
           tags: |
             ghcr.io/mittolabs/helmy-site:${{ steps.sha.outputs.sha }}
             ghcr.io/mittolabs/helmy-site:latest
