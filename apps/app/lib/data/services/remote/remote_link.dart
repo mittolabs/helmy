@@ -198,6 +198,11 @@ class RemoteLink extends ChangeNotifier {
         c.busy = m['busy'] == true;
         c.heldUntil = DateTime.tryParse('${m['heldUntil'] ?? ''}');
       case 'made':
+        // One this link started for itself (a background agent): its own.
+        if (_starting.remove('${m['ask'] ?? ''}') case final waiting?) {
+          waiting.complete('${m['id']}');
+          return;
+        }
         made.value = '${m['id']}';
       case 'file':
         final path = '${m['path']}';
@@ -280,6 +285,22 @@ class RemoteLink extends ChangeNotifier {
   Future<void> interrupt(String id) => _send({'type': 'interrupt', 'id': id});
 
   /// A new chat on the Mac, starting with [text]; [made] says its id.
+  final _starting = <String, Completer<String>>{};
+
+  /// Starts a chat there with [text], in [cwd] (else where it last worked):
+  /// its id, or null when it did not answer in time.
+  Future<String?> startChat(String text, {String? cwd, String? from}) async {
+    final ask = 'start-${DateTime.now().microsecondsSinceEpoch}';
+    final waiting = _starting[ask] = Completer<String>();
+    await _send({'type': 'new', 'text': text, 'ask': ask, 'cwd': ?cwd, 'from': ?from});
+    try {
+      return await waiting.future.timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      _starting.remove(ask);
+      return null;
+    }
+  }
+
   Future<void> newChat(String text, {BrowserPage? page}) =>
       _send({'type': 'new', 'text': text, 'page': ?page?.toJson()});
 

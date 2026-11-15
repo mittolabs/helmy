@@ -9,6 +9,7 @@ import '../../domain/models/chat_item.dart';
 import '../services/notify_service.dart';
 import 'conversation_repository.dart';
 import 'session_repository.dart';
+import '../../domain/opens.dart';
 import 'settings_repository.dart';
 
 /// What needs the user: sessions waiting for an approval, and sessions that
@@ -125,6 +126,14 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   /// The session on screen, or null.
   @override
   set viewing(String? sessionId) {
+    // Another chat brought on screen: counted for search, which puts the
+    // chats opened most lately first.
+    if (sessionId != null && sessionId != _viewing) {
+      if (_sessions.byId(sessionId) case final s? when s.sideOf == null) {
+        final o = opened(s.opens, s.openedAt, DateTime.now());
+        unawaited(_sessions.save(s.copyWith(opens: o.score, openedAt: o.at)));
+      }
+    }
     _viewing = sessionId;
     if (sessionId != null) _seen(sessionId);
   }

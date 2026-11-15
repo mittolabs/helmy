@@ -2,6 +2,7 @@ import 'package:ashlar_icons/ashlar_icons.dart';
 
 import '../../core/qr_view.dart';
 import '../../core/tinted_icon.dart';
+import '../../../data/services/remote/remote_crypto.dart';
 import '../../../data/services/remote/remote_host.dart';
 
 import 'package:file_selector/file_selector.dart';

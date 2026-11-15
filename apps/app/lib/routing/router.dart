@@ -107,6 +107,7 @@ GoRouter router(String initialLocation) => GoRouter(
               editors: context.read(),
               snaps: context.read(),
               chats: context.read(),
+              share: context.read(),
             ),
             builder: (vm) => ChatScreen(viewModel: vm),
           ),

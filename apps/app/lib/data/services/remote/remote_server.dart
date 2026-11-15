@@ -305,6 +305,11 @@ class RemoteServer {
               s,
               text.isEmpty ? BrowserPage.bare : text,
               attachments: [?await _keep(page)],
+              // Helmy on another computer starting a background agent here:
+              // Helmy's words, never the person's.
+              from: m['from'] is String && '${m['from']}'.startsWith('Helmy, ')
+                  ? '${m['from']}'
+                  : null,
             );
           }
         }

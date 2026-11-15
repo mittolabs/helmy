@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import '../repositories/conversation_repository.dart';
+import 'remote/remote_crypto.dart';
+import 'remote/remote_link.dart';
 import '../repositories/session_repository.dart';
 import '../../utils/result.dart';
 import '../../domain/models/chat_item.dart';
@@ -15,10 +17,32 @@ import '../../domain/models/session.dart';
 /// The tools, given to every connection: start one, see how they stand (or
 /// wait for one), message one, stop one.
 class AgentTools {
-  AgentTools({required this._sessions, required this._conversations, DateTime Function()? now})
-    : _now = now ?? DateTime.now {
+  AgentTools({
+    required this._sessions,
+    required this._conversations,
+    DateTime Function()? now,
+    List<Pairing> Function()? computers,
+    RemoteLink Function(Pairing)? linkFor,
+  }) : _now = now ?? DateTime.now,
+       _computers = computers ?? (() => const []),
+       _linkFor = linkFor ?? RemoteLink.new {
     _conversations.addListener(_watch);
   }
+
+  /// The person's other computers with Helmy, paired in Settings > Phone:
+  /// where a background agent can work too.
+  final List<Pairing> Function() _computers;
+  final RemoteLink Function(Pairing) _linkFor;
+
+  /// Links to the other computers, by pairing, kept open once used.
+  final _links = <String, RemoteLink>{};
+
+  /// Background agents working on another computer: the chat that started
+  /// each, where, its id there, and its title.
+  final _remote = <({String chat, String computer, String id, String title, RemoteLink link})>[];
+
+  /// Turns each remote agent had finished when last told: one more is news.
+  final _remoteDone = <String, int>{};
 
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
@@ -61,7 +85,9 @@ class AgentTools {
           'build, checking something, a long search), or when the person asks for something to '
           'run in the background. It knows nothing of this conversation: the task must stand on '
           'its own. When it finishes, its answer comes to you as a message. With second_opinion, '
-          'it runs on another connection than yours, for an independent look.',
+          'it runs on another connection than yours, for an independent look. With computer, it '
+          "runs on another of the person's computers with Helmy (agent_status lists them), in "
+          'folder there, or where Helmy last worked there.',
       {
         'title': {'type': 'string', 'description': 'A few words naming the work.'},
         'task': {'type': 'string', 'description': 'The task in full, standing on its own.'},
@@ -69,6 +95,11 @@ class AgentTools {
           'type': 'boolean',
           'description': 'Run it on another connection than yours.',
         },
+        'computer': {
+          'type': 'string',
+          'description': "Another of the person's computers, by name, from agent_status.",
+        },
+        'folder': {'type': 'string', 'description': 'With computer: the folder there to work in.'},
       },
       ['title', 'task'],
     ),
@@ -165,6 +196,60 @@ class AgentTools {
     await _conversations.send(_sessions.byId(chat.id) ?? chat, text, from: fromAgent(agent.title));
   }
 
+  /// A link to [computer], connected; null when it can't be reached.
+  Future<RemoteLink?> _linkTo(Pairing computer) async {
+    final link = _links[computer.link] ??= (_linkFor(computer)..addListener(_watchRemote));
+    if (link.state != LinkState.connected) {
+      unawaited(link.connect());
+      for (var i = 0; i < 60 && link.state != LinkState.connected; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+    return link.state == LinkState.connected ? link : null;
+  }
+
+  int _turnsDone(RemoteConversation c) => c.items.whereType<TurnSummary>().length;
+
+  void _watchRemote() {
+    for (final r in [..._remote]) {
+      final c = r.link.of(r.id);
+      final done = _turnsDone(c);
+      if (!c.busy && done > (_remoteDone[r.id] ?? 0)) {
+        _remoteDone[r.id] = done;
+        unawaited(_reportRemote(r));
+      }
+    }
+  }
+
+  Future<void> _reportRemote(
+    ({String chat, String computer, String id, String title, RemoteLink link}) r,
+  ) async {
+    final chat = _sessions.byId(r.chat);
+    if (chat == null || _disposed) return;
+    final c = r.link.of(r.id);
+    final ok = c.items.whereType<TurnSummary>().lastOrNull?.ok ?? false;
+    var answer = c.items.whereType<AssistantText>().lastOrNull?.text.trim() ?? '';
+    if (answer.length > 4000) answer = '${answer.substring(0, 4000)}\n[...]';
+    final text = ok
+        ? 'The background agent "${r.title}" on ${r.computer} (id ${r.id}) finished:\n\n'
+              '${answer.isEmpty ? '(It said nothing.)' : answer}'
+        : 'The background agent "${r.title}" on ${r.computer} (id ${r.id}) stopped before it '
+              'was done. ${answer.isEmpty ? '' : 'Its last words:\n\n$answer'}';
+    await _conversations.load(chat.id);
+    if (_disposed) return;
+    await _conversations.send(_sessions.byId(chat.id) ?? chat, text, from: fromAgent(r.title));
+  }
+
+  String _remoteState(RemoteConversation c) {
+    if (c.items.whereType<PermissionPrompt>().any((p) => p.needsAnswer)) {
+      return 'waiting for the person';
+    }
+    if (c.busy) return 'working';
+    final last = c.items.whereType<TurnSummary>().lastOrNull;
+    if (last == null) return 'starting';
+    return last.ok ? 'done' : 'stopped';
+  }
+
   /// Whether [from] may send agent [to] another message now; records it if so.
   bool _allow(String from, String to) {
     final now = _now();
@@ -203,12 +288,52 @@ class AgentTools {
         if (title.isEmpty || task.isEmpty) {
           return _says('Give it a title and a task.', error: true);
         }
-        final running = agents.where((a) => _conversations.of(a.id).busy).length;
+        final running =
+            agents.where((a) => _conversations.of(a.id).busy).length +
+            _remote.where((r) => r.chat == me.id && r.link.of(r.id).busy).length;
         if (running >= atOnce) {
           return _says(
             '$atOnce background agents are already working for this chat. Wait for one to '
             'finish (agent_status), or stop one.',
             error: true,
+          );
+        }
+        if (args['computer'] case final String name when name.trim().isNotEmpty) {
+          final all = _computers();
+          final computer = all
+              .where((c) => c.name.toLowerCase() == name.trim().toLowerCase())
+              .firstOrNull;
+          if (computer == null) {
+            return _says(
+              all.isEmpty
+                  ? 'No other computer is paired. The person pairs one in Settings > Phone.'
+                  : 'No computer named "$name" is paired. Paired: ${all.map((c) => c.name).join(', ')}.',
+              error: true,
+            );
+          }
+          final link = await _linkTo(computer);
+          if (link == null) {
+            return _says(
+              "${computer.name} can't be reached: it needs Helmy open there, with Phone turned on "
+              'in its Settings, on the same network as this computer or on Tailscale.',
+              error: true,
+            );
+          }
+          final folder = '${args['folder'] ?? ''}'.trim();
+          final id = await link.startChat(
+            task,
+            cwd: folder.isEmpty ? null : folder,
+            from: fromChat(me.title),
+          );
+          if (id == null) {
+            return _says('${computer.name} did not start it. Try again in a moment.', error: true);
+          }
+          await link.open(id);
+          _remote.add((chat: me.id, computer: computer.name, id: id, title: title, link: link));
+          _remoteDone[id] = 0;
+          return _says(
+            'Started the background agent "$title" on ${computer.name} (id $id). It works there on '
+            'its own; its answer comes to you as a message when it finishes.',
           );
         }
         final made = await _sessions.create(
@@ -237,17 +362,35 @@ class AgentTools {
         );
 
       case 'agent_status':
+        final remote = [
+          for (final r in _remote)
+            if (r.chat == chat.id) r,
+        ];
+        final far = remote.where((r) => r.id == '${args['id'] ?? ''}').firstOrNull;
+        if (far != null) {
+          final c = far.link.of(far.id);
+          final answer = c.items.whereType<AssistantText>().lastOrNull?.text.trim() ?? '';
+          return _says(
+            '"${far.title}" on ${far.computer} (id ${far.id}) is ${_remoteState(c)}.'
+            '${answer.isEmpty ? '' : '\n\nIts latest words:\n\n$answer'}',
+          );
+        }
         final a = args['id'] == null ? null : one();
         if (args['id'] != null && a == null) {
           return _says('No background agent ${args['id']} in this chat.', error: true);
         }
         if (a == null) {
-          if (agents.isEmpty) return _says('This chat has no background agents.');
+          final computers = _computers();
           return _says(
             [
+              if (agents.isEmpty && remote.isEmpty) 'This chat has no background agents.',
               for (final x in agents)
                 '- "${x.title}" (id ${x.id}): ${stateOf(x.id)}. '
                     '${_firstLine(answerOf(x.id))}',
+              for (final r in remote)
+                '- "${r.title}" on ${r.computer} (id ${r.id}): ${_remoteState(r.link.of(r.id))}.',
+              if (computers.isNotEmpty)
+                '\nOther computers to start one on: ${computers.map((c) => c.name).join(', ')}.',
             ].join('\n'),
           );
         }
@@ -264,8 +407,21 @@ class AgentTools {
         );
 
       case 'agent_message':
-        final a = one();
         final message = '${args['message'] ?? ''}'.trim();
+        if (_remote.where((r) => r.chat == chat.id && r.id == '${args['id'] ?? ''}').firstOrNull
+            case final far?) {
+          if (message.isEmpty) return _says('Say what to send.', error: true);
+          if (!_allow(me.id, far.id)) {
+            return _says(
+              'You have sent "${far.title}" $pairLimit messages in the last '
+              '${pairWindow.inMinutes} minutes. Wait for its answer, or ask the person.',
+              error: true,
+            );
+          }
+          await far.link.send(far.id, message);
+          return _says('Sent to "${far.title}" on ${far.computer}.');
+        }
+        final a = one();
         if (a == null) return _says('No background agent ${args['id']} in this chat.', error: true);
         if (message.isEmpty) return _says('Say what to send.', error: true);
         if (!_allow(me.id, a.id)) {
@@ -283,6 +439,11 @@ class AgentTools {
         );
 
       case 'agent_stop':
+        if (_remote.where((r) => r.chat == chat.id && r.id == '${args['id'] ?? ''}').firstOrNull
+            case final far?) {
+          await far.link.interrupt(far.id);
+          return _says('Stopped "${far.title}" on ${far.computer}.');
+        }
         final a = one();
         if (a == null) return _says('No background agent ${args['id']} in this chat.', error: true);
         _conversations.interrupt(a.id);
@@ -301,5 +462,10 @@ class AgentTools {
   void dispose() {
     _disposed = true;
     _conversations.removeListener(_watch);
+    for (final l in _links.values) {
+      l
+        ..removeListener(_watchRemote)
+        ..dispose();
+    }
   }
 }

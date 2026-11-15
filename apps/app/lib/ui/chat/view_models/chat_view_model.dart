@@ -16,8 +16,8 @@ import '../../../data/services/engines/agent_engine.dart';
 import '../../../domain/models/chat_item.dart';
 import '../../../domain/models/engine.dart';
 import '../../../data/services/engines/attachments.dart';
+import '../../../data/services/chat_share.dart';
 import '../../../domain/goal.dart';
-import '../../../domain/opens.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/command.dart';
 import '../../../utils/starters.dart';
@@ -184,16 +184,10 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     this._editors,
     this._snaps,
     this._chats,
+    this._share,
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices, mac: mac, session: sessionId) {
     _attention?.viewing = sessionId;
-    // Counted for search, which puts the chats opened most lately first.
-    if (!embedded) {
-      if (_sessions.byId(sessionId) case final s? when s.sideOf == null) {
-        final o = opened(s.opens, s.openedAt, DateTime.now());
-        unawaited(_sessions.save(s.copyWith(opens: o.score, openedAt: o.at)));
-      }
-    }
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
     // The agent's device tools show the device here: in the Device panel,
@@ -309,6 +303,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   final EditorService? _editors;
   final WindowSnapshots? _snaps;
   final ChatRepository? _chats;
+  final ChatShare? _share;
 
   /// The chat this conversation is, by its title.
   String? get chatTitle {
@@ -1859,6 +1854,40 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   String get markdown => transcriptMarkdown(session?.title ?? 'Chat', items);
 
   Future<void> copy(String text) => Clipboard.setData(ClipboardData(text: text));
+
+  /// Shared as a read-only link: where, or null.
+  String? get shareUrl => session?.shareUrl;
+  bool get canShare => _share != null;
+
+  /// Shares this chat as a read-only link (a secret GitHub gist), and copies it.
+  Future<Result<String>> share() async {
+    final s = session, share = _share;
+    if (s == null || share == null) return .error(Exception('Sharing is not set up here.'));
+    if (s.shareUrl case final url?) return .ok(url);
+    final made = await share.share(chatTitle ?? s.title, markdown);
+    switch (made) {
+      case Ok(:final value):
+        await _sessions.save((session ?? s).copyWith(shareUrl: value.url, shareId: value.id));
+        await copy(value.url);
+        notifyListeners();
+        return .ok(value.url);
+      case Error(:final error):
+        return .error(error);
+    }
+  }
+
+  /// Stops sharing: the link reads nothing from now on.
+  Future<Result<void>> stopSharing() async {
+    final s = session, share = _share;
+    final id = s?.shareId;
+    if (s == null || share == null || id == null) return const .ok(null);
+    final stopped = await share.stop(id);
+    if (stopped case Ok()) {
+      await _sessions.save((session ?? s).copyWith(unshare: true));
+      notifyListeners();
+    }
+    return stopped;
+  }
 
   Future<Result<void>> saveMarkdown(String path) async {
     try {

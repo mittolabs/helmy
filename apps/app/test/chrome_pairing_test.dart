@@ -81,9 +81,9 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.ensureVisible(find.text('Copy the link for Chrome'));
+    await tester.ensureVisible(find.text('Copy the link for Chrome or another computer'));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Copy the link for Chrome'));
+    await tester.tap(find.text('Copy the link for Chrome or another computer'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(copied, host.pairing!.link);
     expect(find.text('Link copied'), findsOneWidget);
