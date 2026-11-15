@@ -16,8 +16,12 @@ RUN cd apps/site && dart pub get && cd ../docs && dart pub get
 COPY Makefile CHANGELOG.md ./
 COPY apps/site apps/site
 COPY apps/docs apps/docs
-# make site reads the latest release from GitHub, so the download page names its builds.
-RUN make web JASPR=/root/.pub-cache/bin/jaspr DART=dart
+# make site reads the latest release from GitHub, so the download page names its builds:
+# with CI's token, passed as a secret so it is in no layer, and required, so an image
+# whose download page lists nothing is never built.
+RUN --mount=type=secret,id=github_token \
+    GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null)" \
+    make web JASPR=/root/.pub-cache/bin/jaspr DART=dart RELEASES=required
 
 FROM caddy:2.11.4-alpine
 COPY infra/Caddyfile /etc/caddy/Caddyfile

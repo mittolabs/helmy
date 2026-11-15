@@ -81,8 +81,14 @@ sim-input:
 site-dev:
 	cd $(SITE) && $(JASPR) serve
 
+# The download page names the latest release's builds, read from GitHub: with
+# GITHUB_TOKEN when there is one (anonymous reads are rate limited, and shared CI
+# runners hit the limit). Here, without the releases the page says none is out
+# yet; with RELEASES=required (the release image), the build fails instead, so
+# a live page never loses its downloads.
 site:
-	curl -fsS 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=5' > $(SITE)/.release.json 2>/dev/null || echo '{}' > $(SITE)/.release.json
+	curl -fsS $(if $(GITHUB_TOKEN),-H "Authorization: Bearer $(GITHUB_TOKEN)") 'https://api.github.com/repos/mittolabs/helmy/releases?per_page=5' > $(SITE)/.release.json \
+		|| { [ "$(RELEASES)" = required ] && echo "Could not read the releases from GitHub" >&2 && exit 1; echo '{}' > $(SITE)/.release.json; }
 	cd $(SITE) && $(JASPR) build
 
 docs-dev:
