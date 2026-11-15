@@ -40,7 +40,7 @@ import '../data/services/remote/remote_server.dart';
 import '../data/services/local_writer.dart';
 import '../data/services/chat_app_tools.dart';
 import '../data/services/chat_apps.dart';
-import '../data/services/chat_tools.dart';
+import '../data/services/agent_tools.dart';
 import '../data/services/history_import.dart';
 import '../data/services/turn_log.dart';
 import '../data/services/pull_requests.dart';
@@ -338,12 +338,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
           };
         },
       );
-      return tools.chats = ChatTools(
-        sessions: context.read(),
-        chats: context.read(),
-        conversations: context.read(),
-        log: context.read(),
-      );
+      return tools.agents = AgentTools(sessions: context.read(), conversations: context.read());
     },
   ),
   // Events from outside, into the threads given an address.

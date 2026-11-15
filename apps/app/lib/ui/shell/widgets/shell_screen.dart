@@ -27,7 +27,6 @@ import '../../core/ashlar/dropdown_menu.dart';
 import '../../core/ashlar/pressable.dart';
 import '../../core/ashlar/sidebar.dart';
 import '../../core/helmy_dialog.dart';
-import '../../core/ashlar/dialog.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/ashlar/toast.dart';
@@ -292,12 +291,6 @@ class ShellScreen extends StatelessWidget {
                                 spacing: 2,
                                 crossAxisAlignment: .stretch,
                                 children: [
-                                  // Earlier threads that seem to belong together: offered once.
-                                  if (viewModel.suggestions case final found when found.isNotEmpty)
-                                    _GroupingNotice(
-                                      count: found.length,
-                                      onReview: () => _review(context),
-                                    ),
                                   for (final g in viewModel.groups) ...[
                                     if (g.label case final label?)
                                       Padding(
@@ -413,100 +406,6 @@ class ShellScreen extends StatelessWidget {
     );
   }
 
-  /// The one-time review: each suggested move, ticked to start with.
-  Future<void> _review(BuildContext context) async {
-    final found = viewModel.suggestions;
-    final chosen = {for (final f in found) f.thread.id};
-    final apply = await showAshlarDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final t = AshlarTheme.of(context);
-          return HelmyDialog(
-            title: 'Put earlier threads together?',
-            body:
-                'Before chats, each thread stood alone. These seem to belong with '
-                'another: together, a chat knows what its threads decided. Nothing moves '
-                'that you untick, and any thread can be moved back later.',
-            icon: AshlarIconsRoundedStroke.messagesSquare,
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: .stretch,
-                  children: [
-                    for (final f in found)
-                      Pressable(
-                        onPressed: () => setState(
-                          () => chosen.contains(f.thread.id)
-                              ? chosen.remove(f.thread.id)
-                              : chosen.add(f.thread.id),
-                        ),
-                        semanticLabel: '${f.thread.title} into ${f.into.title}',
-                        builder: (context, state) => Padding(
-                          padding: const .symmetric(vertical: 6),
-                          child: Row(
-                            spacing: 10,
-                            children: [
-                              AshlarIcon(
-                                chosen.contains(f.thread.id)
-                                    ? AshlarIconsRoundedStroke.squareCheck
-                                    : AshlarIconsRoundedStroke.square,
-                                size: 16,
-                                color: t.colors.foreground,
-                              ),
-                              Expanded(
-                                child: Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(text: f.thread.title),
-                                      TextSpan(
-                                        text: '  into  ',
-                                        style: TextStyle(color: t.colors.mutedForeground),
-                                      ),
-                                      TextSpan(
-                                        text: f.into.title,
-                                        style: const TextStyle(fontWeight: .w600),
-                                      ),
-                                    ],
-                                  ),
-                                  maxLines: 2,
-                                  overflow: .ellipsis,
-                                  style: t.text.sm,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              DialogButton('Not now', onPressed: () => Navigator.pop(context, false)),
-              DialogButton(
-                chosen.isEmpty ? 'Leave them' : 'Put ${chosen.length} together',
-                main: true,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (apply == null) return;
-    // "Not now" or "Leave them": the review is done, nothing moved.
-    await viewModel.applySuggestions(
-      apply
-          ? [
-              for (final f in found)
-                if (chosen.contains(f.thread.id)) f,
-            ]
-          : const [],
-    );
-  }
-
   /// One chat's row, with what can be done with it on a right click: done
   /// to the whole chat, every thread in it.
   Widget _chatEntry(
@@ -607,12 +506,6 @@ class ShellScreen extends StatelessWidget {
           },
           child: Text(archived ? 'Unarchive' : 'Archive'),
         ),
-        if (e.chat case final chat?)
-          MenuItem(
-            leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
-            onPressed: () => context.go('/c/${chat.id}'),
-            child: const Text('Brief and places'),
-          ),
         const MenuSeparator(),
         MenuItem(
           destructive: true,
@@ -629,37 +522,30 @@ class ShellScreen extends StatelessWidget {
               selected: all.any((t) => t.id == selectedId),
               onOpen: () => context.go('/s/${first.id}'),
             )
-          // Rested on: a preview of it, beside the list. Dragged onto another
-          // chat, it joins it.
-          : _DragChat(
-              viewModel: viewModel,
-              chat: e.chat,
-              threads: all,
-              title: title,
-              child: HoverCard(
-                openDelay: const Duration(milliseconds: 800),
-                side: .right,
-                align: .start,
-                width: 320,
-                content: (context) => _ChatPreviewCard(
-                  title: title,
-                  chat: e.chat,
-                  preview: viewModel.previewOf(e.threads),
-                ),
-                child: _ChatRow(
-                  onSettle: canSettle ? settle : null,
-                  title: title,
-                  threads: e.threads,
-                  activity: viewModel.activityOfAll(e.threads),
-                  chat: e.chat,
-                  chips: viewModel.chipsOf(e.threads),
-                  line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
-                  selected: viewModel.picking
-                      ? viewModel.isPicked(first)
-                      : all.any((t) => t.id == selectedId),
-                  onOpen: () => _openOrPick(context, first),
-                  onDelete: () => _deleteChat(context, title, all),
-                ),
+          // Rested on: a preview of it, beside the list.
+          : HoverCard(
+              openDelay: const Duration(milliseconds: 800),
+              side: .right,
+              align: .start,
+              width: 320,
+              content: (context) => _ChatPreviewCard(
+                title: title,
+                chat: e.chat,
+                preview: viewModel.previewOf(e.threads),
+              ),
+              child: _ChatRow(
+                onSettle: canSettle ? settle : null,
+                title: title,
+                threads: e.threads,
+                activity: viewModel.activityOfAll(e.threads),
+                chat: e.chat,
+                chips: viewModel.chipsOf(e.threads),
+                line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
+                selected: viewModel.picking
+                    ? viewModel.isPicked(first)
+                    : all.any((t) => t.id == selectedId),
+                onOpen: () => _openOrPick(context, first),
+                onDelete: () => _deleteChat(context, title, all),
               ),
             ),
     );
@@ -1340,50 +1226,6 @@ class _BackForward extends StatelessWidget {
   }
 }
 
-/// A chat of several threads in the list: its title, how many threads and
-/// where, the latest one's line, the busiest one's state. Opening it opens
-/// the latest thread; the arrow shows its threads beneath.
-/// The one-time review, offered quietly at the top of the list.
-class _GroupingNotice extends StatelessWidget {
-  const _GroupingNotice({required this.count, required this.onReview});
-  final int count;
-  final VoidCallback onReview;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    return Pressable(
-      onPressed: onReview,
-      semanticLabel: 'Review $count earlier threads that seem to belong together',
-      builder: (context, state) => Container(
-        margin: const .only(bottom: 6),
-        padding: const .fromLTRB(10, 8, 10, 8),
-        decoration: BoxDecoration(
-          color: state.hovered ? c.sidebarAccent : c.sidebarAccent.withValues(alpha: .5),
-          borderRadius: .circular(t.radiusMd),
-        ),
-        child: Row(
-          spacing: 8,
-          children: [
-            AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 14, color: c.mutedForeground),
-            Expanded(
-              child: Text(
-                '$count earlier thread${count == 1 ? '' : 's'} seem${count == 1 ? 's' : ''} to belong together',
-                style: t.text.xs.copyWith(color: c.sidebarForeground),
-              ),
-            ),
-            Text(
-              'Review',
-              style: t.text.xs.copyWith(fontWeight: .w600, color: c.sidebarForeground),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The settled chats, at the bottom of the list: a line with how many,
 /// opened to compact rows, the latest ten and then the rest on asking.
 class _SettledSection extends StatelessWidget {
@@ -1571,7 +1413,6 @@ class _ChatPreviewCard extends StatelessWidget {
                 [
                   if (chat?.topic.isNotEmpty ?? false) chat!.topic,
                   p.folders.map(pathEnd).join(', '),
-                  if (p.threads > 1) '${p.threads} threads',
                 ].join(' · '),
                 maxLines: 1,
                 overflow: .ellipsis,
@@ -1583,11 +1424,6 @@ class _ChatPreviewCard extends StatelessWidget {
         Text(title, style: t.text.sm.copyWith(fontWeight: .w600)),
         if (chat?.description.isNotEmpty ?? false)
           Text(chat!.description, style: t.text.sm.copyWith(color: c.mutedForeground)),
-        if (p.brief.isNotEmpty) ...[
-          heading('Where it stands'),
-          for (final line in p.brief)
-            Text(line, style: t.text.xs, maxLines: 2, overflow: .ellipsis),
-        ],
         if (p.exchanges.isNotEmpty) ...[
           heading('Lately'),
           for (final x in p.exchanges) ...[
@@ -1698,72 +1534,6 @@ class _PickedBar extends StatelessWidget {
         }),
         act(AshlarIconsRoundedStroke.x, 'Stop picking', viewModel.clearPicks),
       ],
-    );
-  }
-}
-
-/// A chat's row that can be dragged onto another chat's, to join it: its
-/// threads then belong to that chat, which can read and message them.
-class _DragChat extends StatelessWidget {
-  const _DragChat({
-    required this.viewModel,
-    required this.chat,
-    required this.threads,
-    required this.title,
-    required this.child,
-  });
-
-  final SidebarViewModel viewModel;
-  final Chat? chat;
-  final List<Session> threads;
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    final target = chat;
-    Widget row = Draggable<({List<Session> threads, String title})>(
-      data: (threads: threads, title: title),
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: Container(
-        padding: const .symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: c.popover,
-          border: Border.all(color: c.border),
-          borderRadius: .circular(t.radiusMd),
-          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12)],
-        ),
-        child: Text(title, style: t.text.sm.copyWith(color: c.popoverForeground)),
-      ),
-      childWhenDragging: Opacity(opacity: .4, child: child),
-      child: child,
-    );
-    if (target == null) return row;
-    return DragTarget<({List<Session> threads, String title})>(
-      onWillAcceptWithDetails: (d) => d.data.threads.first.chatId != target.id,
-      onAcceptWithDetails: (d) async {
-        await viewModel.mergeInto(d.data.threads, target.id);
-        if (!context.mounted) return;
-        showToast(
-          context,
-          title: 'Moved "${d.data.title}" into "${target.title}"',
-          action: Button(
-            size: .sm,
-            variant: .outline,
-            onPressed: viewModel.undo,
-            child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
-          ),
-        );
-      },
-      builder: (context, offered, _) => DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: offered.isEmpty ? const Color(0x00000000) : c.ring, width: 1.5),
-          borderRadius: .circular(t.radiusMd),
-        ),
-        child: row,
-      ),
     );
   }
 }

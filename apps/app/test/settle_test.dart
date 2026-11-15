@@ -112,14 +112,6 @@ void main() {
     again.dispose();
   });
 
-  test('a thread filed into a settled chat brings it back', () async {
-    final a = await thread('Food budget');
-    await list.settleChat(list.chatOf(a));
-    final b = await thread('Groceries');
-    await chats.move(b, chatOf(a).id);
-    expect(chatOf(a).settled, isFalse);
-  });
-
   test('a chat untouched for three days settles by itself, unless pinned or told not to', () async {
     final old = await thread('Old trip', ago: const Duration(days: 4));
     final pinned = await thread('Taxes', ago: const Duration(days: 5));

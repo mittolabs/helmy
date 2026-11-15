@@ -146,6 +146,19 @@ void main() {
       await sessions.save(
         session.copyWith(title: 'A session whose title runs on well past any sidebar width'),
       );
+      // A background agent at work beside it: one more chip in the tray.
+      final agent =
+          (await sessions.create(
+                cwd: session.cwd,
+                title: 'Check the Android build',
+                sideOf: session.id,
+              ) as Ok).value
+              as Session;
+      await sessions.save(agent.copyWith(agent: true));
+      repo.of(agent.id)
+        ..loaded = true
+        ..busy = true
+        ..items.add(UserMessage('Build the Android app and say if it passes.'));
       schedules = ScheduleRepositoryLocal(
         storage: storage,
         sessions: sessions,
@@ -257,6 +270,7 @@ void main() {
           // Room for every word only in a wide window.
           if (size.width >= 1280) ...[
             '1 waiting',
+            '1 working',
             'feature/a-branch-name-long-enough-to-crowd-the-tray',
           ],
           '+1 −1',

@@ -1,18 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:helmy/data/repositories/chat_repository.dart';
-import 'package:helmy/data/repositories/session_repository_local.dart';
 import 'package:helmy/data/services/engines/claude/claude_reducer.dart';
 import 'package:helmy/data/services/engines/codex/codex_reducer.dart';
 import 'package:helmy/data/services/turn_log.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 import 'package:helmy/domain/models/engine.dart';
-import 'package:helmy/domain/models/session.dart';
-import 'package:helmy/ui/chats/chat_page_view_model.dart';
-import 'package:helmy/utils/result.dart';
-
-import 'support/storage.dart';
 
 Map<String, Object?> codexUsage({
   required Map<String, int> total,
@@ -140,32 +133,5 @@ void main() {
       ),
     );
     expect((r.tokens?.fresh, r.tokens?.cacheRead, r.tokens?.output), (1000, 3000, 100));
-  });
-
-  test("a chat's page: threads moved and briefs rewritten are logged as corrections", () async {
-    final storage = storageAt(root);
-    final sessions = SessionRepositoryLocal(storage);
-    final chats = ChatRepository(storage, sessions);
-    addTearDown(chats.dispose);
-    await chats.load();
-    final a = (await sessions.create(cwd: '/w/money', title: 'Budget') as Ok).value as Session;
-    final b = (await sessions.create(cwd: '/w/money', title: 'Taxes') as Ok).value as Session;
-    final log = TurnLog(appData: () async => root, now: () => DateTime.utc(2026, 11, 4));
-    final page = ChatPageViewModel(
-      chatId: sessions.byId(a.id)!.chatId!,
-      chats: chats,
-      sessions: sessions,
-      log: log,
-    );
-    addTearDown(page.dispose);
-    await page.move(sessions.byId(b.id)!, page.chatId);
-    expect(page.threads.length, 2);
-    await page.setBrief('Decided: a monthly budget.');
-    await page.setBrief('Decided: a monthly budget.');
-    final id = await page.newThread();
-    expect(sessions.byId(id!)!.chatId, page.chatId);
-    expect(sessions.byId(id)!.cwd, '/w/money');
-    final kinds = [for (final l in await log.read('2026-11')) l['what']];
-    expect(kinds, ['move', 'brief'], reason: 'an unchanged brief is not a correction');
   });
 }

@@ -51,12 +51,9 @@ class ChatRepository extends ChangeNotifier {
   List<Chat> get chats =>
       _chats.values.toList()..sort((a, b) => lastActive(b.id).compareTo(lastActive(a.id)));
 
-  /// The folders a chat's threads work in, most recent first.
-  List<String> placesOf(String chatId) =>
-      {for (final s in threadsOf(chatId)) s.repo ?? s.cwd}.toList();
-
-  /// Every thread in a chat, a new one in a chat of its own; a one-thread
-  /// chat nobody named, titled as its thread; a chat with no threads, gone.
+  /// Every conversation in a chat of its own (a chat is one conversation,
+  /// with its side chats); a chat nobody named, titled as its conversation;
+  /// a chat with no conversation, gone.
   bool _keeping = false;
 
   void _keep() {
@@ -84,6 +81,20 @@ class ChatRepository extends ChangeNotifier {
       _sessions.save(s.copyWith(chatId: chatId));
       changed = true;
     }
+    // From when a chat could hold several conversations: each after its
+    // first goes to a chat of its own, with its side chats, under the same
+    // topic and icon.
+    for (final c in _chats.values.toList()) {
+      final threads = threadsOf(c.id)..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      for (final t in threads.skip(1)) {
+        final own = _create(t.title, t.createdAt);
+        _chats[own.id] = own.copyWith(topic: c.topic, icon: c.icon);
+        for (final x in _sessions.sessions.toList()) {
+          if (x.id == t.id || x.sideOf == t.id) _sessions.save(x.copyWith(chatId: own.id));
+        }
+        changed = true;
+      }
+    }
     for (final c in _chats.values.toList()) {
       final threads = threadsOf(c.id);
       if (threads.isEmpty && !_sessions.sessions.any((s) => s.chatId == c.id)) {
@@ -104,14 +115,6 @@ class ChatRepository extends ChangeNotifier {
     return c;
   }
 
-  /// What each chat but [except] is known by, to file a new thread against:
-  /// its title, its brief, and its threads' titles.
-  List<({String id, String text})> cards({String? except}) => [
-    for (final c in _chats.values)
-      if (c.id != except)
-        (id: c.id, text: [c.title, c.brief, for (final t in threadsOf(c.id)) t.title].join('. ')),
-  ];
-
   /// Names [chatId], for good: its threads no longer name it.
   Future<void> rename(String chatId, String title) async {
     final c = _chats[chatId];
@@ -119,32 +122,6 @@ class ChatRepository extends ChangeNotifier {
     _chats[chatId] = c.copyWith(title: title.trim(), named: true);
     notifyListeners();
     await _persist();
-  }
-
-  /// Puts [brief] as [chatId]'s brief. Written by the person ([byPerson]),
-  /// it holds: Helmy keeps its hands off it until let back.
-  Future<void> setBrief(String chatId, String brief, {bool byPerson = true}) async {
-    final c = _chats[chatId];
-    if (c == null) return;
-    _chats[chatId] = c.copyWith(brief: brief.trim(), briefByPerson: byPerson);
-    notifyListeners();
-    await _persist();
-  }
-
-  /// Moves [thread] (and its side chats) into [chatId]; into a chat of its
-  /// own when [chatId] is null. The chat it leaves goes if it is left empty.
-  Future<String> move(Session thread, String? chatId) async {
-    final to = chatId ?? _create(thread.title, DateTime.now()).id;
-    // A thread come into a settled chat is something new in it.
-    if (_chats[to]?.settled ?? false) {
-      _chats[to] = _chats[to]!.copyWith(unsettledAt: DateTime.now());
-    }
-    for (final s in _sessions.sessions.where((s) => s.id == thread.id || s.sideOf == thread.id)) {
-      await _sessions.save(s.copyWith(chatId: to));
-    }
-    _keep();
-    await _persist();
-    return to;
   }
 
   /// What Helmy wrote for [chatId]: its title (unless the person named it),

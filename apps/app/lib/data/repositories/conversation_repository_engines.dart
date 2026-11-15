@@ -532,9 +532,16 @@ class ConversationRepositoryEngines extends ConversationRepository {
         final alike = current != null && (_meter.nearlyOut(current) || _meter.isDown(current))
             ? await _alike(session.id, current, null, candidates)
             : null;
+        // A second opinion starts away from the chat's own connection, where
+        // another can answer.
+        final open = eligible(candidates, turn.needs);
+        final apart = [
+          for (final e in open)
+            if (e.id != session.avoid) e,
+        ];
         id = _router.choose(
-          candidates: eligible(candidates, turn.needs),
-          current: current,
+          candidates: apart.isEmpty ? open : apart,
+          current: current == session.avoid ? null : current,
           needs: turn.needs,
           kind: turn.kind,
           // Its connection still holds it in cache: within minutes of its last turn.
@@ -914,7 +921,6 @@ class ConversationRepositoryEngines extends ConversationRepository {
           level: session.level == .readOnly ? PermissionLevel.readOnly : PermissionLevel.ask,
           resumeId: session.threads[engineId]?.resumeId,
           sessionId: session.id,
-          brief: session.brief,
           lessons: _lessons == null
               ? null
               : LessonRepository.asInstructions(_lessons.forProject(session.repo ?? session.cwd)),

@@ -500,9 +500,6 @@ class const AppSettings({
   /// Both Shift keys, in any app, snapshot the window in front into the
   /// message being written. Off until turned on: macOS must allow it.
   final bool snapshotKeys = false,
-
-  /// The one-time review of grouping earlier threads into chats is done.
-  final bool groupingReviewed = false,
 }) {
   /// The settings for the project at [repo] (a repository's top folder).
   /// The kind of connection best at [kind]: the user's choice, else
@@ -617,7 +614,6 @@ class const AppSettings({
     DiffColors? diffColors,
     bool? diffHideSpace,
     bool? snapshotKeys,
-    bool? groupingReviewed,
     bool? confirmDelete,
     bool? remoteOn,
     bool? remoteScreen,
@@ -702,7 +698,6 @@ class const AppSettings({
     diffColors: diffColors ?? this.diffColors,
     diffHideSpace: diffHideSpace ?? this.diffHideSpace,
     snapshotKeys: snapshotKeys ?? this.snapshotKeys,
-    groupingReviewed: groupingReviewed ?? this.groupingReviewed,
     confirmDelete: confirmDelete ?? this.confirmDelete,
     remoteOn: remoteOn ?? this.remoteOn,
     remoteScreen: remoteScreen ?? this.remoteScreen,
@@ -789,7 +784,6 @@ class const AppSettings({
     'diffColors': diffColors.name,
     'diffHideSpace': diffHideSpace,
     'snapshotKeys': snapshotKeys,
-    'groupingReviewed': groupingReviewed,
     'confirmDelete': confirmDelete,
     'remoteOn': remoteOn,
     'remoteScreen': remoteScreen,
@@ -896,7 +890,6 @@ class const AppSettings({
     diffColors: DiffColors.values.asNameMap()[json['diffColors']] ?? .greenRed,
     diffHideSpace: json['diffHideSpace'] as bool? ?? false,
     snapshotKeys: json['snapshotKeys'] as bool? ?? false,
-    groupingReviewed: json['groupingReviewed'] as bool? ?? false,
     confirmDelete: json['confirmDelete'] as bool? ?? true,
     remoteOn: json['remoteOn'] as bool? ?? false,
     remoteScreen: json['remoteScreen'] as bool? ?? true,

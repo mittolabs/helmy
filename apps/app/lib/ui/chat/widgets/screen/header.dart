@@ -223,38 +223,26 @@ class _SessionMenu extends StatelessWidget {
     );
   }
 
-  /// Deletes this thread: the chat, when it is its only one.
+  /// Deletes this chat.
   Future<void> _delete(BuildContext context) async {
-    final others = vm.earlierThreads;
     final ok =
         !context.read<SettingsRepository>().settings.confirmDelete ||
         await confirm(
           context,
-          title: others.isEmpty ? 'Delete this chat?' : 'Delete this thread?',
-          body: others.isEmpty
-              ? 'The chat is deleted. Files in the folder stay as they are.'
-              : 'This thread leaves "${vm.chatTitle}"; its other threads stay. Files in the folder stay as they are.',
+          title: 'Delete this chat?',
+          body: 'The chat is deleted. Files in the folder stay as they are.',
           action: 'Delete',
           destructive: true,
         );
     if (!ok) return;
     await vm.delete();
-    if (!context.mounted) return;
-    // The chat goes on in its latest other thread.
-    context.go(others.isEmpty ? '/' : '/s/${others.last.id}');
+    if (context.mounted) context.go('/');
   }
 
   @override
   Widget build(BuildContext context) => DropdownMenu(
     align: .end,
     items: [
-      if (vm.session?.chatId != null && vm.session?.sideOf == null)
-        MenuItem(
-          leading: const AshlarIcon(AshlarIconsRoundedStroke.messageSquarePlus, size: 16),
-          onPressed: () => newThreadIn(context, vm),
-          trailing: Text(Desktop.current.keys('⇧⌘N')),
-          child: const Text('New thread'),
-        ),
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.pencil, size: 16),
         onPressed: () => _rename(context),
@@ -275,12 +263,6 @@ class _SessionMenu extends StatelessWidget {
         onPressed: () => _save(context),
         child: const Text('Save as Markdown...'),
       ),
-      if (vm.session?.chatId case final chatId?)
-        MenuItem(
-          leading: const AshlarIcon(AshlarIconsRoundedStroke.messagesSquare, size: 16),
-          onPressed: () => context.go('/c/$chatId'),
-          child: const Text('Open its chat'),
-        ),
       MenuItem(
         leading: const AshlarIcon(AshlarIconsRoundedStroke.moon, size: 16),
         onPressed: () => unawaited(vm.setAway(!vm.away)),
@@ -313,7 +295,7 @@ class _SessionMenu extends StatelessWidget {
         destructive: true,
         leading: const AshlarIcon(AshlarIconsRoundedStroke.trash, size: 16),
         onPressed: vm.busy ? null : () => _delete(context),
-        child: Text(vm.earlierThreads.isEmpty ? 'Delete chat' : 'Delete thread'),
+        child: const Text('Delete chat'),
       ),
     ],
     builder: (context, menu) => Tooltip(
@@ -391,187 +373,6 @@ class _FolderButton extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The chat a thread is in, in the breadcrumb, as a link to its page: shown
-/// when the chat holds more than this thread, or was named.
-
-/// Where filing put this new thread, said once under the header: "In
-/// Finances", with Move and Undo; or, when two chats were close, the
-/// question of which.
-class _FilingChip extends StatelessWidget {
-  const _FilingChip({required this.vm});
-  final ChatViewModel vm;
-
-  @override
-  Widget build(BuildContext context) {
-    final f = vm.filing;
-    if (f == null) return const SizedBox.shrink();
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    final muted = t.text.xs.copyWith(color: c.mutedForeground);
-    Widget pick(String? id) => Button(
-      variant: .outline,
-      size: .xs,
-      onPressed: () => vm.fileInto(id),
-      child: Text(
-        id == null ? 'Neither' : vm.chatTitleOf(id) ?? 'That chat',
-        maxLines: 1,
-        overflow: .ellipsis,
-      ),
-    );
-    final chatId = vm.session?.chatId;
-    return Container(
-      margin: const .only(bottom: 6),
-      padding: const .fromLTRB(12, 6, 6, 6),
-      decoration: BoxDecoration(
-        color: c.muted.withValues(alpha: .5),
-        borderRadius: .circular(t.radiusMd),
-      ),
-      child: Row(
-        spacing: 6,
-        children: [
-          // What it says and does, then the way to put it away at the end.
-          Expanded(
-            child: Row(
-              spacing: 6,
-              children: [
-                AshlarIcon(
-                  AshlarIconsRoundedStroke.messagesSquare,
-                  size: 14,
-                  color: c.mutedForeground,
-                ),
-                if (f.kind == .ask) ...[
-                  Flexible(
-                    child: Text(
-                      'Part of an earlier chat?',
-                      style: muted,
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                    ),
-                  ),
-                  Flexible(child: pick(f.best)),
-                  if (f.runnerUp != null) Flexible(child: pick(f.runnerUp)),
-                  pick(null),
-                ] else ...[
-                  Flexible(
-                    child: Pressable(
-                      onPressed: chatId == null ? null : () => context.go('/c/$chatId'),
-                      semanticLabel: 'In ${vm.chatTitle}',
-                      builder: (context, state) => Text.rich(
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: 'In '),
-                            TextSpan(
-                              text: vm.chatTitle ?? '',
-                              style: TextStyle(
-                                color: c.foreground,
-                                fontWeight: .w500,
-                                decoration: state.hovered ? TextDecoration.underline : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                        style: muted,
-                      ),
-                    ),
-                  ),
-                  DropdownMenu(
-                    items: [
-                      for (final other in vm.otherChats)
-                        MenuItem(
-                          onPressed: () => vm.fileInto(other.id),
-                          child: Text(other.title, maxLines: 1, overflow: .ellipsis),
-                        ),
-                      const MenuSeparator(),
-                      MenuItem(onPressed: vm.undoFiling, child: const Text('A chat of its own')),
-                    ],
-                    builder: (context, menu) => Button(
-                      variant: .ghost,
-                      size: .xs,
-                      onPressed: menu.open,
-                      child: const Text('Move'),
-                    ),
-                  ),
-                  Button(
-                    variant: .ghost,
-                    size: .xs,
-                    onPressed: vm.undoFiling,
-                    child: const Text('Undo'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Tooltip(
-            message: 'Dismiss',
-            child: Button(
-              variant: .ghost,
-              size: .iconXs,
-              semanticLabel: 'Dismiss',
-              onPressed: vm.dismissFiling,
-              child: const AshlarIcon(AshlarIconsRoundedStroke.x, size: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Starts a new thread in [vm]'s chat and opens it.
-Future<void> newThreadIn(BuildContext context, ChatViewModel vm) async {
-  final id = await vm.newThread();
-  if (id != null && context.mounted) context.go('/s/$id');
-}
-
-/// Said once on a thread Helmy started on its own: why, and the way back.
-class _FreshThreadChip extends StatelessWidget {
-  const _FreshThreadChip({required this.vm});
-  final ChatViewModel vm;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AshlarTheme.of(context);
-    final c = t.colors;
-    return Container(
-      margin: const .only(bottom: 6),
-      padding: const .fromLTRB(12, 6, 6, 6),
-      decoration: BoxDecoration(
-        color: c.muted.withValues(alpha: .5),
-        borderRadius: .circular(t.radiusMd),
-      ),
-      child: Row(
-        spacing: 6,
-        children: [
-          AshlarIcon(
-            AshlarIconsRoundedStroke.messageSquarePlus,
-            size: 14,
-            color: c.mutedForeground,
-          ),
-          Expanded(
-            child: Text(
-              "A new thread: the last one had gone quiet, so this starts fresh with the chat's brief.",
-              style: t.text.xs.copyWith(color: c.mutedForeground),
-              maxLines: 2,
-              overflow: .ellipsis,
-            ),
-          ),
-          Button(
-            variant: .outline,
-            size: .xs,
-            onPressed: () async {
-              final id = await vm.keepGoingInLast();
-              if (id != null && context.mounted) context.go('/s/$id');
-            },
-            child: const Text('Keep going in the last one'),
-          ),
-        ],
       ),
     );
   }

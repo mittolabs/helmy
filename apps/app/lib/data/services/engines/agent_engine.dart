@@ -14,12 +14,8 @@ class const EngineLaunch({
   /// page in its Preview panel).
   final String? sessionId,
 
-  /// The brief of the thread's chat, frozen when the thread began (decision
-  /// `0014`): sent with Helmy's instructions on every run of the thread.
-  final String? brief,
-
   /// What Helmy has learned working with the person (LessonRepository),
-  /// as instructions, frozen with the thread as its brief is.
+  /// as instructions.
   final String? lessons,
 
   /// A model, effort and speed chosen for the chat (Developer mode); null

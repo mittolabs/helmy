@@ -28,15 +28,10 @@ void main() {
         'In one line of at most 15 words, say what it is about and where it stands. No quotes, no preamble.',
         maxTokens: 60,
       );
-      final b = await w.write(
-        "You keep a chat's brief: what has been decided and what is still open, about one topic, across conversations.\n\n"
-        'Current brief:\n<brief>\n(empty)\n</brief>\n\nA conversation in this chat just went quiet:\n<conversation>\n$text\n</conversation>\n\n'
-        "Write the updated brief: lines starting 'Decided:' or 'Open:', at most 8 lines, each under 25 words. Keep what still holds from the current brief, add what this conversation decided or left open, drop what it settled. Only facts from the text. Output only the lines.",
-      );
       // ignore: avoid_print
       print(
-        '--- $model (${watch.elapsedMilliseconds} ms, tokens ${s?.promptTokens}+${s?.outputTokens}, ${b?.promptTokens}+${b?.outputTokens})\n'
-        'summary: ${s == null ? null : ChatKeeper.summaryFrom(s.text)}\nbrief:\n${b == null ? null : ChatKeeper.briefFrom(b.text)}',
+        '--- $model (${watch.elapsedMilliseconds} ms, tokens ${s?.promptTokens}+${s?.outputTokens})\n'
+        'summary: ${s == null ? null : ChatKeeper.summaryFrom(s.text)}',
       );
     }
   }, timeout: const Timeout(Duration(minutes: 5)));

@@ -55,6 +55,14 @@ class const Session({
   /// from what it knows. Shown only there, never in the list.
   final String? sideOf,
 
+  /// A background agent: work the chat [sideOf] handed off to go on beside
+  /// it, its answer going back there. Shown only in that chat.
+  final bool agent = false,
+
+  /// The connection to start away from, for a second opinion: another than
+  /// the one the chat that started it is on. Null for any.
+  final String? avoid,
+
   /// The chat this thread is part of (decision `0014`).
   final String? chatId,
 
@@ -65,9 +73,6 @@ class const Session({
   /// Held to one connection and model (Developer mode), instead of Helmy
   /// choosing per message; null lets Helmy choose.
   final EnginePin? pin,
-
-  /// Its chat's brief as it stood when the thread began: frozen for it.
-  final String? brief,
 
   /// One line of what the thread is about and where it stands, kept by Helmy.
   final String? summary,
@@ -128,7 +133,6 @@ class const Session({
 
     /// Lets Helmy choose again: [pin] cleared.
     bool unpin = false,
-    String? brief,
     String? summary,
 
     /// '' clears it.
@@ -137,6 +141,8 @@ class const Session({
     /// '' turns it off.
     String? webhook,
     bool? away,
+    bool? agent,
+    String? avoid,
 
     /// Drops [baseline], for a session moved to another folder: the next
     /// message takes the new folder's.
@@ -162,11 +168,12 @@ class const Session({
     chatId: chatId ?? this.chatId,
     panel: panel ?? this.panel,
     pin: unpin ? null : pin ?? this.pin,
-    brief: brief ?? this.brief,
     summary: summary ?? this.summary,
     draft: draft ?? this.draft,
     webhook: webhook ?? this.webhook,
     away: away ?? this.away,
+    agent: agent ?? this.agent,
+    avoid: avoid ?? this.avoid,
   );
 
   Session withThread(String engineId, EngineThread thread) =>
@@ -193,11 +200,12 @@ class const Session({
     'chatId': ?chatId,
     'panel': ?panel,
     if (pin != null) 'pin': pin!.toJson(),
-    'brief': ?brief,
     'summary': ?summary,
     if (hasDraft) 'draft': draft,
     if (hasWebhook) 'webhook': webhook,
     if (away) 'away': true,
+    if (agent) 'agent': true,
+    'avoid': ?avoid,
   };
 
   static Session fromJson(Map<String, Object?> json) {
@@ -234,11 +242,12 @@ class const Session({
       chatId: json['chatId'] as String?,
       panel: (json['panel'] as Map?)?.cast<String, Object?>(),
       pin: EnginePin.fromJson(json['pin']),
-      brief: json['brief'] as String?,
       summary: json['summary'] as String?,
       draft: json['draft'] as String?,
       webhook: json['webhook'] as String?,
       away: json['away'] == true,
+      agent: json['agent'] == true,
+      avoid: json['avoid'] as String?,
     );
   }
 }

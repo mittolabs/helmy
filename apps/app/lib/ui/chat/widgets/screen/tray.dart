@@ -87,6 +87,10 @@ class _Tray extends StatelessWidget {
                   onPressed: onWaiting,
                 ),
               ),
+            if (vm.agents.isNotEmpty)
+              Flexible(
+                child: _AgentsChip(vm: vm, words: words),
+              ),
             Tooltip(
               message: vm.away
                   ? "Away: I decide what I'd ask you, and keep what I still must ask "
@@ -374,6 +378,68 @@ class _ModelPicker extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// This chat's background agents: how many are working, need the person or
+/// are done; pressed, each one, to open beside the conversation.
+class _AgentsChip extends StatelessWidget {
+  const _AgentsChip({required this.vm, required this.words});
+  final ChatViewModel vm;
+  final bool words;
+
+  static String _say(AgentState s) => switch (s) {
+    .working => 'working',
+    .needsYou => 'needs you',
+    .done => 'done',
+    .stopped => 'stopped',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final all = vm.agents;
+    final states = {for (final a in all) a.id: vm.agentState(a.id)};
+    final needs = states.values.where((s) => s == .needsYou).length;
+    final working = states.values.where((s) => s == .working).length;
+    final label = needs > 0
+        ? '$needs needs you'
+        : working > 0
+        ? '$working working'
+        : all.length == 1
+        ? '1 agent'
+        : '${all.length} agents';
+    return DropdownMenu(
+      side: .top,
+      items: [
+        const MenuLabel(child: Text('Background agents')),
+        for (final a in all)
+          MenuItem(
+            leading: AshlarIcon(switch (states[a.id]!) {
+              .working => AshlarIconsRoundedStroke.loader,
+              .needsYou => AshlarIconsRoundedStroke.messageCircleQuestionMark,
+              .done => AshlarIconsRoundedStroke.check,
+              .stopped => AshlarIconsRoundedStroke.playerStop,
+            }, size: 16),
+            trailing: Text(_say(states[a.id]!)),
+            onPressed: () => vm.openSide(a.id),
+            child: Text(a.title, maxLines: 1, overflow: .ellipsis),
+          ),
+      ],
+      builder: (context, menu) => Tooltip(
+        message:
+            'Background agents: work this chat handed off, going on beside it. Press to see them.',
+        child: _TrayButton(
+          icon: AshlarIconsRoundedStroke.bot,
+          label: label,
+          // Narrow, the icon alone; the count is in what is read out.
+          words: words,
+          semanticLabel: 'Background agents: $label',
+          shrinks: true,
+          on: needs > 0,
+          onPressed: menu.open,
+        ),
+      ),
     );
   }
 }

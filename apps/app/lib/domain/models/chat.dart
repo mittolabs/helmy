@@ -1,5 +1,5 @@
-/// A topic talked about, over any number of threads (decision `0014`): your
-/// finances, an app being made. Its threads are sessions with its id.
+/// A chat: one conversation (its session, with side chats and background
+/// agents beside it), with what Helmy calls it: its title, topic word, icon.
 class const Chat({
   required final String id,
   required final String title,
@@ -7,13 +7,6 @@ class const Chat({
 
   /// Named by the person: kept, whatever its threads come to be called.
   final bool named = false,
-
-  /// What the topic has come to: decisions and open questions, short. Written
-  /// by hand for now; kept by Helmy as threads go on, later.
-  final String brief = '',
-
-  /// The brief as the person wrote it: Helmy leaves it as it is.
-  final bool briefByPerson = false,
 
   /// Titled by Helmy from what it is about: no longer follows its threads'
   /// first words.
@@ -42,8 +35,6 @@ class const Chat({
   Chat copyWith({
     String? title,
     bool? named,
-    String? brief,
-    bool? briefByPerson,
     bool? titled,
     String? description,
     String? icon,
@@ -55,8 +46,6 @@ class const Chat({
     title: title ?? this.title,
     createdAt: createdAt,
     named: named ?? this.named,
-    brief: brief ?? this.brief,
-    briefByPerson: briefByPerson ?? this.briefByPerson,
     titled: titled ?? this.titled,
     description: description ?? this.description,
     icon: icon ?? this.icon,
@@ -71,8 +60,6 @@ class const Chat({
     'title': title,
     'createdAt': createdAt.toIso8601String(),
     if (named) 'named': true,
-    if (brief.isNotEmpty) 'brief': brief,
-    if (briefByPerson) 'briefByPerson': true,
     if (titled) 'titled': true,
     if (description.isNotEmpty) 'description': description,
     'icon': ?icon,
@@ -86,8 +73,6 @@ class const Chat({
     title: '${j['title'] ?? ''}',
     createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
     named: j['named'] == true,
-    brief: '${j['brief'] ?? ''}',
-    briefByPerson: j['briefByPerson'] == true,
     titled: j['titled'] == true,
     description: '${j['description'] ?? ''}',
     icon: j['icon'] as String?,

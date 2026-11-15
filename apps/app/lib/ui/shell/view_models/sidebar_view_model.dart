@@ -23,8 +23,6 @@ import 'dart:io';
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/repositories/ship_repository.dart';
 import '../../../data/services/pull_requests.dart';
-import '../../../data/services/turn_log.dart';
-import '../../../domain/filing.dart';
 import '../../../data/services/engines/attachments.dart';
 import '../../../domain/models/chat.dart';
 
@@ -42,7 +40,6 @@ class SidebarViewModel extends ChangeNotifier {
     this._attention,
     this._projects,
     this._chats,
-    this._log,
     this._fixes,
     ShipRepository? ship,
     this._prs,
@@ -362,7 +359,6 @@ class SidebarViewModel extends ChangeNotifier {
   // inside it, in the conversation.
 
   final ChatRepository? _chats;
-  final TurnLog? _log;
 
   /// [sessions] (a section of the list, in its order) as chats: each once,
   /// where its first thread was, with its threads in that order (the one it
@@ -542,29 +538,6 @@ class SidebarViewModel extends ChangeNotifier {
 
   int get pickedCount => picked.length;
 
-  /// Moves the chat of [from] into [chatId]: its threads become threads of
-  /// that chat, which can then read them and message them. One undo puts
-  /// them back in a chat of their own.
-  Future<void> mergeInto(List<Session> from, String chatId) async {
-    final chats = _chats;
-    final threads = from.where((t) => t.sideOf == null).toList();
-    if (chats == null || threads.isEmpty || threads.first.chatId == chatId) return;
-    final was = threads.first.chatId;
-    for (final t in threads) {
-      await chats.move(_sessions.byId(t.id) ?? t, chatId);
-    }
-    await _log?.correction(what: 'merge', thread: threads.first.id, from: was, to: chatId);
-    _undo = () async {
-      String? back;
-      for (final t in threads) {
-        final now = _sessions.byId(t.id);
-        if (now == null) continue;
-        back = await chats.move(now, back);
-      }
-    };
-    notifyListeners();
-  }
-
   // Settled (the list as an inbox): a chat nothing in waits on goes to the
   // bottom, until something new happens in it. By hand, when its pull
   // request merges, or after three days untouched.
@@ -680,64 +653,18 @@ class SidebarViewModel extends ChangeNotifier {
   /// The busiest of [threads]: one that needs you, else one working, else
   /// one unread.
   SessionActivity activityOfAll(List<Session> threads) {
-    final all = [for (final t in threads) activityOf(t.id)];
+    final ids = {for (final t in threads) t.id};
+    final all = [
+      for (final t in threads) activityOf(t.id),
+      // Its background agents: one waiting on the person, or working, shows.
+      for (final s in _sessions.sessions)
+        if (s.agent && ids.contains(s.sideOf))
+          if (activityOf(s.id) case final a when a != .unread) a,
+    ];
     for (final a in [SessionActivity.needsYou, SessionActivity.working, SessionActivity.unread]) {
       if (all.contains(a)) return a;
     }
     return .idle;
-  }
-
-  // The one-time review of earlier threads (decision 0014): those from before
-  // chats each got a chat of their own; ones that seem to belong together are
-  // suggested, never moved unasked.
-
-  /// Threads alone in a chat nobody named that seem to belong in another chat.
-  List<({Session thread, Chat into})> get suggestions {
-    final chats = _chats;
-    if (chats == null || settings.groupingReviewed) return const [];
-    // Worked out again only when threads or chats change: the list redraws often.
-    final key = Object.hashAll([
-      for (final s in _sessions.sessions) Object.hash(s.id, s.chatId, s.title, s.summary),
-      for (final c in chats.chats) Object.hash(c.id, c.title, c.named),
-    ]);
-    if (_suggestionsKey == key) return _suggestions;
-    _suggestionsKey = key;
-    return _suggestions = _suggest(chats);
-  }
-
-  int? _suggestionsKey;
-  List<({Session thread, Chat into})> _suggestions = const [];
-
-  List<({Session thread, Chat into})> _suggest(ChatRepository chats) {
-    final out = <({Session thread, Chat into})>[];
-    final moved = <String>{};
-    for (final c in chats.chats) {
-      final threads = chats.threadsOf(c.id);
-      if (c.named || threads.length != 1) continue;
-      final t = threads.single;
-      final f = file('${t.title}. ${t.summary ?? ''}', chats.cards(except: c.id));
-      if (f.kind != .file || f.best == null) continue;
-      // Two threads that point at each other: the newer goes to the older.
-      if (moved.contains(f.best)) continue;
-      final into = chats.byId(f.best!);
-      if (into == null) continue;
-      out.add((thread: t, into: into));
-      moved.add(c.id);
-    }
-    return out;
-  }
-
-  /// Moves the chosen suggestions; the review is done either way.
-  Future<void> applySuggestions(List<({Session thread, Chat into})> chosen) async {
-    final chats = _chats;
-    if (chats != null) {
-      for (final s in chosen) {
-        final from = s.thread.chatId;
-        await chats.move(s.thread, s.into.id);
-        await _log?.correction(what: 'review', thread: s.thread.id, from: from, to: s.into.id);
-      }
-    }
-    await _settings.save(settings.copyWith(groupingReviewed: true));
   }
 
   /// What a session's row says under its title: what it waits on, what it
@@ -836,7 +763,6 @@ class SidebarViewModel extends ChangeNotifier {
 
   ChatPreview previewOf(List<Session> threads) {
     final latest = threads.first;
-    final chat = latest.chatId == null ? null : _chats?.byId(latest.chatId!);
     final items = _conversations.of(latest.id).items;
     final exchanges = <({String asked, String answered})>[];
     String? asked;
@@ -871,11 +797,6 @@ class SidebarViewModel extends ChangeNotifier {
     final changes = lineOf(latest);
     return (
       folders: {for (final t in threads) tildePath(t.repo ?? t.cwd)}.toList(),
-      threads: threads.where((t) => t.sideOf == null).length,
-      brief: [
-        for (final l in (chat?.brief ?? '').split('\n'))
-          if (l.trim().isNotEmpty) l.trim(),
-      ].take(4).toList(),
       exchanges: exchanges.reversed.take(2).toList().reversed.toList(),
       images: images.reversed.where((p) => !p.startsWith('http')).toSet().take(4).toList(),
       links: links.take(3).toList(),
@@ -963,8 +884,6 @@ class SidebarViewModel extends ChangeNotifier {
 /// What a chat's preview shows (see [SidebarViewModel.previewOf]).
 typedef ChatPreview = ({
   List<String> folders,
-  int threads,
-  List<String> brief,
   List<({String asked, String answered})> exchanges,
   List<String> images,
   List<String> links,
