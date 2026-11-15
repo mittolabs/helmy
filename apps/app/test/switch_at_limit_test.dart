@@ -336,11 +336,16 @@ void main() {
 
     /// Presses the button [label] is on, its work run on the real clock: the
     /// repository reads and writes files and starts connections.
-    Future<void> press(WidgetTester tester, Finder label) async {
+    // Pressed, then a moment for what it does; with [until], as long as that
+    // takes on a busy machine (a fixed 100 ms failed on CI), up to 5 s.
+    Future<void> press(WidgetTester tester, Finder label, {bool Function()? until}) async {
       final button = tester.widget<Button>(find.ancestor(of: label, matching: find.byType(Button)));
       await tester.runAsync(() async {
         button.onPressed!();
         await Future<void>.delayed(const Duration(milliseconds: 100));
+        for (var i = 0; i < 50 && !(until?.call() ?? true); i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
       });
       await settle(tester);
     }
@@ -408,7 +413,7 @@ void main() {
       expect(find.textContaining('Codex'), findsNothing);
 
       // Continue: the message goes again, now, to the one with room.
-      await press(tester, find.text('Continue now'));
+      await press(tester, find.text('Continue now'), until: () => claude.sent.isNotEmpty);
       expect(claude.sent, hasLength(1));
       expect(codex.sent, isEmpty);
       expect(repo.of(s.id).items.whereType<UserMessage>().single.text, 'change the code');
@@ -451,7 +456,11 @@ void main() {
         pin: const EnginePin(engineId: 'codex', model: 'gpt-6-astra'),
       );
       expect(find.text('Continue with Claude Code (Opus 5.5)'), findsOneWidget);
-      await press(tester, find.text('Continue with Claude Code (Opus 5.5)'));
+      await press(
+        tester,
+        find.text('Continue with Claude Code (Opus 5.5)'),
+        until: () => claude.launches.isNotEmpty,
+      );
       expect(claude.launches.single.model, 'claude-opus-5-5');
       await done(tester, repo, vm);
     });
@@ -462,7 +471,7 @@ void main() {
       final codex = _Engine('codex', 'Codex', const [_astra]);
       final (repo, vm, _) = await stopped(tester, [local, codex], meter);
       expect(find.text('Continue on this Mac'), findsOneWidget);
-      await press(tester, find.text('Continue on this Mac'));
+      await press(tester, find.text('Continue on this Mac'), until: () => local.sent.isNotEmpty);
       expect(local.sent, hasLength(1));
       await done(tester, repo, vm);
     });

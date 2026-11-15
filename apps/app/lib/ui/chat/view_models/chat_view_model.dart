@@ -18,7 +18,6 @@ import '../../../domain/models/engine.dart';
 import '../../../data/services/engines/attachments.dart';
 import '../../../data/services/chat_share.dart';
 import '../../../domain/goal.dart';
-import '../../../domain/opens.dart';
 import '../../../domain/models/session.dart';
 import '../../../utils/command.dart';
 import '../../../utils/starters.dart';
@@ -189,13 +188,6 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     this.embedded = false,
   }) : device = devices == null ? null : DeviceViewModel(devices, mac: mac, session: sessionId) {
     _attention?.viewing = sessionId;
-    // Counted for search, which puts the chats opened most lately first.
-    if (!embedded) {
-      if (_sessions.byId(sessionId) case final s? when s.sideOf == null) {
-        final o = opened(s.opens, s.openedAt, DateTime.now());
-        unawaited(_sessions.save(s.copyWith(opens: o.score, openedAt: o.at)));
-      }
-    }
     // The agent's browser_open opens the page here, in the Preview panel.
     browser?.opener(sessionId, preview);
     // The agent's device tools show the device here: in the Device panel,
