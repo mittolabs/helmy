@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
+import 'package:helmy_relay/protocol.dart' show RelayClose;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../../domain/browser_page.dart';
@@ -105,61 +106,159 @@ class RemoteLink extends ChangeNotifier {
 
   RemoteConversation of(String id) => _conversations.putIfAbsent(id, RemoteConversation.new);
 
+  /// Where to look for the computer in [p], asking with [query]: the
+  /// computer that served this page, as the browser reached it; its
+  /// addresses on the network; and the relay, which reaches it from
+  /// anywhere. A page over HTTPS can only open secure sockets, so it skips
+  /// the network's addresses.
+  static List<Uri> targets(Pairing p, Map<String, String> query) {
+    final served = servedFrom();
+    final relay = p.relay == null ? null : p.relaySocket(query);
+    final local = query.isEmpty ? '' : '?${Uri(queryParameters: query).query}';
+    return [
+      if (served != null && served.host != relay?.host)
+        Uri.parse('${served.secure ? 'wss' : 'ws'}://${served.host}:${served.port}/ws$local'),
+      if (served == null || !served.secure)
+        for (final host in p.hosts)
+          if (host != served?.host) Uri.parse('ws://$host:${p.port}/ws$local'),
+      ?relay,
+    ];
+  }
+
+  /// The first of [targets] to answer, tried all at once: the network's
+  /// address is quicker at home, the relay's the one that answers away.
+  static Future<WebSocketChannel?> firstOf(List<Uri> targets) async {
+    if (targets.isEmpty) return null;
+    final won = Completer<WebSocketChannel?>();
+    var left = targets.length;
+    for (final t in targets) {
+      final WebSocketChannel ws;
+      try {
+        ws = WebSocketChannel.connect(t);
+      } on Object {
+        if (--left == 0 && !won.isCompleted) won.complete(null);
+        continue;
+      }
+      unawaited(
+        ws.ready
+            .timeout(const Duration(seconds: 6))
+            .then(
+              (_) => won.isCompleted ? ws.sink.close() : won.complete(ws),
+              onError: (Object _) {
+                unawaited(ws.sink.close());
+                if (--left == 0 && !won.isCompleted) won.complete(null);
+              },
+            ),
+      );
+    }
+    return won.future;
+  }
+
+  /// Uses [offer], a one-time code: this phone and the computer agree on its
+  /// key, and the code is spent. The pairing to keep, or why not in words.
+  static Future<({Pairing? pairing, String? trouble})> exchange(Pairing offer) async {
+    final ws = await firstOf(targets(offer, {'d': offer.device!, 'x': '1'}));
+    if (ws == null) {
+      return (
+        pairing: null,
+        trouble:
+            "Can't reach ${offer.name}. Helmy needs to be open there, with the phone turned on "
+            'in Settings.',
+      );
+    }
+    final said = StreamIterator<Object?>(ws.stream);
+    try {
+      final started = await PairingExchange.start(offer);
+      ws.sink.add(jsonEncode(started.message));
+      if (!await said.moveNext().timeout(const Duration(seconds: 20))) {
+        return (pairing: null, trouble: _closedWhy(offer.name, ws.closeCode));
+      }
+      final m = jsonDecode('${said.current}');
+      if (m is! Map || m['type'] != 'exchanged') {
+        return (
+          pairing: null,
+          trouble: m is Map && m['why'] == 'wrong'
+              ? "That code didn't check out. On ${offer.name}, open Settings, then Phone, and "
+                    'scan the code it shows now.'
+              : 'That code was already used, or it expired. On ${offer.name}, open Settings, '
+                    'then Phone, and scan the new code it shows.',
+        );
+      }
+      final key = await PairingExchange.finish(offer, started, m.cast());
+      if (key == null) {
+        return (
+          pairing: null,
+          trouble:
+              "What answered isn't ${offer.name}: its reply did not prove it has the code. "
+              'Nothing was paired. Scan the code again.',
+        );
+      }
+      return (pairing: offer.exchanged(key), trouble: null);
+    } on Object {
+      return (
+        pairing: null,
+        trouble: '${offer.name} took too long to answer. Scan the code again.',
+      );
+    } finally {
+      unawaited(said.cancel());
+      unawaited(ws.sink.close());
+    }
+  }
+
+  /// Why the relay or the computer closed a socket, in words.
+  static String _closedWhy(String name, int? code) => switch (code) {
+    RelayClose.offline =>
+      "$name isn't connected to Helmy Connect right now. Helmy needs to be open there, "
+          'with the phone turned on in Settings.',
+    RelayClose.busy =>
+      '$name has as many phones connected as it can take. Close one and try again.',
+    RelayClose.overQuota =>
+      "$name used today's share of Helmy Connect. On the same Wi-Fi, it still works.",
+    _ => 'The connection to $name closed. Try again.',
+  };
+
   Future<void> connect() async {
     _retry?.cancel();
     state = LinkState.connecting;
     notifyListeners();
     final device = pairing.device;
-    final query = device == null ? '' : '?d=$device';
-    // A page a computer served: back to it first, as the browser reached it
-    // (over HTTPS, its secure socket); then the pairing's addresses.
-    final served = servedFrom();
-    final targets = [
-      if (served != null)
-        Uri.parse('${served.secure ? 'wss' : 'ws'}://${served.host}:${served.port}/ws$query'),
-      for (final host in pairing.hosts)
-        if (served == null || (!served.secure && host != served.host))
-          Uri.parse('ws://$host:${pairing.port}/ws$query'),
-    ];
-    for (final target in targets) {
-      try {
-        final ws = WebSocketChannel.connect(target);
-        try {
-          await ws.ready.timeout(const Duration(seconds: 4));
-        } on Object {
-          unawaited(ws.sink.close());
-          rethrow;
-        }
-        _ws = ws;
-        _attempt = 0;
-        ws.stream.listen(
-          (data) => unawaited(_receive(data)),
-          onDone: _lost,
-          onError: (_) => _lost(),
-          cancelOnError: true,
-        );
-        await _send({'type': 'hello', 'name': phoneName()});
-        for (final id in _open) {
-          await _send({'type': 'open', 'id': id});
-        }
-        if (_wantScreen) await _send({'type': 'screen', 'on': true});
-        return;
-      } on Object {
-        // The next address.
-      }
+    final ws = await firstOf(targets(pairing, {'d': ?device}));
+    if (_closed) {
+      unawaited(ws?.sink.close());
+      return;
     }
-    _lost(unreachable: true);
+    if (ws == null) {
+      _lost(unreachable: true);
+      return;
+    }
+    _ws = ws;
+    _attempt = 0;
+    ws.stream.listen(
+      (data) => unawaited(_receive(data)),
+      onDone: () => _lost(code: ws.closeCode),
+      onError: (_) => _lost(code: ws.closeCode),
+      cancelOnError: true,
+    );
+    await _send({'type': 'hello', 'name': phoneName()});
+    for (final id in _open) {
+      await _send({'type': 'open', 'id': id});
+    }
+    if (_wantScreen) await _send({'type': 'screen', 'on': true});
   }
 
-  void _lost({bool unreachable = false}) {
+  void _lost({bool unreachable = false, int? code}) {
     _ws = null;
     if (_closed) return;
     state = LinkState.unreachable;
     trouble = unreachable
         ? "Can't reach ${pairing.name}. It needs Helmy open with the phone turned on in "
-              'Settings, on the same Wi-Fi as this phone, or on Tailscale.'
-        : 'The connection to ${pairing.name} dropped. If it was unpaired there, scan its '
-              'code again.';
+              'Settings, and this phone on the same Wi-Fi or online.'
+        : code != null && code >= 4000
+        ? code == 4403
+              ? '${pairing.name} turned this phone away: it was unpaired there. Scan its code '
+                    'again.'
+              : _closedWhy(pairing.name, code)
+        : 'The connection to ${pairing.name} dropped. Trying again.';
     notifyListeners();
     // Again soon, then less often: 2, 4, 8, up to 30 seconds.
     final wait = Duration(seconds: (2 << _attempt.clamp(0, 4)).clamp(2, 30));

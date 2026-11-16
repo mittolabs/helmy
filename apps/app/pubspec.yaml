@@ -28,6 +28,9 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  # Helmy Connect: what a computer and the relay say to each other.
+  helmy_relay:
+    path: ../relay
   flutter:
     sdk: flutter
 

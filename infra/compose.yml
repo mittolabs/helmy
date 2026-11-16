@@ -1,4 +1,4 @@
-# helmy.ke and the Caddy that serves it, from one image. On the server it has no ports of
+# helmy.ke and the Caddy that serves it, from one image, and Helmy Connect's relay beside it. On the server it has no ports of
 # its own: it joins the `ashlar` network, where the edge (ashlar-site/infra/edge) reaches
 # it as helmy-site and holds 80 and 443. On this machine (make local) it is published on
 # localhost. See README.md here.
@@ -17,6 +17,23 @@ services:
         aliases: [helmy-site]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # Helmy Connect: the relay computers keep a line to, and the phone page, at
+  # connect.helmy.ke (the edge reaches it as helmy-relay). Built from the same commit.
+  relay:
+    image: ghcr.io/mittolabs/helmy-relay:${HELMY_SITE_RELEASE:-local}
+    restart: unless-stopped
+    ports:
+      - "${HELMY_SITE_BIND:-127.0.0.1}:${HELMY_RELAY_PORT:-8746}:8080"
+    networks:
+      default:
+      ashlar:
+        aliases: [helmy-relay]
+    healthcheck:
+      test: ["CMD", "/app/relay", "--check"]
       interval: 10s
       timeout: 5s
       retries: 6

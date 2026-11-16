@@ -16,6 +16,7 @@ on:
     paths:
       - apps/site/**
       - apps/docs/**
+      - apps/relay/**
       - CHANGELOG.md
       - infra/**
       - Makefile
@@ -77,6 +78,36 @@ jobs:
             ghcr.io/mittolabs/helmy-site:${{ steps.sha.outputs.sha }}
             ghcr.io/mittolabs/helmy-site:latest
 
+      # Helmy Connect's relay, with the phone page it serves at connect.helmy.ke: the
+      # remote built for the web from this same commit, by the pinned Flutter.
+      - name: Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+        env:
+          FLUTTER_VERSION: "3.50.0"
+
+      - name: Build the phone page
+        working-directory: apps/app
+        env:
+          FLUTTER: flutter
+        run: |
+          flutter config --no-analytics
+          flutter precache --web
+          flutter pub get
+          node tool/remote.mjs --page
+
+      - name: Build and push the relay image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/relay.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/mittolabs/helmy-relay:${{ steps.sha.outputs.sha }}
+            ghcr.io/mittolabs/helmy-relay:latest
+
   deploy:
     needs: release
     if: ${{ always() && vars.DEPLOY_HOST != '' && (needs.release.result == 'success' || inputs.release) }}
@@ -119,4 +150,13 @@ jobs:
             sleep 5
           done
           echo "helmy.ke serves '${served}', not $RELEASE"
+          exit 1
+
+      - name: Check Helmy Connect answers
+        run: |
+          for i in $(seq 1 12); do
+            curl -fsS https://connect.helmy.ke/healthz && curl -fsS -o /dev/null https://connect.helmy.ke/ && { echo; echo "connect.helmy.ke is up"; exit 0; }
+            sleep 5
+          done
+          echo "connect.helmy.ke does not answer"
           exit 1

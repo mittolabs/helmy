@@ -24,15 +24,21 @@ Future<void> runPhone() async {
   // Opened from the code a computer shows: paired by the link it carries,
   // kept, and taken out of the address.
   var saved = await _PairingFile.read();
+  Pairing? offer;
   if (linkInAddress() case final l?) {
     clearAddress();
     if (Pairing.parse(l) case final p?) {
-      await _PairingFile.write(p);
-      saved = p;
+      // A one-time code: used on the pairing screen, which says how it went.
+      if (p.isOffer) {
+        offer = p;
+      } else {
+        await _PairingFile.write(p);
+        saved = p;
+      }
     }
   }
   final look = await _PairingFile.look();
-  runApp(_PhoneApp(saved: saved, look: look));
+  runApp(_PhoneApp(saved: offer == null ? saved : null, offer: offer, look: look));
 }
 
 /// The pairing and the look, kept so the remote stays paired.
@@ -54,8 +60,11 @@ abstract final class _PairingFile {
 }
 
 class _PhoneApp extends StatefulWidget {
-  const _PhoneApp({required this.saved, required this.look});
+  const _PhoneApp({required this.saved, required this.look, this.offer});
   final Pairing? saved;
+
+  /// A one-time code the page was opened with, to use at once.
+  final Pairing? offer;
   final PhoneLook look;
 
   @override
@@ -78,9 +87,17 @@ class _PhoneAppState extends State<_PhoneApp> {
     unawaited(_link!.connect());
   }
 
-  Future<void> _paired(Pairing p) async {
+  /// Pairs with [p]: a one-time code is used first, to agree on this
+  /// phone's key. Why not, in words, when it could not be.
+  Future<String?> _paired(Pairing p) async {
+    if (p.isOffer) {
+      final got = await RemoteLink.exchange(p);
+      if (got.pairing == null) return got.trouble;
+      p = got.pairing!;
+    }
     await _PairingFile.write(p);
-    setState(() => _use(p));
+    if (mounted) setState(() => _use(p));
+    return null;
   }
 
   Future<void> _unpair() async {
@@ -117,7 +134,7 @@ class _PhoneAppState extends State<_PhoneApp> {
       PhoneLook.dark => AshlarThemeMode.dark,
     },
     home: _link == null
-        ? _PairScreen(onPaired: _paired)
+        ? _PairScreen(onPaired: _paired, offer: widget.offer)
         : PhoneShell(
             link: _link!,
             onUnpair: _unpair,
@@ -132,8 +149,11 @@ class _PhoneAppState extends State<_PhoneApp> {
 
 /// Pairing: the Mac's code, scanned, or its link pasted.
 class _PairScreen extends StatefulWidget {
-  const _PairScreen({required this.onPaired});
-  final ValueChanged<Pairing> onPaired;
+  const _PairScreen({required this.onPaired, this.offer});
+  final Future<String?> Function(Pairing) onPaired;
+
+  /// A code to use as soon as the screen shows.
+  final Pairing? offer;
 
   @override
   State<_PairScreen> createState() => _PairScreenState();
@@ -143,6 +163,13 @@ class _PairScreenState extends State<_PairScreen> {
   final _pasted = TextEditingController();
   String? _wrong;
   bool _scanning = false;
+  bool _pairing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.offer case final p?) unawaited(_pair(p));
+  }
 
   void _try(String text) {
     final p = Pairing.parse(text);
@@ -150,7 +177,22 @@ class _PairScreenState extends State<_PairScreen> {
       setState(() => _wrong = "That isn't a Helmy pairing code.");
       return;
     }
-    widget.onPaired(p);
+    unawaited(_pair(p));
+  }
+
+  Future<void> _pair(Pairing p) async {
+    if (_pairing) return;
+    setState(() {
+      _pairing = true;
+      _scanning = false;
+      _wrong = null;
+    });
+    final trouble = await widget.onPaired(p);
+    if (!mounted) return;
+    setState(() {
+      _pairing = false;
+      _wrong = trouble;
+    });
   }
 
   @override
@@ -180,7 +222,7 @@ class _PairScreenState extends State<_PairScreen> {
                 height: 56,
               ),
               Text(
-                kIsWeb ? 'Pair with Helmy' : 'Pair with Helmy on your Mac',
+                kIsWeb ? 'Pair with Helmy' : 'Pair with Helmy on your computer',
                 style: t.text.xl.copyWith(fontWeight: .w600),
                 textAlign: .center,
               ),
@@ -192,12 +234,18 @@ class _PairScreenState extends State<_PairScreen> {
                   (true, false) =>
                     'On the computer Helmy runs on, open Settings, then Phone. Scan the code it '
                         "shows with this phone's camera, and open the link.",
-                  _ => 'On the Mac, open Settings, then Phone, and turn it on. Scan the code it shows.',
+                  _ => 'On the computer Helmy runs on, open Settings, then Phone, and turn it on. Scan the code it shows.',
                 },
                 style: muted,
                 textAlign: .center,
               ),
-              if (_scanning)
+              if (_pairing)
+                Text(
+                  'Pairing with the computer…',
+                  style: t.text.sm.copyWith(fontWeight: .w600),
+                  textAlign: .center,
+                )
+              else if (_scanning)
                 Expanded(
                   child: ClipRRect(
                     borderRadius: .circular(t.radiusLg),
@@ -216,7 +264,7 @@ class _PairScreenState extends State<_PairScreen> {
               else if (kIsWeb) ...[
                 Input(
                   controller: _pasted,
-                  placeholder: inExtension ? 'helmy-pair:v2?…' : 'Or paste the link here',
+                  placeholder: inExtension ? 'helmy-pair:v3?…' : 'Or paste the link here',
                 ),
                 Button(onPressed: () => _try(_pasted.text), child: const Text('Pair')),
               ] else ...[
@@ -225,7 +273,7 @@ class _PairScreenState extends State<_PairScreen> {
                   child: const Text('Scan the code'),
                 ),
                 Text('Or paste the link under the code:', style: muted),
-                Input(controller: _pasted, placeholder: 'helmy-pair:v1?…'),
+                Input(controller: _pasted, placeholder: 'helmy-pair:v3?…'),
                 Button(
                   variant: .outline,
                   onPressed: () => _try(_pasted.text),

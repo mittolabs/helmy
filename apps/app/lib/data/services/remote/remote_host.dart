@@ -5,24 +5,73 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/models/settings.dart';
 import '../../repositories/settings_repository.dart';
+import 'relay_host.dart';
 import 'remote_crypto.dart';
 import 'remote_server.dart';
 
 /// Keeps [RemoteServer] running while settings say a phone may reach Helmy,
 /// and says how to pair: the link a phone reads from the QR code.
 class RemoteHost extends ChangeNotifier {
-  RemoteHost(this._server, this._settings) {
+  RemoteHost(this._server, this._settings, {this.relayUrl = Pairing.defaultRelay}) {
     _server
       ..keyOf = _keyOf
-      ..onHello = _hello;
+      ..onHello = _hello
+      ..secretOf = _secretOf
+      ..onExchanged = _exchanged;
     _settings.addListener(_apply);
+    // A code shown too long is replaced: checked each minute.
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) => unawaited(_apply()));
     // After it is made, not while: applying can save settings, and saving
     // tells their listeners, which must not happen in the middle of building.
     unawaited(Future(_apply));
   }
 
-  String? _keyOf(String device) =>
-      _settings.settings.phones.where((p) => p.id == device).firstOrNull?.key;
+  /// The relay this computer keeps a line to (Helmy Connect).
+  final String relayUrl;
+
+  /// The line to the relay, while phones may reach Helmy from anywhere.
+  RelayHost? relay;
+
+  late final Timer _tick;
+
+  /// How long a code shown can be used for.
+  static const codeLasts = Duration(minutes: 15);
+
+  String? _keyOf(String device) {
+    final key = _settings.settings.phones.where((p) => p.id == device).firstOrNull?.key;
+    return key == null || key.isEmpty ? null : key;
+  }
+
+  /// The code waiting for a phone, if it is still good.
+  PairedPhone? get _pending => _settings.settings.phones
+      .where(
+        (p) =>
+            p.pairedAt == null &&
+            p.secret != null &&
+            DateTime.now().difference(p.madeAt ?? DateTime(0)) < codeLasts,
+      )
+      .firstOrNull;
+
+  String? _secretOf(String device) {
+    final p = _pending;
+    return p?.id == device ? p!.secret : null;
+  }
+
+  /// Phone [device] used its code: paired with the key agreed on, the code
+  /// spent, and the next phone gets a new one.
+  Future<void> _exchanged(String device, String key) async {
+    final s = _settings.settings;
+    final now = DateTime.now();
+    await _settings.save(
+      s.copyWith(
+        phones: [
+          for (final p in s.phones)
+            if (p.id == device) p.exchanged(key, now) else p,
+        ],
+      ),
+    );
+    notifyListeners();
+  }
 
   /// The phones paired by their own keys, most recently seen first.
   List<PairedPhone> get phones => [
@@ -104,6 +153,7 @@ class RemoteHost extends ChangeNotifier {
     try {
       final s = _settings.settings;
       if (!s.remoteScreen) await _server.endScreen();
+      if (!s.remoteOn || !s.remoteAnywhere) await _stopRelay();
       if (!s.remoteOn) {
         if (_server.running) await _server.stop();
         _runningWith = null;
@@ -118,21 +168,45 @@ class RemoteHost extends ChangeNotifier {
         key = Pairing.newKey();
         await _settings.save(s.copyWith(remoteKey: key));
       }
-      // A code of its own for the next phone to pair: one at a time.
-      var pending = s.phones.where((p) => p.pairedAt == null).firstOrNull;
-      if (pending == null) {
-        pending = PairedPhone(id: Pairing.newDevice(), key: Pairing.newKey());
-        await _settings.save(_settings.settings.copyWith(phones: [...s.phones, pending]));
+      // This computer's own key on the relay, the first time.
+      var seed = _settings.settings.relayKey;
+      if (seed.isEmpty) {
+        seed = RelayHost.newSeed();
+        await _settings.save(_settings.settings.copyWith(relayKey: seed));
       }
-      if (_runningWith == key && _server.running && pairing?.device == pending.id) return;
-      if (_runningWith == key && _server.running) {
-        pairing = Pairing(
-          hosts: pairing?.hosts ?? await _hosts(),
-          port: _server.port,
-          key: pending.key,
-          name: Platform.localHostname.replaceAll(RegExp(r'\.local$'), ''),
-          device: pending.id,
+      // A one-time code for the next phone to pair: one at a time, good for
+      // a while. Unused ones go: one too old, or one from before codes
+      // were single-use (its key in the code).
+      var pending = _pending;
+      if (pending == null) {
+        pending = PairedPhone(
+          id: Pairing.newDevice(),
+          key: '',
+          secret: Pairing.newKey(),
+          madeAt: DateTime.now(),
         );
+        final now = _settings.settings;
+        await _settings.save(
+          now.copyWith(
+            phones: [
+              for (final p in now.phones)
+                if (p.pairedAt != null) p,
+              pending,
+            ],
+          ),
+        );
+      }
+      final anywhere = _settings.settings.remoteAnywhere;
+      final relayId = anywhere ? await RelayHost.idFor(seed) : null;
+      if (_runningWith == key &&
+          _server.running &&
+          pairing?.device == pending.id &&
+          pairing?.relay == relayId) {
+        return;
+      }
+      if (_runningWith == key && _server.running) {
+        if (anywhere) await _startRelay(seed);
+        pairing = _offer(pairing?.hosts ?? await _hosts(), pending, relayId);
         notifyListeners();
         return;
       }
@@ -140,13 +214,8 @@ class RemoteHost extends ChangeNotifier {
         await _server.start(key);
         _runningWith = key;
         trouble = null;
-        pairing = Pairing(
-          hosts: await _hosts(),
-          port: _server.port,
-          key: pending.key,
-          name: Platform.localHostname.replaceAll(RegExp(r'\.local$'), ''),
-          device: pending.id,
-        );
+        if (anywhere) await _startRelay(seed);
+        pairing = _offer(await _hosts(), pending, relayId);
       } on SocketException catch (e) {
         trouble =
             'Port ${_server.port} is taken by another app, so phones cannot reach Helmy. '
@@ -163,6 +232,36 @@ class RemoteHost extends ChangeNotifier {
     }
   }
 
+  /// The code a phone pairs with: [pending]'s one-time secret, where to
+  /// find this computer, and its id on the relay when it is reachable there.
+  Pairing _offer(List<String> hosts, PairedPhone pending, String? relayId) => Pairing(
+    hosts: hosts,
+    port: _server.port,
+    key: '',
+    secret: pending.secret,
+    name: Platform.localHostname.replaceAll(RegExp(r'\.local$'), ''),
+    device: pending.id,
+    relay: relayId,
+    relayUrl: relayUrl,
+  );
+
+  Future<void> _startRelay(String seed) async {
+    if (relay?.seed == seed) return;
+    await _stopRelay();
+    final r = relay = RelayHost(_server, seed: seed, url: relayUrl)..addListener(notifyListeners);
+    unawaited(r.start());
+  }
+
+  Future<void> _stopRelay() async {
+    final r = relay;
+    if (r == null) return;
+    relay = null;
+    r.removeListener(notifyListeners);
+    await r.stop();
+    r.dispose();
+    if (!_disposed) notifyListeners();
+  }
+
   /// A new key, and every phone forgotten: each has to pair again.
   Future<void> pairAgain() async {
     for (final p in _settings.settings.phones) {
@@ -176,7 +275,9 @@ class RemoteHost extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _tick.cancel();
     _settings.removeListener(_apply);
+    unawaited(_stopRelay());
     unawaited(_server.stop());
     super.dispose();
   }

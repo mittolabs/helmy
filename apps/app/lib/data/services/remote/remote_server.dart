@@ -75,6 +75,14 @@ class RemoteServer {
   /// A phone said hello: its id and the name it goes by.
   void Function(String device, String name)? onHello;
 
+  /// The one-time secret of phone [device]'s code, while it can still be
+  /// used; null once used, or when there is no such code.
+  String? Function(String device) secretOf = (_) => null;
+
+  /// Phone [device] used its code: [key] is the key agreed on, to keep (and
+  /// the code to spend) before the phone is told.
+  Future<void> Function(String device, String key)? onExchanged;
+
   final SessionRepository _sessions;
   final ConversationRepository _conversations;
 
@@ -126,25 +134,88 @@ class RemoteServer {
         await req.response.close();
         return;
       }
-      // A phone with its own key says which it is; one paired before has
-      // the shared key.
-      final device = req.uri.queryParameters['d'];
-      final own = device == null ? null : keyOf(device);
-      if (device != null && own == null) {
+      final query = req.uri.queryParameters;
+      // Refused before the socket opens, as before: a phone whose key is
+      // gone. A code being used is answered on the socket, to say why not.
+      final device = query['d'];
+      if (query['x'] != '1' && device != null && keyOf(device) == null) {
         req.response.statusCode = HttpStatus.forbidden;
         await req.response.close();
         return;
       }
       final ws = await WebSocketTransformer.upgrade(req);
       ws.pingInterval = const Duration(seconds: 20);
-      final client = _Client(ws, device: device, sealer: own == null ? null : Sealer(own));
-      ws.listen(
-        (data) => unawaited(_receive(client, data)),
-        onDone: () => _gone(client),
-        onError: (_) => _gone(client),
-        cancelOnError: true,
-      );
+      await accept(SocketPipe(ws), query);
     });
+  }
+
+  /// A phone on [pipe], from this network or through the relay, asking
+  /// with [query]: its id ('d'), and 'x' when it is using its code.
+  Future<void> accept(RemotePipe pipe, Map<String, String> query) async {
+    if (_sealer == null) {
+      await pipe.close(4503, 'off');
+      return;
+    }
+    final device = query['d'];
+    if (query['x'] == '1') {
+      await _exchange(pipe, device);
+      return;
+    }
+    // A phone with its own key says which it is; one paired before has
+    // the shared key.
+    final own = device == null ? null : keyOf(device);
+    if (device != null && own == null) {
+      await pipe.close(4403, 'not paired');
+      return;
+    }
+    final client = _Client(pipe, device: device, sealer: own == null ? null : Sealer(own));
+    pipe.messages.listen(
+      (data) => unawaited(_receive(client, data)),
+      onDone: () => _gone(client),
+      onError: (_) => _gone(client),
+      cancelOnError: true,
+    );
+  }
+
+  /// Codes being used now, so one cannot be used twice at once.
+  final _exchanging = <String>{};
+
+  /// A phone using its code: proves it has it, and it and this computer
+  /// agree on its key (`PairingExchange`). Said in the clear, as nothing
+  /// secret passes: what passes cannot give the key.
+  Future<void> _exchange(RemotePipe pipe, String? device) async {
+    Future<void> refuse(String why) async {
+      pipe.add(jsonEncode({'type': 'refused', 'why': why}));
+      await pipe.close(4403, why);
+    }
+
+    final secret = device == null ? null : secretOf(device);
+    if (device == null || secret == null || _exchanging.contains(device)) {
+      await refuse('used');
+      return;
+    }
+    _exchanging.add(device);
+    // Read without letting go: letting go of a WebSocket's stream closes it.
+    final said = StreamIterator(pipe.messages);
+    try {
+      final got = await said.moveNext().timeout(const Duration(seconds: 15));
+      final first = got ? said.current : null;
+      final m = first is String ? jsonDecode(first) : null;
+      final answer = m is Map && m['type'] == 'exchange'
+          ? await PairingExchange.answer(secret, device, m.cast())
+          : null;
+      // Used by someone else meanwhile.
+      if (secretOf(device) != secret) return await refuse('used');
+      if (answer == null) return await refuse('wrong');
+      await onExchanged?.call(device, answer.key);
+      pipe.add(jsonEncode(answer.message));
+      await pipe.close(1000, 'paired');
+    } on Object {
+      await pipe.close(4408, 'too slow');
+    } finally {
+      _exchanging.remove(device);
+      unawaited(said.cancel());
+    }
   }
 
   /// The page phones open in a browser, read once; null where this build
@@ -604,9 +675,35 @@ class RemoteServer {
   }
 }
 
+/// One phone's connection, wherever it comes from: a WebSocket on this
+/// network, or a channel through the relay.
+abstract class RemotePipe {
+  /// What the phone sends: text (sealed messages) or bytes.
+  Stream<Object?> get messages;
+
+  void add(Object data);
+
+  Future<void> close([int? code, String? reason]);
+}
+
+/// A phone's WebSocket on this network.
+class SocketPipe implements RemotePipe {
+  SocketPipe(this.ws);
+  final WebSocket ws;
+
+  @override
+  Stream<Object?> get messages => ws;
+
+  @override
+  void add(Object data) => ws.add(data);
+
+  @override
+  Future<void> close([int? code, String? reason]) => ws.close(code, reason);
+}
+
 class _Client {
   _Client(this.ws, {this.device, this.sealer});
-  final WebSocket ws;
+  final RemotePipe ws;
 
   /// Which phone, and its own key's sealer; both null for one paired before.
   final String? device;

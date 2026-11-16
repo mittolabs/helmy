@@ -1,0 +1,14 @@
+name: helmy_relay
+description: Helmy Connect's relay. Passes sealed messages between a computer and its phones.
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  cryptography: ^2.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0

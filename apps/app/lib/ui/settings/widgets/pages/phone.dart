@@ -44,6 +44,28 @@ class _Phone extends StatelessWidget {
               onChanged: (v) => vm.update(s.copyWith(remoteScreen: v)),
             ),
           ),
+        if (s.remoteOn)
+          _Row(
+            title: 'From anywhere',
+            description:
+                'Through Helmy Connect (connect.helmy.ke), a paired phone reaches this computer '
+                'from any network, and its browser opens Helmy over HTTPS. What passes is sealed '
+                'with the phone\'s own key, which the relay never has. Off, only the same Wi-Fi '
+                '(or Tailscale) works.',
+            control: Switch(
+              value: s.remoteAnywhere,
+              semanticLabel: 'From anywhere',
+              onChanged: (v) => vm.update(s.copyWith(remoteAnywhere: v)),
+            ),
+          ),
+        if (s.remoteOn && s.remoteAnywhere)
+          if (host.relay case final relay?)
+            Text(
+              relay.connected
+                  ? 'Connected to Helmy Connect: phones reach this computer from anywhere.'
+                  : relay.trouble ?? 'Connecting to Helmy Connect…',
+              style: muted,
+            ),
         if (s.remoteOn && pairing != null) ...[
           const _Heading('Pair a phone'),
           Row(
@@ -59,30 +81,27 @@ class _Phone extends StatelessWidget {
                     Text(
                       "Scan this with your phone's camera and open the link: Helmy opens in "
                       "the phone's browser, with nothing to install. With the Helmy app, scan "
-                      'it there instead. Either way, the phone finds ${pairing.name} on the '
-                      'same Wi-Fi, or anywhere over Tailscale.',
+                      'it there instead. Either way, the phone finds ${pairing.name} '
+                      '${pairing.relay != null ? 'from anywhere' : 'on the same Wi-Fi, or over Tailscale'}.',
                       style: muted,
                     ),
                     Text(
-                      'What goes between them is sealed with a key only this code carries: '
-                      'nothing readable crosses the network, and a phone without it is turned '
-                      'away. Treat the code like a password.',
+                      'The code works once, within 15 minutes. When the phone uses it, the '
+                      'phone and this computer agree on a key of its own, which is never in '
+                      'the code: a copy of it (a screenshot, the link left in a browser) opens '
+                      'nothing afterwards. Then the next phone gets a new code.',
                       style: muted,
                     ),
+                    if (pairing.relay == null)
+                      Text(
+                        'The browser page comes from this computer without encryption, so use '
+                        'it on a network you trust (at home, at work, or over Tailscale), not '
+                        'on public Wi-Fi. Turn on From anywhere for a page over HTTPS.',
+                        style: muted,
+                      ),
                     Text(
-                      'The browser page itself comes from this computer without encryption, '
-                      'so use it on a network you trust (at home, at work, or over '
-                      'Tailscale), not on public Wi-Fi. The app has no such limit.',
-                      style: muted,
-                    ),
-                    Text(
-                      'Each phone pairs with a code of its own: once one has scanned it, '
-                      'the next phone gets a new one.',
-                      style: muted,
-                    ),
-                    Text(
-                      'In Chrome, with the Helmy extension: copy the link instead and paste it '
-                      'there. It is the same code, so treat it the same way.',
+                      'In Chrome, with the Helmy extension, or on another computer: copy the '
+                      'link instead and paste it there. It is the same one-time code.',
                       style: muted,
                     ),
                     Button(
@@ -191,10 +210,21 @@ class _ComputersState extends State<_Computers> {
 
   Future<void> _add() async {
     final s = widget.vm.settings;
-    final p = Pairing.parse(_link.text);
+    var p = Pairing.parse(_link.text);
     if (p == null) {
       setState(() => _wrong = "That isn't a Helmy pairing link.");
       return;
+    }
+    // A one-time code: used now, for a key of this computer's own.
+    if (p.isOffer) {
+      setState(() => _wrong = null);
+      final got = await RemoteLink.exchange(p);
+      if (!mounted) return;
+      if (got.pairing == null) {
+        setState(() => _wrong = got.trouble);
+        return;
+      }
+      p = got.pairing!;
     }
     await widget.vm.update(
       s.copyWith(
@@ -251,7 +281,7 @@ class _ComputersState extends State<_Computers> {
             Expanded(
               child: Input(
                 controller: _link,
-                placeholder: 'helmy-pair:v2?...',
+                placeholder: 'helmy-pair:v3?...',
                 semanticLabel: "Another computer's pairing link",
                 onSubmitted: (_) => unawaited(_add()),
               ),
