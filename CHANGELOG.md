@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/mittolabs/helmy/compare/v0.19.1...v0.20.0) (2026-11-16)
+
+
+### Features
+
+* **phone:** use Helmy from a phone's browser, with no app to install ([#82](https://github.com/mittolabs/helmy/issues/82)) ([0eb78c1](https://github.com/mittolabs/helmy/commit/0eb78c109a67af269e4fd4aa172d3c3999841351))
+
 ## [0.19.1](https://github.com/mittolabs/helmy/compare/v0.19.0...v0.19.1) (2026-11-16)
 
 
