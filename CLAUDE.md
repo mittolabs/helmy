@@ -17,7 +17,7 @@ Settings the way you add an account. After that they never speak for themselves.
   never passes on their wording: their errors, their notices, their quirks.
   Talking to Helmy should feel like talking to a model of its own.
 - Which connection answers a message is Helmy's choice, made per message
-  (capability, then measured headroom, then the model on this Mac). It is
+  (capability, then measured headroom, then the model on this computer). It is
   never a choice you have to make.
 - Which one answered is shown on request: on each answer, on hover, its
   logo, its name, the model and why Helmy chose it. That says where the
@@ -72,11 +72,19 @@ connection's quirk showing through, a result left in a connection's folder,
 an agent asking for what it could have looked up. Decide from the turn log
 (how often chats hit it), not from one chat.
 
+## Every desktop, not just the Mac
+
+Helmy ships on macOS, Windows and Linux (x64 and arm64), and every design,
+proposal and plan covers all three from the start. Name how each one does
+it (on Windows and Linux too, not only the Mac), and when one cannot yet,
+say what it lacks and the fix, rather than leaving it for later. Copy says
+"this computer", never "this Mac", unless the thing really is Mac-only.
+
 ## Layout
 
 One repository, per the workspace's `docs/engineering/repos.md`:
 
-- `apps/app/`: the Flutter app, macOS first, in the house architecture
+- `apps/app/`: the Flutter app, on macOS, Windows and Linux alike, in the house architecture
   (`docs/engineering/flutter.md`): view models with `Command` and `Result`,
   repositories over services, `provider` and `go_router`. Its
   `lib/ui/core/ashlar/` is Ashlar UI, copied in by the `ashlar` command: a fix
