@@ -89,7 +89,7 @@ const List<SettingEntry> settingsIndex = [
   (
     title: 'Developer mode',
     section: .general,
-    keywords: 'developer dev mode pick model connection effort speed advanced',
+    keywords: 'developer dev mode pick model connection effort speed advanced approvals permissions allow all plan first',
   ),
   // Appearance.
   (title: 'Theme', section: .appearance, keywords: 'dark light mode system color scheme'),

@@ -74,6 +74,10 @@ class const Session({
   /// The goal is kept but not worked toward until resumed.
   final bool goalPaused = false,
 
+  /// Who decides what its agent asks to do (Developer mode): Helmy, the
+  /// person, or nobody (everything goes ahead).
+  final ApprovalMode approvals = .helmy,
+
   /// How often it has been opened, halving every two weeks (`openScore`),
   /// as of [openedAt]: search puts the chats opened most lately first.
   final double opens = 0,
@@ -166,6 +170,7 @@ class const Session({
     int? size,
     String? goal,
     bool? goalPaused,
+    ApprovalMode? approvals,
     double? opens,
     DateTime? openedAt,
     String? shareUrl,
@@ -210,6 +215,7 @@ class const Session({
     size: size ?? this.size,
     goal: clearGoal ? null : goal ?? this.goal,
     goalPaused: clearGoal ? false : goalPaused ?? this.goalPaused,
+    approvals: approvals ?? this.approvals,
     opens: opens ?? this.opens,
     openedAt: openedAt ?? this.openedAt,
     shareUrl: unshare ? null : shareUrl ?? this.shareUrl,
@@ -249,6 +255,7 @@ class const Session({
     'size': ?size,
     'goal': ?goal,
     if (goalPaused) 'goalPaused': true,
+    if (approvals != .helmy) 'approvals': approvals.name,
     if (opens > 0) 'opens': opens,
     if (openedAt != null) 'openedAt': openedAt!.toIso8601String(),
     'shareUrl': ?shareUrl,
@@ -298,6 +305,8 @@ class const Session({
       size: (json['size'] as num?)?.toInt(),
       goal: json['goal'] as String?,
       goalPaused: json['goalPaused'] == true,
+      approvals:
+          ApprovalMode.values.where((a) => a.name == json['approvals']).firstOrNull ?? .helmy,
       opens: (json['opens'] as num?)?.toDouble() ?? 0,
       openedAt: DateTime.tryParse('${json['openedAt'] ?? ''}'),
       shareUrl: json['shareUrl'] as String?,

@@ -146,8 +146,10 @@ void main() {
   late ConversationRepositoryEngines repo;
   late _Engine engine;
   late StorageService storage;
+  var developer = true;
 
   setUp(() async {
+    developer = true;
     root = await Directory.systemTemp.createTemp('held');
     storage = storageAt(root);
     sessions = SessionRepositoryLocal(storage);
@@ -159,6 +161,7 @@ void main() {
       meter: meter,
       storage: storage,
       sessions: sessions,
+      developerMode: () => developer,
     );
   });
   tearDown(() async {
@@ -185,6 +188,51 @@ void main() {
     }
     expect(done(), isTrue);
   }
+
+  group('who decides (Developer mode)', () {
+    Future<Session> chatWith(ApprovalMode mode) async {
+      final s = await chat();
+      final saved = s.copyWith(approvals: mode);
+      await sessions.save(saved);
+      return saved;
+    }
+
+    test('allow all: the push goes ahead, with no judging and no asking', () async {
+      final s = await chatWith(.all);
+      await repo.send(s, 'Push the branch');
+      await until(() => engine.run?.answers.isNotEmpty ?? false);
+      expect(engine.run!.answers.single.$2, PermissionAnswer.allow);
+      expect(prompt(s.id, 'r1').decision, PermissionDecision.allowedByHelmy);
+      expect(engine.judged, isEmpty);
+    });
+
+    test('ask me: the push waits for the person, with no judging', () async {
+      final s = await chatWith(.person);
+      await repo.send(s, 'Push the branch');
+      await until(() => _asked(repo, s.id));
+      expect(prompt(s.id, 'r1').decision, PermissionDecision.pending);
+      expect(engine.run!.answers, isEmpty);
+      expect(engine.judged, isEmpty);
+    });
+
+    test('with Developer mode off, Helmy decides whatever the chat was set to', () async {
+      developer = false;
+      final s = await chatWith(.all);
+      await repo.send(s, 'Push the branch');
+      await until(() => _asked(repo, s.id));
+      expect(engine.judged, isNotEmpty);
+      expect(prompt(s.id, 'r1').why, 'Push your branch to GitHub?');
+    });
+
+    test('the choice is kept with the chat, and Helmy decides by default', () async {
+      final s = await chat();
+      expect(s.approvals, ApprovalMode.helmy);
+      expect(
+        Session.fromJson(s.copyWith(approvals: .person).toJson()).approvals,
+        ApprovalMode.person,
+      );
+    });
+  });
 
   test('a question held for the person lets the work go on; a later yes lets the same step '
       'through', () async {

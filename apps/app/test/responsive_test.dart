@@ -230,6 +230,8 @@ void main() {
       sessions: sessions,
       conversations: repo,
       projects: projects,
+      // Developer mode on (as it is by default): its controls in the tray too.
+      settings: settings,
     );
 
     Future<void> show(Widget page) async {
@@ -272,6 +274,9 @@ void main() {
             '1 waiting',
             '1 working',
             'feature/a-branch-name-long-enough-to-crowd-the-tray',
+            // Developer mode's, on by default: every choice Helmy's at first.
+            'Helmy decides',
+            'Helmy chooses',
           ],
           '+1 −1',
         ]) {

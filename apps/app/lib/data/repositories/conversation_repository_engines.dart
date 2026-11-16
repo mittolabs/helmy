@@ -1449,6 +1449,30 @@ class ConversationRepositoryEngines extends ConversationRepository {
         }
         continue;
       }
+      // Developer mode's choice for the chat (Helmy decides without it):
+      // everything goes ahead, or only what looks does and the rest is the
+      // person's.
+      switch (_developerMode() ? session.approvals : ApprovalMode.helmy) {
+        case .all:
+          _settleApproval(sessionId, run, p, (
+            verdict: Verdict.allow,
+            why: 'This chat allows everything.',
+          ));
+          continue;
+        case .person:
+          final now = Approvals.atOnce(p, folder, call: call);
+          final edits = const {'Edit', 'Write', 'MultiEdit', 'NotebookEdit'}.contains(p.toolName);
+          _settleApproval(
+            sessionId,
+            run,
+            p,
+            now != null && !edits
+                ? now
+                : (verdict: Verdict.ask, why: 'This chat asks you first: allow it?'),
+          );
+          continue;
+        case .helmy:
+      }
       // What no wording should get past the person, first: prompt
       // injection's aims (secrets, downloaded code, persistence, an agent's
       // own permissions).

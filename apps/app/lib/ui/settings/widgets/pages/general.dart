@@ -275,10 +275,12 @@ class _General extends StatelessWidget {
         _Row(
           title: 'Developer mode',
           description: s.developerMode
-              ? 'Each chat can be held to a connection and model you pick, with its effort and '
-                    'speed, from the message box. Chats you leave alone, Helmy still chooses for.'
-              : 'Helmy chooses the connection and model for every message. Turn this on to pick '
-                    'them yourself, chat by chat.',
+              ? 'Under the message box, each chat can be held to a connection and model you pick, '
+                    'with its effort and speed; can ask you before every change, or allow '
+                    'everything; and can plan first. Until you pick, Helmy chooses, as it would '
+                    'with this off.'
+              : 'Helmy chooses the connection and model for every message, and decides what to '
+                    'ask you. Turn this on to choose these yourself, chat by chat.',
           control: Switch(
             value: s.developerMode,
             semanticLabel: 'Developer mode',
