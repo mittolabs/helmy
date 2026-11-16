@@ -1,0 +1,15 @@
+# Launcher icons for the platforms whose icon is plain pictures: Android and Windows.
+# iOS and macOS carry theirs by hand (a light and a dark one), so they are left alone.
+# The tool is not a dependency (it resolves to an old version against ours): run it from outside,
+#   fvm dart pub global activate flutter_launcher_icons && fvm dart pub global run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024.png"
+  android: true
+  ios: false
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "macos/Runner/AppIcon.icon/Assets/head-light.png"
+  windows:
+    generate: true
+    image_path: "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024.png"
+    icon_size: 256
