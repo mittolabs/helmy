@@ -399,6 +399,11 @@ class SidebarViewModel extends ChangeNotifier {
     }
   }
 
+  /// Marks a chat unread again, to come back to.
+  void markChatUnread(List<Session> threads) {
+    if (threads.isNotEmpty) _attention?.markUnread(threads.first.id);
+  }
+
   Future<void> setChatPinned(List<Session> threads, bool pinned) async {
     for (final t in threads) {
       await setPinned(_sessions.byId(t.id) ?? t, pinned);

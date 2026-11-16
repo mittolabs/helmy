@@ -455,6 +455,12 @@ class ShellScreen extends StatelessWidget {
             leading: const AshlarIcon(AshlarIconsRoundedStroke.check, size: 16),
             onPressed: () => viewModel.markChatRead(all),
             child: const Text('Mark as read'),
+          )
+        else
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.circleDot, size: 16),
+            onPressed: () => viewModel.markChatUnread(all),
+            child: const Text('Mark as unread'),
           ),
         MenuItem(
           leading: const AshlarIcon(AshlarIconsRoundedStroke.pin, size: 16),

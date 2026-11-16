@@ -130,6 +130,13 @@ void main() {
     expect(vm.groups.first.label, 'Needs you');
     expect(vm.groups.first.sessions.map((s) => s.id), [a.id]);
 
+    // Read, then marked unread again to come back to.
+    vm.markChatRead([a]);
+    expect(attention.isUnread(a.id), isFalse);
+    vm.markChatUnread([sessions.byId(b.id)!]);
+    expect(attention.isUnread(b.id), isTrue);
+    expect(vm.isUnread(b.id), isTrue);
+
     expect(
       SidebarViewModel.tomorrowMorning(DateTime(2026, 11, 4, 22, 15)),
       DateTime(2026, 11, 5, 9),

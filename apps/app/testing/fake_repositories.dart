@@ -140,6 +140,12 @@ class FakeAttentionRepository extends AttentionRepository {
   }
 
   @override
+  void markUnread(String sessionId) {
+    unread.add(sessionId);
+    notifyListeners();
+  }
+
+  @override
   set viewing(String? sessionId) => viewed = sessionId;
 
   @override
