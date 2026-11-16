@@ -90,6 +90,9 @@ One repository, per the workspace's `docs/engineering/repos.md`:
   `lib/ui/core/ashlar/` is Ashlar UI, copied in by the `ashlar` command: a fix
   that is Ashlar's goes to `ashlar-ui/registry/` and is copied again; a look
   that is Helmy's own stays in Helmy's copy.
+- `apps/relay/`: Helmy Connect's relay at connect.helmy.ke (decision `0016`), plain
+  Dart, which passes sealed messages between a computer and its phones and serves the
+  phone page. Its `protocol.dart` is shared with the app; `infra/` deploys it.
 - `Makefile`: every command, run from the root.
 
 Only create a folder the product actually has.
