@@ -29,6 +29,10 @@ abstract class AttentionRepository extends ChangeNotifier {
   Future<void> checkNotifications();
   bool isUnread(String sessionId);
   void markRead(String sessionId);
+
+  /// Marks [sessionId] unread again, to come back to: it shows as unread
+  /// and counts on the badge until it is opened.
+  void markUnread(String sessionId);
   set viewing(String? sessionId);
 
   /// The screen of [sessionId] closed. Only clears what is on screen when
@@ -95,6 +99,13 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   /// Clears [sessionId]'s unread mark without opening it.
   @override
   void markRead(String sessionId) => _seen(sessionId);
+
+  @override
+  void markUnread(String sessionId) {
+    // The chat on screen is put down, so it is not read again at once.
+    if (_viewing == sessionId) _viewing = null;
+    if (_unread.add(sessionId)) _changed();
+  }
 
   /// Wakes snoozed sessions that are due, as needing you, and sets a timer
   /// for the next one.

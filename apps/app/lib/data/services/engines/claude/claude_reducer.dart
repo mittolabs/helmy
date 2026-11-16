@@ -1,5 +1,6 @@
 import '../../../../domain/models/chat_item.dart';
 import '../../../../domain/models/engine.dart';
+import '../agent_engine.dart' show sessionGoneError;
 
 /// Folds Claude Code's stream-json output into [ChatItem]s. Pure: it never talks
 /// to the process, so it can be tested on recorded lines.
@@ -150,13 +151,20 @@ class ClaudeReducer {
         _tokens(m);
         sessionId = m['session_id'] as String? ?? sessionId;
         final isError = m['is_error'] == true || m['subtype'] != 'success';
-        final interrupted = m['subtype'] == 'error_during_execution';
+        // Its session for this chat no longer exists: reported like an
+        // interruption, but nothing ran.
+        final gone =
+            isError &&
+            '${m['errors'] ?? m['result'] ?? ''}'.contains('No conversation found with session ID');
+        final interrupted = m['subtype'] == 'error_during_execution' && !gone;
         items.add(
           TurnSummary(
             ok: !isError || interrupted,
             costUsd: (m['total_cost_usd'] as num?)?.toDouble(),
             durationMs: (m['duration_ms'] as num?)?.toInt(),
-            error: interrupted
+            error: gone
+                ? sessionGoneError
+                : interrupted
                 ? null
                 : isError
                 ? (m['result'] as String? ??

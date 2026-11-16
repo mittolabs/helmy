@@ -79,6 +79,7 @@ import '../data/services/approvals.dart';
 import '../domain/models/chat_item.dart';
 import '../data/services/helmy_run.dart';
 import '../data/services/vault.dart';
+import '../data/services/work_awake.dart';
 import '../data/services/vault_tools.dart';
 import '../data/services/skill_store.dart';
 
@@ -348,6 +349,18 @@ List<SingleChildWidget> providers(Loaded loaded) => [
           for (final link in loaded.settings.settings.computers) ?Pairing.parse(link),
         ],
       );
+    },
+  ),
+  // This computer kept from sleeping while a chat works.
+  ChangeNotifierProvider(
+    lazy: false,
+    create: (context) {
+      final awake = WorkAwake(
+        context.read<ConversationRepository>(),
+        enabled: () => loaded.settings.settings.awakeWhileWorking,
+      );
+      loaded.settings.addListener(awake.check);
+      return awake;
     },
   ),
   // Events from outside, into the threads given an address.

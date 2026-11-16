@@ -271,6 +271,18 @@ class _General extends StatelessWidget {
             ],
           ),
         ),
+        _Row(
+          title: 'Stay awake while working',
+          description:
+              'This computer does not go to sleep while a chat is working, so work you leave '
+              'running keeps going. The screen can still turn off, and closing a laptop still '
+              'puts it to sleep.',
+          control: Switch(
+            value: s.awakeWhileWorking,
+            semanticLabel: 'Stay awake while working',
+            onChanged: (v) => vm.update(s.copyWith(awakeWhileWorking: v)),
+          ),
+        ),
         const _Heading('Developer mode'),
         _Row(
           title: 'Developer mode',
