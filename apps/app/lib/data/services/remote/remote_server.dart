@@ -15,6 +15,7 @@ import '../chat_apps.dart';
 import '../design_bundle.dart';
 import '../engines/attachments.dart';
 import 'remote_crypto.dart';
+import 'remote_page.dart';
 import 'screen_source.dart';
 
 /// Helmy on this Mac, reachable from a paired phone: its chats, each one's
@@ -32,7 +33,9 @@ class RemoteServer {
     this._screen,
     this._apps,
     Directory? pages,
-  }) : _pagesAt = pages {
+    Future<Uint8List?> Function()? page,
+  }) : _pagesAt = pages,
+       _loadPage = page {
     _screen?.onFrame = _onFrame;
     _apps?.changes.listen(_onApp);
     _screen?.onStopped = _onScreenStopped;
@@ -114,7 +117,11 @@ class RemoteServer {
     _chats?.addListener(_onState);
     _conversations.addListener(_onConversations);
     server.listen((req) async {
-      if (req.uri.path != '/ws' || !WebSocketTransformer.isUpgradeRequest(req)) {
+      if (req.uri.path != '/ws') {
+        await _page(req);
+        return;
+      }
+      if (!WebSocketTransformer.isUpgradeRequest(req)) {
         req.response.statusCode = HttpStatus.notFound;
         await req.response.close();
         return;
@@ -140,6 +147,37 @@ class RemoteServer {
     });
   }
 
+  /// The page phones open in a browser, read once; null where this build
+  /// has none.
+  final Future<Uint8List?> Function()? _loadPage;
+  Future<RemotePage?>? _pageRead;
+
+  Future<void> _page(HttpRequest req) async {
+    try {
+      if (req.method != 'GET' && req.method != 'HEAD') {
+        req.response.statusCode = HttpStatus.methodNotAllowed;
+        await req.response.close();
+        return;
+      }
+      final page = await (_pageRead ??= () async {
+        final bytes = await _loadPage?.call();
+        return bytes == null ? null : RemotePage.read(bytes);
+      }());
+      final path = req.uri.path.substring(1);
+      if (page == null) {
+        req.response
+          ..statusCode = path.isEmpty ? HttpStatus.ok : HttpStatus.notFound
+          ..headers.contentType = ContentType.html
+          ..write(path.isEmpty ? RemotePage.missing : '');
+        await req.response.close();
+        return;
+      }
+      await page.serve(req, path);
+    } on Object {
+      // The browser went away mid-answer.
+    }
+  }
+
   Future<void> stop() async {
     _sessions.removeListener(_onState);
     _chats?.removeListener(_onState);
@@ -156,15 +194,33 @@ class RemoteServer {
   /// This Mac's addresses a phone can reach: the local network's and
   /// Tailscale's, loopback left out.
   static Future<List<String>> addresses() async {
-    final out = <String>[];
+    final out = <({String address, int rank})>[];
     for (final i in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
       for (final a in i.addresses) {
-        if (!a.isLoopback) out.add(a.address);
+        if (!a.isLoopback) out.add((address: a.address, rank: addressRank(i.name, a.address)));
       }
     }
-    // Tailscale's (100.64.0.0/10) last: the local network is faster when both work.
-    out.sort((a, b) => (a.startsWith('100.') ? 1 : 0).compareTo(b.startsWith('100.') ? 1 : 0));
-    return out;
+    // Stable: the system's own order within a rank.
+    final sorted = [for (var i = 0; i < out.length; i++) (i: i, a: out[i])]
+      ..sort((x, y) => x.a.rank != y.a.rank ? x.a.rank - y.a.rank : x.i - y.i);
+    return [for (final x in sorted) x.a.address];
+  }
+
+  /// Which of this computer's addresses a phone should try first, lowest
+  /// first. The Wi-Fi's and the wired network's first: a phone's browser
+  /// only ever reaches the one in the code's link. Tailscale's (100.64.0.0/10)
+  /// last, as the local network is faster when both work; between them, the
+  /// networks of virtual machines, containers and VPNs, which a phone on
+  /// the same Wi-Fi seldom reaches.
+  static int addressRank(String interface, String address) {
+    final o = address.split('.').map(int.tryParse).toList();
+    if (o.length == 4 && o[0] == 100 && (o[1] ?? 0) >= 64 && (o[1] ?? 0) < 128) return 2;
+    final virtual = RegExp(
+      r'^(bridge|vmnet|vboxnet|docker|br-|veth|virbr|utun|tun|tap|ipsec|ppp|zt|wg|llw|awdl|anpi)'
+      r'|vethernet|virtual|vpn|hyper-v|wsl',
+      caseSensitive: false,
+    );
+    return virtual.hasMatch(interface) ? 1 : 0;
   }
 
   /// Turns phone [device] away now: its connections close.

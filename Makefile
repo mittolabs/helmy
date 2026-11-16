@@ -5,13 +5,14 @@ DOCS := apps/docs
 JASPR ?= $(HOME)/.pub-cache/bin/jaspr
 DART ?= fvm dart
 
-.PHONY: help setup app run chrome test live analyze format design-check design-check-flutter sim-input site site-dev docs docs-dev web local local-down deploy
+.PHONY: help setup app run chrome remote test live analyze format design-check design-check-flutter sim-input site site-dev docs docs-dev web local local-down deploy
 
 help:
 	@echo "make setup     the commit hook and dependencies"
 	@echo "make app       debug build of the macOS app, signed when .signing.local names a certificate"
 	@echo "make run       build it and open it"
 	@echo "make chrome    Helmy in Chrome: build/chrome to load unpacked, and its zip"
+	@echo "make remote    the page phones open in a browser, packed into the desktop app"
 	@echo "make test      unit tests (no real agents, no usage)"
 	@echo "make live      live tests against the real connections (costs usage)"
 	@echo "make analyze   static analysis"
@@ -31,7 +32,7 @@ setup:
 	git config core.hooksPath .githooks
 	cd $(APP) && fvm flutter pub get
 
-app:
+app: remote
 	cd $(APP) && fvm flutter build macos --debug --build-number=$$(git rev-list --count HEAD)
 	cd $(APP) && tool/sign_mac.sh build/macos/Build/Products/Debug/Helmy.app
 
@@ -40,6 +41,9 @@ run: app
 
 chrome:
 	cd $(APP) && node tool/chrome.mjs
+
+remote:
+	cd $(APP) && node tool/remote.mjs
 
 test:
 	cd $(APP) && fvm flutter test

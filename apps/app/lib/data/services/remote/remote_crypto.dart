@@ -38,9 +38,22 @@ class Pairing {
     queryParameters: {'h': hosts.join(','), 'p': '$port', 'k': key, 'n': name, 'd': ?device},
   ).toString();
 
-  /// A link read from a QR code or pasted; null when it is not one.
+  /// As the QR code carries it: a web address, so a phone with no app opens
+  /// Helmy in its browser, served by this computer. The pairing rides after
+  /// the `#`, which a browser keeps to itself: the key never crosses the
+  /// network. The app's scanner reads it the same.
+  String get webLink => 'http://${hosts.first}:$port/#$link';
+
+  /// A link read from a QR code or pasted (either form); null when it is not
+  /// one.
   static Pairing? parse(String text) {
-    final uri = Uri.tryParse(text.trim());
+    var t = text.trim();
+    if (RegExp(r'^https?://', caseSensitive: false).hasMatch(t)) {
+      final at = t.indexOf('#');
+      if (at < 0) return null;
+      t = t.substring(at + 1);
+    }
+    final uri = Uri.tryParse(t);
     if (uri == null || uri.scheme != scheme) return null;
     final q = uri.queryParameters;
     final port = int.tryParse(q['p'] ?? '');

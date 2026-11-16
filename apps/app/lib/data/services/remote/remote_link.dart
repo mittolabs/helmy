@@ -10,6 +10,7 @@ import '../../../domain/models/chat.dart';
 import '../../../domain/models/chat_item.dart';
 import '../chat_apps.dart';
 import 'remote_crypto.dart';
+import 'served.dart';
 
 /// A thread as a phone sees it: enough for its row and its state.
 typedef RemoteThread = ({
@@ -42,6 +43,15 @@ enum LinkState { connecting, connected, unreachable }
 /// "Mittos-iPhone" as "Mittos iPhone".
 String phoneName() {
   // A browser has no name of its own to give: what it is, and where.
+  if (kIsWeb && !inExtension) {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => 'iPhone browser',
+      TargetPlatform.android => 'Android browser',
+      TargetPlatform.macOS => 'Browser on a Mac',
+      TargetPlatform.windows => 'Browser on Windows',
+      _ => 'Browser',
+    };
+  }
   if (kIsWeb) {
     return switch (defaultTargetPlatform) {
       TargetPlatform.macOS => 'Chrome on a Mac',
@@ -99,12 +109,21 @@ class RemoteLink extends ChangeNotifier {
     _retry?.cancel();
     state = LinkState.connecting;
     notifyListeners();
-    for (final host in pairing.hosts) {
+    final device = pairing.device;
+    final query = device == null ? '' : '?d=$device';
+    // A page a computer served: back to it first, as the browser reached it
+    // (over HTTPS, its secure socket); then the pairing's addresses.
+    final served = servedFrom();
+    final targets = [
+      if (served != null)
+        Uri.parse('${served.secure ? 'wss' : 'ws'}://${served.host}:${served.port}/ws$query'),
+      for (final host in pairing.hosts)
+        if (served == null || (!served.secure && host != served.host))
+          Uri.parse('ws://$host:${pairing.port}/ws$query'),
+    ];
+    for (final target in targets) {
       try {
-        final device = pairing.device;
-        final ws = WebSocketChannel.connect(
-          Uri.parse('ws://$host:${pairing.port}/ws${device == null ? '' : '?d=$device'}'),
-        );
+        final ws = WebSocketChannel.connect(target);
         try {
           await ws.ready.timeout(const Duration(seconds: 4));
         } on Object {

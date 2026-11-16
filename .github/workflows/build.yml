@@ -118,6 +118,14 @@ jobs:
       - run: flutter config --no-analytics && flutter precache --${{ matrix.platform == 'apk' && 'android' || matrix.platform == 'chrome' && 'web' || matrix.platform }}
       - run: flutter pub get
 
+      # The page a phone's browser opens, served by the desktop app: packed
+      # into it, so a phone with no app can use Helmy.
+      - name: Phone browser page
+        if: matrix.platform == 'macos' || matrix.platform == 'windows' || matrix.platform == 'linux'
+        env:
+          FLUTTER: flutter
+        run: flutter precache --web && node tool/remote.mjs
+
       - name: Build
         if: matrix.platform != 'chrome'
         env:

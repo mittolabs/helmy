@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../data/services/remote/remote_crypto.dart';
 import '../../data/services/remote/remote_link.dart';
+import '../../data/services/remote/served.dart';
 import '../core/ashlar/app.dart';
 import '../core/ashlar/app_theme.dart';
 import '../core/ashlar/button.dart';
@@ -20,7 +21,16 @@ import 'store/kept.dart';
 /// stays on the Mac; nothing runs here but this window onto it.
 Future<void> runPhone() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final saved = await _PairingFile.read();
+  // Opened from the code a computer shows: paired by the link it carries,
+  // kept, and taken out of the address.
+  var saved = await _PairingFile.read();
+  if (linkInAddress() case final l?) {
+    clearAddress();
+    if (Pairing.parse(l) case final p?) {
+      await _PairingFile.write(p);
+      saved = p;
+    }
+  }
   final look = await _PairingFile.look();
   runApp(_PhoneApp(saved: saved, look: look));
 }
@@ -175,10 +185,15 @@ class _PairScreenState extends State<_PairScreen> {
                 textAlign: .center,
               ),
               Text(
-                kIsWeb
-                    ? 'On the computer Helmy runs on, open Settings, then Phone, and turn it on. '
-                          'Copy the link under the code it shows and paste it here.'
-                    : 'On the Mac, open Settings, then Phone, and turn it on. Scan the code it shows.',
+                switch ((kIsWeb, inExtension)) {
+                  (true, true) =>
+                    'On the computer Helmy runs on, open Settings, then Phone, and turn it on. '
+                        'Copy the link under the code it shows and paste it here.',
+                  (true, false) =>
+                    'On the computer Helmy runs on, open Settings, then Phone. Scan the code it '
+                        "shows with this phone's camera, and open the link.",
+                  _ => 'On the Mac, open Settings, then Phone, and turn it on. Scan the code it shows.',
+                },
                 style: muted,
                 textAlign: .center,
               ),
@@ -199,7 +214,10 @@ class _PairScreenState extends State<_PairScreen> {
                   ),
                 )
               else if (kIsWeb) ...[
-                Input(controller: _pasted, placeholder: 'helmy-pair:v2?…'),
+                Input(
+                  controller: _pasted,
+                  placeholder: inExtension ? 'helmy-pair:v2?…' : 'Or paste the link here',
+                ),
                 Button(onPressed: () => _try(_pasted.text), child: const Text('Pair')),
               ] else ...[
                 Button(

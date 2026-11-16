@@ -85,6 +85,9 @@ flutter:
     - assets/design/
     - assets/helmy/bin/
     - assets/logos/
+    # The page phones open in a browser, served by the desktop app only.
+    - path: assets/remote/
+      platforms: [macos, windows, linux]
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
