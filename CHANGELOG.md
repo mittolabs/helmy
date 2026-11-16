@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.22.0](https://github.com/mittolabs/helmy/compare/v0.21.0...v0.22.0) (2026-11-16)
+
+
+### Features
+
+* **chat:** the computer stays awake while a chat works, on macOS, Windows and Linux (Settings &gt; General, Stay awake while working) ([8af26ef](https://github.com/mittolabs/helmy/commit/8af26ef4d7ef8f4a4a51a52ec7f84d9a41a24a6b))
+* **phone:** pairing codes work once and expire after 15 minutes; the phone's key is agreed on when the code is used and is never in the code ([c1b98a9](https://github.com/mittolabs/helmy/commit/c1b98a95e4b0bfdd26711666a9b70aed5ba081c0))
+* **phone:** reach your computer from anywhere through Helmy Connect: phones pair and connect through connect.helmy.ke, sealed end to end, and the browser page opens over HTTPS ([c1b98a9](https://github.com/mittolabs/helmy/commit/c1b98a95e4b0bfdd26711666a9b70aed5ba081c0))
+* **sidebar:** mark a chat as unread to come back to it ([8af26ef](https://github.com/mittolabs/helmy/commit/8af26ef4d7ef8f4a4a51a52ec7f84d9a41a24a6b))
+
+
+### Bug Fixes
+
+* **chat:** a chat whose agent session was gone ended every message with no answer; it now starts a fresh session, handed the conversation ([8af26ef](https://github.com/mittolabs/helmy/commit/8af26ef4d7ef8f4a4a51a52ec7f84d9a41a24a6b))
+
 ## [0.21.0](https://github.com/mittolabs/helmy/compare/v0.20.0...v0.21.0) (2026-11-16)
 
 
