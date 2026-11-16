@@ -26,6 +26,11 @@ class const EngineLaunch({
 });
 
 /// State an engine reports alongside the items it writes.
+/// A turn's error when the connection's own session for the chat is gone
+/// (deleted, or kept on another computer): the chat starts a fresh one,
+/// handed the conversation, instead of failing every message after.
+const sessionGoneError = 'session gone';
+
 class EngineStatus {
   bool thinking = false;
   String? resumeId;

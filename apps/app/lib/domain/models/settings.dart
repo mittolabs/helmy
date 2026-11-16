@@ -485,6 +485,10 @@ class const AppSettings({
   /// through it is sealed with the phone's key, which the relay never has.
   final bool remoteAnywhere = true,
 
+  /// This computer does not go to sleep while a chat is working (its
+  /// screen may still turn off).
+  final bool awakeWhileWorking = true,
+
   /// This computer's own key on the relay (an Ed25519 seed, base64url):
   /// its id there is made from it. Empty before the first time.
   final String relayKey = '',
@@ -651,6 +655,7 @@ class const AppSettings({
     bool? remoteScreen,
     String? remoteKey,
     bool? remoteAnywhere,
+    bool? awakeWhileWorking,
     String? relayKey,
     bool? settleOnItsOwn,
     bool? ownCopies,
@@ -738,6 +743,7 @@ class const AppSettings({
     remoteScreen: remoteScreen ?? this.remoteScreen,
     remoteKey: remoteKey ?? this.remoteKey,
     remoteAnywhere: remoteAnywhere ?? this.remoteAnywhere,
+    awakeWhileWorking: awakeWhileWorking ?? this.awakeWhileWorking,
     relayKey: relayKey ?? this.relayKey,
     settleOnItsOwn: settleOnItsOwn ?? this.settleOnItsOwn,
     ownCopies: ownCopies ?? this.ownCopies,
@@ -830,6 +836,7 @@ class const AppSettings({
     'remoteScreen': remoteScreen,
     'remoteKey': remoteKey,
     if (!remoteAnywhere) 'remoteAnywhere': false,
+    if (!awakeWhileWorking) 'awakeWhileWorking': false,
     if (relayKey.isNotEmpty) 'relayKey': relayKey,
     'settleOnItsOwn': settleOnItsOwn,
     'ownCopies': ownCopies,
@@ -942,6 +949,7 @@ class const AppSettings({
     remoteScreen: json['remoteScreen'] as bool? ?? true,
     remoteKey: json['remoteKey'] as String? ?? '',
     remoteAnywhere: json['remoteAnywhere'] as bool? ?? true,
+    awakeWhileWorking: json['awakeWhileWorking'] as bool? ?? true,
     relayKey: json['relayKey'] as String? ?? '',
     settleOnItsOwn: json['settleOnItsOwn'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
@@ -999,6 +1007,7 @@ const restorableSettings = <String, List<String>>{
   'Use Helmy from your phone': ['remoteOn'],
   'Screen sharing': ['remoteScreen'],
   'From anywhere': ['remoteAnywhere'],
+  'Stay awake while working': ['awakeWhileWorking'],
   'Default folder for new chats': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],
   'Browser engine': ['previewWith'],

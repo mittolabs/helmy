@@ -87,6 +87,11 @@ const List<SettingEntry> settingsIndex = [
   ),
   (title: 'When a screenshot is taken', section: .general, keywords: 'screenshot sound flash test'),
   (
+    title: 'Stay awake while working',
+    section: .general,
+    keywords: 'sleep caffeinate awake power energy keep running laptop',
+  ),
+  (
     title: 'Developer mode',
     section: .general,
     keywords: 'developer dev mode pick model connection effort speed advanced approvals permissions allow all plan first',

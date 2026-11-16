@@ -50,6 +50,9 @@ abstract class ConversationRepository extends ChangeNotifier {
   }) async => null;
   Conversation of(String sessionId);
 
+  /// Whether any chat is working now.
+  bool get anyBusy => false;
+
   /// Says [text] in [sessionId]'s conversation, as Helmy: a line for the
   /// person, never sent to a connection. Kept with the conversation when it
   /// is next saved.

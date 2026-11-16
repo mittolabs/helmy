@@ -64,6 +64,9 @@ class _Turn {
   /// The agent was asked to end its part: once a turn.
   bool wrappingUp = false;
 
+  /// Started again on a fresh session after its connection's was gone: once.
+  bool freshSession = false;
+
   /// Whether the model on this Mac has been asked about it yet.
   bool decided = false;
 
@@ -276,6 +279,9 @@ class ConversationRepositoryEngines extends ConversationRepository {
 
   @override
   Conversation of(String sessionId) => _conversations.putIfAbsent(sessionId, Conversation.new);
+
+  @override
+  bool get anyBusy => _conversations.values.any((c) => c.busy);
 
   @override
   Future<void> load(String sessionId) async {
@@ -1039,6 +1045,19 @@ class ConversationRepositoryEngines extends ConversationRepository {
             .any((t) => t.error == needsToolsError);
         // Take back what the failure left and let another engine have the message.
         final failed = c.items.skip(turn.start).whereType<TurnSummary>().lastOrNull;
+        // Its session there is gone: the same connection again, on a fresh
+        // session handed the conversation. Nothing ran, so nothing is done twice.
+        if (failed?.error == sessionGoneError && !turn.freshSession) {
+          turn.freshSession = true;
+          c.items.removeRange(turn.start, c.items.length);
+          if (_sessions.byId(sessionId) case final s?) {
+            _sessions.save(s.copyWith(threads: {...s.threads}..remove(engineId)));
+          }
+          turn.tried.remove(engineId);
+          unawaited(_close(_key(sessionId, engineId)).then((_) => _dispatch(sessionId, turn)));
+          notifyListeners();
+          return;
+        }
         if (failed?.error case final error? when error != needsToolsError) {
           turn
             ..lastError = error

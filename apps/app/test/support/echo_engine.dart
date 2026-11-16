@@ -15,6 +15,9 @@ class EchoEngine implements AgentEngine {
   var contextUsed = 1000;
   var failNext = false;
 
+  /// The next turn fails before doing anything, with this error.
+  String? failCleanNext;
+
   /// Takes a message mid-turn, as Claude Code does; what it took.
   var steerable = false;
   final steered = <String>[];
@@ -82,6 +85,12 @@ class _EchoRun implements EngineRun {
       status
         ..resumeId = 'thread-${engine.launches.length}'
         ..context = ContextUse(used: engine.contextUsed, window: 1000000);
+      if (engine.failCleanNext case final error?) {
+        engine.failCleanNext = null;
+        items.add(TurnSummary(ok: false, error: error));
+        _changes.add(true);
+        return;
+      }
       final failed = engine.failNext;
       engine.failNext = false;
       items
