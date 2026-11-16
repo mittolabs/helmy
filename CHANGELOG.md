@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.21.0](https://github.com/mittolabs/helmy/compare/v0.20.0...v0.21.0) (2026-11-16)
+
+
+### Features
+
+* **chat:** choose who approves a chat's actions (Helmy, you, or nobody), in Developer mode ([f61337e](https://github.com/mittolabs/helmy/commit/f61337e1c8320fae2babd1ff233e9e144d61023b))
+* **chat:** have a chat plan first, starting the work when you approve its plan ([f61337e](https://github.com/mittolabs/helmy/commit/f61337e1c8320fae2babd1ff233e9e144d61023b))
+* **chat:** see and copy a chat's sessions from the model picker ([f61337e](https://github.com/mittolabs/helmy/commit/f61337e1c8320fae2babd1ff233e9e144d61023b))
+* **settings:** Developer mode is on by default, with every choice Helmy's until you make one ([f61337e](https://github.com/mittolabs/helmy/commit/f61337e1c8320fae2babd1ff233e9e144d61023b))
+
 ## [0.20.0](https://github.com/mittolabs/helmy/compare/v0.19.1...v0.20.0) (2026-11-16)
 
 
