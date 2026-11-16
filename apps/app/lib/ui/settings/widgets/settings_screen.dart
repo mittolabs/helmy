@@ -4,6 +4,7 @@ import '../../core/qr_view.dart';
 import '../../core/tinted_icon.dart';
 import '../../../data/services/remote/remote_crypto.dart';
 import '../../../data/services/remote/remote_host.dart';
+import '../../../data/services/remote/remote_link.dart';
 
 import 'package:file_selector/file_selector.dart';
 

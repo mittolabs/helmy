@@ -200,12 +200,19 @@ class const ProjectSettings({
 
 /// A phone paired with this Mac, by its own key; one not yet paired (its
 /// code shown, not scanned) has no [pairedAt].
+///
+/// A code not yet used has a one-time [secret] and no [key]: the phone and
+/// this computer agree on its key when it is used (see `PairingExchange`),
+/// and the code is spent. One made before codes were single-use has its
+/// [key] in the code, and no [secret].
 class const PairedPhone({
   required final String id,
   required final String key,
   final String name = '',
   final DateTime? pairedAt,
   final DateTime? lastSeen,
+  final String? secret,
+  final DateTime? madeAt,
 }) {
   PairedPhone copyWith({String? name, DateTime? pairedAt, DateTime? lastSeen}) => PairedPhone(
     id: id,
@@ -213,7 +220,13 @@ class const PairedPhone({
     name: name ?? this.name,
     pairedAt: pairedAt ?? this.pairedAt,
     lastSeen: lastSeen ?? this.lastSeen,
+    secret: secret,
+    madeAt: madeAt,
   );
+
+  /// Its code used: paired, with the [key] agreed on, and the code spent.
+  PairedPhone exchanged(String key, DateTime at) =>
+      PairedPhone(id: id, key: key, name: name, pairedAt: at, lastSeen: at);
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -221,6 +234,8 @@ class const PairedPhone({
     'name': name,
     'pairedAt': ?pairedAt?.toIso8601String(),
     'lastSeen': ?lastSeen?.toIso8601String(),
+    'secret': ?secret,
+    'madeAt': ?madeAt?.toIso8601String(),
   };
 
   static PairedPhone fromJson(Map<String, Object?> j) => PairedPhone(
@@ -229,6 +244,8 @@ class const PairedPhone({
     name: '${j['name'] ?? ''}',
     pairedAt: DateTime.tryParse('${j['pairedAt']}'),
     lastSeen: DateTime.tryParse('${j['lastSeen']}'),
+    secret: j['secret'] as String?,
+    madeAt: DateTime.tryParse('${j['madeAt']}'),
   );
 }
 
@@ -463,6 +480,15 @@ class const AppSettings({
   /// The key phones pair with (see `Pairing`); empty before the first.
   final String remoteKey = '',
 
+  /// A paired phone reaches Helmy from anywhere, through the relay at
+  /// helmy.ke (Helmy Connect), as well as on the same network. What goes
+  /// through it is sealed with the phone's key, which the relay never has.
+  final bool remoteAnywhere = true,
+
+  /// This computer's own key on the relay (an Ed25519 seed, base64url):
+  /// its id there is made from it. Empty before the first time.
+  final String relayKey = '',
+
   /// A chat settles by itself when its pull request merges, or after three
   /// days untouched.
   final bool settleOnItsOwn = true,
@@ -624,6 +650,8 @@ class const AppSettings({
     bool? remoteOn,
     bool? remoteScreen,
     String? remoteKey,
+    bool? remoteAnywhere,
+    String? relayKey,
     bool? settleOnItsOwn,
     bool? ownCopies,
     Map<String, ProjectSettings>? projects,
@@ -709,6 +737,8 @@ class const AppSettings({
     remoteOn: remoteOn ?? this.remoteOn,
     remoteScreen: remoteScreen ?? this.remoteScreen,
     remoteKey: remoteKey ?? this.remoteKey,
+    remoteAnywhere: remoteAnywhere ?? this.remoteAnywhere,
+    relayKey: relayKey ?? this.relayKey,
     settleOnItsOwn: settleOnItsOwn ?? this.settleOnItsOwn,
     ownCopies: ownCopies ?? this.ownCopies,
     projects: projects ?? this.projects,
@@ -799,6 +829,8 @@ class const AppSettings({
     'remoteOn': remoteOn,
     'remoteScreen': remoteScreen,
     'remoteKey': remoteKey,
+    if (!remoteAnywhere) 'remoteAnywhere': false,
+    if (relayKey.isNotEmpty) 'relayKey': relayKey,
     'settleOnItsOwn': settleOnItsOwn,
     'ownCopies': ownCopies,
     'projects': {for (final e in projects.entries) e.key: e.value.toJson()},
@@ -909,6 +941,8 @@ class const AppSettings({
     remoteOn: json['remoteOn'] as bool? ?? false,
     remoteScreen: json['remoteScreen'] as bool? ?? true,
     remoteKey: json['remoteKey'] as String? ?? '',
+    remoteAnywhere: json['remoteAnywhere'] as bool? ?? true,
+    relayKey: json['relayKey'] as String? ?? '',
     settleOnItsOwn: json['settleOnItsOwn'] as bool? ?? true,
     ownCopies: json['ownCopies'] as bool? ?? false,
     projects: {
@@ -964,6 +998,7 @@ const restorableSettings = <String, List<String>>{
   "Each file's change open": ['diffFilesOpen'],
   'Use Helmy from your phone': ['remoteOn'],
   'Screen sharing': ['remoteScreen'],
+  'From anywhere': ['remoteAnywhere'],
   'Default folder for new chats': ['folderMode', 'fixedFolder'],
   'Move to an agent with more room': ['switching'],
   'Browser engine': ['previewWith'],

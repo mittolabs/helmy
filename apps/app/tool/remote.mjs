@@ -11,7 +11,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-const out = path.resolve('build/remote');
+// --page: the page alone, for Helmy Connect's relay to serve at
+// connect.helmy.ke (infra/relay.Dockerfile), not packed.
+const pageOnly = process.argv.includes('--page');
+const out = path.resolve(pageOnly ? 'build/connect' : 'build/remote');
 fs.rmSync(out, { recursive: true, force: true });
 // fvm here; Flutter itself in CI (FLUTTER=flutter).
 const [flutter, ...pre] = (process.env.FLUTTER ?? 'fvm flutter').split(' ');
@@ -46,6 +49,11 @@ fs.writeFileSync(fonts, JSON.stringify(families.filter(({ fonts: [{ asset }] }) 
 
 // A Mac program the desktop app runs, which a browser cannot.
 drop('assets/assets/helmy/bin');
+
+if (pageOnly) {
+  console.log(`${path.relative('.', out)}: the page for Helmy Connect`);
+  process.exit(0);
+}
 
 const files = fs.readdirSync(out, { recursive: true })
   .filter((f) => fs.statSync(path.join(out, f)).isFile())

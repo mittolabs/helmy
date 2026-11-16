@@ -11,7 +11,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-    paths: ["apps/app/**", ".github/workflows/app.yml"]
+    paths: ["apps/app/**", "apps/relay/**", ".github/workflows/app.yml"]
 
 jobs:
   test:
@@ -29,3 +29,7 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test integration_test
       - run: flutter analyze
       - run: flutter test --exclude-tags live
+      # Helmy Connect's relay: its own package, tested here too (the app's
+      # tests also run phones through it).
+      - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart test
+        working-directory: apps/relay

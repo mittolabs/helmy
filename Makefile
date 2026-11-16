@@ -5,7 +5,7 @@ DOCS := apps/docs
 JASPR ?= $(HOME)/.pub-cache/bin/jaspr
 DART ?= fvm dart
 
-.PHONY: help setup app run chrome remote test live analyze format design-check design-check-flutter sim-input site site-dev docs docs-dev web local local-down deploy
+.PHONY: help setup app run chrome remote relay relay-image test live analyze format design-check design-check-flutter sim-input site site-dev docs docs-dev web local local-down deploy
 
 help:
 	@echo "make setup     the commit hook and dependencies"
@@ -13,6 +13,7 @@ help:
 	@echo "make run       build it and open it"
 	@echo "make chrome    Helmy in Chrome: build/chrome to load unpacked, and its zip"
 	@echo "make remote    the page phones open in a browser, packed into the desktop app"
+	@echo "make relay     Helmy Connect's relay on :8080, serving the phone page (build/connect)"
 	@echo "make test      unit tests (no real agents, no usage)"
 	@echo "make live      live tests against the real connections (costs usage)"
 	@echo "make analyze   static analysis"
@@ -45,8 +46,18 @@ chrome:
 remote:
 	cd $(APP) && node tool/remote.mjs
 
+# Helmy Connect's relay, as connect.helmy.ke runs it: the page built first.
+relay:
+	cd $(APP) && node tool/remote.mjs --page
+	cd apps/relay && PAGE=../app/build/connect $(DART) run bin/relay.dart
+
+relay-image:
+	cd $(APP) && node tool/remote.mjs --page
+	docker build -f infra/relay.Dockerfile -t ghcr.io/mittolabs/helmy-relay:local .
+
 test:
 	cd $(APP) && fvm flutter test
+	cd apps/relay && $(DART) test
 
 live:
 	cd $(APP) && fvm flutter test --tags live --run-skipped test/live_engines_test.dart
@@ -109,7 +120,7 @@ web: site docs
 # serves them. CI builds it on every push to main that touches them
 # (.github/workflows/site.yml). See infra/README.md.
 
-local:
+local: relay-image
 	docker build -f infra/Dockerfile -t ghcr.io/mittolabs/helmy-site:local .
 	docker network inspect ashlar >/dev/null 2>&1 || docker network create ashlar
 	docker compose -f infra/compose.yml up -d --wait --force-recreate

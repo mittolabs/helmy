@@ -224,7 +224,12 @@ const List<SettingEntry> settingsIndex = [
   (
     title: 'Screen sharing',
     section: .phone,
-    keywords: 'screen share remote control see use mac from phone',
+    keywords: 'screen share remote control see use computer from phone',
+  ),
+  (
+    title: 'From anywhere',
+    section: .phone,
+    keywords: 'helmy connect relay away internet https tailscale remote access outside',
   ),
   (title: 'Pair a phone', section: .phone, keywords: 'qr code pairing key'),
   (title: 'Paired phones', section: .phone, keywords: 'unpair revoke remove phone devices'),

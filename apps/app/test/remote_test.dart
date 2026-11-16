@@ -241,7 +241,9 @@ void main() {
 
   test('pairing on the Mac: a code per phone, named when it pairs, unpaired alone', () async {
     await server.stop();
-    final settings = FakeSettingsRepository(const AppSettings(remoteOn: true));
+    final settings = FakeSettingsRepository(
+      const AppSettings(remoteOn: true, remoteAnywhere: false),
+    );
     final host = RemoteHost(server, settings);
     addTearDown(host.dispose);
     await until(() => host.pairing?.device != null);
@@ -249,18 +251,22 @@ void main() {
     expect(host.phones, isEmpty, reason: 'shown, not yet scanned');
     // Chrome on this computer reaches it here, network or not.
     expect(first.hosts.last, '127.0.0.1');
-    final link = RemoteLink(
+    final used = await RemoteLink.exchange(
       Pairing(
         hosts: const ['127.0.0.1'],
         port: port,
-        key: first.key,
+        key: '',
+        secret: first.secret,
         name: 'Studio',
         device: first.device,
       ),
     );
+    expect(used.trouble, isNull);
+    final link = RemoteLink(used.pairing!);
     addTearDown(link.dispose);
     await link.connect();
-    await until(() => host.phones.isNotEmpty);
+    // Paired when the code is used; named when it says hello.
+    await until(() => host.phones.isNotEmpty && host.phones.single.name.isNotEmpty);
     expect(host.phones.single.name, phoneName());
     expect(host.isConnected(first.device!), isTrue);
     // Scanned: the next phone gets a code of its own.
@@ -277,7 +283,9 @@ void main() {
     await server.stop();
     // No code waiting: one is made and saved, but only once the host exists,
     // since a save in the middle of building stopped the app opening.
-    final settings = FakeSettingsRepository(const AppSettings(remoteOn: true));
+    final settings = FakeSettingsRepository(
+      const AppSettings(remoteOn: true, remoteAnywhere: false),
+    );
     var told = 0;
     settings.addListener(() => told++);
     final host = RemoteHost(server, settings);

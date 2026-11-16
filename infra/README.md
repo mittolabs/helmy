@@ -10,6 +10,18 @@ builds, read from GitHub when the image is built.
 `infra/compose.yml` runs it on this machine (`make local`, http://localhost:8745) and on
 the server, where it joins the `ashlar` network as `helmy-site`.
 
+## Helmy Connect
+
+`connect.helmy.ke` is Helmy Connect's relay (`apps/relay`, decision `0016` in the Mittolabs
+workspace): computers keep a line to it, phones reach them through it, and it serves the
+phone page (the remote built for the web). One image, `infra/relay.Dockerfile`, built
+beside the site's by the same workflow from the same commit
+(`ghcr.io/mittolabs/helmy-relay:<sha>`), and started by the same `compose.yml` as
+`helmy-relay` on the `ashlar` network. The edge passes connect.helmy.ke to it.
+
+`make relay` runs it on this machine on :8080 with the page; the app's tests run phones
+through it in-process (`apps/app/test/connect_test.dart`).
+
 ## The server
 
 Helmy is a guest on the server the *.ashlar.ke sites share (187.77.160.136), as Rika is.
