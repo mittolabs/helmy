@@ -22,6 +22,7 @@ class _Tray extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final words = box.maxWidth >= 380;
+        final devWords = box.maxWidth >= 640;
         return Row(
           spacing: 2,
           children: [
@@ -108,7 +109,19 @@ class _Tray extends StatelessWidget {
                 onPressed: () => unawaited(vm.setAway(!vm.away)),
               ),
             ),
-            if (vm.developerMode) _ModelPicker(vm: vm, words: words),
+            // Developer mode's: with their words where the strip has room,
+            // as icons where it has less, and not at all in a narrow window (room
+            // for the folder, branch and Away first).
+            if (vm.developerMode && box.maxWidth >= 600) ...[
+              if (devWords)
+                Flexible(child: _ApprovalsPicker(vm: vm, words: true))
+              else
+                _ApprovalsPicker(vm: vm, words: false),
+              if (devWords)
+                Flexible(flex: 2, child: _ModelPicker(vm: vm, words: true))
+              else
+                _ModelPicker(vm: vm, words: false),
+            ],
           ],
         );
       },
@@ -190,6 +203,93 @@ class _TrayButton extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Developer mode's approvals, under the message box: who decides what the
+/// chat's agent asks to do, and whether it plans first.
+class _ApprovalsPicker extends StatelessWidget {
+  const _ApprovalsPicker({required this.vm, required this.words});
+  final ChatViewModel vm;
+  final bool words;
+
+  static IconData iconOf(ApprovalMode m) => switch (m) {
+    .helmy => AshlarIconsRoundedStroke.shieldCheck,
+    .person => AshlarIconsRoundedStroke.userCheck,
+    .all => AshlarIconsRoundedStroke.shieldOff,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final c = t.colors;
+    final mode = vm.approvals;
+    final label = [mode.label, if (vm.planFirst) 'Plan first'].join(' · ');
+    return DropdownMenu(
+      side: .top,
+      items: [
+        const MenuLabel(child: Text('Who decides')),
+        for (final m in ApprovalMode.values)
+          MenuItem(
+            selected: mode == m,
+            leading: AshlarIcon(iconOf(m), size: 16),
+            onPressed: () => unawaited(vm.setApprovals(m)),
+            child: Tooltip(message: m.description, child: Text(m.label)),
+          ),
+        const MenuSeparator(),
+        MenuCheckboxItem(
+          checked: vm.planFirst,
+          onChanged: (on) => unawaited(vm.setPlanFirst(on)),
+          child: const Tooltip(
+            message: 'Only reads and plans; the work starts when you approve the plan',
+            child: Text('Plan first'),
+          ),
+        ),
+      ],
+      builder: (context, menu) => Tooltip(
+        message: mode.description,
+        child: Pressable(
+          onPressed: menu.open,
+          semanticLabel: 'Approvals: $label',
+          builder: (context, state) => Container(
+            padding: const .symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: state.hovered ? c.foreground.withValues(alpha: .06) : null,
+              borderRadius: .circular(t.radiusMd),
+            ),
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 5,
+              children: [
+                AshlarIcon(
+                  iconOf(mode),
+                  size: 13,
+                  color: mode == .all ? c.destructive : c.mutedForeground,
+                ),
+                if (words)
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: t.text.xs.copyWith(
+                        color: state.hovered ? c.foreground : c.mutedForeground,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                if (words)
+                  AshlarIcon(
+                    AshlarIconsRoundedStroke.chevronDown,
+                    size: 11,
+                    color: c.mutedForeground,
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -331,6 +431,24 @@ class _ModelPicker extends StatelessWidget {
                 ),
                 child: const Text('Fast (uses more of the plan)'),
               ),
+            // The connections' own sessions under this chat, each id a press
+            // from the clipboard (to resume or report one).
+            if (vm.engineSessions.isNotEmpty) ...[
+              const MenuSeparator(),
+              const MenuLabel(child: Text("This chat's sessions")),
+              for (final e in vm.engineSessions)
+                MenuItem(
+                  leading: ConnectionLogo(e.engineId, brand: true),
+                  onPressed: () => unawaited(Clipboard.setData(ClipboardData(text: e.id))),
+                  child: Tooltip(
+                    message: 'Copy its id: ${e.id}',
+                    child: Text(
+                      '${vm.connectionName(e.engineId) ?? e.engineId} · '
+                      '${e.id.length > 8 ? e.id.substring(0, 8) : e.id}',
+                    ),
+                  ),
+                ),
+            ],
           ],
           builder: (context, menu) => Tooltip(
             message: pin == null
@@ -358,8 +476,7 @@ class _ModelPicker extends StatelessWidget {
                     else
                       ConnectionLogo(pin.engineId, size: 13, brand: true),
                     if (words)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 260),
+                      Flexible(
                         child: Text(
                           label,
                           maxLines: 1,
@@ -370,11 +487,12 @@ class _ModelPicker extends StatelessWidget {
                           ),
                         ),
                       ),
-                    AshlarIcon(
-                      AshlarIconsRoundedStroke.chevronDown,
-                      size: 11,
-                      color: c.mutedForeground,
-                    ),
+                    if (words)
+                      AshlarIcon(
+                        AshlarIconsRoundedStroke.chevronDown,
+                        size: 11,
+                        color: c.mutedForeground,
+                      ),
                   ],
                 ),
               ),

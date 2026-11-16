@@ -22,9 +22,11 @@ Settings the way you add an account. After that they never speak for themselves.
 - Which one answered is shown on request: on each answer, on hover, its
   logo, its name, the model and why Helmy chose it. That says where the
   answer came from; it does not make the connection the voice.
-- Developer mode (Settings > General, off by default) lets a person hold a
-  chat to a connection and model, with its effort and speed, from under the
-  message box. Off, nothing of it shows.
+- Developer mode (Settings > General, on by default since 0.21) lets a person
+  hold a chat to a connection and model, with its effort and speed, and choose
+  who decides what its agent asks to do, from under the message box. The
+  controls are visible; the choice stays Helmy's until the person makes it,
+  so every control starts at "Helmy chooses". Off, nothing of it shows.
 - Otherwise, Settings (and the first-run onboarding) are the only places
   they appear, as connections to add, check and remove.
 

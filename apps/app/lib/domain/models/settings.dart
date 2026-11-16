@@ -396,8 +396,9 @@ class const AppSettings({
   final bool steerByDefault = false,
 
   /// Developer mode: each chat can be held to a connection and model of
-  /// your choosing, with its effort and speed, instead of Helmy choosing.
-  final bool developerMode = false,
+  /// your choosing, with its effort and speed, and to who decides what its
+  /// agent asks to do. Every choice starts as Helmy's. On unless turned off.
+  final bool developerMode = true,
   final ClockFormat clock = .system,
 
   /// Accounts added beside the usual Claude Code and Codex ones.
@@ -737,7 +738,10 @@ class const AppSettings({
     'keepWithPr': keepWithPr,
     'namingNote': namingNote,
     'steerByDefault': steerByDefault,
-    'developerMode': developerMode,
+    // A key of its own since it is on by default (0.21): earlier builds saved
+    // 'developerMode' false for everyone, which is left unread, so each person
+    // is switched over once, and their own choice is kept from then on.
+    'developer': developerMode,
     'formatAsYouType': formatAsYouType,
     'keys': keys,
     'commitStyle': commitStyle,
@@ -819,7 +823,7 @@ class const AppSettings({
     keepWithPr: json['keepWithPr'] as bool? ?? true,
     namingNote: json['namingNote'] as String? ?? '',
     steerByDefault: json['steerByDefault'] as bool? ?? false,
-    developerMode: json['developerMode'] as bool? ?? false,
+    developerMode: json['developer'] as bool? ?? true,
     formatAsYouType: json['formatAsYouType'] as bool? ?? true,
     keys: {for (final e in ((json['keys'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
     commitStyle: json['commitStyle'] as String? ?? 'repository',
@@ -941,7 +945,7 @@ const restorableSettings = <String, List<String>>{
   'Keep chats with an open pull request': ['keepWithPr'],
   'Chat titles': ['namingNote'],
   'Messages sent while working': ['steerByDefault'],
-  'Developer mode': ['developerMode'],
+  'Developer mode': ['developer'],
   'Format as you type': ['formatAsYouType'],
   'Shortcuts': ['keys'],
   'Commits and pull requests': ['commitStyle', 'commitNote'],

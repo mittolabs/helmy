@@ -20,6 +20,27 @@ enum PermissionLevel {
   };
 }
 
+/// Who decides what a chat's agent asks to do (chosen in Developer mode).
+/// Whatever it is, secrets stay in the vault, and the agent's own questions
+/// and plans are the person's.
+enum ApprovalMode {
+  /// Helmy: what only looks or changes the chat's folder goes ahead, the
+  /// rest is judged against what the person asked; only what cannot be
+  /// undone, or leaves the computer, is put to them.
+  helmy('Helmy decides', 'Asks you only about what cannot be undone'),
+
+  /// The person: what only looks goes ahead; every change and command is
+  /// theirs to allow.
+  person('Ask me', 'Only reading goes ahead; you allow every change and command'),
+
+  /// Nobody: everything goes ahead without asking.
+  all('Allow all', 'Everything goes ahead without asking. Only for work you trust');
+
+  const ApprovalMode(this.label, this.description);
+  final String label;
+  final String description;
+}
+
 /// Something only some engines can do. A message that needs one goes to an
 /// engine that has it, and the session returns to its own engine afterwards.
 enum Capability {

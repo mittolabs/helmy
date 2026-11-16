@@ -1744,6 +1744,32 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
       _goal(session!, paused ? const GoalPause() : const GoalResume());
   Future<void> clearGoal() => _goal(session!, const GoalClear());
 
+  /// Who decides what this chat's agent asks to do (Developer mode).
+  ApprovalMode get approvals => developerMode ? session?.approvals ?? .helmy : .helmy;
+
+  Future<void> setApprovals(ApprovalMode mode) async {
+    final s = session;
+    if (s == null || s.approvals == mode) return;
+    await _sessions.save(s.copyWith(approvals: mode));
+    notifyListeners();
+  }
+
+  /// The chat only reads and plans until its plan is approved (Developer
+  /// mode); approving it lets the work go ahead.
+  bool get planFirst => session?.level == .readOnly;
+
+  Future<void> setPlanFirst(bool on) async {
+    await setLevel(on ? .readOnly : .ask);
+    notifyListeners();
+  }
+
+  /// The connections' own sessions this chat has run on (Developer mode),
+  /// by connection: the id each one resumes.
+  List<({String engineId, String id})> get engineSessions => [
+    for (final e in session?.threads.entries ?? const <MapEntry<String, EngineThread>>[])
+      if (e.value.resumeId case final id?) (engineId: e.key, id: id),
+  ];
+
   Future<void> setLevel(PermissionLevel level) async {
     final s = session;
     if (s == null || s.level == level) return;
