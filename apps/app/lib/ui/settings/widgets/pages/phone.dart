@@ -50,21 +50,29 @@ class _Phone extends StatelessWidget {
             crossAxisAlignment: .start,
             spacing: 24,
             children: [
-              QrView(pairing.link, size: 180),
+              QrView(pairing.webLink, size: 180),
               Expanded(
                 child: Column(
                   crossAxisAlignment: .start,
                   spacing: 10,
                   children: [
                     Text(
-                      'Open Helmy on your phone and scan this. The phone then finds '
-                      '${pairing.name} on the same Wi-Fi, or anywhere over Tailscale.',
+                      "Scan this with your phone's camera and open the link: Helmy opens in "
+                      "the phone's browser, with nothing to install. With the Helmy app, scan "
+                      'it there instead. Either way, the phone finds ${pairing.name} on the '
+                      'same Wi-Fi, or anywhere over Tailscale.',
                       style: muted,
                     ),
                     Text(
                       'What goes between them is sealed with a key only this code carries: '
                       'nothing readable crosses the network, and a phone without it is turned '
                       'away. Treat the code like a password.',
+                      style: muted,
+                    ),
+                    Text(
+                      'The browser page itself comes from this computer without encryption, '
+                      'so use it on a network you trust (at home, at work, or over '
+                      'Tailscale), not on public Wi-Fi. The app has no such limit.',
                       style: muted,
                     ),
                     Text(

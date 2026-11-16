@@ -21,3 +21,6 @@ macos/**/xcuserdata/
 
 # The design check's own packages (tool/design_check)
 node_modules/
+
+# The phone browser page, built by tool/remote.mjs
+/assets/remote/helmy-remote.bin

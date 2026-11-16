@@ -444,6 +444,15 @@ List<SingleChildWidget> providers(Loaded loaded) => [
         chats: context.read(),
         apps: context.read<ChatAppsLocal>(),
         screen: Platform.isMacOS ? MacScreen() : null,
+        // The page a phone's browser opens; a build made without it has none.
+        page: () async {
+          try {
+            final b = await rootBundle.load('assets/remote/helmy-remote.bin');
+            return b.buffer.asUint8List(b.offsetInBytes, b.lengthInBytes);
+          } on Object {
+            return null;
+          }
+        },
       )..screenAllowed = () => loaded.settings.settings.remoteScreen,
       context.read<SettingsRepository>(),
     ),
