@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/mittolabs/helmy/compare/v0.19.0...v0.19.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **icons:** the Android and Windows apps show Helmy's icon, not Flutter's ([#80](https://github.com/mittolabs/helmy/issues/80)) ([8cc36cc](https://github.com/mittolabs/helmy/commit/8cc36cc07033c9c39a8dbdb085a184233909c14d))
+
 ## [0.19.0](https://github.com/mittolabs/helmy/compare/v0.18.0...v0.19.0) (2026-11-15)
 
 
