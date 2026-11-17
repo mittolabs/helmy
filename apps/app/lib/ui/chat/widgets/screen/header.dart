@@ -93,6 +93,9 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          // How much room Helmy has across the plans, beside how full this
+          // conversation is.
+          const UsageChip(),
           // How full the conversation is, as last measured: quiet while there
           // is room; from three quarters, a press away from compacting.
           if (vm.context case final ctx?)
