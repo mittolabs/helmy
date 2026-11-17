@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.23.0](https://github.com/mittolabs/helmy/compare/v0.22.0...v0.23.0) (2026-11-17)
+
+
+### Features
+
+* **connections:** an OpenCode already installed is used, rather than downloaded again ([3351985](https://github.com/mittolabs/helmy/commit/3351985816272b670e14f012c829ce9942a107bd))
+* **design:** 3D models (.glb, .gltf, .stl, .obj) show on the design canvas, turning, and can be turned and zoomed when played ([3351985](https://github.com/mittolabs/helmy/commit/3351985816272b670e14f012c829ce9942a107bd))
+
+
+### Bug Fixes
+
+* **browser:** pages that declare no character set (where · showed as Â·) are now flagged to the agent, with the fix ([3351985](https://github.com/mittolabs/helmy/commit/3351985816272b670e14f012c829ce9942a107bd))
+* **chat:** a file named with %20 for its spaces, or a Windows path, is found instead of "Not found" ([3351985](https://github.com/mittolabs/helmy/commit/3351985816272b670e14f012c829ce9942a107bd))
+* **chat:** a link to a file with spaces in its path is a link, not raw text ([3351985](https://github.com/mittolabs/helmy/commit/3351985816272b670e14f012c829ce9942a107bd))
+* **chat:** open projects in your editor on Windows and Linux ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **connections:** OpenCode installs on Windows, shows its download progress, and gives up a stalled download instead of waiting for ever ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **copy:** say this computer, its password store and its file manager, not the Mac's, on Windows and Linux ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **import:** find Claude Code and Codex chats to import on Windows ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **vault:** commands run with your secrets on Windows and Linux, in this computer's own shell ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **vault:** helmy run works on Linux too ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+* **vault:** keep secrets on Windows and Linux, in Credential Manager and the login keyring ([1233749](https://github.com/mittolabs/helmy/commit/1233749185d36d2d5b415d479a50ea2081670d6a))
+
 ## [0.22.0](https://github.com/mittolabs/helmy/compare/v0.21.0...v0.22.0) (2026-11-16)
 
 
