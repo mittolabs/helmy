@@ -27,7 +27,7 @@ class _VaultPage extends StatelessWidget {
         _Row(
           title: 'Keys and passwords',
           description:
-              "API keys, passwords and tokens, kept in your Mac's Keychain. The assistant gets "
+              'API keys, passwords and tokens, kept in ${Desktop.current.secretStore}. The assistant gets '
               'their names and runs what needs them through Helmy, which blanks every value in '
               'what comes back. It cannot read .env files or other files of secrets.',
           control: Button(
@@ -70,7 +70,7 @@ class _VaultPage extends StatelessWidget {
                         context,
                         title: 'Remove $name?',
                         body:
-                            'It leaves the vault and your Keychain. What uses it stops working '
+                            'It leaves the vault and ${Desktop.current.secretStore}. What uses it stops working '
                             'until it is added again.',
                         action: 'Remove',
                         destructive: true,
@@ -200,7 +200,7 @@ class _SecretDialogState extends State<_SecretDialog> {
     } else {
       setState(() {
         _saving = false;
-        _trouble = "It wasn't kept: the Keychain refused it. Try again.";
+        _trouble = "It wasn't kept: ${Desktop.current.secretStoreShort} refused it. Try again.";
       });
     }
   }
@@ -213,7 +213,8 @@ class _SecretDialogState extends State<_SecretDialog> {
     return HelmyDialog(
       title: replacing ? 'Replace ${widget.name}' : 'Add a secret',
       icon: AshlarIconsRoundedStroke.lock,
-      body: "It goes into your Mac's Keychain. The assistant gets its name, never the value.",
+      body:
+          'It goes into ${Desktop.current.secretStore}. The assistant gets its name, never the value.',
       content: Column(
         crossAxisAlignment: .stretch,
         mainAxisSize: .min,
@@ -307,6 +308,15 @@ class _HelmyRunInstallState extends State<_HelmyRunInstall> {
   @override
   Widget build(BuildContext context) {
     final t = AshlarTheme.of(context);
+    if (!HelmyRunCli.here) {
+      return SizedBox(
+        width: 220,
+        child: Text(
+          HelmyRunCli.notHere,
+          style: t.text.xs.copyWith(color: t.colors.mutedForeground),
+        ),
+      );
+    }
     if (_there) {
       return Text('Set up', style: t.text.sm.copyWith(color: t.colors.mutedForeground));
     }
@@ -338,7 +348,7 @@ class _HelmyRunInstallState extends State<_HelmyRunInstall> {
   }
 }
 
-/// Connects HashiCorp Vault: its address, a token (kept in the Keychain),
+/// Connects HashiCorp Vault: its address, a token (kept in the system's store),
 /// and a namespace where there is one. Checked before it is kept.
 class _HcVaultDialog extends StatefulWidget {
   const new({required this.vault});
@@ -392,7 +402,7 @@ class _HcVaultDialogState extends State<_HcVaultDialog> {
       icon: AshlarIconsRoundedStroke.lock,
       body:
           'Helmy fetches a secret from it only when running something that needs it, and keeps '
-          "no copy. The token goes into your Mac's Keychain.",
+          'no copy. The token goes into ${Desktop.current.secretStore}.',
       content: Column(
         crossAxisAlignment: .stretch,
         mainAxisSize: .min,

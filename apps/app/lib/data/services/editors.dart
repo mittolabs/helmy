@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'cli_locator.dart';
+
 /// What an app that can open a project is for.
 enum EditorKind {
   /// A code editor: opens the folder.
@@ -26,7 +28,7 @@ class Editor {
     this.lastUsed,
   });
 
-  /// Its bundle id.
+  /// Its bundle id (the Mac's, for the same app found elsewhere too).
   final String id;
   final String name;
   final String path;
@@ -64,15 +66,56 @@ const knownEditors = <(String, EditorKind)>[
   ('com.apple.Terminal', .terminal),
 ];
 
-/// Finds the apps on this Mac that can open a project, and opens one there.
+/// The same apps on Windows and Linux, found by their command: (id, name,
+/// command, kind, and how a terminal is told the folder). VS Code and those
+/// built on it put their command on the PATH when installed; JetBrains' come
+/// with the Toolbox's shell scripts.
+const otherDesktopEditors = <(String, String, String, EditorKind, String?)>[
+  ('com.microsoft.VSCode', 'Visual Studio Code', 'code', .editor, null),
+  ('com.todesktop.230313mzl4w4u92', 'Cursor', 'cursor', .editor, null),
+  ('dev.zed.Zed', 'Zed', 'zed', .editor, null),
+  ('dev.zed.Zed', 'Zed', 'zeditor', .editor, null),
+  ('com.exafunction.windsurf', 'Windsurf', 'windsurf', .editor, null),
+  ('com.microsoft.VSCodeInsiders', 'VS Code Insiders', 'code-insiders', .editor, null),
+  ('com.vscodium', 'VSCodium', 'codium', .editor, null),
+  ('com.sublimetext.4', 'Sublime Text', 'subl', .editor, null),
+  ('com.jetbrains.intellij', 'IntelliJ IDEA', 'idea', .editor, null),
+  ('com.jetbrains.WebStorm', 'WebStorm', 'webstorm', .editor, null),
+  ('com.jetbrains.pycharm', 'PyCharm', 'pycharm', .editor, null),
+  ('com.jetbrains.goland', 'GoLand', 'goland', .editor, null),
+  ('com.jetbrains.rustrover', 'RustRover', 'rustrover', .editor, null),
+  ('com.google.android.studio', 'Android Studio', 'studio', .ide, null),
+  // Terminals, each told the folder its own way.
+  ('com.microsoft.WindowsTerminal', 'Windows Terminal', 'wt', .terminal, '-d'),
+  ('com.mitchellh.ghostty', 'Ghostty', 'ghostty', .terminal, '--working-directory='),
+  ('org.gnome.Terminal', 'Terminal', 'gnome-terminal', .terminal, '--working-directory='),
+  ('org.gnome.Ptyxis', 'Terminal', 'ptyxis', .terminal, '--working-directory='),
+  ('org.kde.konsole', 'Konsole', 'konsole', .terminal, '--workdir'),
+];
+
+/// How [editor] is started off a Mac to open [target]: its command, then
+/// the folder (a terminal's own way, as [otherDesktopEditors] says).
+List<String> openArgs(String id, String command, String target) {
+  final how = otherDesktopEditors.where((e) => e.$1 == id && e.$3 == command).firstOrNull?.$5;
+  return switch (how) {
+    null => [target],
+    final flag when flag.endsWith('=') => ['$flag$target'],
+    final flag => [flag, target],
+  };
+}
+
+/// Finds the apps on this computer that can open a project, and opens one
+/// there: asked of macOS on a Mac, found by command on Windows and Linux.
 class EditorService {
+  EditorService({this._locator});
   static const _channel = MethodChannel('helmy/notify');
+  final CliLocator? _locator;
 
   Future<List<Editor>>? _installed;
 
-  /// Every known app installed here, asked of macOS once.
+  /// Every known app installed here, looked for once.
   Future<List<Editor>> installed() => _installed ??= () async {
-    if (!Platform.isMacOS) return const <Editor>[];
+    if (!Platform.isMacOS) return foundByCommand();
     try {
       final found = await _channel.invokeListMethod<Map>('apps', {
         'ids': [for (final (id, _) in knownEditors) id],
@@ -97,6 +140,19 @@ class EditorService {
     }
   }();
 
+  /// Off a Mac: the known apps whose command is on the PATH, one each.
+  Future<List<Editor>> foundByCommand() async {
+    final locator = _locator ?? CliLocator();
+    final out = <Editor>[];
+    for (final (id, name, command, kind, _) in otherDesktopEditors) {
+      if (out.any((e) => e.id == id)) continue;
+      if (await locator.find(command) case final path?) {
+        out.add(Editor(id: id, name: name, path: path, kind: kind));
+      }
+    }
+    return out;
+  }
+
   /// Opens [folder] (or a file) in [editor]: an IDE opens the project in it
   /// it knows.
   Future<bool> open(Editor editor, String folder) async {
@@ -104,8 +160,20 @@ class EditorService {
         ? ideProject(editor.id, folder) ?? folder
         : folder;
     try {
-      final r = await Process.run('/usr/bin/open', ['-a', editor.path, target]);
-      return r.exitCode == 0;
+      if (Platform.isMacOS) {
+        final r = await Process.run('/usr/bin/open', ['-a', editor.path, target]);
+        return r.exitCode == 0;
+      }
+      // Started on its own, to outlive the call; a .cmd needs the shell.
+      final command = editor.path.split(RegExp(r'[/\\]')).last.split('.').first;
+      await Process.start(
+        editor.path,
+        openArgs(editor.id, command, target),
+        mode: ProcessStartMode.detached,
+        runInShell: Platform.isWindows && editor.path.toLowerCase().endsWith('.cmd'),
+        workingDirectory: Directory(target).existsSync() ? target : null,
+      );
+      return true;
     } on Object {
       return false;
     }

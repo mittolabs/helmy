@@ -177,7 +177,11 @@ const List<SettingEntry> settingsIndex = [
     section: .agents,
     keywords: 'advanced code writing research pictures quick questions which connection strengths',
   ),
-  (title: 'Local model', section: .agents, keywords: 'ollama offline model on this mac llm'),
+  (
+    title: 'Local model',
+    section: .agents,
+    keywords: 'ollama offline model on this computer mac pc llm',
+  ),
   (title: 'Routing', section: .agents, keywords: 'routing switching which connection limits'),
   (title: 'Ollama model', section: .agents, keywords: 'local model offline llm'),
   // Skills.

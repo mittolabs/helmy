@@ -68,7 +68,10 @@ class ThemeMarket {
         client.close(force: true);
       }
       Future<String?> read(String path) async {
-        final r = await Process.run('/usr/bin/unzip', ['-p', vsix.path, 'extension/$path']);
+        // unzip on a Mac and Linux; Windows' own tar reads a zip too.
+        final r = Platform.isWindows
+            ? await Process.run('tar', ['-xOf', vsix.path, 'extension/$path'])
+            : await Process.run('unzip', ['-p', vsix.path, 'extension/$path']);
         return r.exitCode == 0 ? '${r.stdout}' : null;
       }
 

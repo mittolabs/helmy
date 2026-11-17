@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../utils/platform.dart';
+
 /// Finds agent CLIs and the PATH they should run with.
 ///
 /// An app opened from Finder gets launchd's bare PATH, not the shell's, so
@@ -22,7 +24,7 @@ class CliLocator {
     // Windows apps get the user's PATH as it is; there is no login shell.
     if (Platform.isWindows) return env;
     try {
-      final out = await Process.run(env['SHELL'] ?? '/bin/zsh', [
+      final out = await Process.run(env['SHELL'] ?? defaultShell, [
         '-ilc',
         r'echo "__PATH__=$PATH"',
       ]).timeout(const Duration(seconds: 10));

@@ -26,6 +26,21 @@ enum Desktop {
       ? linux
       : mac;
 
+  /// Where it keeps passwords and keys for its user, as said in a sentence:
+  /// Helmy's vault keeps its values there.
+  String get secretStore => switch (this) {
+    mac => "your Mac's Keychain",
+    windows => 'Windows Credential Manager',
+    linux => 'your login keyring',
+  };
+
+  /// [secretStore] in short, after "the" or alone: "the Keychain refused it".
+  String get secretStoreShort => switch (this) {
+    mac => 'the Keychain',
+    windows => 'Credential Manager',
+    linux => 'the keyring',
+  };
+
   /// Its file manager, by name.
   String get fileManager => switch (this) {
     mac => 'Finder',
@@ -104,7 +119,11 @@ bool use24Hour = false;
 String get homeDir => Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
 
 /// [command] run by this computer's shell: the user's login shell on a Mac
-/// or Linux (zsh when it says none), PowerShell on Windows.
+/// or Linux (zsh on a Mac when it says none, sh on Linux, which may have no
+/// zsh), PowerShell on Windows.
 (String, List<String>) shellFor(String command) => Desktop.current == .windows
     ? ('powershell', ['-NoProfile', '-Command', command])
-    : (Platform.environment['SHELL'] ?? '/bin/zsh', ['-lc', command]);
+    : (Platform.environment['SHELL'] ?? defaultShell, ['-lc', command]);
+
+/// The shell when the environment names none.
+String get defaultShell => Desktop.current == .mac ? '/bin/zsh' : '/bin/sh';

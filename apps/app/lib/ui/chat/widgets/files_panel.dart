@@ -393,7 +393,7 @@ class _FilesPanelState extends State<FilesPanel> {
                 () => copyWithToast(context, vm, full),
               ),
               tool(
-                'Show in Finder',
+                'Show in ${Desktop.current.fileManager}',
                 const AshlarIcon(AshlarIconsRoundedStroke.folderOpen, size: 14),
                 () => vm.reveal(full),
               ),

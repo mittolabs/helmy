@@ -129,6 +129,26 @@ void main() {
     }
   });
 
+  test('helmy run, for real: the script, in bash, gets the secrets over the socket', () async {
+    // The folder as the shell sees it (on a Mac the temporary folder is a link).
+    final real = dir.resolveSymbolicLinksSync();
+    expect(await vault.put(real, 'API_KEY', "sk-é 'quoted' value"), isTrue);
+    final support = Directory('${dir.path}/support it')..createSync();
+    final server = HelmyRunServer(vault);
+    await server.start(support.path);
+    addTearDown(server.stop);
+    final script = File('${dir.path}/helmy')
+      ..writeAsStringSync(HelmyRunCli.scriptFor(HelmyRunCli.socketIn(support.path)));
+    final r = await Process.run('bash', [
+      script.path,
+      'run',
+      'printenv',
+      'API_KEY',
+    ], workingDirectory: real);
+    expect(r.stderr, '');
+    expect((r.exitCode, r.stdout), (0, "sk-é 'quoted' value\n"));
+  }, skip: Platform.isWindows ? 'helmy run is not on Windows yet' : null);
+
   test('helmy run in a folder gets its project: the deepest one with secrets', () {
     final scopes = ['shared', '/code/app', '/code/app/web', '/code/other'];
     expect(HelmyRunServer.projectFor('/code/app/web/src', scopes), '/code/app/web');

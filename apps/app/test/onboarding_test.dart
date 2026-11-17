@@ -56,7 +56,7 @@ void main() {
       setup: _Pretend(),
       settings: settings,
       engines: EngineRegistry([]),
-      installFree: () async {
+      installFree: (_) async {
         installs++;
         return const ConnectionAccount(
           id: freeAgentId,
@@ -85,7 +85,7 @@ void main() {
       setup: setup,
       settings: FakeSettingsRepository(),
       engines: EngineRegistry([]),
-      installFree: () async {
+      installFree: (_) async {
         installs++;
         return const ConnectionAccount(
           id: freeAgentId,
