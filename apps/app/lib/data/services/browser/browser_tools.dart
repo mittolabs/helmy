@@ -153,8 +153,30 @@ class BrowserTools {
     }
     final r = await page.eval('window.__helmyBrowse.snapshot()');
     if (r is! Map) return 'The page could not be read.';
-    return '${r['title']} (${r['url']})\n\n${r['text']}';
+    return '${r['title']} (${r['url']})\n\n${r['text']}${await _encodingNote(page)}';
   }
+
+  /// When a page names no character set, the browser reads it as Western
+  /// (windows-1252), and every accent and symbol of UTF-8 text shows as two
+  /// wrong ones (· as Â·). Said with the fix, so the page gets corrected
+  /// rather than the garbled text taken as what it says.
+  Future<String> _encodingNote(PageDriver page) async {
+    try {
+      final r = await page.eval(_encodingCheck);
+      if (r is Map && r['unnamed'] == true) {
+        return '\n\nThis page names no character set, so it is read as ${r['set']} and any '
+            'accented letter or symbol above may show garbled (· as Â·). If it is your page, '
+            'add <meta charset="utf-8"> at the top of its <head>.';
+      }
+    } on Object {
+      // Only a note: the page was read all the same.
+    }
+    return '';
+  }
+
+  static const _encodingCheck =
+      '({ set: document.characterSet, unnamed: document.characterSet !== "UTF-8" && '
+      '!document.querySelector("meta[charset], meta[http-equiv=content-type i]") })';
 
   /// One step; null when it went as asked, else what went wrong.
   Future<String?> _step(PageDriver page, Map step) async {
