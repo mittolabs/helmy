@@ -173,7 +173,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
     },
   ),
   // The apps a project opens in, asked of macOS once.
-  Provider(create: (_) => EditorService()),
+  Provider(create: (context) => EditorService(locator: context.read())),
   // A Chromium browser for Preview, once asked for; ended with the app.
   Provider(
     // Any left running by a Helmy that was ended without stopping it goes now.

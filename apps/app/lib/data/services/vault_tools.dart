@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'vault.dart';
+import '../../utils/platform.dart';
 
 /// A secret an agent asked the person for, waiting in their chat.
 class VaultRequest {
@@ -200,12 +201,10 @@ class VaultTools {
     Duration limit,
   ) async {
     try {
-      final p = await Process.start(
-        '/bin/zsh',
-        ['-lc', command],
-        workingDirectory: cwd,
-        environment: env,
-      );
+      // This computer's own shell: zsh or bash on a Mac or Linux, PowerShell
+      // on Windows.
+      final (shell, args) = shellFor(command);
+      final p = await Process.start(shell, args, workingDirectory: cwd, environment: env);
       final out = StringBuffer();
       final done = Future.wait([
         p.stdout.transform(utf8.decoder).forEach(out.write),

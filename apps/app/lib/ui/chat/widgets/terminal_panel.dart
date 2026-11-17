@@ -64,7 +64,7 @@ class _TerminalPanelState extends State<TerminalPanel> {
   /// The shell to run: the user's own, else the platform's.
   static String get _shell {
     if (Platform.isWindows) return Platform.environment['COMSPEC'] ?? 'cmd.exe';
-    return Platform.environment['SHELL'] ?? '/bin/zsh';
+    return Platform.environment['SHELL'] ?? defaultShell;
   }
 
   @override

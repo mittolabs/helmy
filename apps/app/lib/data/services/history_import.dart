@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../domain/models/chat_item.dart';
+import '../../utils/platform.dart';
 
 /// One conversation found in a connection's own history.
 typedef FoundConversation = ({
@@ -34,12 +35,11 @@ typedef ImportedConversation = ({
 });
 
 /// Reads the conversations people had in Claude Code and Codex on this
-/// Mac, from their own files, to bring them into Helmy: each kept whole and
+/// computer, from their own files, to bring them into Helmy: each kept whole and
 /// continued where it left off. Only conversations a person had: not
 /// Helmy's own runs, nor other programs' automation, nor scratch folders.
 class HistoryImport {
-  HistoryImport({String? home, this.scratch = _scratchFolders})
-    : _home = home ?? Platform.environment['HOME'] ?? '';
+  HistoryImport({String? home, this.scratch = _scratchFolders}) : _home = home ?? homeDir;
   final String _home;
 
   /// Folders a conversation in which is not worth bringing in: temporary

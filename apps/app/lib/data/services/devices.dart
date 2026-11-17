@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../domain/iphones.dart';
 import 'cli_locator.dart';
 import 'sim_input.dart';
+import '../../utils/platform.dart';
 
 /// A simulator or emulator on this computer, or a real phone it reaches.
 class Device {
@@ -297,12 +298,14 @@ class DeviceService {
   /// environment put it; null when it is not installed.
   Future<String?> _emulator() async {
     final env = await _locator.environment();
-    final home = env['HOME'] ?? Platform.environment['HOME'] ?? '';
+    final home = env['HOME'] ?? env['USERPROFILE'] ?? homeDir;
     final roots = [
       env['ANDROID_HOME'],
       env['ANDROID_SDK_ROOT'],
       '$home/Library/Android/sdk',
       '$home/Android/Sdk',
+      // Android Studio's own place on Windows.
+      if (env['LOCALAPPDATA'] case final local?) '$local/Android/Sdk',
       '/opt/homebrew/share/android-commandlinetools',
       '/usr/local/share/android-commandlinetools',
     ].nonNulls;
