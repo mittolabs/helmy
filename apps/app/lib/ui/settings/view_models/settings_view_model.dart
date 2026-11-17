@@ -2,6 +2,7 @@ import '../../core/key_bindings.dart';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../../../data/services/cli_locator.dart';
 import '../../../data/services/engines/acp/acp_registry.dart';
 import '../../../data/services/engines/acp/acp_engine.dart';
 import '../../../domain/models/work.dart';
@@ -728,13 +729,15 @@ class SettingsViewModel extends ChangeNotifier {
   /// Installs [listing] and adds it, under [name]. Then checks it starts;
   /// what that found, for the dialog to act on.
   Future<AcpAdded> addAgent(AcpListing listing, {String? name}) async {
-    final launch = await AcpRegistry.install(listing, root: await agentsRoot());
+    final root = await agentsRoot();
+    final launch = await AcpRegistry.install(listing, root: root, locator: CliLocator());
     final a = ConnectionAccount(
       id: _agentId(listing.id),
       kind: 'acp',
       name: name?.trim().isNotEmpty ?? false ? name!.trim() : listing.name,
-      folder: File(launch.command).isAbsolute ? '${await agentsRoot()}/${listing.id}' : '',
-      made: File(launch.command).isAbsolute,
+      // Downloaded into Helmy's own folder: Helmy's to remove with it.
+      folder: launch.command.startsWith(root) ? '$root/${listing.id}' : '',
+      made: launch.command.startsWith(root),
       command: launch.command,
       args: launch.args,
       agentId: listing.id,

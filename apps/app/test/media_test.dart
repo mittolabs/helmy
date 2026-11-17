@@ -45,6 +45,15 @@ void main() {
     expect(locate('https://example.com', '/w').web, Uri.parse('https://example.com'));
   });
 
+  test('a path written as an address (Application%20Support) finds its file', () {
+    final dir = Directory.systemTemp.createTempSync('media');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    File('${dir.path}/my page.html').writeAsStringSync('x');
+    final encoded = '${dir.path}/my%20page.html';
+    expect(locate(encoded, '/w').path, '${dir.path}/my page.html');
+    expect(locate('C:\\Users\\a\\x.png', '/w').path, startsWith(Platform.isWindows ? 'C:' : '/w/'));
+  });
+
   testWidgets('an answer shows a picture, says when a file is missing, and offers a page', (
     tester,
   ) async {

@@ -109,6 +109,15 @@ print('hi');
   });
 
   group('parseInline', () {
+    test('a link whose address has spaces, in angle brackets', () {
+      final runs = parseInline(
+        '[Download it](</Users/a/Library/Application Support/x/board.glb>) and ![p](<a b.png>)',
+      );
+      expect(runs.first.text, 'Download it');
+      expect(runs.first.link, '/Users/a/Library/Application Support/x/board.glb');
+      expect(runs.last.link, 'a b.png');
+    });
+
     test('marks bold, italic, struck, code and links', () {
       final runs = parseInline('a **bold** _it_ ~~gone~~ `x()` [site](https://a.b) https://c.d');
       MdSpan run(String text) => runs.firstWhere((r) => r.text == text);

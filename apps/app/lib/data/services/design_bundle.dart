@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'design_server.dart';
+import '../../domain/design_files.dart';
 
 /// A chat's design as one message for the phone: its index and each
 /// screen's page, the design folder's own pictures and fonts packed into
@@ -26,6 +27,8 @@ Future<Map<String, Object?>?> designBundle(String folder, {int limit = 24 << 20}
   for (final file in order) {
     final f = DesignServer.fileIn(folder, file);
     if (f == null || !f.existsSync()) continue;
+    // A 3D model is not sent as a page; the phone names it instead.
+    if (isModelFile(file)) continue;
     final page = packAssets(await f.readAsString(), folder, file);
     size += page.length;
     if (size > limit) break;

@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 
+import '../../cli_locator.dart';
+
 /// One agent in the ACP registry, as listed.
 class const AcpListing({
   required final String id,
@@ -95,6 +97,7 @@ class AcpRegistry {
     required String root,
     void Function(int got, int total)? progress,
     Duration idle = const Duration(seconds: 60),
+    CliLocator? locator,
   }) async {
     final d = a.distribution;
     if (d['npx'] case final Map npx) {
@@ -110,6 +113,12 @@ class AcpRegistry {
       );
     }
     final bin = (d['binary'] as Map?)?[platform] as Map?;
+    // Already installed on this computer (OpenCode from its own installer,
+    // npm or Homebrew): that one is used, nothing downloaded, so long as
+    // it has the mode Helmy talks to it in.
+    if (locator != null && bin != null) {
+      if (await installedAgent(bin, locator) case final there?) return there;
+    }
     if (bin == null) throw AcpInstallTrouble('${a.name} has no build for this computer.');
     final dir = Directory('$root/${a.id}/${a.version}');
     final cmd = '${bin['cmd']}'.replaceFirst(RegExp(r'^\./'), '');
@@ -229,4 +238,31 @@ class AcpInstallTrouble implements Exception {
     _ when zip => ('unzip', ['-oq', file, '-d', dir]),
     _ => ('tar', ['-xf', file, '-C', dir]),
   };
+}
+
+/// The agent [bin] describes, already installed on this computer: its
+/// command found where programs are, and its help naming the mode Helmy
+/// starts it in (OpenCode's `acp`; an old one without it is passed over).
+/// Null when it is not there.
+Future<AcpLaunch?> installedAgent(Map<dynamic, dynamic> bin, CliLocator locator) async {
+  final cmd = '${bin['cmd']}'.split(RegExp(r'[/\\]')).last.replaceFirst(RegExp(r'\.exe$'), '');
+  final args = [for (final x in (bin['args'] as List? ?? const [])) '$x'];
+  final path = await locator.find(cmd);
+  if (path == null) return null;
+  if (args.isNotEmpty) {
+    try {
+      final r = await Process.run(
+        path,
+        ['--help'],
+        runInShell: Platform.isWindows && path.toLowerCase().endsWith('.cmd'),
+      ).timeout(const Duration(seconds: 15));
+      final help = '${r.stdout}\n${r.stderr}';
+      if (!RegExp('(^|\\s)${RegExp.escape(args.first)}(\\s|\$)', multiLine: true).hasMatch(help)) {
+        return null;
+      }
+    } on Object {
+      return null;
+    }
+  }
+  return (command: path, args: args);
 }

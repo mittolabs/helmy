@@ -74,6 +74,16 @@ class DesignServer {
         res.write(await rootBundle.loadString('assets/design/canvas.html'));
         return await res.close();
       }
+      // Helmy's own 3D viewer and three.js, for a model on the canvas.
+      if (seg[1] == 'model.html' || (seg[1] == 'three' && seg.length >= 3)) {
+        final rel = seg.sublist(1).join('/');
+        if (rel.contains('..') || !(rel == 'model.html' || rel.endsWith('.js'))) {
+          return _status(res, HttpStatus.notFound);
+        }
+        res.headers.contentType = _typeOf(rel);
+        res.write(await rootBundle.loadString('assets/design/$rel'));
+        return await res.close();
+      }
       // A design's files: /<token>/d/<id>/<path>.
       if (seg.length >= 4 && seg[1] == 'd') {
         final root = _folders[seg[2]];
@@ -131,6 +141,10 @@ class DesignServer {
       'jpg' || 'jpeg' => ContentType('image', 'jpeg'),
       'gif' => ContentType('image', 'gif'),
       'webp' => ContentType('image', 'webp'),
+      'glb' => ContentType('model', 'gltf-binary'),
+      'gltf' => ContentType('model', 'gltf+json'),
+      'stl' => ContentType('model', 'stl'),
+      'obj' => ContentType('text', 'plain', charset: 'utf-8'),
       'woff2' => ContentType('font', 'woff2'),
       'woff' => ContentType('font', 'woff'),
       'ttf' => ContentType('font', 'ttf'),

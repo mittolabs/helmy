@@ -86,6 +86,11 @@ flutter:
   assets:
     - assets/helmy/
     - assets/design/
+    - assets/design/three/
+    - assets/design/three/loaders/
+    - assets/design/three/controls/
+    - assets/design/three/utils/
+    - assets/design/three/environments/
     - assets/helmy/bin/
     - assets/logos/
     # The page phones open in a browser, served by the desktop app only.

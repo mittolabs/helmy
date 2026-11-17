@@ -53,9 +53,29 @@ const _quickLook = {'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pages', 'numbe
   if (w.startsWith('http://') || w.startsWith('https://')) {
     return (path: null, web: Uri.tryParse(w));
   }
-  var path = w.startsWith('file://') ? Uri.decodeFull(w.substring(7)) : w;
-  if (path.startsWith('~/')) path = '$homeDir${path.substring(1)}';
-  if (!path.startsWith('/')) path = '$cwd/$path';
+  if (w.startsWith('file://')) {
+    try {
+      return (path: Uri.parse(w).toFilePath(windows: Platform.isWindows), web: null);
+    } on Object {
+      // Not a file address after all: read as a path below.
+    }
+  }
+  String full(String p) {
+    if (p.startsWith('~/') || p.startsWith(r'~\')) p = '$homeDir${p.substring(1)}';
+    // C:\... or /..., on any system; else under the chat's folder.
+    return File(p).isAbsolute || p.startsWith('/') ? p : '$cwd/$p';
+  }
+
+  final path = full(w);
+  // Written as an address (Application%20Support): the file it names.
+  if (w.contains('%') && !File(path).existsSync()) {
+    try {
+      final decoded = full(Uri.decodeFull(w));
+      if (File(decoded).existsSync()) return (path: decoded, web: null);
+    } on ArgumentError {
+      // Not encoded after all.
+    }
+  }
   return (path: path, web: null);
 }
 

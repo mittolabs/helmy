@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 import 'design_model.dart';
+import '../design_files.dart';
 
 /// The design in [folder] (its `canvas.json` and a page per screen), read
 /// into trees: the screens in the canvas's order, named as it names them.
@@ -17,6 +18,8 @@ Future<({String title, List<DScreen> screens})> readDesign(String folder) async 
   ];
   final screens = <DScreen>[];
   for (final file in order) {
+    // A 3D model is no screen to turn into code.
+    if (isModelFile(file)) continue;
     final page = File('$folder/$file');
     if (!page.existsSync()) continue;
     final b = (boards[file] as Map?) ?? const {};
