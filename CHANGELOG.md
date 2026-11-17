@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0](https://github.com/mittolabs/helmy/compare/v0.23.0...v0.24.0) (2026-11-17)
+
+
+### Features
+
+* **chat:** see your plans' usage in the top bar, with each plan's windows and resets on hover ([dbb38ac](https://github.com/mittolabs/helmy/commit/dbb38ac919125869db8f2a852a30820f220dff09))
+* **vault:** helmy run works on Windows, and is now one program on macOS, Windows and Linux ([1530a63](https://github.com/mittolabs/helmy/commit/1530a63b71d8118eea7b2962c6823a5948d10faf))
+
 ## [0.23.0](https://github.com/mittolabs/helmy/compare/v0.22.0...v0.23.0) (2026-11-17)
 
 
