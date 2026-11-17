@@ -171,6 +171,7 @@ jobs:
           out=$("$cli" 2>&1 || true)
           echo "$out"
           [[ $out == *"Usage: helmy run"* ]]
+      - name: Package (macOS)
         if: matrix.platform == 'macos'
         run: |
           app=build/macos/Build/Products/Release/Helmy.app
