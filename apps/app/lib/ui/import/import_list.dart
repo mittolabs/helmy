@@ -67,7 +67,7 @@ class _ImportListState extends State<ImportList> {
             vm.imported != null
                 ? 'Everything here has been brought in.'
                 : 'Nothing to import: no chats from Claude Code or Codex in folders '
-                      'on this Mac.',
+                      'on ${Desktop.current.thisComputer}.',
             style: t.text.sm.copyWith(color: c.mutedForeground),
           ),
         );

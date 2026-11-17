@@ -45,7 +45,7 @@ class _VaultCardState extends State<_VaultCard> {
     if (!kept) {
       setState(() {
         _saving = false;
-        _trouble = "It wasn't kept: the Keychain didn't take it. Try again.";
+        _trouble = "It wasn't kept: ${Desktop.current.secretStoreShort} didn't take it. Try again.";
       });
       return;
     }
@@ -108,7 +108,7 @@ class _VaultCardState extends State<_VaultCard> {
               onSubmitted: (_) => unawaited(_keep()),
             ),
             Text(
-              "It goes into your Mac's Keychain. The assistant gets its name, never the value.",
+              'It goes into ${Desktop.current.secretStore}. The assistant gets its name, never the value.',
               style: t.text.xs.copyWith(color: c.mutedForeground),
             ),
             if (_trouble case final why?)
@@ -186,8 +186,8 @@ class _EnvOfferState extends State<_EnvOffer> {
       _found = EnvSecrets.find(widget.project);
       _said = r.failed.isEmpty
           ? null
-          : "${r.failed.join(', ')} ${r.failed.length == 1 ? "wasn't" : "weren't"} kept: the "
-                'Keychain refused. They are still in the file.';
+          : "${r.failed.join(', ')} ${r.failed.length == 1 ? "wasn't" : "weren't"} kept: "
+                '${Desktop.current.secretStoreShort} refused. They are still in the file.';
     });
   }
 
@@ -234,7 +234,7 @@ class _EnvOfferState extends State<_EnvOffer> {
           ),
           Text(
             _said ??
-                "Move them into Helmy's vault, in your Mac's Keychain, and the assistant never "
+                "Move them into Helmy's vault, in ${Desktop.current.secretStore}, and the assistant never "
                     'sees them. The file keeps their names; what Helmy runs, and `helmy run` in a '
                     'terminal, gets the real values.',
             style: t.text.xs.copyWith(color: _said == null ? c.mutedForeground : c.destructive),
@@ -320,7 +320,8 @@ class _KeepSecretsState extends State<_KeepSecrets> {
         if (mounted) {
           setState(() {
             _saving = false;
-            _trouble = "$name wasn't kept: the Keychain refused. Nothing was sent.";
+            _trouble =
+                "$name wasn't kept: ${Desktop.current.secretStoreShort} refused. Nothing was sent.";
           });
         }
         return;
@@ -340,7 +341,7 @@ class _KeepSecretsState extends State<_KeepSecrets> {
       icon: AshlarIconsRoundedStroke.lock,
       maxWidth: 460,
       body:
-          "Keep ${one ? 'it' : 'them'} in Helmy's vault, in your Mac's Keychain, and the "
+          "Keep ${one ? 'it' : 'them'} in Helmy's vault, in ${Desktop.current.secretStore}, and the "
           "assistant gets ${one ? 'its name' : 'their names'}, never the value.",
       content: Column(
         crossAxisAlignment: .stretch,

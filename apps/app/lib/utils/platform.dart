@@ -26,6 +26,21 @@ enum Desktop {
       ? linux
       : mac;
 
+  /// Where it keeps passwords and keys for its user, as said in a sentence:
+  /// Helmy's vault keeps its values there.
+  String get secretStore => switch (this) {
+    mac => "your Mac's Keychain",
+    windows => 'Windows Credential Manager',
+    linux => 'your login keyring',
+  };
+
+  /// [secretStore] in short, after "the" or alone: "the Keychain refused it".
+  String get secretStoreShort => switch (this) {
+    mac => 'the Keychain',
+    windows => 'Credential Manager',
+    linux => 'the keyring',
+  };
+
   /// Its file manager, by name.
   String get fileManager => switch (this) {
     mac => 'Finder',

@@ -598,7 +598,7 @@ class _DesignPanelState extends State<DesignPanel> {
               divider,
               tool(
                 AshlarIconsRoundedStroke.undo2,
-                'Undo (⌘Z)',
+                'Undo (${Desktop.current.keys('⌘Z')})',
                 () => unawaited(_run('HelmyCanvas.undo()')),
               ),
               divider,

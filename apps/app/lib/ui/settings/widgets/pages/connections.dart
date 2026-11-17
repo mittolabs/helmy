@@ -411,10 +411,10 @@ class _AgentCard extends StatelessWidget {
                                 ? 'Helmy stops using it, and the copy Helmy installed goes.'
                                 : 'Helmy stops using it. The program itself stays.')
                           : ours
-                          ? 'Its sign-in on this Mac goes, and Helmy stops using it. '
+                          ? 'Its sign-in on ${Desktop.current.thisComputer} goes, and Helmy stops using it. '
                                 'The account itself is not touched.'
-                          : 'Helmy stops using it. It stays installed and signed in on this '
-                                'Mac, and you can add it back from "Add a connection".',
+                          : 'Helmy stops using it. It stays installed and signed in on '
+                                '${Desktop.current.thisComputer}, and you can add it back from "Add a connection".',
                       action: 'Remove',
                       destructive: true,
                     );

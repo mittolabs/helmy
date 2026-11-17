@@ -408,10 +408,14 @@ class _FilePopup extends StatelessWidget {
                             Navigator.pop(context);
                             actions.open(path);
                           }),
-                          action('Show in Finder', AshlarIconsRoundedStroke.folderOpen, () {
-                            Navigator.pop(context);
-                            actions.reveal(path);
-                          }),
+                          action(
+                            'Show in ${Desktop.current.fileManager}',
+                            AshlarIconsRoundedStroke.folderOpen,
+                            () {
+                              Navigator.pop(context);
+                              actions.reveal(path);
+                            },
+                          ),
                           action('Close', AshlarIconsRoundedStroke.x, () => Navigator.pop(context)),
                         ],
                       ),

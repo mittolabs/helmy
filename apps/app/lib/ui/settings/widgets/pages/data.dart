@@ -150,7 +150,7 @@ class _DataState extends State<_Data> {
           if (_import case final importer?) ...[
             const _Heading('Import chats'),
             Text(
-              'The chats you had in Claude Code and Codex on this Mac, by folder. Each '
+              'The chats you had in Claude Code and Codex on ${Desktop.current.thisComputer}, by folder. Each '
               'comes in as a chat that goes on where it left off; the originals stay as they are.',
               style: muted,
             ),

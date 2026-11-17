@@ -347,7 +347,7 @@ class _HomeState extends State<_Home> with _TakesPage {
                     semanticLabel: 'Helmy',
                   ),
                   Text(
-                    starting == null ? 'What should we get done?' : 'Starting it on the Mac…',
+                    starting == null ? 'What should we get done?' : 'Starting it on the computer…',
                     textAlign: .center,
                     style: t.text.xl.copyWith(fontWeight: .w500),
                   ),
@@ -605,7 +605,7 @@ class _Drawer extends StatelessWidget {
                         ),
                         _Nav(
                           icon: AshlarIconsRoundedStroke.deviceLaptop,
-                          label: 'Your Mac',
+                          label: 'Your computer',
                           onPressed: onScreen,
                         ),
                         if (waiting.isNotEmpty) ...[
@@ -877,14 +877,14 @@ class _Settings extends StatelessWidget {
             Text(
               kIsWeb
                   ? 'The work happens on this computer. Chrome shows it and says what to do.'
-                  : 'The work happens on this Mac. The phone shows it and says what to do.',
+                  : 'The work happens on the computer. The phone shows it and says what to do.',
               style: muted,
             ),
             Button(
               variant: .outline,
               size: .sm,
               onPressed: onUnpair,
-              child: const Text('Pair with another Mac'),
+              child: const Text('Pair with another computer'),
             ),
           ]),
           card([

@@ -109,7 +109,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
                 _AddChoice(
                   logo: f.kind,
                   title: '${f.kind == 'claude' ? 'Claude Code' : 'Codex'} (${f.name})',
-                  line: 'On this Mac, signed in as ${f.who}',
+                  line: 'On ${Desktop.current.thisComputer}, signed in as ${f.who}',
                   onPressed: vm.working != null ? null : () => _addFound(f),
                 ),
               if (_found == null)
@@ -118,7 +118,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
                   children: [
                     const Spinner(size: 12),
                     Text(
-                      'Looking for accounts on this Mac...',
+                      'Looking for accounts on ${Desktop.current.thisComputer}...',
                       style: AshlarTheme.of(context).text.xs
                           .copyWith(color: AshlarTheme.of(context).colors.mutedForeground),
                     ),

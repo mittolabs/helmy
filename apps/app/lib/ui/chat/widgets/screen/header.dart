@@ -394,7 +394,7 @@ class _FolderButton extends StatelessWidget {
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.folderOpen, size: 16),
             onPressed: () => vm.reveal(cwd),
-            child: const Text('Show in Finder'),
+            child: Text('Show in ${Desktop.current.fileManager}'),
           ),
         MenuItem(
           leading: const AshlarIcon(AshlarIconsRoundedStroke.folderInput, size: 16),

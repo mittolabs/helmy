@@ -93,20 +93,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 /// What Helmy says on each step, and the picture of it doing so.
-const _guide = {
+final _guide = {
   OnboardingStep.connections: (
     image: 'assets/helmy/onboarding-connect.png',
     title: 'Connect your AI tools',
     say:
         'I start with a free connection, with no account needed. You can also choose '
-        'to use your subscriptions: switch on a connection found on this Mac, or press '
+        'to use your subscriptions: switch on a connection found on ${Desktop.current.thisComputer}, or press '
         'Install or Sign in to add one, then Continue.',
   ),
   OnboardingStep.chats: (
     image: 'assets/helmy/onboarding-chats.png',
     title: 'Import your chats',
     say:
-        'I found your Claude Code and Codex chats on this Mac. Tick the folders to '
+        'I found your Claude Code and Codex chats on ${Desktop.current.thisComputer}. Tick the folders to '
         "import, and I'll go on from where each left off. Or skip it; you can do it later.",
   ),
   OnboardingStep.folders: (
@@ -700,7 +700,7 @@ class _ConnectionRow extends StatelessWidget {
                 // plain.
                 .ready when !on => 'Not used by Helmy. Switch it on to use it.',
                 .ready => [
-                  if (vm.found?.contains(c.id) ?? false) 'Found on this Mac',
+                  if (vm.found?.contains(c.id) ?? false) 'Found on ${Desktop.current.thisComputer}',
                   who == null ? c.does : 'Signed in as $who',
                   if (added != null) '$added more account${added == 1 ? '' : 's'}',
                 ].join(' · '),

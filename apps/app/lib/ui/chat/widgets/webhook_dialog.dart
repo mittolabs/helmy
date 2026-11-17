@@ -111,7 +111,7 @@ class _WebhookDialog extends StatelessWidget {
           Text('To try it:', style: muted),
           mono(curl, 'Copy the command'),
           Text(
-            'Only this Mac reaches it. For a service outside to send here, point a tunnel you '
+            'Only ${Desktop.current.thisComputer} reaches it. For a service outside to send here, point a tunnel you '
             'run (Tailscale Funnel, Cloudflare Tunnel, ngrok) at port ${hooks.port} and give '
             'the service its address, ending in /hooks/ and this secret. Up to '
             '${Webhooks.perHour} events an hour, each up to ${Webhooks.maxBytes ~/ 1024} KB.',

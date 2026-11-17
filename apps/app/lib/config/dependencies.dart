@@ -78,6 +78,7 @@ import '../data/repositories/lesson_repository.dart';
 import '../data/services/approvals.dart';
 import '../domain/models/chat_item.dart';
 import '../data/services/helmy_run.dart';
+import '../data/services/system_keychain.dart';
 import '../data/services/vault.dart';
 import '../data/services/work_awake.dart';
 import '../data/services/vault_tools.dart';
@@ -116,7 +117,8 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider(create: (context) => StashRepository(loaded.storage)..load()),
   // What Helmy has learned working with the person, across projects.
   ChangeNotifierProvider(create: (context) => LessonRepository(loaded.storage)..load()),
-  // The vault: secrets in the Keychain, their names beside the settings.
+  // The vault: secrets in the system's own store (the Keychain, Credential
+  // Manager, the login keyring), their names beside the settings.
   ChangeNotifierProvider(
     create: (context) {
       final root = scratchRoot;
@@ -125,11 +127,13 @@ List<SingleChildWidget> providers(Loaded loaded) => [
           : root.substring(0, root.lastIndexOf('/'));
       final vault = Vault(
         indexFile: File('$support/vault.json'),
-        keychain: _DesktopKeychain(DesktopService()),
+        keychain: Platform.isMacOS
+            ? _DesktopKeychain(DesktopService())
+            : SystemKeychain(os: Platform.operatingSystem),
       );
       unawaited(vault.load());
       // helmy run, in a terminal: the secrets for its folder.
-      if (Platform.isMacOS && root != null) unawaited(HelmyRunServer(vault).start(support));
+      if (HelmyRunCli.here && root != null) unawaited(HelmyRunServer(vault).start(support));
       return vault;
     },
   ),

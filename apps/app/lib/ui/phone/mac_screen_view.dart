@@ -161,7 +161,9 @@ class _MacScreenViewState extends State<MacScreenView> {
       controller: _typed,
       focusNode: _typing,
       size: .sm,
-      placeholder: _mods.isEmpty ? 'Type on the Mac' : 'A key, with ${_mods.map(_symbol).join()}',
+      placeholder: _mods.isEmpty
+          ? 'Type on the computer'
+          : 'A key, with ${_mods.map(_symbol).join()}',
       textInputAction: .send,
       onChanged: _onType,
       onSubmitted: (_) {
@@ -285,7 +287,7 @@ class _MacScreenViewState extends State<MacScreenView> {
                     () => setState(() => _keysInFull = !_keysInFull),
                     on: _keysInFull,
                   ),
-                  round(AshlarIconsRoundedStroke.keyboard, 'Type on the Mac', () {
+                  round(AshlarIconsRoundedStroke.keyboard, 'Type on the computer', () {
                     setState(() => _keyboard = !_keyboard);
                     _keyboard ? _typing.requestFocus() : _typing.unfocus();
                   }, on: _keyboard),
@@ -381,7 +383,7 @@ class _MacScreenViewState extends State<MacScreenView> {
                       Button(
                         variant: _keyboard ? .secondary : .ghost,
                         size: .icon,
-                        semanticLabel: 'Type on the Mac',
+                        semanticLabel: 'Type on the computer',
                         onPressed: () {
                           setState(() => _keyboard = !_keyboard);
                           if (_keyboard) {
