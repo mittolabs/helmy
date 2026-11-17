@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../domain/models/settings.dart';
+import '../../cli_locator.dart';
 import 'acp_registry.dart';
 
 /// The connection that answers on day one, with no account: OpenCode, on
@@ -33,9 +32,15 @@ Future<ConnectionAccount> installAgent(
     );
   }
   final root = '${(await getApplicationSupportDirectory()).path}/agents';
-  final launch = await AcpRegistry.install(listing, root: root, progress: progress);
-  // Downloaded into Helmy's folder (a path, on any system), not fetched by npx.
-  final own = File(launch.command).isAbsolute;
+  final launch = await AcpRegistry.install(
+    listing,
+    root: root,
+    progress: progress,
+    locator: CliLocator(),
+  );
+  // Downloaded into Helmy's own folder (not one already installed, nor
+  // fetched by npx): Helmy's to remove with it.
+  final own = launch.command.startsWith(root);
   return ConnectionAccount(
     id: 'acp.$registryId',
     kind: 'acp',

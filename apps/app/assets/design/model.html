@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Model</title>
+<!-- Helmy's own 3D viewer, for a model on the design canvas (.glb, .gltf,
+     .stl, .obj): the agent makes only the model, never a page to show it.
+     On the canvas it turns slowly; played, it is turned and zoomed by hand. -->
+<script type="importmap">
+{ "imports": { "three": "./three/three.module.min.js" } }
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d22; color: #c9cdd4;
+    font: 13px -apple-system, "Segoe UI", system-ui, sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #say { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; line-height: 1.5; }
+  #hint { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; opacity: .6;
+    pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="say">Opening the model…</div>
+<div id="hint" hidden>Drag to turn · scroll to zoom · double-click to reset</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './three/controls/OrbitControls.js';
+import { RoomEnvironment } from './three/environments/RoomEnvironment.js';
+
+const params = new URLSearchParams(location.search);
+const src = params.get('src');
+const played = params.get('mode') === 'play';
+const say = document.getElementById('say');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1b1d22);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+// Soft enough that dark materials stay dark.
+scene.environmentIntensity = 0.45;
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(3, 5, 4);
+scene.add(sun);
+
+const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 1000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enabled = played;
+controls.autoRotate = !played;
+controls.autoRotateSpeed = 1.2;
+
+let home = null;
+function size() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', size);
+size();
+
+// The camera set to take the whole model in, from a little above.
+function frame(object) {
+  const box = new THREE.Box3().setFromObject(object);
+  const center = box.getCenter(new THREE.Vector3());
+  const radius = box.getSize(new THREE.Vector3()).length() / 2 || 1;
+  const distance = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.1;
+  camera.near = distance / 100;
+  camera.far = distance * 100;
+  camera.updateProjectionMatrix();
+  home = { target: center.clone(), position: center.clone().add(new THREE.Vector3(0.6, 0.45, 1).normalize().multiplyScalar(distance)) };
+  reset();
+}
+function reset() {
+  if (!home) return;
+  controls.target.copy(home.target);
+  camera.position.copy(home.position);
+  controls.update();
+}
+renderer.domElement.addEventListener('dblclick', reset);
+
+async function open() {
+  if (!src) throw new Error('No model was named.');
+  const ext = src.split('?')[0].split('.').pop().toLowerCase();
+  const material = new THREE.MeshStandardMaterial({ color: 0xb8bec8, roughness: 0.55, metalness: 0.1 });
+  switch (ext) {
+    case 'glb': case 'gltf': {
+      const { GLTFLoader } = await import('./three/loaders/GLTFLoader.js');
+      return (await new GLTFLoader().loadAsync(src)).scene;
+    }
+    case 'stl': {
+      const { STLLoader } = await import('./three/loaders/STLLoader.js');
+      const geometry = await new STLLoader().loadAsync(src);
+      geometry.computeVertexNormals();
+      // STL is usually Z up; three is Y up.
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.rotation.x = -Math.PI / 2;
+      return mesh;
+    }
+    case 'obj': {
+      const { OBJLoader } = await import('./three/loaders/OBJLoader.js');
+      const object = await new OBJLoader().loadAsync(src);
+      object.traverse((o) => { if (o.isMesh && !o.material?.map) o.material = material; });
+      return object;
+    }
+    default:
+      throw new Error(`.${ext} is not a model Helmy can show (glb, gltf, stl or obj).`);
+  }
+}
+
+try {
+  const model = await open();
+  scene.add(model);
+  frame(model);
+  say.remove();
+  if (played) document.getElementById('hint').hidden = false;
+  window.helmyModel = { loaded: true };
+} catch (e) {
+  const name = decodeURIComponent((src ?? '').split('?')[0].split('/').pop());
+  const msg = String(e?.message ?? e);
+  say.textContent = /\b404\b/.test(msg)
+    ? `${name} isn't in the design folder.`
+    : `${name} couldn't be opened: ${msg}`;
+  window.helmyModel = { loaded: false, error: String(e?.message ?? e) };
+}
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

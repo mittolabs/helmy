@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:helmy/data/services/cli_locator.dart';
 import 'package:helmy/data/services/engines/acp/acp_registry.dart';
 
 /// Installing an agent from the registry (OpenCode, on the first run): its
 /// download shows how far it has come, a stalled one is given up and said
 /// so, and each system unpacks it with what it has.
 void main() {
+  installedTests();
   late Directory root;
   late HttpServer server;
   late File archive;
@@ -99,4 +101,34 @@ void main() {
     expect(unpackCommand('a.tar.gz', 'f', 'd', os: 'linux').$1, 'tar');
     expect(unpackCommand('a.zip', 'f', 'd', os: 'linux').$1, 'unzip');
   });
+}
+
+class _Locator extends CliLocator {
+  _Locator(this.there);
+  final Map<String, String> there;
+  @override
+  Future<String?> find(String name) async => there[name];
+}
+
+void installedTests() {
+  test('an agent already installed is used when it has the mode Helmy needs', () async {
+    final dir = Directory.systemTemp.createTempSync('installed');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    File script(String name, String help) {
+      final f = File('${dir.path}/$name')..writeAsStringSync('#!/bin/sh\necho "$help"\n');
+      Process.runSync('chmod', ['+x', f.path]);
+      return f;
+    }
+
+    final fresh = script('opencode', 'Commands:\n  acp    Start ACP server\n  run');
+    final old = script('opencode-old', 'Commands:\n  run\n  serve');
+    const bin = {
+      'cmd': './opencode.exe',
+      'args': ['acp'],
+    };
+    final got = await installedAgent(bin, _Locator({'opencode': fresh.path}));
+    expect((got?.command, got?.args.join(' ')), (fresh.path, 'acp'));
+    expect(await installedAgent(bin, _Locator({'opencode': old.path})), isNull, reason: 'no acp');
+    expect(await installedAgent(bin, _Locator({})), isNull, reason: 'not installed');
+  }, skip: Platform.isWindows ? 'a shell script stands in for it' : null);
 }

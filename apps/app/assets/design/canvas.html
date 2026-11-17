@@ -102,6 +102,13 @@
 (() => {
   const params = new URLSearchParams(location.search);
   const base = 'd/' + params.get('d') + '/';
+  // A 3D model (.glb, .gltf, .stl, .obj) is a board too, drawn by Helmy's own
+  // viewer: turning slowly on the canvas, turned by hand when played.
+  const isModel = (file) => /\.(glb|gltf|stl|obj)$/i.test(file);
+  const srcOf = (file, mode, fresh) => {
+    const at = base + file + (fresh ? '?v=' + Date.now() : '');
+    return isModel(file) ? 'model.html?src=' + encodeURIComponent(at) + (mode ? '&mode=' + mode : '') : at;
+  };
   // Helmy can open a window of its own here: a screen previews in one.
   const windows = params.get('windows') === '1';
   // A window presenting this one screen (Present): only it, nothing of the canvas.
@@ -372,10 +379,11 @@
         const frame = document.createElement('div');
         frame.className = 'frame';
         const iframe = document.createElement('iframe');
-        iframe.src = base + file;
+        iframe.src = srcOf(file);
         iframe.title = b.title ?? file;
         // A responsive page is as tall as what it holds at its width.
         iframe.addEventListener('load', () => {
+          if (isModel(file)) return;
           fitHeight(file);
           // What its file holds, and the element picked before the page came again.
           learn(file);
@@ -396,7 +404,7 @@
         boards.set(file, el);
       } else if (changed === true || (changed ?? []).includes(file)) {
         if (typing?.file === file) continue; // being typed into: the person's text stands
-        el.querySelector('iframe').src = base + file + '?v=' + Date.now();
+        el.querySelector('iframe').src = srcOf(file, null, true);
         if (picked?.file === file) picked = { file, el: null };
       }
       place(file);
@@ -473,6 +481,8 @@
   }
 
   const docOf = (file) => {
+    // A model's frame is Helmy's viewer, nothing in it to pick or edit.
+    if (isModel(file)) return null;
     try { return boards.get(file)?.querySelector('iframe').contentDocument ?? null; } catch (_) { return null; }
   };
 
@@ -847,7 +857,7 @@
   }
 
   function reloadScreen(file) {
-    boards.get(file)?.querySelector('iframe').setAttribute('src', base + file + '?v=' + Date.now());
+    boards.get(file)?.querySelector('iframe').setAttribute('src', srcOf(file, null, true));
   }
 
   /** Saves [file] as it now is; [before] is what an undo puts back. A page
@@ -1028,7 +1038,7 @@
     const device = document.createElement('div');
     device.className = 'device ' + kind;
     const iframe = document.createElement('iframe');
-    iframe.src = base + file;
+    iframe.src = srcOf(file, 'play');
     iframe.title = b.title ?? file;
     device.append(iframe);
     const title = document.createElement('span');
@@ -1037,7 +1047,7 @@
     bar.append(
       button('back', 'Back', () => iframe.contentWindow?.history.back()),
       button('forward', 'Forward', () => iframe.contentWindow?.history.forward()),
-      button('restart', 'Reload', () => { iframe.src = base + file + '?v=' + Date.now(); }),
+      button('restart', 'Reload', () => { iframe.src = srcOf(file, 'play', true); }),
       title,
     );
     if (kind !== 'desktop') {
@@ -1070,15 +1080,16 @@
     const b = canvas.boards[file];
     if (!b) return;
     const kind = deviceOf(b);
-    // The screen as a device shows it: its width, and a device's height.
-    const h = deviceHeight(kind);
+    // The screen as a device shows it: its width, and a device's height; a
+    // model at its own frame's.
+    const h = isModel(file) ? b.h : deviceHeight(kind);
     present.innerHTML = '';
     const bar = document.createElement('div');
     bar.className = 'bar';
     const device = document.createElement('div');
     device.className = 'device ' + kind;
     const iframe = document.createElement('iframe');
-    iframe.src = base + file;
+    iframe.src = srcOf(file, 'play');
     iframe.title = b.title ?? file;
     device.append(iframe);
     Object.assign(device.style, { width: b.w + 'px', height: h + 'px' });
@@ -1088,7 +1099,7 @@
     bar.append(
       button('back', 'Back', () => iframe.contentWindow?.history.back()),
       button('forward', 'Forward', () => iframe.contentWindow?.history.forward()),
-      button('restart', 'Start again', () => { iframe.src = base + file + '?v=' + Date.now(); }),
+      button('restart', 'Start again', () => { iframe.src = srcOf(file, 'play', true); }),
       title,
       button('open', 'Open in a browser tab', () => tell({ open: new URL(iframe.contentWindow?.location.href ?? base + file, location.href).href })),
       button('close', 'Close (Esc)', closePreview),
@@ -1328,6 +1339,7 @@
     }
     const at = screenAt(e.clientX, e.clientY);
     if (!at) return;
+    if (isModel(at.file)) return playIt(at.file);
     const el = elementAt(at.file, at.x, at.y);
     if (el && typeable(el)) startTyping(at.file, el);
     else fit(at.file);
