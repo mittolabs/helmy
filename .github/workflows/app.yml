@@ -34,5 +34,10 @@ jobs:
       - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart test
         working-directory: apps/relay
       # The helmy command: its own package, so it compiles on its own.
-      - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart compile exe bin/helmy.dart -o build/helmy && ./build/helmy run true || [ $? = 69 ]
+      - run: |
+          dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze
+          mkdir -p build && dart compile exe bin/helmy.dart -o build/helmy
+          # With no Helmy open it says so, and exits 69.
+          code=0; HELMY_RUN_FILE=/nonexistent ./build/helmy run true || code=$?
+          [ "$code" = 69 ]
         working-directory: apps/cli
