@@ -64,6 +64,7 @@ live:
 
 analyze:
 	cd $(APP) && fvm dart analyze
+	cd apps/cli && $(DART) analyze
 
 format:
 	cd $(APP) && fvm dart format lib test

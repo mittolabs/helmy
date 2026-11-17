@@ -129,6 +129,10 @@ class Approvals {
     ];
     if (RegExp(r'(^|[\s;&|(])helmy\s+run\b').hasMatch(command) ||
         command.contains('run.sock') ||
+        RegExp(
+          r'helmy[\\/]run\.json',
+          caseSensitive: false,
+        ).hasMatch([command, ...paths].join('\n')) ||
         RegExp(r'com\.mittolabs\.helmy/vault').hasMatch(command)) {
       return "`helmy run` is the person's: run what needs secrets with vault_run, which keeps "
           'them from you.';

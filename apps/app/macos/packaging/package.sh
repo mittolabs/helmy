@@ -10,6 +10,10 @@ for arch in arm64 x86_64; do
   name=$([ "$arch" = arm64 ] && echo arm64 || echo x64)
   stage=$(mktemp -d)
   cp -R "$universal" "$stage/Helmy.app"
+  # The helmy command for this architecture (the build leaves one of each).
+  if [ -n "${HELMY_CLI_DIR:-}" ]; then
+    cp "$HELMY_CLI_DIR/helmy-cli-$arch" "$stage/Helmy.app/Contents/MacOS/helmy-cli"
+  fi
   # Every universal binary in the app keeps only this architecture: half the download.
   while IFS= read -r -d '' f; do
     if lipo -info "$f" 2>/dev/null | grep -q "Architectures in the fat file"; then
@@ -20,6 +24,9 @@ for arch in arm64 x86_64; do
   codesign --force --deep --sign - "$stage/Helmy.app"
   codesign --verify --deep --strict "$stage/Helmy.app"
   [ "$(lipo -archs "$stage/Helmy.app/Contents/MacOS/Helmy")" = "$arch" ]
+  if [ -n "${HELMY_CLI_DIR:-}" ]; then
+    [ "$(lipo -archs "$stage/Helmy.app/Contents/MacOS/helmy-cli")" = "$arch" ]
+  fi
   out="Helmy-$tag-macos-$name.dmg"
   # The window people see: Helmy beside Applications, big, on a background with an arrow
   # between them (background.tiff, drawn for 1x and 2x; light, as Finder draws the labels dark). create-dmg lays it out through

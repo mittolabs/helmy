@@ -138,6 +138,44 @@ jobs:
           --dart-define=HELMY_VERSION="${TAG#v}"
           --dart-define=HELMY_ERRORS="${{ secrets.HELMY_ERRORS }}"
 
+      # The helmy command (helmy run), from apps/cli: a program of its own, put beside
+      # Helmy's and copied onto the PATH from Settings. dart compile exe makes one
+      # for the runner it is on, so the Mac's Intel half is made by the Intel Dart
+      # SDK of the same version, under Rosetta, and the two joined.
+      - name: The helmy command
+        if: matrix.platform == 'macos' || matrix.platform == 'windows' || matrix.platform == 'linux'
+        run: |
+          (cd ../cli && dart pub get)
+          case "${{ matrix.platform }}" in
+            macos)
+              # One program per architecture: dart compile exe keeps its code after the
+              # Mach-O, which lipo would drop. The universal app holds the Apple silicon
+              # one; package.sh puts the matching one in each .dmg.
+              app=build/macos/Build/Products/Release/Helmy.app
+              dart compile exe ../cli/bin/helmy.dart -o "$RUNNER_TEMP/helmy-cli-arm64"
+              softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
+              version=$(dart --version 2>&1 | sed -E 's/.*version: ([^ ]+).*/\1/')
+              curl -fsSL -o "$RUNNER_TEMP/dart-x64.zip" "https://storage.googleapis.com/dart-archive/channels/stable/release/$version/sdk/dartsdk-macos-x64-release.zip"
+              unzip -q "$RUNNER_TEMP/dart-x64.zip" -d "$RUNNER_TEMP/dart-x64"
+              (cd ../cli && arch -x86_64 "$RUNNER_TEMP/dart-x64/dart-sdk/bin/dart" compile exe bin/helmy.dart -o "$RUNNER_TEMP/helmy-cli-x86_64")
+              [ "$(lipo -archs "$RUNNER_TEMP/helmy-cli-x86_64")" = x86_64 ]
+              out=$(arch -x86_64 "$RUNNER_TEMP/helmy-cli-x86_64" 2>&1 || true)
+              [[ $out == *"Usage: helmy run"* ]]
+              echo "HELMY_CLI_DIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+              cli="$app/Contents/MacOS/helmy-cli"
+              cp "$RUNNER_TEMP/helmy-cli-arm64" "$cli"
+              # Added to a signed app: signed again, keeping what it was allowed.
+              codesign --force --deep --sign - --preserve-metadata=entitlements "$app"
+              ;;
+            windows) cli=build/windows/${{ matrix.arch }}/runner/Release/helmy-cli.exe
+              dart compile exe ../cli/bin/helmy.dart -o "$cli" ;;
+            linux) cli=build/linux/${{ matrix.arch }}/release/bundle/helmy-cli
+              dart compile exe ../cli/bin/helmy.dart -o "$cli" ;;
+          esac
+          # It runs, and says what it is for.
+          out=$("$cli" 2>&1 || true)
+          echo "$out"
+          [[ $out == *"Usage: helmy run"* ]]
       - name: Package (macOS)
         if: matrix.platform == 'macos'
         run: |

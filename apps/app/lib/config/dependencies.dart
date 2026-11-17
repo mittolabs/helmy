@@ -133,7 +133,11 @@ List<SingleChildWidget> providers(Loaded loaded) => [
       );
       unawaited(vault.load());
       // helmy run, in a terminal: the secrets for its folder.
-      if (HelmyRunCli.here && root != null) unawaited(HelmyRunServer(vault).start(support));
+      // Only in the app itself: a test must not answer for the Helmy on this computer.
+      if (root != null) {
+        unawaited(HelmyRunServer(vault).start());
+        unawaited(HelmyRunCli.refresh());
+      }
       return vault;
     },
   ),

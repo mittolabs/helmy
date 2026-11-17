@@ -1,139 +1,166 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
-import '../../utils/format.dart' show scratchRoot;
+import 'package:helmy_cli/run_protocol.dart';
+
 import 'vault.dart';
 
 /// `helmy run <command>`: a command in a terminal with the vault's secrets
-/// for its folder, as 1Password's `op run` does. A script on the PATH asks
-/// the running Helmy over a socket only this user can open; nothing is
-/// written to disk. Agents may not use it (Approvals.offLimits): theirs is
-/// vault_run, which blanks the values.
-///
-/// On macOS and Linux. Not on Windows yet: Dart has no socket there that only
-/// this user can open (no Unix sockets, no named pipes), and a port on
-/// localhost is open to every program, so it would need a token of its own.
+/// for its folder, as 1Password's `op run` does. The command is a program
+/// of its own (apps/cli), built for each system and shipped inside
+/// Helmy as helmy-cli; Settings puts a copy on the PATH as `helmy`. It asks
+/// the running Helmy over loopback with a token only this user can read;
+/// nothing is written to disk. Agents may not use it (Approvals.offLimits):
+/// theirs is vault_run, which blanks the values.
 abstract final class HelmyRunCli {
-  /// Whether it can be set up here.
-  static bool get here => !Platform.isWindows;
+  static final _windows = Platform.isWindows;
+  static Map<String, String> get _env => Platform.environment;
+
+  /// The command as shipped, beside Helmy's own program.
+  static String get bundled =>
+      '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}helmy-cli${_windows ? '.exe' : ''}';
+
+  /// Whether this Helmy has it to set up (a build from source may not).
+  static bool get here => File(bundled).existsSync();
 
   /// Why not, where it cannot.
   static const notHere =
-      'Not on Windows yet: Helmy hands secrets out over a socket only you can open, which '
-      "Helmy can't open on Windows yet. Helmy itself still runs commands with them.";
+      "This copy of Helmy doesn't include the helmy command. Helmy itself still runs "
+      'commands with your secrets.';
 
-  static String get _bin => '${Platform.environment['HOME']}/.local/bin';
-  static String get script => '$_bin/helmy';
-
-  /// The socket Helmy hands secrets out on, in its own folder.
-  static String socketIn(String supportDir) => '$supportDir/run.sock';
+  /// Where it is put: on macOS and Linux the usual folder for a person's own
+  /// commands; on Windows Helmy's own, added to the PATH.
+  static String get binDir => _windows
+      ? '${_env['LOCALAPPDATA'] ?? '${_env['USERPROFILE']}\\AppData\\Local'}\\Helmy\\bin'
+      : '${_env['HOME']}/.local/bin';
+  static String get script => '$binDir${Platform.pathSeparator}helmy${_windows ? '.exe' : ''}';
 
   static bool installed() => File(script).existsSync();
 
-  /// Helmy's own folder, where its socket is: beside the scratch folder.
-  static String? get supportDir {
-    final root = scratchRoot;
-    return root?.substring(0, root.lastIndexOf('/'));
-  }
-
-  /// Puts the script on the PATH; why not, or null.
-  static Future<String?> install({String? dir}) async {
+  /// Puts the command on the PATH; why not, or null.
+  static Future<String?> install() async {
     if (!here) return notHere;
-    final support = dir ?? supportDir;
-    if (support == null) return "It couldn't be set up: Helmy's folder isn't known yet.";
     try {
-      await Directory(_bin).create(recursive: true);
-      final f = File(script);
-      await f.writeAsString(scriptFor(socketIn(support)));
-      await Process.run('chmod', ['755', f.path]);
+      await Directory(binDir).create(recursive: true);
+      await _copy();
     } on Object catch (e) {
       return "It couldn't be set up: $e";
     }
-    final path = (Platform.environment['PATH'] ?? '').split(':');
-    if (!path.contains(_bin)) {
+    if (_windows) {
+      final r = await Process.run(
+        'powershell',
+        ['-NoProfile', '-NonInteractive', '-Command', addToPathScript],
+        environment: {'HELMY_BIN': binDir},
+      );
+      if (r.exitCode != 0) {
+        return 'Set up in $binDir, but it couldn\'t be added to your PATH: add that folder to use '
+            'helmy run.';
+      }
+      return null;
+    }
+    final path = (_env['PATH'] ?? '').split(':');
+    if (!path.contains(binDir)) {
       return 'Set up, but ~/.local/bin is not on your PATH: add it in your shell profile to use '
           'helmy run.';
     }
     return null;
   }
 
-  /// The script, asking at [socket]. Bash, on macOS and Linux alike.
-  static String scriptFor(String socket) =>
-      '#!/usr/bin/env bash\n'
-      "sock='${socket.replaceAll("'", r"'\''")}'\n"
-      '$_script';
+  /// Keeps the copy on the PATH the one this Helmy ships: after an update,
+  /// or in place of the script earlier versions put there.
+  static Future<void> refresh() async {
+    if (!here || !installed()) return;
+    try {
+      final have = File(script), ship = File(bundled);
+      if (await have.length() == await ship.length() &&
+          _same(await have.readAsBytes(), await ship.readAsBytes())) {
+        return;
+      }
+      await _copy();
+    } on Object {
+      // In use by a running helmy run (Windows): next time.
+    }
+  }
 
-  static const _script = r'''
-# helmy run: a command with the secrets in Helmy's vault for this folder.
-# Set up by Helmy (Settings, Vault). Helmy has to be open.
-if [[ "$1" != "run" || -z "$2" ]]; then
-  echo "Usage: helmy run <command> [arguments...]" >&2
-  exit 64
-fi
-shift
-# base64's decode flag: -d on Linux and newer macOS, -D on older macOS.
-if base64 -d </dev/null >/dev/null 2>&1; then d=-d; else d=-D; fi
-if [[ ! -S "$sock" ]]; then
-  echo "helmy: open Helmy first; it hands out the secrets." >&2
-  exit 69
-fi
-lines=$(curl -sf --unix-socket "$sock" -H "X-Folder: $PWD" "http://helmy/env") || {
-  echo "helmy: Helmy didn't answer. Is it open?" >&2
-  exit 69
+  static bool _same(List<int> a, List<int> b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  static Future<void> _copy() async {
+    // Beside it first, then moved over: a half-written command never runs.
+    final tmp = '$script.new';
+    await File(bundled).copy(tmp);
+    if (!_windows) await Process.run('chmod', ['755', tmp]);
+    // Copied out of a downloaded app, it would carry the download's
+    // quarantine, and macOS would refuse to run it from a terminal.
+    if (Platform.isMacOS) await Process.run('xattr', ['-d', 'com.apple.quarantine', tmp]);
+    await File(tmp).rename(script);
+  }
+
+  /// Adds $env:HELMY_BIN to the person's own PATH, kept as written (with
+  /// its %VARIABLES%), and tells open programs the PATH changed.
+  static const addToPathScript = r'''
+$key = 'HKCU:\Environment'
+$path = (Get-Item $key).GetValue('Path', '', 'DoNotExpandEnvironmentNames')
+$parts = @($path -split ';' | Where-Object { $_ })
+if ($parts -notcontains $env:HELMY_BIN) {
+  New-ItemProperty -Path $key -Name Path -PropertyType ExpandString -Force -Value (($parts + $env:HELMY_BIN) -join ';') | Out-Null
+  [Environment]::SetEnvironmentVariable('HELMY_PATH_CHANGED', '1', 'User')
+  [Environment]::SetEnvironmentVariable('HELMY_PATH_CHANGED', $null, 'User')
 }
-while IFS=' ' read -r name value; do
-  if [[ "$name" == "!" ]]; then
-    echo "helmy: $(printf %s "$value" | base64 $d)" >&2
-    continue
-  fi
-  [[ -n "$name" ]] && export "$name=$(printf %s "$value" | base64 $d)"
-done <<< "$lines"
-exec "$@"
 ''';
 }
 
-/// Helmy's side of `helmy run`: the secrets for a folder, over a socket
-/// only this user can open.
+/// Helmy's side of `helmy run`: the secrets for a folder, over loopback, to
+/// whoever has the token in the run file (only this user can read it).
 class HelmyRunServer {
-  HelmyRunServer(this._vault);
+  HelmyRunServer(this._vault, {String? file})
+    : _file = file ?? runFile(os: Platform.operatingSystem, env: Platform.environment);
   final Vault _vault;
+  final String _file;
   HttpServer? _server;
+  late final String _token = [
+    for (var i = 0; i < 32; i++) Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ].join();
 
-  Future<void> start(String supportDir) async {
-    final path = HelmyRunCli.socketIn(supportDir);
+  Future<void> start() async {
     try {
-      final old = File(path);
-      if (old.existsSync()) old.deleteSync();
-      final server = _server = await HttpServer.bind(
-        InternetAddress(path, type: InternetAddressType.unix),
-        0,
-      );
-      await Process.run('chmod', ['600', path]);
+      final server = _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((r) => unawaited(_serve(r)));
+      final f = File(_file);
+      await f.parent.create(recursive: true);
+      // Made readable by this user alone before the token goes in. On
+      // Windows the folder (in the person's own AppData) already is.
+      await f.writeAsString('');
+      if (!Platform.isWindows) await Process.run('chmod', ['600', f.path]);
+      await f.writeAsString(runFileJson(server.port, _token), flush: true);
     } on Object {
-      // No socket: helmy run says Helmy didn't answer.
+      // No server: helmy run says Helmy didn't answer.
     }
   }
 
   Future<void> _serve(HttpRequest r) async {
     final res = r.response;
     try {
-      final folder = r.headers.value('x-folder') ?? '';
-      if (r.uri.path != '/env' || folder.isEmpty) {
+      final token = r.headers.value(tokenHeader) ?? '';
+      final folder = Uri.decodeComponent(r.headers.value(folderHeader) ?? '');
+      // A web page could reach loopback too: it sends an Origin, and never
+      // has the token.
+      if (r.uri.path != '/env' ||
+          r.headers.value('origin') != null ||
+          !sameToken(token, _token) ||
+          folder.isEmpty) {
         res.statusCode = HttpStatus.notFound;
         return await res.close();
       }
       final problems = <String>[];
       final env = await _vault.envFor(projectFor(folder, _vault.all.keys), problems: problems);
-      res.headers.contentType = ContentType.text;
-      // What could not be fetched, said in the terminal.
-      for (final p in problems) {
-        res.writeln('! ${base64.encode(utf8.encode(p))}');
-      }
-      for (final e in env.entries) {
-        res.writeln('${e.key} ${base64.encode(utf8.encode(e.value))}');
-      }
+      res.headers.contentType = ContentType.json;
+      res.write(encodeAnswer((env: env, problems: problems)));
       await res.close();
     } on Object {
       res.statusCode = HttpStatus.internalServerError;
@@ -142,17 +169,24 @@ class HelmyRunServer {
   }
 
   /// The project [folder] is in: the deepest one with secrets that holds it,
-  /// else [folder] itself (it gets the shared ones).
+  /// else [folder] itself (it gets the shared ones). Either slash separates
+  /// folders, as Windows writes them either way.
   static String projectFor(String folder, Iterable<String> scopes) {
     String? best;
     for (final s in scopes) {
       if (s == sharedScope) continue;
-      if ((folder == s || folder.startsWith('$s/')) && (best == null || s.length > best.length)) {
-        best = s;
-      }
+      final inside = folder == s || folder.startsWith('$s/') || folder.startsWith('$s\\');
+      if (inside && (best == null || s.length > best.length)) best = s;
     }
     return best ?? folder;
   }
 
-  Future<void> stop() async => _server?.close(force: true);
+  Future<void> stop() async {
+    await _server?.close(force: true);
+    try {
+      File(_file).deleteSync();
+    } on Object {
+      // Already gone.
+    }
+  }
 }
