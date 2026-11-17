@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/connections_setup.dart';
 import '../../../data/services/engines/acp/acp_engine.dart';
+import '../../../data/services/engines/acp/acp_registry.dart';
 import '../../../data/services/engines/acp/free_agent.dart';
 import '../../../data/services/engines/engine_registry.dart';
 import '../../../domain/models/settings.dart';
@@ -43,7 +44,8 @@ class OnboardingViewModel extends ChangeNotifier {
 
   /// Installs the free connection (installFreeAgent); null where it is not
   /// offered (a test).
-  final Future<ConnectionAccount> Function()? _installFree;
+  final Future<ConnectionAccount> Function(void Function(int got, int total) progress)?
+  _installFree;
 
   final ConnectionsSetup _setup;
   final SettingsRepository _settings;
@@ -174,15 +176,25 @@ class OnboardingViewModel extends ChangeNotifier {
   bool freeBusy = false;
   String? freeTrouble;
 
+  /// How much of its download has come, in bytes, and of how much (0 when
+  /// unknown); null before it starts.
+  (int, int)? freeProgress;
+
   /// Installs and enables the free connection by default on the first run.
   Future<void> addFree() async {
     final install = _installFree;
     if (install == null || freeBusy || freeAdded) return;
     freeBusy = true;
     freeTrouble = null;
+    freeProgress = null;
     notifyListeners();
     try {
-      final a = await install();
+      final a = await install((got, total) {
+        // A tenth of a megabyte at a time is plenty to show.
+        if (freeProgress case (final was, _) when got - was < 100000) return;
+        freeProgress = (got, total);
+        notifyListeners();
+      });
       final s = _settings.settings;
       await _settings.save(
         s.copyWith(
@@ -191,12 +203,15 @@ class OnboardingViewModel extends ChangeNotifier {
         ),
       );
       _engines.add(a);
+    } on AcpInstallTrouble catch (e) {
+      freeTrouble = e.message;
     } on Object {
       freeTrouble =
           "It didn't download: the agent list or its download didn't answer. "
           'Check the internet connection and try again.';
     } finally {
       freeBusy = false;
+      freeProgress = null;
       notifyListeners();
     }
   }

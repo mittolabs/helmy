@@ -628,7 +628,12 @@ class _FreeRow extends StatelessWidget {
     final trouble = vm.freeTrouble;
     final on = vm.used(freeAgentId);
     final status = vm.freeBusy
-        ? 'Setting it up, a minute or so…'
+        ? switch (vm.freeProgress) {
+            (final got, final total) when total > 0 =>
+              'Downloading, ${got ~/ 1000000} of ${total ~/ 1000000} MB…',
+            (final got, _) => 'Downloading, ${got ~/ 1000000} MB…',
+            null => 'Setting it up, a minute or so…',
+          }
         : trouble ??
               (!vm.freeAdded
                   ? 'Free models, no account needed'
