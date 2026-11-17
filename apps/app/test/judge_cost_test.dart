@@ -323,12 +323,17 @@ void main() {
       );
       await approvals([claude, codex])
           .judge(_push, asked: ['Set it up'], folder: '/p', thread: 's1', chat: 'c1');
-      // The log is written without holding up the verdict.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      final lines = [
+      // The log is written without holding up the verdict: waited for, up to
+      // a few seconds (a busy machine writes it later).
+      Future<List<Map>> upkeep() async => [
         for (final l in await log.read('2026-11'))
           if (l['kind'] == 'upkeep') l,
       ];
+      var lines = await upkeep();
+      for (var i = 0; i < 100 && lines.length < 2; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        lines = await upkeep();
+      }
       expect(lines, hasLength(2));
       expect(lines[0], containsPair('connection', 'claude'));
       expect(lines[0], containsPair('model', null));
