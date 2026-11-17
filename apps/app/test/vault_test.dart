@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/services/approvals.dart';
 import 'package:helmy/data/services/helmy_run.dart';
+import 'package:helmy_cli/run_protocol.dart';
 import 'package:helmy/data/services/vault.dart';
 import 'package:helmy/domain/models/chat_item.dart';
 
@@ -117,6 +118,8 @@ void main() {
       _p('Bash', {
         'command': 'curl --unix-socket "~/Library/Application Support/com.mittolabs.helmy/run.sock" http://helmy/env',
       }),
+      _p('Bash', {'command': 'cat ~/.local/state/helmy/run.json'}),
+      _p('Read', {'file_path': r'C:\Users\a\AppData\Local\Helmy\run.json'}),
     ]) {
       expect(Approvals.offLimits(p), isNotNull, reason: '${p.input}');
     }
@@ -129,31 +132,92 @@ void main() {
     }
   });
 
-  test('helmy run, for real: the script, in bash, gets the secrets over the socket', () async {
-    // The folder as the shell sees it (on a Mac the temporary folder is a link).
+  test('helmy run, for real: the command gets the secrets from Helmy, and its exit code', () async {
+    // The folder as the command sees it (on a Mac the temporary folder is a link).
     final real = dir.resolveSymbolicLinksSync();
     expect(await vault.put(real, 'API_KEY', "sk-é 'quoted' value"), isTrue);
-    final support = Directory('${dir.path}/support it')..createSync();
-    final server = HelmyRunServer(vault);
-    await server.start(support.path);
+    final file = '${dir.path}/state it/run.json';
+    final server = HelmyRunServer(vault, file: file);
+    await server.start();
     addTearDown(server.stop);
-    final script = File('${dir.path}/helmy')
-      ..writeAsStringSync(HelmyRunCli.scriptFor(HelmyRunCli.socketIn(support.path)));
-    final r = await Process.run('bash', [
-      script.path,
-      'run',
-      'printenv',
-      'API_KEY',
-    ], workingDirectory: real);
+    if (!Platform.isWindows) {
+      final mode = (await Process.run('stat', [Platform.isMacOS ? '-f%Lp' : '-c%a', file])).stdout;
+      expect('$mode'.trim(), '600', reason: 'only this user reads the token');
+    }
+    final dart = '${Platform.environment['FLUTTER_ROOT']}/bin/dart';
+    final cli = File('../cli/bin/helmy.dart').absolute.path;
+    // The app's own package list, which has the command's package in it.
+    final packages = File('.dart_tool/package_config.json').absolute.path;
+    Future<ProcessResult> helmy(List<String> args, {String? runFile}) => Process.run(
+      dart,
+      ['run', '--packages=$packages', cli, ...args],
+      workingDirectory: real,
+      environment: {'HELMY_RUN_FILE': runFile ?? file},
+    );
+    final printenv = Platform.isWindows ? ['cmd', '/c', 'echo %API_KEY%'] : ['printenv', 'API_KEY'];
+    final r = await helmy(['run', ...printenv]);
     expect(r.stderr, '');
-    expect((r.exitCode, r.stdout), (0, "sk-é 'quoted' value\n"));
-  }, skip: Platform.isWindows ? 'helmy run is not on Windows yet' : null);
+    expect((r.exitCode, '${r.stdout}'.trim()), (0, "sk-é 'quoted' value"));
+
+    final failed = await helmy([
+      'run',
+      if (Platform.isWindows) ...['cmd', '/c', 'exit 3'] else ...['sh', '-c', 'exit 3'],
+    ]);
+    expect(failed.exitCode, 3, reason: 'the command\'s own exit code');
+
+    final closed = await helmy(['run', 'printenv'], runFile: '${dir.path}/none.json');
+    expect(closed.exitCode, 69);
+    expect('${closed.stderr}', contains('open Helmy first'));
+
+    final usage = await helmy(['printenv']);
+    expect(usage.exitCode, 64);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('helmy run is answered only with the token, and never a web page', () async {
+    final file = '${dir.path}/run.json';
+    final server = HelmyRunServer(vault, file: file);
+    await server.start();
+    addTearDown(server.stop);
+    final (port, token) = decodeRunFile(File(file).readAsStringSync());
+    Future<int> ask(Map<String, String> headers) async {
+      final c = HttpClient();
+      final q = await c.get('127.0.0.1', port, '/env');
+      headers.forEach(q.headers.set);
+      final r = await q.close();
+      await r.drain<void>();
+      c.close();
+      return r.statusCode;
+    }
+
+    expect(await ask({tokenHeader: token, folderHeader: '%2Fx'}), 200);
+    expect(await ask({tokenHeader: '${token.substring(1)}0', folderHeader: '%2Fx'}), 404);
+    expect(await ask({folderHeader: '%2Fx'}), 404);
+    expect(
+      await ask({tokenHeader: token, folderHeader: '%2Fx', 'origin': 'https://evil.test'}),
+      404,
+    );
+    await server.stop();
+    expect(File(file).existsSync(), isFalse, reason: 'gone when Helmy closes');
+  });
+
+  test('where each system keeps the run file', () {
+    expect(
+      runFile(os: 'macos', env: {'HOME': '/Users/a'}),
+      '/Users/a/Library/Application Support/com.mittolabs.helmy/run.json',
+    );
+    expect(runFile(os: 'linux', env: {'HOME': '/home/a'}), '/home/a/.local/state/helmy/run.json');
+    expect(
+      runFile(os: 'windows', env: {'LOCALAPPDATA': r'C:\Users\a\AppData\Local'}),
+      r'C:\Users\a\AppData\Local\Helmy\run.json',
+    );
+  });
 
   test('helmy run in a folder gets its project: the deepest one with secrets', () {
     final scopes = ['shared', '/code/app', '/code/app/web', '/code/other'];
     expect(HelmyRunServer.projectFor('/code/app/web/src', scopes), '/code/app/web');
     expect(HelmyRunServer.projectFor('/code/app', scopes), '/code/app');
     expect(HelmyRunServer.projectFor('/code/apple', scopes), '/code/apple');
+    expect(HelmyRunServer.projectFor(r'C:\code\app\src', [r'C:\code\app']), r'C:\code\app');
   });
 
   test('a secret kept in HashiCorp Vault is fetched when used, never kept', () async {

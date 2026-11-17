@@ -31,6 +31,9 @@ dependencies:
   # Helmy Connect: what a computer and the relay say to each other.
   helmy_relay:
     path: ../relay
+  # helmy run: what the helmy command and Helmy say to each other.
+  helmy_cli:
+    path: ../cli
   flutter:
     sdk: flutter
 

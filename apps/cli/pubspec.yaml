@@ -1,0 +1,10 @@
+name: helmy_cli
+description: The helmy command, for helmy run. Shipped inside Helmy and put on the PATH from its Settings.
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.4
+
+dev_dependencies:
+  lints: ^6.0.0

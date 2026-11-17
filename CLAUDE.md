@@ -93,6 +93,9 @@ One repository, per the workspace's `docs/engineering/repos.md`:
 - `apps/relay/`: Helmy Connect's relay at connect.helmy.ke (decision `0016`), plain
   Dart, which passes sealed messages between a computer and its phones and serves the
   phone page. Its `protocol.dart` is shared with the app; `infra/` deploys it.
+- `apps/cli/`: the `helmy` command (`helmy run`), plain Dart, compiled for each
+  system by the build and shipped inside the app, which puts it on the PATH.
+  Its `run_protocol.dart` is shared with the app.
 - `Makefile`: every command, run from the root.
 
 Only create a folder the product actually has.

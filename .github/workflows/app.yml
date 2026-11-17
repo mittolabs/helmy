@@ -11,7 +11,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-    paths: ["apps/app/**", "apps/relay/**", ".github/workflows/app.yml"]
+    paths: ["apps/app/**", "apps/relay/**", "apps/cli/**", ".github/workflows/app.yml"]
 
 jobs:
   test:
@@ -33,3 +33,6 @@ jobs:
       # tests also run phones through it).
       - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart test
         working-directory: apps/relay
+      # The helmy command: its own package, so it compiles on its own.
+      - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart compile exe bin/helmy.dart -o build/helmy && ./build/helmy run true || [ $? = 69 ]
+        working-directory: apps/cli
