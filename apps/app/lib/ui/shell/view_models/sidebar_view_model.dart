@@ -289,6 +289,25 @@ class SidebarViewModel extends ChangeNotifier {
   Future<void> wake(Session s) => _sessions.save(s.copyWith(wake: true));
 
   /// When "until tomorrow" ends: 9 in the morning.
+  /// When a chat set aside waiting is looked at again, from [from]: the
+  /// snooze choices, said for waiting ("Until tomorrow"), tomorrow first,
+  /// as it is the usual one.
+  static List<(String, DateTime)> waitChoices([DateTime? from]) {
+    final all = [
+      for (final (label, at) in snoozeChoices(from))
+        (
+          label
+              .replaceFirst('Snooze ', '')
+              .replaceFirstMapped(RegExp('^.'), (m) => m[0]!.toUpperCase()),
+          at,
+        ),
+    ];
+    return [
+      ...all.where((c) => c.$1 == 'Until tomorrow'),
+      ...all.where((c) => c.$1 != 'Until tomorrow'),
+    ];
+  }
+
   /// The snooze choices from [now]: in an hour, in three, this evening
   /// while it is still ahead, tomorrow morning, and Monday morning.
   static List<(String, DateTime)> snoozeChoices([DateTime? from]) {
@@ -567,6 +586,62 @@ class SidebarViewModel extends ChangeNotifier {
     return entriesOf(list);
   }
 
+  /// Chats set aside, waiting on something outside them (or snoozed): out
+  /// of the list but in sight, under Waiting, the soonest back first.
+  List<({Chat? chat, List<Session> threads})> get waiting {
+    if (settings.show != .active) return const [];
+    final list =
+        _sessions.sessions
+            .where((x) => x.sideOf == null && !x.archived && x.snoozed && !_calling(x.id))
+            .toList()
+          ..sort((a, b) => a.snoozedUntil!.compareTo(b.snoozedUntil!));
+    return entriesOf(list);
+  }
+
+  /// Waiting shown open.
+  bool waitingOpen = false;
+
+  void toggleWaiting() {
+    waitingOpen = !waitingOpen;
+    notifyListeners();
+  }
+
+  /// Sets the chat of [threads] aside, waiting on [reason], until [until].
+  Future<void> waitChat(List<Session> threads, String reason, DateTime until) async {
+    final was = [for (final t in threads) _sessions.byId(t.id) ?? t];
+    for (final t in was) {
+      await _sessions.save(
+        t.copyWith(waitingOn: reason, waitOffer: '', snoozedUntil: until, pinned: false),
+      );
+    }
+    _undo = () async {
+      for (final t in was) {
+        final now = _sessions.byId(t.id);
+        if (now != null) {
+          await _sessions.save(
+            now.copyWith(
+              wake: true,
+              waitingOn: t.waitingOn ?? '',
+              waitOffer: t.waitOffer ?? '',
+              pinned: t.pinned,
+            ),
+          );
+        }
+      }
+    };
+    notifyListeners();
+  }
+
+  /// What a chat set aside waits on, and when it comes back, for its row:
+  /// "Debby to say which project · back tomorrow at 9:00 AM".
+  static String? waitingLine(Session s, {DateTime? now}) {
+    final until = s.snoozedUntil;
+    final at = now ?? DateTime.now();
+    final back = until != null && until.isAfter(at) ? 'back ${whenSaid(until, now: at)}' : null;
+    if (s.waiting) return [s.waitingOn!, ?back].join(' · ');
+    return back == null ? null : 'Snoozed, $back';
+  }
+
   /// Settled shown open, and all of it rather than the latest ten.
   bool settledOpen = false, settledAll = false;
 
@@ -616,7 +691,7 @@ class SidebarViewModel extends ChangeNotifier {
       if (c.settled) continue;
       final threads = chats.threadsOf(c.id);
       if (threads.isEmpty || threads.every((t) => t.archived)) continue;
-      if (threads.any((t) => t.pinned || t.snoozed)) continue;
+      if (threads.any((t) => t.pinned || t.snoozed || t.waiting)) continue;
       if (settings.keepWithPr && threads.any((t) => _ship?.stateOf(t.id)?.pr?.state == 'OPEN')) {
         continue;
       }
@@ -769,8 +844,8 @@ class SidebarViewModel extends ChangeNotifier {
         },
       if (pictures > 0) plural(pictures, 'picture'),
       if (files > 0) plural(files, 'file'),
-      if (until != null && until.isAfter(at))
-        'Snoozed till ${until.day == at.day ? '' : '${const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][until.weekday - 1]} '}${clock(until)}',
+      if (latest.waiting) 'Waiting on ${latest.waitingOn}',
+      if (until != null && until.isAfter(at)) 'Back ${whenSaid(until, now: at)}',
     ];
   }
 

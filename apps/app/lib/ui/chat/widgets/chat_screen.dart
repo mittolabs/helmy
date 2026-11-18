@@ -82,6 +82,7 @@ import '../../core/connection_logo.dart';
 import '../../../utils/paths.dart';
 
 part 'screen/composer_area.dart';
+part 'screen/wait_offer.dart';
 part 'screen/empty.dart';
 part 'screen/find.dart';
 part 'screen/header.dart';
@@ -811,6 +812,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             project: session.repo ?? session.cwd,
                           ),
                         ),
+                    // What the last answer leaves it waiting on, outside it: offered
+                    // to set aside until then.
+                    if (widget.bar == null)
+                      if (vm.waitOffer case final on?) inColumn(_WaitOffer(vm: vm, on: on)),
                     // A draft put aside, offered back while the box is empty.
                     if (widget.bar == null)
                       ValueListenableBuilder(

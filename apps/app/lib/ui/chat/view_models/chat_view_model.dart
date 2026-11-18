@@ -512,6 +512,57 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     notifyListeners();
   }
 
+  // Waiting on something outside the chat.
+
+  /// What Helmy saw the last answer leave this chat waiting on, offered to
+  /// set it aside with; null when there is nothing to offer.
+  String? get waitOffer {
+    final s = session;
+    if (s == null || s.waiting || busy) return null;
+    return s.waitOffer;
+  }
+
+  /// Every thread of this chat: what is set aside is the whole chat.
+  List<Session> get _chatThreads {
+    final s = session;
+    if (s == null) return const [];
+    final id = s.chatId;
+    return id == null
+        ? [s]
+        : [
+            for (final t in _sessions.sessions)
+              if (t.chatId == id) t,
+          ];
+  }
+
+  /// Sets this chat aside, waiting on [reason], until [until]: out of the
+  /// list into Waiting, and back as needing you then, or when you write.
+  Future<void> setAside(String reason, DateTime until) async {
+    for (final t in _chatThreads) {
+      await _sessions.save(
+        t.copyWith(waitingOn: reason, waitOffer: '', snoozedUntil: until, pinned: false),
+      );
+    }
+    notifyListeners();
+  }
+
+  /// Waves off the offer: this answer does not leave it waiting.
+  Future<void> dismissWaitOffer() async {
+    final s = session;
+    if (s?.waitOffer == null) return;
+    await _sessions.save(s!.copyWith(waitOffer: ''));
+    notifyListeners();
+  }
+
+  /// Written in: whatever it waited on has come, so it is back in the list.
+  Future<void> _backFromWaiting() async {
+    for (final t in _chatThreads) {
+      if (t.waiting || t.waitOffer != null || t.snoozed) {
+        await _sessions.save(t.copyWith(waitingOn: '', waitOffer: '', wake: true));
+      }
+    }
+  }
+
   Future<List<({String id, String name, List<ModelChoice> models})>>? _choices;
   DateTime? _choicesAt;
   bool _choicesMissing = false;
@@ -1641,6 +1692,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
     _draftTimer?.cancel();
     _draft = null;
     if (session?.hasDraft ?? false) await _sessions.save(session!.copyWith(draft: ''));
+    await _backFromWaiting();
     final files = [...attachments];
     final needs = {...pendingNeeds};
     attachments.clear();

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../domain/models/chat_item.dart';
 import '../../domain/chat_icons.dart';
 import '../../domain/models/session.dart';
+import '../../domain/waiting.dart';
 import '../services/cloud_writer.dart';
 import '../services/local_writer.dart';
 import '../services/turn_log.dart';
@@ -272,6 +273,48 @@ class ChatKeeper {
   Future<void> keep(String id) async {
     await _keep(id);
     await describe(id);
+    await judgeWaiting(id);
+  }
+
+  /// Whether thread [id]'s last answer leaves it waiting on something
+  /// outside it (a reply from someone, a command run elsewhere), noted as
+  /// an offer to set it aside. Asked only of an answer that hands the next
+  /// step over, and only once it has stopped; on the model here first.
+  Future<void> judgeWaiting(String id) async {
+    final s = _sessions.byId(id);
+    if (s == null || s.sideOf != null || s.waiting) return;
+    final c = _conversations.of(id);
+    if (c.busy) return;
+    final items = c.items;
+    // The last answer, since the person last wrote.
+    final lastAsked = items.lastIndexWhere((i) => i is UserMessage);
+    final answer = [
+      for (final i in items.skip(lastAsked + 1))
+        if (i is AssistantText) i.text,
+    ].join('\n');
+    if (lastAsked < 0 || !mayWait(answer)) return;
+    final said = await _write(waitPrompt(transcript(items, all: 3000)), maxTokens: 40);
+    final on = said == null ? null : waitFrom(said.text);
+    await _log?.upkeep(
+      what: 'waiting',
+      thread: id,
+      chat: s.chatId,
+      model: said?.model,
+      promptTokens: said?.promptTokens,
+      outputTokens: said?.outputTokens,
+      kept: on != null,
+    );
+    final now = _sessions.byId(id);
+    // Written in since it was asked: what it said is old.
+    if (now == null ||
+        _disposed ||
+        now.waiting ||
+        _conversations.of(id).items.length != items.length) {
+      return;
+    }
+    if ((on ?? '') != (now.waitOffer ?? '')) {
+      await _sessions.save(now.copyWith(waitOffer: on ?? ''));
+    }
   }
 
   Future<void> _keep(String id) async {

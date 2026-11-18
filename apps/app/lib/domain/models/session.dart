@@ -112,6 +112,16 @@ class const Session({
   /// would otherwise ask, and what it still must ask waits for them while
   /// the agent carries on.
   final bool away = false,
+
+  /// Set aside until something outside it happens: who or what it waits
+  /// on, in a few words ("Debby to say which project"). It stays out of
+  /// the list, in Waiting, until [snoozedUntil] or until the person writes
+  /// in it, and never settles on its own meanwhile.
+  final String? waitingOn,
+
+  /// What Helmy saw the last answer leave it waiting on, offered to set it
+  /// aside with; gone once taken, waved off, or the person writes.
+  final String? waitOffer,
 }) {
   /// Events sent to its address arrive as messages.
   bool get hasWebhook => webhook?.isNotEmpty ?? false;
@@ -132,6 +142,9 @@ class const Session({
 
   /// In its own working copy, on its own branch.
   bool get ownCopy => repo != null && branch != null;
+
+  /// Set aside waiting on something outside it.
+  bool get waiting => waitingOn?.isNotEmpty ?? false;
 
   /// Snoozed, and not yet due back.
   bool get snoozed => snoozedUntil != null && snoozedUntil!.isAfter(DateTime.now());
@@ -165,6 +178,12 @@ class const Session({
     /// '' turns it off.
     String? webhook,
     bool? away,
+
+    /// '' clears it.
+    String? waitingOn,
+
+    /// '' clears it.
+    String? waitOffer,
     bool? agent,
     String? avoid,
     int? size,
@@ -210,6 +229,16 @@ class const Session({
     draft: draft ?? this.draft,
     webhook: webhook ?? this.webhook,
     away: away ?? this.away,
+    waitingOn: switch (waitingOn) {
+      '' => null,
+      null => this.waitingOn,
+      final w => w,
+    },
+    waitOffer: switch (waitOffer) {
+      '' => null,
+      null => this.waitOffer,
+      final w => w,
+    },
     agent: agent ?? this.agent,
     avoid: avoid ?? this.avoid,
     size: size ?? this.size,
@@ -250,6 +279,8 @@ class const Session({
     if (hasDraft) 'draft': draft,
     if (hasWebhook) 'webhook': webhook,
     if (away) 'away': true,
+    'waitingOn': ?waitingOn,
+    'waitOffer': ?waitOffer,
     if (agent) 'agent': true,
     'avoid': ?avoid,
     'size': ?size,
@@ -300,6 +331,8 @@ class const Session({
       draft: json['draft'] as String?,
       webhook: json['webhook'] as String?,
       away: json['away'] == true,
+      waitingOn: json['waitingOn'] as String?,
+      waitOffer: json['waitOffer'] as String?,
       agent: json['agent'] == true,
       avoid: json['avoid'] as String?,
       size: (json['size'] as num?)?.toInt(),

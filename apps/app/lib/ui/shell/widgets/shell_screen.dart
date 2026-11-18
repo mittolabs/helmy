@@ -325,6 +325,18 @@ class ShellScreen extends StatelessWidget {
                                     for (final e in viewModel.entriesOf(g.sessions))
                                       _chatEntry(context, e),
                                   ],
+                                  // What waits on something outside it: out of the
+                                  // list, in sight, back on its own.
+                                  if (viewModel.waiting case final waiting when waiting.isNotEmpty)
+                                    _SettledSection(
+                                      label: 'Waiting',
+                                      count: waiting.length,
+                                      open: viewModel.waitingOpen,
+                                      more: 0,
+                                      onToggle: viewModel.toggleWaiting,
+                                      onMore: () {},
+                                      rows: [for (final e in waiting) _chatEntry(context, e)],
+                                    ),
                                   // What nothing waits on, out of the way.
                                   if (viewModel.settled case final done when done.isNotEmpty)
                                     _SettledSection(
@@ -471,9 +483,14 @@ class ShellScreen extends StatelessWidget {
           MenuItem(
             leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
             onPressed: () => viewModel.wakeChat(all),
-            child: const Text('Wake now'),
+            child: Text(first.waiting ? 'Back now' : 'Wake now'),
           )
         else ...[
+          MenuItem(
+            leading: const AshlarIcon(AshlarIconsRoundedStroke.hourglass, size: 16),
+            onPressed: () => _waitFor(context, title, all),
+            child: const Text('Waiting on...'),
+          ),
           for (final (label, until) in SidebarViewModel.snoozeChoices())
             MenuItem(
               leading: const AshlarIcon(AshlarIconsRoundedStroke.clock, size: 16),
@@ -482,7 +499,7 @@ class ShellScreen extends StatelessWidget {
                 if (!context.mounted) return;
                 showToast(
                   context,
-                  title: 'Snoozed "$title" until ${_when(until)}',
+                  title: 'Snoozed "$title" until ${whenSaid(until)}',
                   action: Button(
                     size: .sm,
                     variant: .outline,
@@ -546,7 +563,11 @@ class ShellScreen extends StatelessWidget {
                 activity: viewModel.activityOfAll(e.threads),
                 chat: e.chat,
                 chips: viewModel.chipsOf(e.threads),
-                line: viewModel.lineOf(first, about: e.chat?.description ?? ''),
+                // Set aside: what it waits on, and when it is back.
+                line: switch (SidebarViewModel.waitingLine(first)) {
+                  final waits? => (text: waits, added: 0, removed: 0),
+                  null => viewModel.lineOf(first, about: e.chat?.description ?? ''),
+                },
                 selected: viewModel.picking
                     ? viewModel.isPicked(first)
                     : all.any((t) => t.id == selectedId),
@@ -554,6 +575,35 @@ class ShellScreen extends StatelessWidget {
                 onDelete: () => _deleteChat(context, title, all),
               ),
             ),
+    );
+  }
+
+  /// Asks what the chat waits on, outside it, and sets it aside until
+  /// tomorrow morning (or as soon as something is written in it).
+  Future<void> _waitFor(BuildContext context, String title, List<Session> all) async {
+    final reason = await askText(
+      context,
+      title: 'Waiting on what?',
+      body:
+          'Who or what "$title" waits on, outside it. It goes under Waiting and comes back '
+          'tomorrow morning, or as soon as you write in it.',
+      initial: all.map((t) => t.waitOffer).nonNulls.firstOrNull ?? '',
+      action: 'Set aside',
+      icon: AshlarIconsRoundedStroke.hourglass,
+    );
+    if (reason == null || reason.trim().isEmpty || !context.mounted) return;
+    final until = SidebarViewModel.tomorrowMorning();
+    await viewModel.waitChat(all, reason.trim(), until);
+    if (!context.mounted) return;
+    showToast(
+      context,
+      title: 'Set aside until ${whenSaid(until)}',
+      action: Button(
+        size: .sm,
+        variant: .outline,
+        onPressed: viewModel.undo,
+        child: Text('Undo (${Desktop.current.keys('⌘Z')})'),
+      ),
     );
   }
 
@@ -1053,19 +1103,6 @@ class _ProjectBadge extends StatelessWidget {
   }
 }
 
-/// A snooze's end as people say it: "6:40 PM", or "tomorrow at 9:00 AM".
-String _when(DateTime t) {
-  final now = DateTime.now();
-  final time = clock(t);
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(t.year, t.month, t.day).difference(today).inDays;
-  return switch (day) {
-    0 => time,
-    1 => 'tomorrow at $time',
-    _ => '${t.month}/${t.day} at $time',
-  };
-}
-
 /// Notifications are on in Helmy, but the system blocks them: said where it
 /// shows, with the way to allow them, or to stop asking.
 class _NotificationsBlocked extends StatelessWidget {
@@ -1236,6 +1273,7 @@ class _BackForward extends StatelessWidget {
 /// opened to compact rows, the latest ten and then the rest on asking.
 class _SettledSection extends StatelessWidget {
   const _SettledSection({
+    this.label = 'Done',
     required this.count,
     required this.open,
     required this.more,
@@ -1244,6 +1282,8 @@ class _SettledSection extends StatelessWidget {
     required this.rows,
   });
 
+  /// What the section holds: Done, or Waiting.
+  final String label;
   final int count;
   final bool open;
 
@@ -1265,7 +1305,9 @@ class _SettledSection extends StatelessWidget {
         children: [
           Pressable(
             onPressed: onToggle,
-            semanticLabel: open ? 'Hide done chats' : 'Show $count done chats',
+            semanticLabel: open
+                ? 'Hide ${label.toLowerCase()} chats'
+                : 'Show $count ${label.toLowerCase()} chats',
             builder: (context, state) => Container(
               padding: const .fromLTRB(10, 6, 8, 6),
               decoration: BoxDecoration(
@@ -1275,7 +1317,7 @@ class _SettledSection extends StatelessWidget {
               child: Row(
                 spacing: 6,
                 children: [
-                  Expanded(child: Text('Done', style: style)),
+                  Expanded(child: Text(label, style: style)),
                   Text('$count', style: style),
                   AshlarIcon(
                     open
