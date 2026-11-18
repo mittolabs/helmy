@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/mittolabs/helmy/compare/v0.25.0...v0.25.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **connections:** the phone's and chrome's page builds again ([43e5d0c](https://github.com/mittolabs/helmy/commit/43e5d0c7796b9da08e3aee73dad792fd50aa9547))
+
 ## [0.25.0](https://github.com/mittolabs/helmy/compare/v0.24.0...v0.25.0) (2026-11-18)
 
 
