@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.25.0](https://github.com/mittolabs/helmy/compare/v0.24.0...v0.25.0) (2026-11-18)
+
+
+### Features
+
+* **agents:** an agent's program can be chosen, and opencode desktop's is found by itself ([7ef9bc9](https://github.com/mittolabs/helmy/commit/7ef9bc92a7b8b7edb200feebf0b07646b5ea2ed4))
+* **connections:** claude code, codex and ollama install with their progress shown, and say why when one stops ([7ef9bc9](https://github.com/mittolabs/helmy/commit/7ef9bc92a7b8b7edb200feebf0b07646b5ea2ed4))
+
+
+### Bug Fixes
+
+* **agents:** an agent's models show once it lists them, antigravity's included ([7ef9bc9](https://github.com/mittolabs/helmy/commit/7ef9bc92a7b8b7edb200feebf0b07646b5ea2ed4))
+* **agents:** an opencode already installed on windows is found and starts ([7ef9bc9](https://github.com/mittolabs/helmy/commit/7ef9bc92a7b8b7edb200feebf0b07646b5ea2ed4))
+* **app:** paths on windows are read the way windows writes them ([7ef9bc9](https://github.com/mittolabs/helmy/commit/7ef9bc92a7b8b7edb200feebf0b07646b5ea2ed4))
+
 ## [0.24.0](https://github.com/mittolabs/helmy/compare/v0.23.0...v0.24.0) (2026-11-17)
 
 
