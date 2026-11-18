@@ -290,7 +290,11 @@ class _AgentCard extends StatelessWidget {
     final muted = t.text.sm.copyWith(color: t.colors.mutedForeground);
     // Ready rests on a sign-in: whose, said with it.
     final signedIn = vm.who[row.info.id];
-    final status = statusOf(row, checked) == 'Ready' && signedIn != null
+    // Installing: what it is doing, as it goes.
+    final installing = vm.working == row.info.id ? vm.installing : null;
+    final status = installing != null
+        ? installing.doing
+        : statusOf(row, checked) == 'Ready' && signedIn != null
         ? 'Ready, signed in as $signedIn'
         : statusOf(row, checked);
     final can = [
@@ -322,6 +326,11 @@ class _AgentCard extends StatelessWidget {
                       style: t.text.base.copyWith(fontWeight: .w600),
                     ),
                     Text(status, style: muted),
+                    if (installing?.done case final done?)
+                      Padding(
+                        padding: const .only(top: 4),
+                        child: Progress(value: done, semanticLabel: 'Installing ${row.info.name}'),
+                      ),
                   ],
                 ),
               ),
@@ -361,6 +370,10 @@ class _AgentCard extends StatelessWidget {
             _Version(vm: vm, kind: kind),
             _Program(vm: vm, kind: kind),
           ],
+          // An agent: which program runs it, changeable here.
+          if (vm.settings.accounts.where((a) => a.id == row.info.id && a.kind == 'acp').firstOrNull
+              case final account?)
+            _AgentProgram(vm: vm, account: account),
           if (can.isNotEmpty) Text('Also can: ${can.join(', ')}', style: muted),
           if (!row.info.localOnly)
             Text(
@@ -659,6 +672,98 @@ class _Program extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Which program an agent runs as: found, Helmy's own download, or chosen
+/// by hand; and, for when it is the wrong one or not found, choosing one.
+/// Its desktop app can be chosen too (OpenCode.app): the command-line
+/// program inside is the one used.
+class _AgentProgram extends StatefulWidget {
+  const _AgentProgram({required this.vm, required this.account});
+  final SettingsViewModel vm;
+  final ConnectionAccount account;
+
+  @override
+  State<_AgentProgram> createState() => _AgentProgramState();
+}
+
+class _AgentProgramState extends State<_AgentProgram> {
+  bool _busy = false;
+  String? _trouble;
+
+  Future<void> _do(Future<String?> Function() act) async {
+    setState(() {
+      _busy = true;
+      _trouble = null;
+    });
+    final why = await act();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _trouble = why;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AshlarTheme.of(context);
+    final muted = t.text.xs.copyWith(color: t.colors.mutedForeground);
+    final a = widget.account;
+    final command = a.command ?? '';
+    final there = command.isNotEmpty && File(command).existsSync();
+    final said = !AcpEngine.isPath(command)
+        ? 'Runs: ${[command, ...a.args].join(' ')}'
+        : !there
+        ? 'Its program was not found: ${tildePath(command)}'
+        : a.chosen
+        ? 'Chosen: ${tildePath(command)}'
+        : a.made
+        ? "Helmy's own copy: ${tildePath(command)}"
+        : 'Found: ${tildePath(command)}';
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 4,
+      children: [
+        Row(
+          spacing: 8,
+          children: [
+            Expanded(
+              child: Text(
+                said,
+                style: there || !AcpEngine.isPath(command)
+                    ? muted
+                    : muted.copyWith(color: t.colors.destructive),
+                maxLines: 2,
+                overflow: .ellipsis,
+              ),
+            ),
+            if (_busy) const Spinner(size: 12),
+            if (a.chosen && a.agentId != null)
+              Button(
+                variant: .ghost,
+                size: .xs,
+                onPressed: _busy ? null : () => _do(() => widget.vm.findAgentAgain(a.id)),
+                child: const Text('Find it again'),
+              ),
+            Button(
+              variant: .outline,
+              size: .xs,
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      final file = await openFile(confirmButtonText: 'Use this program');
+                      if (file == null) return;
+                      await _do(() => widget.vm.chooseAgentProgram(a.id, file.path));
+                    },
+              child: const Text('Choose...'),
+            ),
+          ],
+        ),
+        if (_trouble case final why?)
+          Text(why, style: t.text.xs.copyWith(color: t.colors.destructive)),
+      ],
     );
   }
 }

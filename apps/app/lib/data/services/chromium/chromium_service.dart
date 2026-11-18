@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../utils/platform.dart';
 import 'cdp.dart';
 import 'chromium_tab.dart';
+import '../../../utils/paths.dart';
 
 /// A Chromium-based browser on this computer that Preview can draw pages with.
 class ChromiumBrowser {
@@ -63,7 +64,7 @@ class ChromiumService {
     if (!root.existsSync()) return;
     final suffix = name.isEmpty ? null : '-p-${_slug(name)}';
     for (final d in root.listSync().whereType<Directory>()) {
-      final n = d.path.split('/').last;
+      final n = baseName(d.path);
       final mine = suffix == null ? !n.contains('-p-') && n != 'devtools' : n.endsWith(suffix);
       if (mine) await d.delete(recursive: true);
     }

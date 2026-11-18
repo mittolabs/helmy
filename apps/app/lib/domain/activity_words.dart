@@ -1,3 +1,5 @@
+import '../utils/paths.dart';
+
 /// Describes familiar work without exposing how it is carried out.
 /// Unknown work stays generic. These labels never grant permission.
 typedef ActivityWords = ({String action, String doing, String done, String group});
@@ -292,8 +294,7 @@ List<String> namedFiles(String command) => {
   for (final m in RegExp(
     r'''(['"])([^'"\n]*?\.([A-Za-z0-9]{2,5}))\1''',
   ).allMatches(_head(command).replaceAll(r'\"', '"')))
-    if (_fileExtensions.contains(m[3]!.toLowerCase()) && !m[2]!.contains('*'))
-      m[2]!.split('/').last,
+    if (_fileExtensions.contains(m[3]!.toLowerCase()) && !m[2]!.contains('*')) baseName(m[2]!),
 }.where((n) => n.isNotEmpty && !n.startsWith('.')).take(5).toList();
 
 /// What a step turned down before it ran would have done, from its title in
@@ -410,8 +411,8 @@ const _fileExtensions = {
 String? actionsLabel(List<Object?> actions, {required bool done}) {
   final words = <String>[];
   for (final a in actions.whereType<Map>()) {
-    final name = '${a['name'] ?? ''}'.split('/').last;
-    final path = '${a['path'] ?? ''}'.split('/').where((p) => p.isNotEmpty).lastOrNull;
+    final name = baseName('${a['name'] ?? ''}');
+    final path = '${a['path'] ?? ''}'.split(RegExp(r'[/\\]')).where((p) => p.isNotEmpty).lastOrNull;
     final query = '${a['query'] ?? ''}';
     final w = switch (a['type']) {
       'read' when name.isNotEmpty => '${done ? 'Read' : 'Reading'} $name',
@@ -483,7 +484,7 @@ String specificCommandLabel(String command, {required bool done, String? result}
     // The names looked for, not patterns ("*menu*").
     final names = {
       for (final m in RegExp(r'''(?:-g|-i?name)\s+(['"]?)([^'"\s]+)\1''').allMatches(command))
-        if (!m[2]!.contains('*') && !m[2]!.startsWith('!')) m[2]!.split('/').last,
+        if (!m[2]!.contains('*') && !m[2]!.startsWith('!')) baseName(m[2]!),
       ...namedFiles(command),
       ..._bareFiles(command),
     }.toList();

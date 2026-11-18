@@ -11,6 +11,7 @@ import '../../../data/services/engines/engine_registry.dart';
 import '../../../domain/models/settings.dart';
 import '../../../utils/platform.dart';
 import '../../import/history_import_view_model.dart';
+import '../../../utils/paths.dart';
 
 /// The steps of getting Helmy ready, in order, as T3 Code has its own.
 enum OnboardingStep {
@@ -84,6 +85,9 @@ class OnboardingViewModel extends ChangeNotifier {
   /// doing meanwhile.
   String? busy;
   String doing = '';
+
+  /// How far along [doing] is (0 to 1), when that is known.
+  double? doneShare;
 
   /// What went wrong with a connection, by id, in Helmy's words.
   final trouble = <String, String>{};
@@ -290,22 +294,32 @@ class OnboardingViewModel extends ChangeNotifier {
       .signedOut => c.id == 'ollama' ? 'Starting…' : 'Finish signing in, in your browser…',
       .ready => '',
     };
+    doneShare = null;
     notifyListeners();
-    final ok = switch (c.state) {
-      .missing => await _setup.install(c.id),
-      .signedOut => await _setup.signIn(c.id),
-      .ready => true,
+    final why = switch (c.state) {
+      .missing => await _setup.install(
+        c.id,
+        step: (s) {
+          // Said when the words change: a megabyte at a time is plenty.
+          if (s.doing == doing) return;
+          doing = s.doing;
+          doneShare = s.done;
+          notifyListeners();
+        },
+      ),
+      .signedOut =>
+        await _setup.signIn(c.id)
+            ? null
+            : c.id == 'ollama'
+            ? "It didn't start. Open Ollama, then try again."
+            : "Sign-in didn't finish. Try again when ready.",
+      .ready => null,
     };
-    if (!ok) {
-      trouble[c.id] = c.state == .missing
-          ? "It didn't install from here. Its install page is open in your browser."
-          : c.id == 'ollama'
-          ? "It didn't start. Open Ollama, then try again."
-          : "Sign-in didn't finish. Try again when ready.";
-    }
+    if (why != null) trouble[c.id] = why;
     checks = await _setup.check();
-    if (ok) await setUsed(c.id, true);
+    if (why == null) await setUsed(c.id, true);
     busy = null;
+    doneShare = null;
     notifyListeners();
   }
 
@@ -393,7 +407,7 @@ class OnboardingViewModel extends ChangeNotifier {
     if (who == null) {
       return "Nobody is signed in there. Pick the folder an account's sign-in is kept in.";
     }
-    final given = name.trim().isEmpty ? folder.split('/').last.replaceFirst('.', '') : name.trim();
+    final given = name.trim().isEmpty ? baseName(folder).replaceFirst('.', '') : name.trim();
     var id = '$kind-${ConnectionsSetup.slugOf(given)}';
     final taken = {for (final e in _engines.engines) e.info.id};
     for (var n = 2; taken.contains(id); n++) {

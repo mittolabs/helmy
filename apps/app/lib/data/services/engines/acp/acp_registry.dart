@@ -4,8 +4,10 @@ import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:path/path.dart' as p;
 
 import '../../cli_locator.dart';
+import 'acp_rpc.dart';
 
 /// One agent in the ACP registry, as listed.
 class const AcpListing({
@@ -117,17 +119,17 @@ class AcpRegistry {
     // npm or Homebrew): that one is used, nothing downloaded, so long as
     // it has the mode Helmy talks to it in.
     if (locator != null && bin != null) {
-      if (await installedAgent(bin, locator) case final there?) return there;
+      if (await installedAgent(bin, locator, registryId: a.id) case final there?) return there;
     }
     if (bin == null) throw AcpInstallTrouble('${a.name} has no build for this computer.');
-    final dir = Directory('$root/${a.id}/${a.version}');
+    final dir = Directory(p.join(root, a.id, a.version));
     final cmd = '${bin['cmd']}'.replaceFirst(RegExp(r'^\./'), '');
-    final target = File('${dir.path}/$cmd');
+    final target = File(p.join(dir.path, p.joinAll(cmd.split('/'))));
     final args = [for (final x in (bin['args'] as List? ?? const [])) '$x'];
     if (target.existsSync()) return (command: target.path, args: args);
     await dir.create(recursive: true);
     final archive = '${bin['archive']}';
-    final download = File('${dir.path}/.download');
+    final download = File(p.join(dir.path, '.download'));
     try {
       final client = HttpClient();
       try {
@@ -241,28 +243,91 @@ class AcpInstallTrouble implements Exception {
 }
 
 /// The agent [bin] describes, already installed on this computer: its
-/// command found where programs are, and its help naming the mode Helmy
-/// starts it in (OpenCode's `acp`; an old one without it is passed over).
-/// Null when it is not there.
-Future<AcpLaunch?> installedAgent(Map<dynamic, dynamic> bin, CliLocator locator) async {
+/// command found where programs are, or inside its desktop app (OpenCode
+/// Desktop's opencode-cli), so long as it has the mode Helmy starts it in
+/// (OpenCode's `acp`; an old one without it is passed over). Null when it
+/// is not there.
+Future<AcpLaunch?> installedAgent(
+  Map<dynamic, dynamic> bin,
+  CliLocator locator, {
+  String? registryId,
+}) async {
   final cmd = '${bin['cmd']}'.split(RegExp(r'[/\\]')).last.replaceFirst(RegExp(r'\.exe$'), '');
   final args = [for (final x in (bin['args'] as List? ?? const [])) '$x'];
-  final path = await locator.find(cmd);
-  if (path == null) return null;
-  if (args.isNotEmpty) {
-    try {
-      final r = await Process.run(
-        path,
-        ['--help'],
-        runInShell: Platform.isWindows && path.toLowerCase().endsWith('.cmd'),
-      ).timeout(const Duration(seconds: 15));
-      final help = '${r.stdout}\n${r.stderr}';
-      if (!RegExp('(^|\\s)${RegExp.escape(args.first)}(\\s|\$)', multiLine: true).hasMatch(help)) {
-        return null;
-      }
-    } on Object {
-      return null;
-    }
+  final candidates = [
+    ?await locator.find(cmd),
+    if (registryId != null)
+      for (final p in desktopPrograms(registryId))
+        if (File(p).existsSync()) p,
+  ];
+  for (final path in candidates) {
+    if (await answersIn(path, args)) return (command: path, args: args);
   }
-  return (command: path, args: args);
+  return null;
+}
+
+/// Whether the program at [path] can be started as [args] say: its help
+/// names the mode Helmy starts it in (args' first, `acp` for OpenCode).
+/// With no args, being there is enough.
+Future<bool> answersIn(String path, List<String> args) async {
+  if (!File(path).existsSync()) return false;
+  if (args.isEmpty) return true;
+  try {
+    final r = await Process.run(
+      path,
+      ['--help'],
+      runInShell: Platform.isWindows && AcpRpc.runsInShell(path),
+    ).timeout(const Duration(seconds: 15));
+    final help = '${r.stdout}\n${r.stderr}';
+    return RegExp('(^|\\s)${RegExp.escape(args.first)}(\\s|\$)', multiLine: true).hasMatch(help);
+  } on Object {
+    return false;
+  }
+}
+
+/// The desktop apps that carry an agent's command-line program, by the
+/// agent's registry id: its name, its app id, and the program inside.
+const desktopApps = {'opencode': (app: 'OpenCode', id: 'ai.opencode.desktop', cli: 'opencode-cli')};
+
+/// Where agent [registryId]'s desktop app keeps its command-line program on
+/// this system, as its installers put it: in the app's resources, in
+/// Applications on a Mac, in the person's own Programs on Windows (named by
+/// its app id, or as older versions named it), and in /opt on Linux.
+List<String> desktopPrograms(String registryId, {String? os, Map<String, String>? env}) {
+  final d = desktopApps[registryId];
+  if (d == null) return const [];
+  final e = env ?? Platform.environment;
+  final here = os ?? Platform.operatingSystem;
+  final ctx = here == 'windows' ? p.windows : p.posix;
+  final home = e['HOME'] ?? e['USERPROFILE'] ?? '';
+  return switch (here) {
+    'macos' => [
+      for (final apps in ['/Applications', ctx.join(home, 'Applications')])
+        ctx.join(apps, '${d.app}.app', 'Contents', 'Resources', d.cli),
+    ],
+    'windows' => [
+      if (e['LOCALAPPDATA'] case final local?)
+        for (final dir in [d.id, '@${d.app.toLowerCase()}desktop', d.app])
+          ctx.join(local, 'Programs', dir, 'resources', '${d.cli}.exe'),
+      if (e['ProgramFiles'] case final pf?) ctx.join(pf, d.app, 'resources', '${d.cli}.exe'),
+    ],
+    _ => [ctx.join('/opt', d.app, 'resources', d.cli)],
+  };
+}
+
+/// The program to use when the person picked [picked] for agent
+/// [registryId]: itself, or, when it is the agent's desktop app
+/// (OpenCode.app, or OpenCode.exe in its folder), the command-line program
+/// inside it.
+String programIn(String picked, String registryId, {String? os}) {
+  final d = desktopApps[registryId];
+  if (d == null) return picked;
+  final here = os ?? Platform.operatingSystem;
+  final ctx = here == 'windows' ? p.windows : p.posix;
+  final name = ctx.basename(picked).toLowerCase();
+  if (name == d.cli || name.startsWith('${d.cli}.')) return picked;
+  final inside = name.endsWith('.app')
+      ? ctx.join(picked, 'Contents', 'Resources', d.cli)
+      : ctx.join(ctx.dirname(picked), 'resources', here == 'windows' ? '${d.cli}.exe' : d.cli);
+  return File(inside).existsSync() ? inside : picked;
 }

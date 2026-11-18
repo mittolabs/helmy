@@ -26,6 +26,7 @@ import '../../core/file_actions.dart';
 import 'media.dart';
 import 'player.dart';
 import 'project_menu.dart' show appIcon;
+import '../../../utils/paths.dart';
 
 /// Shows [path] in a popup over the app, whatever can be attached: a picture
 /// as pixels; a video or a sound in Helmy's own player; a PDF's pages; an
@@ -141,7 +142,7 @@ class _FilePopup extends StatelessWidget {
   final EditorChoice? editors;
 
   /// The language when it is code: by extension, or by name (Makefile, Dockerfile).
-  String? get _language => codeLanguages[_ext] ?? codeLanguages[path.split('/').last.toLowerCase()];
+  String? get _language => codeLanguages[_ext] ?? codeLanguages[baseName(path).toLowerCase()];
 
   String get _ext => path.split('.').last.toLowerCase();
 
@@ -170,7 +171,7 @@ class _FilePopup extends StatelessWidget {
     final c = t.colors;
     final window = MediaQuery.sizeOf(context);
     final ratio = MediaQuery.devicePixelRatioOf(context);
-    final name = path.split('/').last;
+    final name = baseName(path);
     final maxW = window.width * .9, maxH = window.height * .9 - 52;
     final kind = kindOf(path);
     final shownElse =
@@ -246,7 +247,7 @@ class _FilePopup extends StatelessWidget {
             padding: const .fromLTRB(28, 24, 28, 28),
             child: MarkdownMedia(
               show: (url, alt) {
-                final local = url.startsWith('/') ? url : '$folder/$url';
+                final local = inFolder(folder, url);
                 final ok =
                     !url.contains('://') &&
                     imageTypes.containsKey(local.split('.').last.toLowerCase()) &&

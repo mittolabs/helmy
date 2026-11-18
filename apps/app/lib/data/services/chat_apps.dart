@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../repositories/conversation_repository.dart';
 import '../repositories/session_repository.dart';
+import '../../utils/paths.dart';
 
 /// A change to a chat app: its state, set by the user in the app (on the
 /// Mac or a phone) or by the agent; or, with [page], the app made again.
@@ -130,7 +131,7 @@ class ChatAppsLocal implements ChatApps {
     final s = _sessions.byId(session);
     final t = text.trim();
     if (s == null || t.isEmpty || !await _ours(session, path)) return;
-    final name = path.split('/').last.replaceFirst(RegExp(r'\.html$'), '');
+    final name = baseName(path).replaceFirst(RegExp(r'\.html$'), '');
     await _conversations.send(
       s,
       'From the chat app $path: $t\n\n'

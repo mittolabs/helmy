@@ -33,8 +33,15 @@ class AcpRpc {
       workingDirectory: cwd,
       environment: environment,
       includeParentEnvironment: false,
+      // On Windows npm's commands are .cmd scripts, which only a shell runs.
+      runInShell: Platform.isWindows && runsInShell(command),
     ),
   );
+
+  /// Whether [command] is a Windows script (npm's .cmd), which only a shell
+  /// starts.
+  static bool runsInShell(String command) =>
+      RegExp(r'\.(cmd|bat)$', caseSensitive: false).hasMatch(command);
 
   final Process _process;
 

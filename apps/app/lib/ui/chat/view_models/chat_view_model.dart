@@ -50,6 +50,7 @@ import '../../../data/services/browser/browser_host.dart';
 import '../../../data/services/chromium/chromium_service.dart';
 import '../../../domain/models/settings.dart';
 import '../../../data/services/webhooks.dart';
+import '../../../utils/paths.dart';
 
 /// What can open beside the conversation. A new kind (a browser, a terminal)
 /// joins here with the condition under which it is offered.
@@ -541,7 +542,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
         : (uri?.scheme.isEmpty == true ? uri!.path : clean);
     final path = local.replaceFirst(RegExp(r'(?::\d+(?::\d+)?|#L\d+(?:-L?\d+)?)$'), '');
     final isLocal = uri == null || uri.scheme.isEmpty || uri.scheme == 'file';
-    if (isLocal && (languageOf(path.split('/').last) != null || path.endsWith('.txt'))) {
+    if (isLocal && (languageOf(baseName(path)) != null || path.endsWith('.txt'))) {
       await editFile(path);
       return;
     }
@@ -708,7 +709,7 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   @override
   Future<void> editFile(String path, {bool fromChanges = false}) async {
     var root = session?.cwd ?? homeDir;
-    if (fromChanges && !path.startsWith('/')) {
+    if (fromChanges && !isAbsolutePath(path)) {
       try {
         final result = await Process.run('git', [
           'rev-parse',
@@ -716,13 +717,13 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
         ], workingDirectory: root);
         if (result.exitCode == 0) {
           final repoRoot = '${result.stdout}'.trim();
-          if (await File('$repoRoot/$path').exists()) root = repoRoot;
+          if (await File(inFolder(repoRoot, path)).exists()) root = repoRoot;
         }
       } on Object {
         // Outside git, reported paths are relative to the session folder.
       }
     }
-    final full = File(path.startsWith('/') ? path : '$root/$path').absolute.path;
+    final full = File(inFolder(root, path)).absolute.path;
     final existing = tabs.where((t) => t.filePath == full).firstOrNull;
     if (existing != null) {
       focus(existing);

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:helmy/data/repositories/memory_repository.dart';
 import 'package:helmy/data/services/cli_locator.dart';
+import 'package:helmy/data/services/connection_installer.dart';
 import 'package:helmy/data/services/connections_setup.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/claude/claude_engine.dart';
@@ -29,11 +30,16 @@ class _Setup extends ConnectionsSetup {
   ];
 
   @override
-  Future<bool> install(String id) async {
+  Future<String?> install(String id, {void Function(InstallStep step)? step}) async {
     asked.add('install $id');
+    step?.call((doing: 'Downloading, 40 of 120 MB…', done: 1 / 3));
+    if (seen != null) seen!();
     if (installs) states[id] = SetupState.signedOut;
-    return installs;
+    return installs ? null : "It didn't install: the download at github.com didn't answer.";
   }
+
+  /// Called mid-install, to see what is shown meanwhile.
+  void Function()? seen;
 
   @override
   Future<bool> signIn(String id, {String? configDir}) async {
@@ -96,8 +102,14 @@ void main() {
     final vm = make(setup);
     addTearDown(vm.dispose);
     await vm.removeConnection('codex');
+    InstallStep? shown;
+    setup.seen = () => shown = vm.installing;
     expect(await vm.addConnection('codex'), isNull);
     expect(setup.asked, ['install codex', 'sign in codex']);
+    // How far along, while it installs; nothing once it has.
+    expect(shown?.doing, 'Downloading, 40 of 120 MB…');
+    expect(shown?.done, closeTo(1 / 3, 0.001));
+    expect(vm.installing, isNull);
     expect(vm.used.map((a) => a.info.id), contains('codex'));
   });
 
@@ -107,7 +119,8 @@ void main() {
     addTearDown(vm.dispose);
     await vm.removeConnection('codex');
     final why = await vm.addConnection('codex');
-    expect(why, contains("didn't install"));
+    // The reason it gives, not a page to go and read.
+    expect(why, "It didn't install: the download at github.com didn't answer.");
     expect(vm.used.map((a) => a.info.id), isNot(contains('codex')));
   });
 

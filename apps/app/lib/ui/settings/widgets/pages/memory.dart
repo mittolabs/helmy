@@ -139,7 +139,7 @@ class _MemoryRow extends StatelessWidget {
     final t = AshlarTheme.of(context);
     final selected = vm.selected?.path == file.path;
     final exists = vm.exists(file);
-    final name = file.project == null ? file.kind : file.path.split('/').last;
+    final name = file.project == null ? file.kind : baseName(file.path);
     return Pressable(
       onPressed: () => vm.open(file),
       selected: selected,

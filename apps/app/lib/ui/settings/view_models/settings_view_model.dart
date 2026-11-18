@@ -1,8 +1,10 @@
 import '../../core/key_bindings.dart';
 
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../data/services/cli_locator.dart';
+import '../../../data/services/connection_installer.dart';
 import '../../../data/services/engines/acp/acp_registry.dart';
 import '../../../data/services/engines/acp/acp_engine.dart';
 import '../../../domain/models/work.dart';
@@ -37,6 +39,7 @@ import '../../../data/repositories/project_repository.dart';
 import 'settings_index.dart';
 import '../../core/file_actions.dart';
 import '../../../domain/models/tool_server.dart';
+import '../../../utils/paths.dart';
 
 enum SettingsSection {
   general,
@@ -258,6 +261,10 @@ class SettingsViewModel extends ChangeNotifier {
   /// The connection being added or fixed now: a kind, or an engine id.
   String? working;
 
+  /// What [working] is doing while it installs, and how far along it is;
+  /// null when it is not installing.
+  InstallStep? installing;
+
   /// The engines that are one connection to add or remove: both of Ollama's,
   /// or the one account.
   List<String> groupOf(String engineId) => ConnectionsSetup.kindOf(engineId) == 'ollama'
@@ -290,7 +297,7 @@ class SettingsViewModel extends ChangeNotifier {
     return out;
   }
 
-  /// Brings [kind] to ready on this Mac: installs it if it is missing, then
+  /// Brings [kind] to ready on this computer: installs it if it is missing, then
   /// signs it in (or, for Ollama, starts it). Null when it is ready, else
   /// what stopped it, in Helmy's words.
   Future<String?> _ready(String kind) async {
@@ -298,9 +305,20 @@ class SettingsViewModel extends ChangeNotifier {
     if (s == null) return "Helmy can't set connections up here.";
     await checkSetup();
     if (setupStates[kind] == .missing) {
-      if (!await s.install(kind)) {
-        return "It didn't install from here. Its install page is open in your browser.";
-      }
+      installing = (doing: 'Starting…', done: null);
+      notifyListeners();
+      final why = await s.install(
+        kind,
+        step: (step) {
+          // Said when the words change: a megabyte at a time is plenty.
+          if (step.doing == installing?.doing) return;
+          installing = step;
+          notifyListeners();
+        },
+      );
+      installing = null;
+      notifyListeners();
+      if (why != null) return why;
       await checkSetup();
     }
     if (setupStates[kind] == .signedOut) {
@@ -664,7 +682,7 @@ class SettingsViewModel extends ChangeNotifier {
       return const [];
     }
     for (final d in entries.whereType<Directory>()) {
-      final m = shape.firstMatch(d.path.split('/').last);
+      final m = shape.firstMatch(baseName(d.path));
       if (m == null || used.contains(d.path)) continue;
       final kind = m[1]!;
       final who = await s.signedInAs(kind, d.path);
@@ -695,7 +713,7 @@ class SettingsViewModel extends ChangeNotifier {
 
   static String _expand(String folder) {
     final f = folder.trim();
-    return f == '~' ? homeDir : (f.startsWith('~/') ? '$homeDir${f.substring(1)}' : f);
+    return expandHome(f, homeDir);
   }
 
   Future<void> _keep(ConnectionAccount a) async {
@@ -712,7 +730,7 @@ class SettingsViewModel extends ChangeNotifier {
 
   /// Where agents Helmy installs are kept.
   Future<String> Function() agentsRoot = () async =>
-      '${(await getApplicationSupportDirectory()).path}/agents';
+      p.join((await getApplicationSupportDirectory()).path, 'agents');
 
   /// The registry's agents that run here, those already added left out;
   /// null when it could not be reached.
@@ -736,8 +754,8 @@ class SettingsViewModel extends ChangeNotifier {
       kind: 'acp',
       name: name?.trim().isNotEmpty ?? false ? name!.trim() : listing.name,
       // Downloaded into Helmy's own folder: Helmy's to remove with it.
-      folder: launch.command.startsWith(root) ? '$root/${listing.id}' : '',
-      made: launch.command.startsWith(root),
+      folder: p.isWithin(root, launch.command) ? p.join(root, listing.id) : '',
+      made: p.isWithin(root, launch.command),
       command: launch.command,
       args: launch.args,
       agentId: listing.id,
@@ -749,7 +767,8 @@ class SettingsViewModel extends ChangeNotifier {
 
   /// Adds an agent started by a command of the user's own: "my-agent --acp".
   Future<AcpAdded> addCommand(String name, String commandLine) async {
-    final words = commandLine.trim().split(RegExp(r'\s+'));
+    // Quoted words stay whole: a Windows path with spaces is one.
+    final words = commandWords(commandLine);
     final a = ConnectionAccount(
       id: _agentId(ConnectionsSetup.slugOf(name)),
       kind: 'acp',
@@ -759,6 +778,64 @@ class SettingsViewModel extends ChangeNotifier {
     );
     await _keep(a);
     return (account: a, check: await checkAgent(a.id));
+  }
+
+  /// Starts agent [engineId] with the program the person picked: that one,
+  /// or, when it is the agent's desktop app, the command-line program
+  /// inside. Null when it is used, else why not, and nothing changes.
+  Future<String?> chooseAgentProgram(String engineId, String picked) async {
+    final a = settings.accounts.where((a) => a.id == engineId && a.kind == 'acp').firstOrNull;
+    if (a == null) return null;
+    final program = programIn(picked, a.agentId ?? '');
+    if (!await answersIn(program, a.args)) {
+      final desktop = desktopApps[a.agentId];
+      return a.args.isEmpty
+          ? "That program isn't there any more. Choose it again."
+          : "That isn't a program ${a.name} can work in for Helmy: it doesn't have the "
+                "'${a.args.first}' mode. Choose its command-line program"
+                "${desktop == null ? '' : ', or the ${desktop.app} app itself, which carries one'}.";
+    }
+    await _replace(a.withProgram(program, chosen: true));
+    return null;
+  }
+
+  /// Lets Helmy find agent [engineId]'s program again, as when it was added:
+  /// one installed on this computer, else its own download. Null when it
+  /// did, else why not.
+  Future<String?> findAgentAgain(String engineId) async {
+    final a = settings.accounts.where((a) => a.id == engineId && a.kind == 'acp').firstOrNull;
+    if (a == null) return null;
+    final listing = (await registry.list())?.where((l) => l.id == a.agentId).firstOrNull;
+    if (listing == null) {
+      return "The list of agents (cdn.agentclientprotocol.com) didn't answer. Check the "
+          'internet connection and try again.';
+    }
+    final root = await agentsRoot();
+    try {
+      final launch = await AcpRegistry.install(listing, root: root, locator: CliLocator());
+      final own = p.isWithin(root, launch.command);
+      await _replace(
+        a.withProgram(
+          launch.command,
+          chosen: false,
+          folder: own ? p.join(root, listing.id) : a.folder,
+          made: own || a.made,
+        ),
+      );
+      return null;
+    } on AcpInstallTrouble catch (e) {
+      return e.message;
+    }
+  }
+
+  /// Puts [a] in its place: saved, and the engine made again from it.
+  Future<void> _replace(ConnectionAccount a) async {
+    await update(
+      settings.copyWith(accounts: [for (final x in settings.accounts) x.id == a.id ? a : x]),
+    );
+    _engines.remove(a.id);
+    _engines.add(a);
+    await _checkEngines();
   }
 
   String _agentId(String base) {

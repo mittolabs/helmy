@@ -25,6 +25,7 @@ import 'chat_items.dart';
 import 'project_menu.dart';
 import 'step_input.dart';
 import 'file_editor.dart';
+import '../../../utils/paths.dart';
 
 /// The session's folder: its files as a tree (what git tracks and does not
 /// ignore), what this session changed marked in it, and a file read beside
@@ -301,7 +302,7 @@ class _FilesPanelState extends State<FilesPanel> {
 
   static IconData _iconOf(String path) => _isPicture(path)
       ? AshlarIconsRoundedStroke.image
-      : languageOf(path.split('/').last) != null
+      : languageOf(baseName(path)) != null
       ? AshlarIconsRoundedStroke.fileCode
       : AshlarIconsRoundedStroke.fileText;
 

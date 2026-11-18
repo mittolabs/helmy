@@ -18,6 +18,7 @@ import '../../../utils/platform.dart';
 import 'chat_app_view.dart';
 import 'player.dart';
 import '../../core/file_actions.dart';
+import '../../../utils/paths.dart';
 
 /// What an answer shows (`![words](where)`), by what it is.
 enum MediaKind {
@@ -61,9 +62,8 @@ const _quickLook = {'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pages', 'numbe
     }
   }
   String full(String p) {
-    if (p.startsWith('~/') || p.startsWith(r'~\')) p = '$homeDir${p.substring(1)}';
     // C:\... or /..., on any system; else under the chat's folder.
-    return File(p).isAbsolute || p.startsWith('/') ? p : '$cwd/$p';
+    return inFolder(cwd, expandHome(p, homeDir));
   }
 
   final path = full(w);
@@ -85,7 +85,7 @@ MediaKind? kindOf(String where) {
   final w = where.trim();
   final bare = w.split(RegExp('[?#]')).first;
   final dot = bare.lastIndexOf('.');
-  final slash = bare.lastIndexOf('/');
+  final slash = bare.lastIndexOf(RegExp(r'[/\\]'));
   final ext = dot > slash ? bare.substring(dot + 1).toLowerCase() : '';
   if (_image.contains(ext)) return .image;
   if (_video.contains(ext)) return .video;

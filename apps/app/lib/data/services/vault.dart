@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../utils/paths.dart';
+
 /// Where a secret belongs: a project's folder, or every project.
 const sharedScope = 'shared';
 
@@ -268,7 +270,7 @@ abstract final class EnvSecrets {
     final dir = Directory(project);
     if (!dir.existsSync()) return out;
     for (final e in dir.listSync(followLinks: false)) {
-      final name = e.path.split('/').last;
+      final name = baseName(e.path);
       if (e is! File || !(name == '.env' || name.startsWith('.env.')) || _example.hasMatch(name)) {
         continue;
       }

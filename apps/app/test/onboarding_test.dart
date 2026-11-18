@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:helmy/data/services/cli_locator.dart';
+import 'package:helmy/data/services/connection_installer.dart';
 import 'package:helmy/data/services/connections_setup.dart';
 import 'package:helmy/data/services/desktop_service.dart';
 import 'package:helmy/data/services/engines/acp/free_agent.dart';
@@ -9,6 +12,7 @@ import 'package:helmy/data/services/engines/engine_registry.dart';
 import 'package:helmy/domain/models/settings.dart';
 import 'package:helmy/ui/core/ashlar/app.dart';
 import 'package:helmy/ui/core/ashlar/app_theme.dart';
+import 'package:helmy/ui/core/ashlar/progress.dart';
 import 'package:helmy/ui/onboarding/view_models/onboarding_view_model.dart';
 import 'package:helmy/ui/onboarding/widgets/onboarding_screen.dart';
 
@@ -41,10 +45,21 @@ class _Pretend extends ConnectionsSetup {
       folder == null || folder.endsWith('-work') ? 'sam@example.com' : null;
 
   @override
-  Future<bool> install(String id) async {
+  Future<String?> install(String id, {void Function(InstallStep step)? step}) async {
     asked.add('install $id');
     states[id] = SetupState.signedOut;
-    return true;
+    return null;
+  }
+}
+
+/// Setup whose install stops partway, to see what is shown meanwhile.
+class _Halfway extends _Pretend {
+  final rest = Completer<void>();
+  @override
+  Future<String?> install(String id, {void Function(InstallStep step)? step}) async {
+    step?.call((doing: 'Downloading, 120 of 354 MB…', done: 120 / 354));
+    await rest.future;
+    return "Codex's installer didn't finish (it stopped with 1). Check the internet connection and try again.";
   }
 }
 
@@ -250,5 +265,46 @@ void main() {
     expect(settings.settings.accounts.single.folder, '/Users/sam/.claude-work');
     expect(settings.settings.accounts.single.name, 'Work');
     expect(vm.used('claude'), isFalse);
+  });
+
+  testWidgets('installing shows how far along it is, then why it stopped', (tester) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final setup = _Halfway();
+    final vm = OnboardingViewModel(
+      setup: setup,
+      settings: FakeSettingsRepository(),
+      engines: EngineRegistry([]),
+    );
+    final router = GoRouter(
+      initialLocation: '/welcome',
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const Text('home')),
+        GoRoute(
+          path: '/welcome',
+          builder: (_, _) => OnboardingScreen(vm: vm),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      AshlarApp.router(routerConfig: router, theme: appTheme, darkTheme: appDarkTheme),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Install'));
+    await tester.pump();
+    expect(find.text('Downloading, 120 of 354 MB…'), findsOneWidget);
+    final bar = tester.widget<Progress>(find.byType(Progress));
+    expect(bar.value, closeTo(120 / 354, 0.001));
+    setup.rest.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(Progress), findsNothing);
+    expect(
+      find.text(
+        "Codex's installer didn't finish (it stopped with 1). Check the internet connection and try again.",
+      ),
+      findsOneWidget,
+      reason: 'the reason, where it happened, not a page to go and read',
+    );
   });
 }

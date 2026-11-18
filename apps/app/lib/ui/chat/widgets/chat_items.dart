@@ -55,6 +55,7 @@ import '../../core/connection_logo.dart';
 import '../../../utils/platform.dart';
 import 'diff_view.dart';
 import 'file_popup.dart';
+import '../../../utils/paths.dart';
 
 part 'rows/answer.dart';
 part 'rows/approvals.dart';

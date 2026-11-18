@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../domain/models/chat_item.dart';
 import '../../utils/platform.dart';
+import '../../utils/paths.dart';
 
 /// One conversation found in a connection's own history.
 typedef FoundConversation = ({
@@ -64,7 +65,7 @@ class HistoryImport {
     final out = <(String, Directory)>[];
     final pattern = RegExp('^\\.$kind(-[A-Za-z0-9_-]+)?\$');
     for (final d in home.listSync().whereType<Directory>()) {
-      final name = d.path.split('/').last;
+      final name = baseName(d.path);
       final m = pattern.firstMatch(name);
       if (m == null) continue;
       out.add((m[1] == null ? kind : '$kind${m[1]}', d));
@@ -108,7 +109,7 @@ class HistoryImport {
       if (!projects.existsSync()) continue;
       for (final f in projects.listSync(recursive: true).whereType<File>()) {
         if (!f.path.endsWith('.jsonl')) continue;
-        final id = f.path.split('/').last.replaceAll('.jsonl', '');
+        final id = baseName(f.path).replaceAll('.jsonl', '');
         if (known.contains(id)) continue;
         String? cwd;
         var person = false;

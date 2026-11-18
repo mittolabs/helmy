@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../domain/models/settings.dart';
 import '../../utils/platform.dart';
 import 'cli_locator.dart';
+import 'connection_installer.dart';
 import 'desktop_service.dart';
 import 'engines/ollama/ollama_doctor.dart';
 
@@ -24,7 +25,8 @@ enum SetupState {
 typedef ConnectionCheck = ({String id, String name, String does, SetupState state});
 
 /// Gets Helmy's connections ready without a terminal: checks each, installs
-/// it with its maker's own installer, and signs in through the browser.
+/// it the way its maker does (ConnectionInstaller), and signs in through the
+/// browser.
 /// Settings (and the first-run page) are the one place these are named.
 class ConnectionsSetup {
   ConnectionsSetup(this._locator, this._desktop);
@@ -92,7 +94,7 @@ class ConnectionsSetup {
             ? .ready
             : .signedOut;
       case 'ollama':
-        if (await _find('ollama') == null && !Directory('/Applications/Ollama.app').existsSync()) {
+        if (await _find('ollama') == null && OllamaDoctor.macApp == null) {
           return .missing;
         }
         return await OllamaDoctor.answers() ? .ready : .signedOut;
@@ -100,39 +102,24 @@ class ConnectionsSetup {
     return .missing;
   }
 
-  /// Installs [id] with its maker's installer; where there is none to run
-  /// here, opens its install page. True when it ran an installer that worked.
-  Future<bool> install(String id) async {
-    final windows = Desktop.current == .windows;
-    switch (id) {
-      case 'claude':
-        final r = windows
-            ? await _run('powershell', [
-                '-NoProfile',
-                '-Command',
-                'irm https://claude.ai/install.ps1 | iex',
-              ])
-            : await _run('bash', ['-c', 'curl -fsSL https://claude.ai/install.sh | bash']);
-        return r?.exitCode == 0;
-      case 'codex':
-        if (await _find('npm') case final npm?) {
-          final r = await _run(npm, ['install', '-g', '@openai/codex']);
-          if (r?.exitCode == 0) return true;
-        }
-        await _desktop.open('https://github.com/openai/codex#installation');
-        return false;
-      case 'ollama':
-        if (await _find('brew') case final brew?) {
-          final r = await _run(brew, ['install', 'ollama']);
-          if (r?.exitCode == 0) {
-            await _run(brew, ['services', 'start', 'ollama']);
-            return true;
-          }
-        }
-        await _desktop.open('https://ollama.com/download');
-        return false;
+  /// Installs [id] the way its maker does, saying each step (and how far
+  /// a download has come) to [step]. Null when it installed, else what
+  /// stopped it and what fixes it, in Helmy's words.
+  Future<String?> install(String id, {void Function(InstallStep step)? step}) async {
+    try {
+      await ConnectionInstaller(_locator).install(id, step ?? (_) {});
+    } on InstallTrouble catch (e) {
+      return e.message;
+    } on Object {
+      return "It didn't install, for a reason Helmy couldn't tell. Try again.";
+    } finally {
+      _locator.forget(id);
     }
-    return false;
+    if (await _state(id) == .missing) {
+      return "It installed, but Helmy can't find it on ${Desktop.current.thisComputer}. Restart "
+          "Helmy, then try again.";
+    }
+    return null;
   }
 
   /// Signs [id] in through the browser (or, for the model here, starts it).

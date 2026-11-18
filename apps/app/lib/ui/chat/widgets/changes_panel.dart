@@ -22,6 +22,7 @@ import '../view_models/chat_view_model.dart';
 import 'diff_view.dart';
 import 'project_menu.dart' show appIcon;
 import '../../../utils/platform.dart';
+import '../../../utils/paths.dart';
 
 /// Beside the conversation: every file the session changed, each opening to
 /// its diff. In a git repository that is everything changed since the session
@@ -252,8 +253,8 @@ class _FileRowState extends State<_FileRow> {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final ch = widget.change;
-    final name = ch.path.split('/').last;
-    final folder = ch.path.contains('/') ? ch.path.substring(0, ch.path.lastIndexOf('/')) : '';
+    final name = baseName(ch.path);
+    final folder = parentOf(ch.path);
     final diff = widget.diff ?? _diff;
     final startOpen = context.watch<SettingsRepository>().settings.diffFilesOpen;
     if (startOpen && diff == null) unawaited(_open());
@@ -324,7 +325,7 @@ class _FileRowState extends State<_FileRow> {
                     semanticLabel: 'Open ${ch.path} in ${e.name}',
                     onPressed: () => widget.vm.openIn(
                       null,
-                      ch.path.startsWith('/') ? ch.path : '${widget.vm.session?.cwd}/${ch.path}',
+                      inFolder(widget.vm.session?.cwd ?? homeDir, ch.path),
                     ),
                     child: appIcon(e, size: 14),
                   ),

@@ -14,6 +14,7 @@ import '../../core/ashlar/button.dart';
 import '../../core/ashlar/spinner.dart';
 import '../../core/ashlar/theme.dart';
 import '../../core/window_layout.dart';
+import '../../../utils/paths.dart';
 
 /// A chat app in the conversation: its page at its full height, with its
 /// state from the chat and kept there, so it comes back as it was. Kept
@@ -77,8 +78,10 @@ class _ChatAppViewState extends State<ChatAppView> with AutomaticKeepAliveClient
     final state = await widget.apps.state(widget.session, widget.path);
     if (!mounted) return;
     _last = jsonEncode(state);
-    final dir = widget.path.substring(0, widget.path.lastIndexOf('/') + 1);
-    await _c.loadHtmlString(withBridge(page, _last), baseUrl: Uri.file(dir).toString());
+    await _c.loadHtmlString(
+      withBridge(page, _last),
+      baseUrl: Uri.directory(parentOf(widget.path)).toString(),
+    );
     if (mounted) setState(() => _ready = true);
   }
 

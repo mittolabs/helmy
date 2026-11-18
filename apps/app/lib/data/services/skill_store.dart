@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../utils/paths.dart';
+
 /// One skill: a folder with a SKILL.md, as the Agent Skills format has it
 /// (YAML frontmatter with a name and a description, then instructions).
 typedef Skill = ({String name, String description, String folder});
@@ -66,7 +68,7 @@ class SkillStore extends ChangeNotifier {
       return v;
     }
 
-    final name = field('name') ?? folder.split('/').last;
+    final name = field('name') ?? baseName(folder);
     if (name.isEmpty) return null;
     return (name: name, description: field('description') ?? '', folder: folder);
   }
@@ -194,7 +196,7 @@ class SkillStore extends ChangeNotifier {
   static Future<void> _copy(Directory from, Directory to) async {
     await to.create(recursive: true);
     await for (final e in from.list()) {
-      final name = e.path.split('/').last;
+      final name = baseName(e.path);
       if (e is Directory) {
         await _copy(e, Directory('${to.path}/$name'));
       } else if (e is File) {

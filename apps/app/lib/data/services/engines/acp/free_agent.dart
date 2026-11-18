@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../domain/models/settings.dart';
@@ -31,7 +32,7 @@ Future<ConnectionAccount> installAgent(
       'connection and try again.',
     );
   }
-  final root = '${(await getApplicationSupportDirectory()).path}/agents';
+  final root = p.join((await getApplicationSupportDirectory()).path, 'agents');
   final launch = await AcpRegistry.install(
     listing,
     root: root,
@@ -40,12 +41,12 @@ Future<ConnectionAccount> installAgent(
   );
   // Downloaded into Helmy's own folder (not one already installed, nor
   // fetched by npx): Helmy's to remove with it.
-  final own = launch.command.startsWith(root);
+  final own = p.isWithin(root, launch.command);
   return ConnectionAccount(
     id: 'acp.$registryId',
     kind: 'acp',
     name: listing.name,
-    folder: own ? '$root/${listing.id}' : '',
+    folder: own ? p.join(root, listing.id) : '',
     made: own,
     command: launch.command,
     args: launch.args,

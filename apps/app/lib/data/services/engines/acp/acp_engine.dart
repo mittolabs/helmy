@@ -106,7 +106,9 @@ class AcpEngine implements AgentEngine {
   final EngineInfo info;
 
   Future<String?> _program() async {
-    if (command.contains('/')) return File(command).existsSync() ? command : null;
+    // A path, as saved for one installed or downloaded: on Windows its
+    // separators are backslashes, and it is looked at, not looked for.
+    if (isPath(command)) return File(command).existsSync() ? command : null;
     return _locator.find(command);
   }
 
@@ -124,6 +126,10 @@ class AcpEngine implements AgentEngine {
     }
     return env;
   }
+
+  /// Whether [command] names a file by its path (C:\...\opencode.cmd,
+  /// ~/.local/bin/opencode) rather than a program to find on the PATH.
+  static bool isPath(String command) => command.contains(RegExp(r'[/\\]'));
 
   @override
   Future<String?> unavailableReason() async =>
