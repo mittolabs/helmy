@@ -11,6 +11,7 @@ import 'engines/engine_router.dart';
 import 'engines/usage_meter.dart';
 import 'turn_log.dart';
 import '../../domain/models/work.dart';
+import '../../utils/paths.dart';
 
 /// What Helmy decided about an action a connection wanted to take.
 enum Verdict {
@@ -221,7 +222,7 @@ class Approvals {
           .where((w) => !w.contains('=') || w.startsWith('-'))
           .toList();
       if (words.isEmpty) continue;
-      final head = words.first.split('/').last;
+      final head = programName(words.first);
       if (head == 'cd') continue;
       if (head == 'git') {
         final sub = words.skip(1).where((w) => !w.startsWith('-')).firstOrNull;
@@ -260,9 +261,8 @@ class Approvals {
   ];
 
   static bool _inside(String path, String folder) {
-    final f = folder.endsWith('/') ? folder : '$folder/';
-    final normal = Uri.file(path).normalizePath().toFilePath();
-    return normal.startsWith(f) && !normal.substring(f.length).split('/').contains('..');
+    // As this system compares paths: on Windows either separator, any case.
+    return isInside(path, folder);
   }
 
   static const _instructions =

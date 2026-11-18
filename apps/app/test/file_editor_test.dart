@@ -54,22 +54,35 @@ void main() {
           home: FilesPanel(vm: vm, tab: tab),
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await tester.pump();
+      // Until the folder is read, however slow the machine: not a fixed wait.
+      for (var i = 0; i < 100 && find.text('sample.dart').evaluate().isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+      }
     });
     await tester.pumpAndSettle();
-    Future<void> choose(String name) async {
+    String shown() {
+      final editors = find.byType(EditableText).evaluate();
+      return editors.isEmpty ? '' : (editors.last.widget as EditableText).controller.text;
+    }
+
+    /// Chooses [name] in the tree, then waits until the editor shows [opens]
+    /// (read from disk, however slow the machine: not a fixed wait); with
+    /// none, until the press has been handled.
+    Future<void> choose(String name, {String? opens}) async {
       await tester.runAsync(() async {
         await tester.tap(find.text(name).first);
         await tester.pump();
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        await tester.pump();
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        for (var i = 0; i < 100; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          await tester.pump();
+          if (opens == null || shown().contains(opens)) break;
+        }
       });
       await tester.pumpAndSettle();
     }
 
-    await choose('sample.dart');
+    await choose('sample.dart', opens: 'print("hello")');
     expect(find.byType(FileEditor), findsOneWidget);
     expect(vm.tabs, hasLength(1), reason: 'editing stays inside the file-browser tab');
     expect(find.text('other.dart'), findsOneWidget, reason: 'the file tree stays visible');
@@ -95,7 +108,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(vm.active!.hasUnsavedEdits, isFalse);
     await tester.runAsync(() async => expect(await file.readAsString(), contains('edited')));
-    await choose('other.dart');
+    await choose('other.dart', opens: 'void other() {}');
     expect(
       tester.widget<EditableText>(find.byType(EditableText).last).controller.text,
       'void other() {}',

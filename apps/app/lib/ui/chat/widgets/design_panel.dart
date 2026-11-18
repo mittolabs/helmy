@@ -24,6 +24,7 @@ import '../../core/window_web_view.dart';
 import '../../core/windows.dart';
 import '../view_models/chat_view_model.dart';
 import 'design_inspector.dart';
+import '../../../utils/paths.dart';
 
 /// Where a chat's design lives: `design/` in its folder.
 String designFolderOf(String cwd) => '$cwd/design';
@@ -478,7 +479,7 @@ class _DesignPanelState extends State<DesignPanel> {
     final folder = _folder;
     final from = folder == null ? null : DesignServer.fileIn(folder, file);
     if (from == null || !from.existsSync()) return;
-    final name = file.split('/').last;
+    final name = baseName(file);
     final dot = name.lastIndexOf('.');
     final stem = dot > 0 ? name.substring(0, dot) : name;
     final ext = dot > 0 ? name.substring(dot) : '';

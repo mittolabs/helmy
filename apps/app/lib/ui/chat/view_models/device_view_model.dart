@@ -9,6 +9,7 @@ import '../../../data/services/mac/mac_control.dart';
 import '../../../domain/device_outline.dart';
 import '../../../domain/device_marks.dart';
 import '../../../domain/iphones.dart';
+import '../../../utils/paths.dart';
 
 /// The Device panel's state: which simulator or emulator, its screen kept
 /// fresh while the panel shows, and what a tap or a key does to it.
@@ -557,7 +558,7 @@ class DeviceViewModel extends ChangeNotifier {
   Future<void> install(String path) async {
     final d = device;
     if (d == null || phoneDoing != null) return;
-    phoneDoing = 'Installing ${path.split('/').last}…';
+    phoneDoing = 'Installing ${baseName(path)}…';
     phoneTrouble = null;
     _changed();
     final why = await _devices.install(d, path);

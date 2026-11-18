@@ -205,7 +205,7 @@ class _EnvOfferState extends State<_EnvOffer> {
     final t = AshlarTheme.of(context);
     final c = t.colors;
     final count = _found.values.fold(0, (a, b) => a + b);
-    final files = _found.keys.map((f) => f.path.split('/').last).join(', ');
+    final files = _found.keys.map((f) => baseName(f.path)).join(', ');
     return Container(
       margin: const .only(bottom: 10),
       padding: const .fromLTRB(14, 12, 14, 12),

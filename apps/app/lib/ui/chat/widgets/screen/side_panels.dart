@@ -234,7 +234,7 @@ String panelTabLabel(ChatViewModel vm, PanelTab tab) => switch (tab.kind) {
   },
   .files when tab.codeDraft != null => '• Code draft',
   .files when tab.filePath != null =>
-    '${tab.hasUnsavedEdits ? '• ' : ''}${tab.filePath!.split('/').last}',
+    '${tab.hasUnsavedEdits ? '• ' : ''}${baseName(tab.filePath!)}',
   .changes =>
     vm.changedFiles == null || vm.changedFiles == 0 ? 'Changes' : 'Changes ${vm.changedFiles}',
   .device => vm.device?.device?.name ?? 'Device',

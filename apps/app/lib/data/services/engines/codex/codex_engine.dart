@@ -97,7 +97,7 @@ class CodexEngine implements AgentEngine {
     if (!root.existsSync()) return const [];
     return [
       for (final f in root.listSync(recursive: true).whereType<File>())
-        if (f.path.substring(root.path.length + 1).split('/') case [
+        if (f.path.substring(root.path.length + 1).split(RegExp(r'[/\\]')) case [
           final ns,
           final name,
           final tag,

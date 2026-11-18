@@ -20,7 +20,7 @@ class _Image extends StatelessWidget {
   }
 
   Future<void> _save(BuildContext context) async {
-    final name = image.path.split('/').last;
+    final name = baseName(image.path);
     final where = await getSaveLocation(suggestedName: name, confirmButtonText: 'Save');
     if (where == null) return;
     try {

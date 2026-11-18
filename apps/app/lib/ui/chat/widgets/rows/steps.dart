@@ -153,7 +153,7 @@ String _title(ToolCall call, {required bool done}) {
   String file() {
     final path = '${call.input['file_path'] ?? call.input['notebook_path'] ?? ''}';
     final first = path.split(', ').first;
-    return first.isEmpty ? 'a file' : first.split('/').last;
+    return first.isEmpty ? 'a file' : baseName(first);
   }
 
   String pick(String did, String doing) => done ? did : doing;

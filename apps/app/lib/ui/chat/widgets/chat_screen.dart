@@ -79,6 +79,7 @@ import '../../../data/services/vault_tools.dart';
 import '../../../data/services/notify_service.dart' show dictation, spoken;
 import '../../../domain/model_names.dart';
 import '../../core/connection_logo.dart';
+import '../../../utils/paths.dart';
 
 part 'screen/composer_area.dart';
 part 'screen/empty.dart';

@@ -12,6 +12,7 @@ import '../../../utils/format.dart';
 import '../../../utils/platform.dart';
 import '../../core/ashlar/button.dart';
 import '../../core/ashlar/pressable.dart';
+import '../../core/ashlar/progress.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/dialog.dart';
 import '../../core/ashlar/input.dart';
@@ -709,7 +710,7 @@ class _ConnectionRow extends StatelessWidget {
                   who == null ? c.does : 'Signed in as $who',
                   if (added != null) '$added more account${added == 1 ? '' : 's'}',
                 ].join(' · '),
-                .missing => 'Not on this Mac yet',
+                .missing => 'Not on ${Desktop.current.thisComputer} yet',
                 .signedOut =>
                   c.id == 'ollama' ? 'Installed, not running' : 'Installed, not signed in',
               };
@@ -737,6 +738,12 @@ class _ConnectionRow extends StatelessWidget {
                         : t.colors.mutedForeground,
                   ),
                 ),
+                // How far a download has come, when it is known.
+                if (busy && vm.doneShare != null)
+                  Padding(
+                    padding: const .only(top: 4),
+                    child: Progress(value: vm.doneShare, semanticLabel: 'Installing ${c.name}'),
+                  ),
               ],
             ),
           ),

@@ -136,6 +136,7 @@ class _AddConnectionDialogState extends State<_AddConnectionDialog> {
                       'Removed from Helmy; add it back.',
                   trouble: _trouble.containsKey(a.id),
                   busy: vm.working == a.id,
+                  installing: vm.working == a.id ? vm.installing : null,
                   onPressed: vm.working != null ? null : () => _addBack(a.id, a.name),
                 ),
               for (final (kind, name) in const [('claude', 'Claude Code'), ('codex', 'Codex')])
@@ -188,6 +189,7 @@ class _AddChoice extends StatelessWidget {
     this.symbol,
     this.trouble = false,
     this.busy = false,
+    this.installing,
   });
 
   /// A connection's id or kind, for its logo; or [symbol] instead.
@@ -196,6 +198,9 @@ class _AddChoice extends StatelessWidget {
   final IconData? symbol;
   final String title, line;
   final bool trouble, busy;
+
+  /// What it is doing while it installs, and how far along.
+  final InstallStep? installing;
   final VoidCallback? onPressed;
 
   @override
@@ -226,7 +231,7 @@ class _AddChoice extends StatelessWidget {
                 children: [
                   Text(title, style: t.text.sm.copyWith(fontWeight: .w500)),
                   Text(
-                    busy ? 'Making it ready...' : line,
+                    busy ? installing?.doing ?? 'Making it ready…' : line,
                     maxLines: 2,
                     overflow: .ellipsis,
                     style: t.text.xs.copyWith(color: trouble ? c.destructive : c.mutedForeground),

@@ -106,7 +106,9 @@ class AcpEngine implements AgentEngine {
   final EngineInfo info;
 
   Future<String?> _program() async {
-    if (command.contains('/')) return File(command).existsSync() ? command : null;
+    // A path, as saved for one installed or downloaded: on Windows its
+    // separators are backslashes, and it is looked at, not looked for.
+    if (isPath(command)) return File(command).existsSync() ? command : null;
     return _locator.find(command);
   }
 
@@ -124,6 +126,10 @@ class AcpEngine implements AgentEngine {
     }
     return env;
   }
+
+  /// Whether [command] names a file by its path (C:\...\opencode.cmd,
+  /// ~/.local/bin/opencode) rather than a program to find on the PATH.
+  static bool isPath(String command) => command.contains(RegExp(r'[/\\]'));
 
   @override
   Future<String?> unavailableReason() async =>
@@ -189,7 +195,7 @@ class AcpEngine implements AgentEngine {
       if (profile.models.isNotEmpty) {
         final offered = {
           for (final o in (session['configOptions'] as List? ?? const []).whereType<Map>())
-            if (o['id'] == 'model')
+            if (isModelOption(o))
               for (final v in (o['options'] as List? ?? const []).whereType<Map>()) '${v['value']}',
         };
         if (!profile.models.any(offered.contains)) {
@@ -319,14 +325,14 @@ class AcpEngine implements AgentEngine {
   /// Notes the models and effort levels a session offers ([configOptions]).
   void _offered(Object? configOptions) {
     final options = (configOptions as List? ?? const []).whereType<Map>().toList();
-    List<Map> valuesOf(bool Function(Object?) id) => [
+    List<Map> valuesOf(bool Function(Map o) which) => [
       for (final o in options)
-        if (id(o['id']))
+        if (which(o))
           for (final v in (o['options'] as List? ?? const []).whereType<Map>()) v,
     ];
-    final efforts = [for (final v in valuesOf(effortOptions.contains)) '${v['value']}'];
+    final efforts = [for (final v in valuesOf(isEffortOption)) '${v['value']}'];
     _models = [
-      for (final v in valuesOf((id) => id == 'model'))
+      for (final v in valuesOf(isModelOption))
         // Where Helmy uses it with chosen models only, only those.
         if (profile.models.isEmpty || profile.models.contains('${v['value']}'))
           ModelChoice(
@@ -338,16 +344,45 @@ class AcpEngine implements AgentEngine {
     ];
   }
 
-  /// The ids agents give the option for how hard they think.
-  static const effortOptions = {'effort', 'reasoning_effort', 'thought_level', 'reasoning'};
+  /// The ids agents give the option for how hard they think, from before
+  /// the protocol marked it by category: Antigravity's is thinking_level.
+  static const effortOptions = {
+    'effort',
+    'reasoning_effort',
+    'thought_level',
+    'thinking_level',
+    'reasoning',
+  };
+
+  /// Whether config option [o] is the model picker: marked so by its
+  /// category, as the protocol has it, or named 'model', as agents did
+  /// before categories. Its id is whatever the agent calls it.
+  static bool isModelOption(Map<dynamic, dynamic> o) =>
+      o['category'] == 'model' || o['id'] == 'model';
+
+  /// Whether config option [o] is how hard it thinks: by its category
+  /// (thought_level), or by one of the ids agents use.
+  static bool isEffortOption(Map<dynamic, dynamic> o) =>
+      o['category'] == 'thought_level' || effortOptions.contains(o['id']);
 
   /// The models it offers, as a session lists them: from the last one opened,
   /// or one opened in a scratch folder to see.
   @override
   Future<List<ModelChoice>> models() async {
-    if (_models.isEmpty) await check();
+    // None yet (not signed in, or slow to start): asked again, but not on
+    // every look, since asking starts the agent.
+    final now = DateTime.now();
+    if (_models.isEmpty && (_modelsAsked == null || now.difference(_modelsAsked!) > askAgain)) {
+      _modelsAsked = now;
+      await check();
+    }
     return _models;
   }
+
+  DateTime? _modelsAsked;
+
+  /// How long an agent that listed no models waits before it is asked again.
+  static const askAgain = Duration(seconds: 30);
 
   @override
   Future<EngineRun> start(EngineLaunch launch, List<ChatItem> items) async {
@@ -480,14 +515,17 @@ class _AcpRun implements EngineRun {
         if (o['id'] == id)
           for (final v in (o['options'] as List? ?? const []).whereType<Map>()) '${v['value']}',
     };
+    // The model picker by the id this agent gives it.
+    final modelId = options.where(AcpEngine.isModelOption).map((o) => '${o['id']}').firstOrNull;
     final chosen = launch.model;
     if (chosen != null &&
-        valuesOf('model').contains(chosen) &&
+        modelId != null &&
+        valuesOf(modelId).contains(chosen) &&
         (_profile.models.isEmpty || _profile.models.contains(chosen))) {
-      await _setOption('model', chosen);
+      await _setOption(modelId, chosen);
       status.model = chosen;
     } else if (_profile.models.isNotEmpty) {
-      final offered = valuesOf('model');
+      final offered = modelId == null ? const <String>{} : valuesOf(modelId);
       final model = _profile.models.where(offered.contains).firstOrNull;
       if (model == null) {
         throw AcpError(
@@ -495,17 +533,17 @@ class _AcpRun implements EngineRun {
           '(${_profile.models.join(', ')})',
         );
       }
-      await _setOption('model', model);
+      await _setOption(modelId!, model);
       status.model = model;
     } else {
       status.model = [
         for (final o in options)
-          if (o['id'] == 'model') o['currentValue'] as String?,
+          if (AcpEngine.isModelOption(o)) o['currentValue'] as String?,
       ].nonNulls.firstOrNull;
     }
     if (launch.effort case final effort?) {
       for (final o in options) {
-        if (AcpEngine.effortOptions.contains(o['id']) && valuesOf('${o['id']}').contains(effort)) {
+        if (AcpEngine.isEffortOption(o) && valuesOf('${o['id']}').contains(effort)) {
           await _setOption('${o['id']}', effort);
         }
       }

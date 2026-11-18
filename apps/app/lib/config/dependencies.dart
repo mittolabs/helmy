@@ -83,6 +83,7 @@ import '../data/services/vault.dart';
 import '../data/services/work_awake.dart';
 import '../data/services/vault_tools.dart';
 import '../data/services/skill_store.dart';
+import '../utils/paths.dart';
 
 /// What is read from disk before the first frame, so the app opens where it was.
 typedef Loaded = ({
@@ -122,9 +123,7 @@ List<SingleChildWidget> providers(Loaded loaded) => [
   ChangeNotifierProvider(
     create: (context) {
       final root = scratchRoot;
-      final support = root == null
-          ? Directory.systemTemp.path
-          : root.substring(0, root.lastIndexOf('/'));
+      final support = root == null ? Directory.systemTemp.path : parentOf(root);
       final vault = Vault(
         indexFile: File('$support/vault.json'),
         keychain: Platform.isMacOS

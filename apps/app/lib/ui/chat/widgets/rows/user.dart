@@ -246,7 +246,7 @@ class _UserState extends State<_User> {
                 children: [
                   for (final path in widget.attachments)
                     Attachment(
-                      title: path.split('/').last,
+                      title: baseName(path),
                       size: .sm,
                       // In a browser the file is on the computer Helmy runs on.
                       onPressed: kIsWeb

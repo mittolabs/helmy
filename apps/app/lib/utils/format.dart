@@ -1,9 +1,12 @@
+import 'paths.dart';
 import 'platform.dart';
 
 /// `/Users/me/code/app` as `~/code/app`.
 String tildePath(String path) {
   final home = homeDir;
-  if (home.isEmpty || !path.startsWith(home)) return path;
+  // Compared as this system compares paths: on Windows, any case and
+  // either separator.
+  if (home.isEmpty || !isAbsolutePath(path) || !isInside(path, home)) return path;
   return '~${path.substring(home.length)}';
 }
 

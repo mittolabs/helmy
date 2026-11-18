@@ -277,7 +277,29 @@ class const ConnectionAccount({
   /// For an agent from the ACP registry: its id there, and its icon.
   final String? agentId,
   final String? icon,
+
+  /// For an agent: its program was chosen by hand, not found or downloaded.
+  final bool chosen = false,
 }) {
+  /// The same account, started by [program] instead.
+  ConnectionAccount withProgram(
+    String program, {
+    required bool chosen,
+    String? folder,
+    bool? made,
+  }) => ConnectionAccount(
+    id: id,
+    kind: kind,
+    name: name,
+    folder: folder ?? this.folder,
+    made: made ?? this.made,
+    command: program,
+    args: args,
+    agentId: agentId,
+    icon: icon,
+    chosen: chosen,
+  );
+
   Map<String, Object?> toJson() => {
     'id': id,
     'kind': kind,
@@ -288,6 +310,7 @@ class const ConnectionAccount({
     if (args.isNotEmpty) 'args': args,
     'agentId': ?agentId,
     'icon': ?icon,
+    if (chosen) 'chosen': true,
   };
 
   static ConnectionAccount fromJson(Map<String, Object?> json) => ConnectionAccount(
@@ -300,6 +323,7 @@ class const ConnectionAccount({
     args: [...((json['args'] as List?) ?? const []).map((a) => '$a')],
     agentId: json['agentId'] as String?,
     icon: json['icon'] as String?,
+    chosen: json['chosen'] as bool? ?? false,
   );
 }
 

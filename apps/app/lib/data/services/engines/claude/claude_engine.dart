@@ -14,6 +14,7 @@ import 'claude_reducer.dart';
 import '../../../../utils/platform.dart';
 import '../../helmy_tools.dart';
 import '../../../../domain/models/tool_server.dart';
+import '../../../../utils/paths.dart';
 
 /// Claude Code, driven as `claude -p` over stream-json with approvals routed
 /// to us: the protocol the Agent SDK uses.
@@ -61,14 +62,11 @@ class ClaudeEngine implements AgentEngine {
     final projects = Directory('$_home/projects');
     if (!projects.existsSync()) return files;
     final dirs = projects.listSync().whereType<Directory>().toList()
-      ..sort(
-        (a, b) =>
-            projectFolder(a.path.split('/').last).compareTo(projectFolder(b.path.split('/').last)),
-      );
+      ..sort((a, b) => projectFolder(baseName(a.path)).compareTo(projectFolder(baseName(b.path))));
     for (final dir in dirs) {
       final memory = Directory('${dir.path}/memory');
       if (!memory.existsSync()) continue;
-      final project = projectFolder(dir.path.split('/').last);
+      final project = projectFolder(baseName(dir.path));
       final notes =
           memory.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList()
             ..sort((a, b) => a.path.compareTo(b.path));

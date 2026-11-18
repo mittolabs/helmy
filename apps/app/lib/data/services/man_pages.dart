@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../ui/chat/widgets/step_input.dart' show ShellPart, shellParts;
+import '../../utils/paths.dart';
 
 /// One piece of a command, explained from the Mac's own manual: a program and
 /// what it is, or one of its flags and what it does. [help] is null when the
@@ -22,7 +23,7 @@ Future<List<ManPart>> explainFromManual(String command) async {
     final (kind, text) = parts[i];
     if (kind == ShellPart.program) {
       if (++programs > 8) break;
-      var name = text.split('/').last;
+      var name = programName(text);
       // "git log" has a page of its own, git-log.
       if (i + 1 < parts.length && parts[i + 1].$1 == ShellPart.word) {
         final sub = '$name-${parts[i + 1].$2}';

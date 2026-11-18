@@ -423,9 +423,7 @@ class _FolderButton extends StatelessWidget {
               Flexible(
                 child: Text(
                   // The folder's name; the whole path is in the tooltip.
-                  isScratch(cwd)
-                      ? 'No project'
-                      : tildePath(cwd).split('/').lastWhere((p) => p.isNotEmpty, orElse: () => '/'),
+                  isScratch(cwd) ? 'No project' : baseName(tildePath(cwd)),
                   maxLines: 1,
                   overflow: .ellipsis,
                   style: style.copyWith(

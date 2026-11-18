@@ -243,7 +243,7 @@ class _Attached extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = path.split('/').last;
+    final name = baseName(path);
     final picture = imageTypes.containsKey(name.split('.').last.toLowerCase());
     return Attachment(
       title: name,

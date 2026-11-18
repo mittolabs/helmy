@@ -22,6 +22,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
+import '../../../data/services/connection_installer.dart';
 import '../../../data/services/connections_setup.dart';
 import '../../../data/services/engines/acp/acp_registry.dart';
 import '../../../data/services/engines/acp/acp_engine.dart';
@@ -47,6 +48,7 @@ import '../../core/ashlar/empty.dart';
 import '../../core/ashlar/input.dart';
 import '../../core/ashlar/kbd.dart';
 import '../../core/ashlar/pressable.dart';
+import '../../core/ashlar/progress.dart';
 import '../../core/ashlar/scroll_area.dart';
 import '../../core/ashlar/select.dart';
 import '../../core/ashlar/spinner.dart';
@@ -73,6 +75,7 @@ import '../../../data/services/vault.dart';
 import '../../../data/services/skill_store.dart';
 import '../../../domain/models/tool_server.dart';
 import '../../../domain/helmy_voice.dart';
+import '../../../utils/paths.dart';
 
 part 'pages/add_account.dart';
 part 'pages/add_connection.dart';

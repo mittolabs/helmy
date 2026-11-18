@@ -54,9 +54,19 @@ class CliLocator {
       if (windows) ...[
         // Where npm puts the commands it installs.
         if (env['APPDATA'] case final appData?) '$appData${sep}npm',
+        // Where Codex's and Ollama's own installers put them.
+        if (env['LOCALAPPDATA'] case final local?) ...[
+          '$local${sep}Programs${sep}OpenAI${sep}Codex${sep}bin',
+          '$local${sep}Programs${sep}Ollama',
+        ],
       ] else ...[
         '/opt/homebrew/bin',
         '/usr/local/bin',
+        // The command inside Ollama's Mac app, before it is on the PATH.
+        if (Platform.isMacOS) ...[
+          '/Applications/Ollama.app/Contents/Resources',
+          '$home/Applications/Ollama.app/Contents/Resources',
+        ],
       ],
     ];
     // On Windows a command is a file with one of these endings.

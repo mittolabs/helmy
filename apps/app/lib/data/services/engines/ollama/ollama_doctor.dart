@@ -69,6 +69,13 @@ class OllamaDoctor {
     return false;
   }
 
+  /// Where its Mac app is: Applications, or the person's own Applications
+  /// folder (where Helmy puts it when Applications may not be written to).
+  static String? get macApp => [
+    '/Applications/Ollama.app',
+    '${Platform.environment['HOME'] ?? ''}/Applications/Ollama.app',
+  ].where((p) => Directory(p).existsSync()).firstOrNull;
+
   /// Restarts it as it was installed: Homebrew's service, the desktop app, or
   /// the command run by itself. False when it is not installed here.
   static Future<bool> _restart() async {
@@ -97,9 +104,7 @@ class OllamaDoctor {
           }
         }
         await ran('pkill', ['-x', 'ollama']);
-        if (Directory('/Applications/Ollama.app').existsSync()) {
-          return ran('open', ['-a', 'Ollama']);
-        }
+        if (macApp case final app?) return ran('open', ['-a', app]);
         return serve();
       case .windows:
         await ran('taskkill', ['/F', '/IM', 'ollama.exe']);

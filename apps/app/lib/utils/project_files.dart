@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'paths.dart';
+
 /// The files in [cwd], relative to it, for @ to pick from: what git tracks and
 /// does not ignore, or a short walk that skips hidden and dependency folders.
 Future<List<String>> projectFiles(String cwd, {int limit = 5000}) async {
@@ -27,7 +29,7 @@ Future<List<String>> projectFiles(String cwd, {int limit = 5000}) async {
       return;
     }
     for (final e in entries) {
-      final name = e.path.split('/').last;
+      final name = baseName(e.path);
       if (name.startsWith('.') || skip.contains(name)) continue;
       final path = rel.isEmpty ? name : '$rel/$name';
       if (e is Directory) {
@@ -49,7 +51,7 @@ List<String> fuzzyPick(List<String> all, String typed, {int count = 8}) {
   final q = typed.toLowerCase();
   if (q.isEmpty) return all.take(count).toList();
   int score(String p) {
-    final name = p.split('/').last.toLowerCase();
+    final name = baseName(p).toLowerCase();
     if (name.startsWith(q)) return 0;
     if (name.contains(q)) return 1;
     if (p.toLowerCase().contains(q)) return 2;
