@@ -112,12 +112,20 @@ class AttentionRepositoryLocal extends AttentionRepository with WidgetsBindingOb
   void _planWake() {
     final now = DateTime.now();
     DateTime? next;
+    final said = <String>{};
     for (final s in _sessions.sessions) {
       final until = s.snoozedUntil;
       if (until == null) continue;
       if (!until.isAfter(now)) {
         _unread.add(s.id);
         unawaited(_sessions.save(s.copyWith(wake: true)));
+        // Set aside waiting: said, so it is not forgotten. (A plain snooze
+        // only comes back to the list.) Once a chat, however many threads.
+        if (s.waiting && s.sideOf == null && said.add(s.chatId ?? s.id)) {
+          unawaited(
+            _send(s.id, s.title, 'Still waiting on ${s.waitingOn}? It is back in your list.'),
+          );
+        }
         _changed();
       } else if (next == null || until.isBefore(next)) {
         next = until;

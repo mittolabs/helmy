@@ -80,3 +80,17 @@ String shortCount(int n) {
   if (n < 10000000) return '${one(n / 1000000)}M';
   return '${(n / 1000000).round()}M';
 }
+
+/// A time to come as people say it: "6:40 PM", "tomorrow at 9:00 AM",
+/// "11/24 at 9:00 AM".
+String whenSaid(DateTime t, {DateTime? now}) {
+  final at = now ?? DateTime.now();
+  final time = clock(t);
+  final today = DateTime(at.year, at.month, at.day);
+  final day = DateTime(t.year, t.month, t.day).difference(today).inDays;
+  return switch (day) {
+    0 => time,
+    1 => 'tomorrow at $time',
+    _ => '${t.month}/${t.day} at $time',
+  };
+}

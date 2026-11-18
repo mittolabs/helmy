@@ -144,8 +144,28 @@ void main() {
               ) as Ok).value
               as Session;
       await sessions.save(
-        session.copyWith(title: 'A session whose title runs on well past any sidebar width'),
+        session.copyWith(
+          title: 'A session whose title runs on well past any sidebar width',
+          // Its last answer left it waiting on someone: offered above the box.
+          waitOffer: 'Debby to say which project the template failed on',
+        ),
       );
+      // Another chat set aside, waiting: under Waiting in the list.
+      final aside =
+          (await sessions.create(
+                cwd: '/Users/someone/Projects/support',
+                title: 'Template fails',
+              ) as Ok).value
+              as Session;
+      await sessions.save(
+        aside.copyWith(
+          waitingOn: 'What the production log prints for the failed request',
+          snoozedUntil: DateTime.now().add(const Duration(hours: 20)),
+        ),
+      );
+      repo.of(aside.id)
+        ..loaded = true
+        ..items.add(UserMessage('The template fails to apply on production.'));
       // A background agent at work beside it: one more chip in the tray.
       final agent =
           (await sessions.create(
@@ -224,7 +244,8 @@ void main() {
     final projects = FakeProjectRepository()
       ..repos[session.cwd] = session.cwd
       ..branches[session.cwd] = 'feature/a-branch-name-long-enough-to-crowd-the-tray';
-    final sidebar = SidebarViewModel(sessions: sessions, conversations: repo, settings: settings);
+    final sidebar = SidebarViewModel(sessions: sessions, conversations: repo, settings: settings)
+      ..waitingOpen = true;
     final chat = ChatViewModel(
       sessionId: session.id,
       sessions: sessions,
@@ -267,6 +288,21 @@ void main() {
             '${size.width.toInt()}x${size.height.toInt()} sidebar ${open ? 'open' : 'closed'}';
         _now = '$where, conversation';
         await show(ChatScreen(viewModel: chat));
+        // What the chat waits on, offered above the box, at any width.
+        if (find
+            .textContaining('Debby to say which project', findRichText: true)
+            .evaluate()
+            .isEmpty) {
+          overflows.add('$_now: no waiting offer above the box');
+        }
+        // A chat set aside is under Waiting, saying what it waits on.
+        if (open && size.width >= narrowWindow) {
+          for (final said in ['Waiting', 'What the production log prints']) {
+            if (find.textContaining(said).evaluate().isEmpty) {
+              overflows.add('$_now: no "$said" in the list');
+            }
+          }
+        }
         // The tray says where the chat stands, at any width.
         for (final chip in [
           // Room for every word only in a wide window.
