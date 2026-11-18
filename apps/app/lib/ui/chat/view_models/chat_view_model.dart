@@ -513,10 +513,29 @@ class ChatViewModel extends ChangeNotifier implements MediaActions, CodeFileActi
   }
 
   Future<List<({String id, String name, List<ModelChoice> models})>>? _choices;
+  DateTime? _choicesAt;
+  bool _choicesMissing = false;
 
   /// What this chat can be held to: every connection, with its models.
-  Future<List<({String id, String name, List<ModelChoice> models})>> pinChoices() =>
-      _choices ??= _conversations.connectionModels();
+  /// Kept, unless one listed none (an agent still starting, or not signed
+  /// in yet): then asked again after a while, so its models come when it
+  /// has them, not on the next chat.
+  Future<List<({String id, String name, List<ModelChoice> models})>> pinChoices() {
+    final at = _choicesAt;
+    final stale =
+        _choicesMissing &&
+        at != null &&
+        DateTime.now().difference(at) > const Duration(seconds: 30);
+    if (_choices == null || stale) {
+      _choicesAt = DateTime.now();
+      _choicesMissing = false;
+      _choices = _conversations.connectionModels().then((c) {
+        _choicesMissing = c.any((x) => x.models.isEmpty);
+        return c;
+      });
+    }
+    return _choices!;
+  }
 
   /// A connection's name, for the picker and the label on an answer.
   String? connectionName(String engineId) => _conversations.connectionName(engineId);
