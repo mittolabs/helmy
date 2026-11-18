@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/mittolabs/helmy/compare/v0.25.1...v0.26.0) (2026-11-18)
+
+
+### Features
+
+* **chat:** set a chat aside while it waits on someone or something, and have it come back ([51232da](https://github.com/mittolabs/helmy/commit/51232da237db5a0546e26cea5bc250e816eb7084))
+
 ## [0.25.1](https://github.com/mittolabs/helmy/compare/v0.25.0...v0.25.1) (2026-11-18)
 
 
