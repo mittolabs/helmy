@@ -495,8 +495,9 @@ class ConnectionInstaller {
     unawaited(p.stdin.close().catchError((_) {}));
     var heard = DateTime.now();
     var grown = growth?.call() ?? 0;
-    void listen(Stream<List<int>> s) {
+    Future<void> listen(Stream<List<int>> s) {
       var rest = '';
+      final done = Completer<void>();
       s
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
@@ -510,12 +511,13 @@ class ConnectionInstaller {
             },
             onDone: () {
               if (rest.trim().isNotEmpty) onLine?.call(rest);
+              done.complete();
             },
           );
+      return done.future;
     }
 
-    listen(p.stdout);
-    listen(p.stderr);
+    final read = Future.wait([listen(p.stdout), listen(p.stderr)]);
     var stalled = false;
     final timer = Timer.periodic(const Duration(seconds: 1), (_) {
       tick?.call();
@@ -526,10 +528,15 @@ class ConnectionInstaller {
       }
       if (DateTime.now().difference(heard) > stall) {
         stalled = true;
+        stopAll(p.pid);
         p.kill(ProcessSignal.sigkill);
       }
     });
     final code = await p.exitCode;
+    // Its last lines, often what went wrong, are heard before it is done:
+    // they can come after it exits. A program it left running may hold
+    // them open, so not for ever.
+    await read.timeout(const Duration(seconds: 5), onTimeout: () => const []);
     timer.cancel();
     if (stalled) {
       throw InstallTrouble(
@@ -538,6 +545,21 @@ class ConnectionInstaller {
       );
     }
     return code;
+  }
+
+  /// Stops what process [pid] started (an installer's download, its
+  /// unpacking) as well as it: on Windows its whole tree, elsewhere its
+  /// children.
+  static void stopAll(int pid) {
+    try {
+      if (Platform.isWindows) {
+        Process.runSync('taskkill', ['/PID', '$pid', '/T', '/F']);
+      } else {
+        Process.runSync('pkill', ['-KILL', '-P', '$pid']);
+      }
+    } on Object {
+      // Nothing to stop, or no way to: the installer itself still stops.
+    }
   }
 
   static String _minutes(Duration d) =>
