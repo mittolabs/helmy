@@ -228,6 +228,16 @@ void main() {
     expect(ConnectionInstaller.landedIn([mine, system], names, since), 1200);
   });
 
+  test("the processor is read from Dart's own version line", () {
+    expect(ConnectionInstaller.isArm('3.14.0 (stable) (Wed Nov 4 2026) on "macos_arm64"'), isTrue);
+    expect(
+      ConnectionInstaller.isArm('3.14.0 (stable) (Wed Nov 4 2026) on "windows_arm64"'),
+      isTrue,
+    );
+    expect(ConnectionInstaller.isArm('3.14.0 (stable) (Wed Nov 4 2026) on "linux_x64"'), isFalse);
+    expect(ConnectionInstaller.isArm(Platform.version), Platform.version.contains('arm64'));
+  });
+
   test('each system is named as its maker names it', () {
     expect(ConnectionInstaller.claudePlatform(os: 'macos', arm: true), 'darwin-arm64');
     expect(ConnectionInstaller.claudePlatform(os: 'windows', arm: false), 'win32-x64');
