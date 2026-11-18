@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
@@ -647,10 +646,13 @@ class ConnectionInstaller {
     }
   }
 
-  static bool get _arm => switch (Abi.current()) {
-    Abi.macosArm64 || Abi.linuxArm64 || Abi.windowsArm64 => true,
-    _ => false,
-  };
+  /// Whether Helmy runs as an arm64 program, as Dart says where it runs
+  /// ('... on "macos_arm64"'). Read from that rather than dart:ffi, which
+  /// the web build (the phone's and Chrome's page) cannot compile.
+  static bool get _arm => isArm(Platform.version);
+
+  /// Whether Dart's [version] line names an arm64 processor.
+  static bool isArm(String version) => RegExp(r'on "[a-z]+_arm64"').hasMatch(version);
 
   /// Whether this is an Apple-silicon Mac, even when Helmy runs translated:
   /// the native build is the one to install.

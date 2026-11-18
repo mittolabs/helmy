@@ -29,6 +29,10 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test integration_test
       - run: flutter analyze
       - run: flutter test --exclude-tags live
+      # The page the phone and the Chrome extension load is the app built
+      # for the web: what it imports must compile there (no dart:ffi), or
+      # every release build stops at it.
+      - run: flutter build web -t lib/main_chrome.dart -o build/webcheck --no-web-resources-cdn --no-wasm-dry-run --no-source-maps
       # Helmy Connect's relay: its own package, tested here too (the app's
       # tests also run phones through it).
       - run: dart pub get && dart format --output=none --set-exit-if-changed . && dart analyze && dart test
